@@ -18,7 +18,7 @@ func init() {
 }
 
 func runQuickstart(cmd *cobra.Command, args []string) {
-	fmt.Print(`# Beads-Central Quick Start
+	fmt.Print(`# Arc Quick Start
 
 ## What is arc?
 
@@ -34,38 +34,72 @@ with a simple CLI.
 - **Status**: open, in_progress, blocked, deferred, closed
 - **Priority**: 0 (critical) to 4 (backlog), default is 2 (medium)
 
+## Claude Code Integration (Recommended)
+
+For the best AI-assisted workflow, install the arc plugin:
+
+### Option A: Plugin Marketplace
+
+` + "```bash" + `
+# In Claude Code, first add the marketplace
+/plugin marketplace add sentiolabs/arc
+
+# Then install the plugin
+/plugin install arc
+
+# Restart Claude Code
+` + "```" + `
+
+### Option B: CLI Hooks Only
+
+` + "```bash" + `
+arc setup claude            # Global installation
+arc setup claude --project  # Project-only installation
+arc setup claude --check    # Verify installation
+` + "```" + `
+
+### What the Plugin Provides
+
+| Component | Benefit |
+|-----------|---------|
+| **SessionStart Hook** | Auto-runs ` + "`arc prime`" + ` on session start |
+| **PreCompact Hook** | Preserves context before compaction |
+| **Prompt Config** | Reminds Claude to run ` + "`arc onboard`" + ` |
+| **Skills** | Detailed guides for arc workflows |
+| **Agent** | Bulk operations via Task tool |
+
 ## Basic Workflow
 
 ### 1. Find work
 ` + "```bash" + `
-bd ready              # Show issues ready to work (no blockers)
-bd list               # List all issues
-bd list --status open # Filter by status
+arc ready              # Show issues ready to work (no blockers)
+arc list               # List all issues
+arc list --status open # Filter by status
 ` + "```" + `
 
 ### 2. Start working
 ` + "```bash" + `
-bd show <id>                          # View issue details
-bd update <id> --status in_progress   # Claim the issue
+arc show <id>                          # View issue details
+arc update <id> --status in_progress   # Claim the issue
 ` + "```" + `
 
 ### 3. Complete work
 ` + "```bash" + `
-bd close <id>                # Mark issue as done
-bd close <id> --reason "..." # Close with a note
+arc close <id>                # Mark issue as done
+arc close <id> --reason "..." # Close with a note
 ` + "```" + `
 
 ### 4. Create new issues
 ` + "```bash" + `
-bd create "Fix login bug" --type bug --priority 1
-bd create "Add dark mode" --type feature
-bd create "Write tests" --type task
+arc create "Fix login bug" --type bug --priority 1
+arc create "Add dark mode" --type feature
+arc create "Write tests" --type task
 ` + "```" + `
 
 ### 5. Manage dependencies
 ` + "```bash" + `
-bd dep add <issue> <depends-on>  # issue depends on depends-on
-bd blocked                        # Show all blocked issues
+arc dep add <issue> <depends-on>  # issue depends on depends-on
+arc blocked                        # Show all blocked issues
 ` + "```" + `
 
 ## Key Commands Reference
@@ -82,6 +116,7 @@ bd blocked                        # Show all blocked issues
 | arc blocked | Show blocked issues |
 | arc stats | Show workspace statistics |
 | arc onboard | Get workspace orientation |
+| arc setup claude | Install Claude Code hooks |
 
 ## Priority Levels
 
@@ -113,5 +148,6 @@ bd blocked                        # Show all blocked issues
 
 - ` + "`arc --help`" + ` - Full command list
 - ` + "`arc <command> --help`" + ` - Command-specific help
+- ` + "`arc prime`" + ` - Full workflow context for AI agents
 `)
 }

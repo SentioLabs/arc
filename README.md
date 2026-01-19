@@ -24,7 +24,7 @@ go build -o arc-server ./cmd/server
 ./arc-server -addr :8080 -db /path/to/data.db
 ```
 
-The server stores data in `~/.arc-server/data.db` by default.
+The server stores data in `~/.arc/data.db` by default.
 
 ### CLI Usage
 
@@ -70,6 +70,56 @@ arc dep add mp-def456 mp-abc123  # def456 depends on abc123
 arc stats
 ```
 
+### Claude Code Integration
+
+For AI-assisted workflows, arc provides a Claude Code plugin with hooks, skills, and agents.
+
+**Option A: Install Plugin (Recommended)**
+
+```bash
+# In Claude Code, first add the marketplace
+/plugin marketplace add sentiolabs/arc
+
+# Then install the plugin
+/plugin install arc
+
+# Restart Claude Code
+```
+
+**Option B: CLI Hooks Only**
+
+```bash
+arc setup claude            # Global installation
+arc setup claude --project  # Project-only installation
+arc setup claude --check    # Verify installation
+```
+
+**What the Plugin Provides:**
+
+| Component | Benefit |
+|-----------|---------|
+| SessionStart Hook | Auto-runs `arc prime` on session start |
+| PreCompact Hook | Preserves context before compaction |
+| Prompt Config | Reminds Claude to run `arc onboard` |
+| Skills | Detailed guides for arc workflows |
+| Agent | Bulk operations via Task tool |
+
+**Typical Setup:**
+
+```bash
+# 1. Start the server (if not running)
+arc server start
+
+# 2. Initialize workspace in your project
+cd your-project
+arc init
+
+# 3. Install Claude integration (choose one)
+/plugin marketplace add sentiolabs/arc && /plugin install arc  # Full plugin
+# OR
+arc setup claude                                                # Hooks only
+```
+
 ### API Examples
 
 ```bash
@@ -103,7 +153,7 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 │  └─────────────┘  └─────────────┘  └─────────────┘     │
 │                         │                               │
 │                    SQLite DB                            │
-│              (~/.arc-server/data.db)                  │
+│              (~/.arc/data.db)                  │
 └─────────────────────────────────────────────────────────┘
                           │
               REST API (localhost:7432)
