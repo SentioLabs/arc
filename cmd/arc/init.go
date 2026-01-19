@@ -14,20 +14,22 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init [name]",
 	Short: "Initialize arc in the current directory",
-	Long: `Initialize arc in the current directory by creating a workspace and
-setting up Claude Code integration.
+	Long: `Initialize arc in the current directory by creating a workspace.
 
 This command:
 1. Creates a workspace on the server (or connects to existing)
 2. Sets the workspace as default for this directory
-3. Creates AGENTS.md with landing-the-plane instructions
-4. Optionally sets up Claude Code hooks
+3. Creates .arc.json with workspace configuration
+4. Creates AGENTS.md with session completion instructions
+
+For Claude Code users: Install the arc plugin for full integration
+(hooks, skills, agents). The plugin's onboard skill will handle
+workspace initialization automatically.
 
 Examples:
   arc init                    # Use directory name as workspace
   arc init my-project         # Use custom name
-  arc init --prefix mp        # Custom issue prefix
-  arc init --setup-claude     # Also install Claude hooks`,
+  arc init --prefix mp        # Custom issue prefix`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runInit,
 }
@@ -35,14 +37,12 @@ Examples:
 func init() {
 	initCmd.Flags().StringP("prefix", "p", "", "Issue ID prefix (default: workspace name)")
 	initCmd.Flags().StringP("description", "d", "", "Workspace description")
-	initCmd.Flags().Bool("setup-claude", false, "Also install Claude Code hooks")
 	initCmd.Flags().BoolP("quiet", "q", false, "Suppress output")
 	rootCmd.AddCommand(initCmd)
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
-	setupClaude, _ := cmd.Flags().GetBool("setup-claude")
 	prefix, _ := cmd.Flags().GetString("prefix")
 	description, _ := cmd.Flags().GetString("description")
 
@@ -165,25 +165,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Setup Claude hooks if requested
-	if setupClaude {
-		if err := installClaudeHooks(!quiet); err != nil {
-			if !quiet {
-				fmt.Fprintf(os.Stderr, "Warning: failed to setup Claude hooks: %v\n", err)
-			}
-		}
-	}
-
 	if !quiet {
 		fmt.Printf("\n✓ arc initialized successfully!\n\n")
 		fmt.Printf("  Workspace: %s\n", ws.Name)
 		fmt.Printf("  ID: %s\n", ws.ID)
 		fmt.Printf("  Prefix: %s\n", ws.Prefix)
 		fmt.Printf("  Issues will be named: %s-<hash> (e.g., %s-a3f2dd)\n\n", ws.Prefix, ws.Prefix)
-		fmt.Printf("Run %s to get started.\n\n", "arc quickstart")
-		if !setupClaude {
-			fmt.Printf("Tip: Run %s to add Claude Code hooks.\n", "arc setup claude")
-		}
+		fmt.Printf("Run %s to get started.\n", "arc quickstart")
 	}
 
 	return nil

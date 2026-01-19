@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -147,11 +148,11 @@ func checkClaudeHooks() error {
 	globalSettings := filepath.Join(home, ".claude", "settings.json")
 	projectSettings := filepath.Join(cwd, ".claude", "settings.local.json")
 
-	if hasBeadsHooks(globalSettings) {
+	if hasArcHooks(globalSettings) {
 		fmt.Printf("✓ Global hooks installed: %s\n", globalSettings)
 		return nil
 	}
-	if hasBeadsHooks(projectSettings) {
+	if hasArcHooks(projectSettings) {
 		fmt.Printf("✓ Project hooks installed: %s\n", projectSettings)
 		return nil
 	}
@@ -303,8 +304,8 @@ func removeHookCommand(hooks map[string]interface{}, event, command string) {
 	}
 }
 
-// hasBeadsHooks checks if a settings file has arc prime hooks
-func hasBeadsHooks(settingsPath string) bool {
+// hasArcHooks checks if a settings file has arc prime hooks
+func hasArcHooks(settingsPath string) bool {
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
 		return false
@@ -348,4 +349,69 @@ func hasBeadsHooks(settingsPath string) bool {
 	}
 
 	return false
+}
+
+// configureClaudePrompt adds arc-specific prompt instructions to Claude settings
+func configureClaudePrompt(projectLevel bool, verbose bool) error {
+	var settingsPath string
+	if projectLevel {
+		cwd, _ := os.Getwd()
+		settingsPath = filepath.Join(cwd, ".claude", "settings.local.json")
+	} else {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("get home directory: %w", err)
+		}
+		settingsPath = filepath.Join(home, ".claude", "settings.json")
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+
+	// Load existing settings
+	settings := make(map[string]interface{})
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return fmt.Errorf("parse settings: %w", err)
+		}
+	}
+
+	// The prompt instruction we want to add
+	arcPromptInstruction := "Before starting work, run 'arc onboard' to understand the current project state and available issues."
+
+	// Get existing prompt or empty string
+	existingPrompt, _ := settings["prompt"].(string)
+
+	// Check if instruction already exists
+	if strings.Contains(existingPrompt, "arc onboard") {
+		if verbose {
+			fmt.Println("✓ Claude prompt already configured for arc")
+		}
+		return nil
+	}
+
+	// Add our instruction to the prompt
+	if existingPrompt != "" {
+		settings["prompt"] = existingPrompt + "\n\n" + arcPromptInstruction
+	} else {
+		settings["prompt"] = arcPromptInstruction
+	}
+
+	// Write settings
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal settings: %w", err)
+	}
+
+	if err := os.WriteFile(settingsPath, data, 0o644); err != nil {
+		return fmt.Errorf("write settings: %w", err)
+	}
+
+	if verbose {
+		fmt.Println("✓ Configured Claude prompt with 'arc onboard' instruction")
+	}
+
+	return nil
 }

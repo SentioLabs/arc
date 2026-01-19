@@ -14,6 +14,7 @@
     "ai-workflow",
     "agent-memory"
   ],
+  "prompt": "When arc is available in a project (indicated by .arc.json or arc prime output), run 'arc onboard' at the start of work sessions to understand the current project state and available issues. Use arc for multi-session work that needs to survive context compaction.",
   "hooks": {
     "SessionStart": [
       {

@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +23,9 @@ This command helps AI agents quickly understand:
 - Ready-to-work items
 - Blocked issues
 
+If no workspace is configured locally but one exists on the server for this
+directory, the local configuration will be automatically restored.
+
 Run this at the start of a session to get context.`,
 	RunE: runOnboard,
 }
@@ -27,15 +34,138 @@ func init() {
 	rootCmd.AddCommand(onboardCmd)
 }
 
+// projectConfig represents the .arc.json file structure
+type projectConfig struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// loadProjectConfig attempts to load .arc.json from the current directory
+func loadProjectConfig() (*projectConfig, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	configPath := filepath.Join(cwd, ".arc.json")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg projectConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+// saveProjectConfig saves workspace info to .arc.json
+func saveProjectConfig(workspaceID, workspaceName string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	configPath := filepath.Join(cwd, ".arc.json")
+
+	cfg := projectConfig{
+		WorkspaceID:   workspaceID,
+		WorkspaceName: workspaceName,
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+// findWorkspaceByPath queries the server for a workspace matching the current directory
+func findWorkspaceByPath(c *client.Client) (*types.Workspace, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	workspaces, err := c.ListWorkspaces()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ws := range workspaces {
+		if ws.Path == cwd {
+			return ws, nil
+		}
+	}
+
+	return nil, nil // Not found, but not an error
+}
+
 func runOnboard(cmd *cobra.Command, args []string) error {
 	c, err := getClient()
 	if err != nil {
 		return fmt.Errorf("connect to server: %w", err)
 	}
 
-	wsID, err := getWorkspaceID()
-	if err != nil {
-		return fmt.Errorf("get workspace: %w", err)
+	var wsID string
+
+	// Step 1: Try to get workspace ID from .arc.json
+	projCfg, err := loadProjectConfig()
+	if err == nil && projCfg.WorkspaceID != "" {
+		wsID = projCfg.WorkspaceID
+	}
+
+	// Step 2: If no local config, try to find workspace by path from server
+	if wsID == "" {
+		ws, err := findWorkspaceByPath(c)
+		if err != nil {
+			return fmt.Errorf("query workspaces: %w", err)
+		}
+
+		if ws != nil {
+			// Found workspace on server - restore local config
+			fmt.Println("## Workspace Recovery")
+			fmt.Println()
+			fmt.Printf("Found workspace **%s** on server for this directory.\n", ws.Name)
+			fmt.Println("Restoring local configuration...")
+			fmt.Println()
+
+			// Save .arc.json
+			if err := saveProjectConfig(ws.ID, ws.Name); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not save .arc.json: %v\n", err)
+			} else {
+				fmt.Println("✓ Created .arc.json")
+			}
+
+			// Update global config
+			globalCfg, _ := loadConfig()
+			globalCfg.DefaultWorkspace = ws.ID
+			if err := saveConfig(globalCfg); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not update global config: %v\n", err)
+			} else {
+				fmt.Println("✓ Updated default workspace")
+			}
+			fmt.Println()
+
+			wsID = ws.ID
+		}
+	}
+
+	// Step 3: If still no workspace, suggest initialization
+	if wsID == "" {
+		fmt.Println("# No Workspace Found")
+		fmt.Println()
+		fmt.Println("This directory is not configured for arc issue tracking.")
+		fmt.Println()
+		fmt.Println("**To initialize:**")
+		fmt.Println("```bash")
+		fmt.Println("arc init")
+		fmt.Println("```")
+		fmt.Println()
+		fmt.Println("This will create a workspace and configure the project.")
+		return nil
 	}
 
 	// Get workspace info
@@ -146,4 +276,3 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
-
