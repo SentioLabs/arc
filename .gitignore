@@ -1,0 +1,30 @@
+# Binaries
+/beads-server
+/bd
+*.exe
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Build artifacts
+dist/
+build/
+
+# Test artifacts
+coverage.out
+coverage.html
+
+# Config (contains user-specific settings)
+# Note: ~/.config/beads-central/config.json is user config
