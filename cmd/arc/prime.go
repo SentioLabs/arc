@@ -126,8 +126,15 @@ func outputCLIContext(w io.Writer) error {
 - ` + "`arc list --status=in_progress`" + ` - Your active work
 - ` + "`arc show <id>`" + ` - Detailed issue view with dependencies
 
+### Issue Types
+- **bug**: Something is broken or not working as expected
+- **feature**: New functionality or capability to add
+- **task**: General work item, implementation step, or action to complete
+- **epic**: Large initiative containing multiple related issues (use deps to link children)
+- **chore**: Maintenance work that doesn't change functionality (refactoring, deps, cleanup, docs)
+
 ### Creating & Updating
-- ` + "`arc create \"title\" --type=task|bug|feature --priority=2`" + ` - New issue
+- ` + "`arc create \"title\" --type=task|bug|feature|epic|chore --priority=2`" + ` - New issue
   - Priority: 0-4 (0=critical, 2=medium, 4=backlog)
 - ` + "`arc update <id> --status=in_progress`" + ` - Claim work
 - ` + "`arc update <id> --assignee=username`" + ` - Assign to someone
