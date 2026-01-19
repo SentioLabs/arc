@@ -94,7 +94,6 @@ CREATE TABLE IF NOT EXISTS issues (
     issue_type TEXT NOT NULL DEFAULT 'task',
     assignee TEXT,
     external_ref TEXT,
-    rank INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at TIMESTAMP,
@@ -108,7 +107,6 @@ CREATE INDEX IF NOT EXISTS idx_issues_priority ON issues(workspace_id, priority)
 CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(workspace_id, assignee);
 CREATE INDEX IF NOT EXISTS idx_issues_type ON issues(workspace_id, issue_type);
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(workspace_id, updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_issues_rank ON issues(workspace_id, priority, rank, created_at);
 
 -- Dependencies table
 CREATE TABLE IF NOT EXISTS dependencies (
@@ -209,12 +207,14 @@ CREATE TABLE IF NOT EXISTS child_counters (
 }
 
 // runMigrations applies schema changes for existing databases.
+// New columns/indexes should be added here rather than in the base schema above.
+// This ensures existing databases get upgraded without errors.
+// Note: schema.sql includes all columns for sqlc code generation, but the
+// inline schema in initSchema() is the "base" that gets migrated.
 func (s *Store) runMigrations(ctx context.Context) error {
-	// Add rank column to issues table (added in v1.1)
-	// This silently succeeds if the column already exists
+	// Migration 1: Add rank column to issues table (v1.1)
+	// Silently succeeds if column already exists (SQLite returns error we ignore)
 	_, _ = s.db.ExecContext(ctx, `ALTER TABLE issues ADD COLUMN rank INTEGER NOT NULL DEFAULT 0`)
-
-	// Add rank index if it doesn't exist
 	_, _ = s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_issues_rank ON issues(workspace_id, priority, rank, created_at)`)
 
 	return nil

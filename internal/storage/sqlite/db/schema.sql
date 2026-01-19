@@ -22,7 +22,7 @@ CREATE TABLE issues (
     issue_type TEXT NOT NULL DEFAULT 'task',
     assignee TEXT,
     external_ref TEXT,
-    rank INTEGER NOT NULL DEFAULT 0,
+    rank INTEGER NOT NULL DEFAULT 0,  -- Added via migration at runtime
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at TIMESTAMP,
@@ -37,8 +37,8 @@ CREATE INDEX idx_issues_priority ON issues(workspace_id, priority);
 CREATE INDEX idx_issues_assignee ON issues(workspace_id, assignee);
 CREATE INDEX idx_issues_type ON issues(workspace_id, issue_type);
 CREATE INDEX idx_issues_updated ON issues(workspace_id, updated_at DESC);
-CREATE INDEX idx_issues_rank ON issues(workspace_id, priority, rank, created_at);
 CREATE UNIQUE INDEX idx_issues_external_ref ON issues(external_ref) WHERE external_ref IS NOT NULL;
+-- Note: idx_issues_rank is created via migration to support existing databases
 
 -- Dependencies table
 CREATE TABLE dependencies (
