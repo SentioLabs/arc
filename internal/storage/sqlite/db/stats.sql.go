@@ -49,26 +49,23 @@ func (q *Queries) GetReadyIssueCount(ctx context.Context, workspaceID string) (i
 
 const getWorkspaceStats = `-- name: GetWorkspaceStats :one
 SELECT
-    workspace_id,
-    COUNT(*) as total_issues,
-    SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_issues,
-    SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_issues,
-    SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_issues,
-    SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) as blocked_issues,
-    SUM(CASE WHEN status = 'deferred' THEN 1 ELSE 0 END) as deferred_issues
-FROM issues
-WHERE workspace_id = ?
-GROUP BY workspace_id
+    ?1 as workspace_id,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1) as total_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'open') as open_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'in_progress') as in_progress_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'closed') as closed_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'blocked') as blocked_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'deferred') as deferred_issues
 `
 
 type GetWorkspaceStatsRow struct {
-	WorkspaceID      string          `json:"workspace_id"`
-	TotalIssues      int64           `json:"total_issues"`
-	OpenIssues       sql.NullFloat64 `json:"open_issues"`
-	InProgressIssues sql.NullFloat64 `json:"in_progress_issues"`
-	ClosedIssues     sql.NullFloat64 `json:"closed_issues"`
-	BlockedIssues    sql.NullFloat64 `json:"blocked_issues"`
-	DeferredIssues   sql.NullFloat64 `json:"deferred_issues"`
+	WorkspaceID      interface{} `json:"workspace_id"`
+	TotalIssues      int64       `json:"total_issues"`
+	OpenIssues       int64       `json:"open_issues"`
+	InProgressIssues int64       `json:"in_progress_issues"`
+	ClosedIssues     int64       `json:"closed_issues"`
+	BlockedIssues    int64       `json:"blocked_issues"`
+	DeferredIssues   int64       `json:"deferred_issues"`
 }
 
 func (q *Queries) GetWorkspaceStats(ctx context.Context, workspaceID string) (*GetWorkspaceStatsRow, error) {

@@ -149,11 +149,11 @@ func (s *Store) GetStatistics(ctx context.Context, workspaceID string) (*types.S
 	return &types.Statistics{
 		WorkspaceID:      workspaceID,
 		TotalIssues:      int(stats.TotalIssues),
-		OpenIssues:       nullFloat64ToInt(stats.OpenIssues),
-		InProgressIssues: nullFloat64ToInt(stats.InProgressIssues),
-		ClosedIssues:     nullFloat64ToInt(stats.ClosedIssues),
-		BlockedIssues:    nullFloat64ToInt(stats.BlockedIssues),
-		DeferredIssues:   nullFloat64ToInt(stats.DeferredIssues),
+		OpenIssues:       int(stats.OpenIssues),
+		InProgressIssues: int(stats.InProgressIssues),
+		ClosedIssues:     int(stats.ClosedIssues),
+		BlockedIssues:    int(stats.BlockedIssues),
+		DeferredIssues:   int(stats.DeferredIssues),
 		ReadyIssues:      int(readyCount),
 		AvgLeadTimeHours: avgLeadTime.Float64,
 	}, nil

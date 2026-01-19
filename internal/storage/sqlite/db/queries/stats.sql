@@ -1,15 +1,12 @@
 -- name: GetWorkspaceStats :one
 SELECT
-    workspace_id,
-    COUNT(*) as total_issues,
-    SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_issues,
-    SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_issues,
-    SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_issues,
-    SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) as blocked_issues,
-    SUM(CASE WHEN status = 'deferred' THEN 1 ELSE 0 END) as deferred_issues
-FROM issues
-WHERE workspace_id = ?
-GROUP BY workspace_id;
+    sqlc.arg(workspace_id) as workspace_id,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = sqlc.arg(workspace_id)) as total_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = sqlc.arg(workspace_id) AND issues.status = 'open') as open_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = sqlc.arg(workspace_id) AND issues.status = 'in_progress') as in_progress_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = sqlc.arg(workspace_id) AND issues.status = 'closed') as closed_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = sqlc.arg(workspace_id) AND issues.status = 'blocked') as blocked_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = sqlc.arg(workspace_id) AND issues.status = 'deferred') as deferred_issues;
 
 -- name: GetReadyIssueCount :one
 SELECT COUNT(*) as count FROM issues i
