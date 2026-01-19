@@ -132,7 +132,7 @@ func (q *Queries) DeleteIssue(ctx context.Context, id string) error {
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, created_at, updated_at, closed_at, close_reason FROM issues WHERE id = ?
+SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE id = ?
 `
 
 func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
@@ -150,6 +150,7 @@ func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
 		&i.IssueType,
 		&i.Assignee,
 		&i.ExternalRef,
+		&i.Rank,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
@@ -159,7 +160,7 @@ func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
 }
 
 const getIssueByExternalRef = `-- name: GetIssueByExternalRef :one
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, created_at, updated_at, closed_at, close_reason FROM issues WHERE external_ref = ?
+SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE external_ref = ?
 `
 
 func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.NullString) (*Issue, error) {
@@ -177,6 +178,7 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 		&i.IssueType,
 		&i.Assignee,
 		&i.ExternalRef,
+		&i.Rank,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
@@ -186,7 +188,7 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 }
 
 const getOpenNonBlockedIssues = `-- name: GetOpenNonBlockedIssues :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
@@ -223,6 +225,195 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
+			&i.CloseReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getReadyIssuesHybrid = `-- name: GetReadyIssuesHybrid :many
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
+WHERE i.workspace_id = ?
+  AND i.status IN ('open', 'in_progress')
+GROUP BY i.id
+HAVING COUNT(blocker.id) = 0
+ORDER BY
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours') THEN 0 ELSE 1 END ASC,
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours')
+       THEN i.priority
+       ELSE 999 END ASC,
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours')
+       THEN CASE WHEN i.rank = 0 THEN 999999 ELSE i.rank END
+       ELSE 999999 END ASC,
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours')
+       THEN datetime('9999-12-31')
+       ELSE i.created_at END ASC
+LIMIT ?
+`
+
+type GetReadyIssuesHybridParams struct {
+	WorkspaceID string `json:"workspace_id"`
+	Limit       int64  `json:"limit"`
+}
+
+// Hybrid sort: recent issues (<48h) by priority/rank, older issues by age.
+// Uses CASE to create two sorting groups, then appropriate sub-ordering within each.
+func (q *Queries) GetReadyIssuesHybrid(ctx context.Context, arg GetReadyIssuesHybridParams) ([]*Issue, error) {
+	rows, err := q.db.QueryContext(ctx, getReadyIssuesHybrid, arg.WorkspaceID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Issue{}
+	for rows.Next() {
+		var i Issue
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Title,
+			&i.Description,
+			&i.AcceptanceCriteria,
+			&i.Notes,
+			&i.Status,
+			&i.Priority,
+			&i.IssueType,
+			&i.Assignee,
+			&i.ExternalRef,
+			&i.Rank,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
+			&i.CloseReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getReadyIssuesOldest = `-- name: GetReadyIssuesOldest :many
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
+WHERE i.workspace_id = ?
+  AND i.status IN ('open', 'in_progress')
+GROUP BY i.id
+HAVING COUNT(blocker.id) = 0
+ORDER BY i.created_at ASC
+LIMIT ?
+`
+
+type GetReadyIssuesOldestParams struct {
+	WorkspaceID string `json:"workspace_id"`
+	Limit       int64  `json:"limit"`
+}
+
+// Oldest-first sort: for backlog clearing.
+func (q *Queries) GetReadyIssuesOldest(ctx context.Context, arg GetReadyIssuesOldestParams) ([]*Issue, error) {
+	rows, err := q.db.QueryContext(ctx, getReadyIssuesOldest, arg.WorkspaceID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Issue{}
+	for rows.Next() {
+		var i Issue
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Title,
+			&i.Description,
+			&i.AcceptanceCriteria,
+			&i.Notes,
+			&i.Status,
+			&i.Priority,
+			&i.IssueType,
+			&i.Assignee,
+			&i.ExternalRef,
+			&i.Rank,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
+			&i.CloseReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getReadyIssuesPriority = `-- name: GetReadyIssuesPriority :many
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
+WHERE i.workspace_id = ?
+  AND i.status IN ('open', 'in_progress')
+GROUP BY i.id
+HAVING COUNT(blocker.id) = 0
+ORDER BY
+  i.priority ASC,
+  CASE WHEN i.rank = 0 THEN 999999 ELSE i.rank END ASC,
+  i.created_at ASC
+LIMIT ?
+`
+
+type GetReadyIssuesPriorityParams struct {
+	WorkspaceID string `json:"workspace_id"`
+	Limit       int64  `json:"limit"`
+}
+
+// Priority-first sort: priority -> rank -> created_at.
+func (q *Queries) GetReadyIssuesPriority(ctx context.Context, arg GetReadyIssuesPriorityParams) ([]*Issue, error) {
+	rows, err := q.db.QueryContext(ctx, getReadyIssuesPriority, arg.WorkspaceID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Issue{}
+	for rows.Next() {
+		var i Issue
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Title,
+			&i.Description,
+			&i.AcceptanceCriteria,
+			&i.Notes,
+			&i.Status,
+			&i.Priority,
+			&i.IssueType,
+			&i.Assignee,
+			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -242,7 +433,7 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 }
 
 const listIssuesByAssignee = `-- name: ListIssuesByAssignee :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ? AND assignee = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -281,6 +472,7 @@ func (q *Queries) ListIssuesByAssignee(ctx context.Context, arg ListIssuesByAssi
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -300,7 +492,7 @@ func (q *Queries) ListIssuesByAssignee(ctx context.Context, arg ListIssuesByAssi
 }
 
 const listIssuesByStatus = `-- name: ListIssuesByStatus :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ? AND status = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -339,6 +531,7 @@ func (q *Queries) ListIssuesByStatus(ctx context.Context, arg ListIssuesByStatus
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -358,7 +551,7 @@ func (q *Queries) ListIssuesByStatus(ctx context.Context, arg ListIssuesByStatus
 }
 
 const listIssuesByType = `-- name: ListIssuesByType :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ? AND issue_type = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -397,6 +590,7 @@ func (q *Queries) ListIssuesByType(ctx context.Context, arg ListIssuesByTypePara
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -416,7 +610,7 @@ func (q *Queries) ListIssuesByType(ctx context.Context, arg ListIssuesByTypePara
 }
 
 const listIssuesByWorkspace = `-- name: ListIssuesByWorkspace :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -449,6 +643,7 @@ func (q *Queries) ListIssuesByWorkspace(ctx context.Context, arg ListIssuesByWor
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -487,7 +682,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ?
   AND (title LIKE ? OR description LIKE ?)
 ORDER BY priority ASC, updated_at DESC
@@ -529,6 +724,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]*
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -634,6 +830,21 @@ type UpdateIssuePriorityParams struct {
 
 func (q *Queries) UpdateIssuePriority(ctx context.Context, arg UpdateIssuePriorityParams) error {
 	_, err := q.db.ExecContext(ctx, updateIssuePriority, arg.Priority, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const updateIssueRank = `-- name: UpdateIssueRank :exec
+UPDATE issues SET rank = ?, updated_at = ? WHERE id = ?
+`
+
+type UpdateIssueRankParams struct {
+	Rank      int64     `json:"rank"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+func (q *Queries) UpdateIssueRank(ctx context.Context, arg UpdateIssueRankParams) error {
+	_, err := q.db.ExecContext(ctx, updateIssueRank, arg.Rank, arg.UpdatedAt, arg.ID)
 	return err
 }
 

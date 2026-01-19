@@ -107,3 +107,56 @@ GROUP BY i.id
 HAVING COUNT(blocker.id) = 0
 ORDER BY i.priority ASC, i.updated_at DESC
 LIMIT ?;
+
+-- name: GetReadyIssuesHybrid :many
+-- Hybrid sort: recent issues (<48h) by priority/rank, older issues by age.
+-- Uses CASE to create two sorting groups, then appropriate sub-ordering within each.
+SELECT i.* FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
+WHERE i.workspace_id = ?
+  AND i.status IN ('open', 'in_progress')
+GROUP BY i.id
+HAVING COUNT(blocker.id) = 0
+ORDER BY
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours') THEN 0 ELSE 1 END ASC,
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours')
+       THEN i.priority
+       ELSE 999 END ASC,
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours')
+       THEN CASE WHEN i.rank = 0 THEN 999999 ELSE i.rank END
+       ELSE 999999 END ASC,
+  CASE WHEN i.updated_at >= datetime('now', '-48 hours')
+       THEN datetime('9999-12-31')
+       ELSE i.created_at END ASC
+LIMIT ?;
+
+-- name: GetReadyIssuesPriority :many
+-- Priority-first sort: priority -> rank -> created_at.
+SELECT i.* FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
+WHERE i.workspace_id = ?
+  AND i.status IN ('open', 'in_progress')
+GROUP BY i.id
+HAVING COUNT(blocker.id) = 0
+ORDER BY
+  i.priority ASC,
+  CASE WHEN i.rank = 0 THEN 999999 ELSE i.rank END ASC,
+  i.created_at ASC
+LIMIT ?;
+
+-- name: GetReadyIssuesOldest :many
+-- Oldest-first sort: for backlog clearing.
+SELECT i.* FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
+WHERE i.workspace_id = ?
+  AND i.status IN ('open', 'in_progress')
+GROUP BY i.id
+HAVING COUNT(blocker.id) = 0
+ORDER BY i.created_at ASC
+LIMIT ?;
+
+-- name: UpdateIssueRank :exec
+UPDATE issues SET rank = ?, updated_at = ? WHERE id = ?;

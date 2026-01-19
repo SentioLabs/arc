@@ -67,6 +67,7 @@ type Issue struct {
 	IssueType          string         `json:"issue_type"`
 	Assignee           sql.NullString `json:"assignee"`
 	ExternalRef        sql.NullString `json:"external_ref"`
+	Rank               int64          `json:"rank"`
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	ClosedAt           sql.NullTime   `json:"closed_at"`

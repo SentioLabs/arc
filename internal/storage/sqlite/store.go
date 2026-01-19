@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS issues (
     issue_type TEXT NOT NULL DEFAULT 'task',
     assignee TEXT,
     external_ref TEXT,
+    rank INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at TIMESTAMP,
@@ -107,6 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_issues_priority ON issues(workspace_id, priority)
 CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(workspace_id, assignee);
 CREATE INDEX IF NOT EXISTS idx_issues_type ON issues(workspace_id, issue_type);
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_issues_rank ON issues(workspace_id, priority, rank, created_at);
 
 -- Dependencies table
 CREATE TABLE IF NOT EXISTS dependencies (
@@ -194,7 +196,28 @@ CREATE TABLE IF NOT EXISTS child_counters (
 );
 `
 	_, err := s.db.ExecContext(ctx, schema)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Run migrations for existing databases
+	if err := s.runMigrations(ctx); err != nil {
+		return fmt.Errorf("run migrations: %w", err)
+	}
+
+	return nil
+}
+
+// runMigrations applies schema changes for existing databases.
+func (s *Store) runMigrations(ctx context.Context) error {
+	// Add rank column to issues table (added in v1.1)
+	// This silently succeeds if the column already exists
+	_, _ = s.db.ExecContext(ctx, `ALTER TABLE issues ADD COLUMN rank INTEGER NOT NULL DEFAULT 0`)
+
+	// Add rank index if it doesn't exist
+	_, _ = s.db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_issues_rank ON issues(workspace_id, priority, rank, created_at)`)
+
+	return nil
 }
 
 // Close closes the database connection.

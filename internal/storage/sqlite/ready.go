@@ -24,10 +24,33 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 		limit = 100
 	}
 
-	rows, err := s.queries.GetOpenNonBlockedIssues(ctx, db.GetOpenNonBlockedIssuesParams{
-		WorkspaceID: filter.WorkspaceID,
-		Limit:       int64(limit),
-	})
+	// Default to hybrid sort policy if not specified
+	sortPolicy := filter.SortPolicy
+	if sortPolicy == "" || !sortPolicy.IsValid() {
+		sortPolicy = types.SortPolicyHybrid
+	}
+
+	var rows []*db.Issue
+	var err error
+
+	switch sortPolicy {
+	case types.SortPolicyPriority:
+		rows, err = s.queries.GetReadyIssuesPriority(ctx, db.GetReadyIssuesPriorityParams{
+			WorkspaceID: filter.WorkspaceID,
+			Limit:       int64(limit),
+		})
+	case types.SortPolicyOldest:
+		rows, err = s.queries.GetReadyIssuesOldest(ctx, db.GetReadyIssuesOldestParams{
+			WorkspaceID: filter.WorkspaceID,
+			Limit:       int64(limit),
+		})
+	default: // SortPolicyHybrid
+		rows, err = s.queries.GetReadyIssuesHybrid(ctx, db.GetReadyIssuesHybridParams{
+			WorkspaceID: filter.WorkspaceID,
+			Limit:       int64(limit),
+		})
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("get ready work: %w", err)
 	}

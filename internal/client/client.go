@@ -276,10 +276,19 @@ func (c *Client) DeleteIssue(wsID, id string) error {
 // Ready work methods
 
 // GetReadyWork returns issues ready to work on.
-func (c *Client) GetReadyWork(wsID string, limit int) ([]*types.Issue, error) {
+// sortPolicy can be: "hybrid" (default), "priority", or "oldest".
+func (c *Client) GetReadyWork(wsID string, limit int, sortPolicy string) ([]*types.Issue, error) {
 	path := fmt.Sprintf("/api/v1/workspaces/%s/ready", wsID)
+
+	query := url.Values{}
 	if limit > 0 {
-		path += fmt.Sprintf("?limit=%d", limit)
+		query.Set("limit", fmt.Sprintf("%d", limit))
+	}
+	if sortPolicy != "" {
+		query.Set("sort", sortPolicy)
+	}
+	if len(query) > 0 {
+		path += "?" + query.Encode()
 	}
 
 	resp, err := c.get(path)

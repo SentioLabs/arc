@@ -51,6 +51,7 @@ type Issue struct {
 	// Status & Workflow
 	Status    Status    `json:"status"`
 	Priority  int       `json:"priority"` // 0 (critical) - 4 (backlog)
+	Rank      int       `json:"rank"`     // 0 = unranked (sorts last), 1+ = lower rank = work on first
 	IssueType IssueType `json:"issue_type"`
 
 	// Assignment
@@ -164,6 +165,35 @@ func AllIssueTypes() []IssueType {
 	return []IssueType{TypeBug, TypeFeature, TypeTask, TypeEpic, TypeChore}
 }
 
+// SortPolicy defines how ready work should be sorted.
+type SortPolicy string
+
+const (
+	// SortPolicyHybrid sorts recent issues (<48h) by priority/rank, older issues by age.
+	// This prevents backlog starvation while keeping high-priority recent work visible.
+	SortPolicyHybrid SortPolicy = "hybrid"
+
+	// SortPolicyPriority always sorts by priority → rank → created_at.
+	SortPolicyPriority SortPolicy = "priority"
+
+	// SortPolicyOldest always sorts by created_at (oldest first) for backlog clearing.
+	SortPolicyOldest SortPolicy = "oldest"
+)
+
+// IsValid checks if the sort policy is valid.
+func (s SortPolicy) IsValid() bool {
+	switch s {
+	case SortPolicyHybrid, SortPolicyPriority, SortPolicyOldest:
+		return true
+	}
+	return false
+}
+
+// AllSortPolicies returns all valid sort policy values.
+func AllSortPolicies() []SortPolicy {
+	return []SortPolicy{SortPolicyHybrid, SortPolicyPriority, SortPolicyOldest}
+}
+
 // Dependency represents a relationship between issues.
 type Dependency struct {
 	IssueID     string         `json:"issue_id"`
@@ -271,6 +301,7 @@ type WorkFilter struct {
 	Assignee    *string    // Filter by assignee
 	Unassigned  bool       // Filter for unassigned issues
 	Labels      []string   // AND semantics
+	SortPolicy  SortPolicy // Sort policy: hybrid (default), priority, oldest
 	Limit       int        // Maximum results
 }
 

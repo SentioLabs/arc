@@ -165,7 +165,7 @@ func (q *Queries) GetBlockedIssuesInWorkspace(ctx context.Context, arg GetBlocke
 }
 
 const getBlockingIssues = `-- name: GetBlockingIssues :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
   AND d.type IN ('blocks', 'parent-child')
@@ -194,6 +194,7 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -213,7 +214,7 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 }
 
 const getDependencies = `-- name: GetDependencies :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
 ORDER BY i.priority ASC
@@ -240,6 +241,7 @@ func (q *Queries) GetDependencies(ctx context.Context, issueID string) ([]*Issue
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -325,7 +327,7 @@ func (q *Queries) GetDependentRecords(ctx context.Context, dependsOnID string) (
 }
 
 const getDependents = `-- name: GetDependents :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.issue_id
 WHERE d.depends_on_id = ?
 ORDER BY i.priority ASC
@@ -352,6 +354,7 @@ func (q *Queries) GetDependents(ctx context.Context, dependsOnID string) ([]*Iss
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,

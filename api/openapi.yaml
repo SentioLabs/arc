@@ -401,6 +401,17 @@ paths:
             default: 100
             minimum: 1
             maximum: 1000
+        - name: sort
+          in: query
+          description: |
+            Sort policy for ready issues:
+            - hybrid (default): Recent issues (<48h) sorted by priority/rank, older issues by age
+            - priority: Always sort by priority → rank → created_at
+            - oldest: Always sort by created_at (oldest first, for backlog clearing)
+          schema:
+            type: string
+            enum: [hybrid, priority, oldest]
+            default: hybrid
       responses:
         "200":
           description: List of ready issues
@@ -1027,6 +1038,9 @@ components:
           minimum: 0
           maximum: 4
           description: "0 (critical) - 4 (backlog)"
+        rank:
+          type: integer
+          description: "0 = unranked (sorts last), 1+ = lower rank = work on first"
         issue_type:
           $ref: "#/components/schemas/IssueType"
         assignee:

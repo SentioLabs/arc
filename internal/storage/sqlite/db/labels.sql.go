@@ -103,7 +103,7 @@ func (q *Queries) GetIssueLabels(ctx context.Context, issueID string) ([]string,
 }
 
 const getIssuesByLabel = `-- name: GetIssuesByLabel :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN issue_labels il ON i.id = il.issue_id
 WHERE il.label = ?
 ORDER BY i.priority ASC, i.updated_at DESC
@@ -130,6 +130,7 @@ func (q *Queries) GetIssuesByLabel(ctx context.Context, label string) ([]*Issue,
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,

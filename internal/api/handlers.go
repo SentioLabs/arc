@@ -378,6 +378,9 @@ func (h *StrictHandler) GetReadyWork(ctx context.Context, request GetReadyWorkRe
 	} else {
 		filter.Limit = 100
 	}
+	if request.Params.Sort != nil {
+		filter.SortPolicy = types.SortPolicy(*request.Params.Sort)
+	}
 
 	issues, err := h.services.Issues.GetReadyWork(ctx, filter)
 	if err != nil {

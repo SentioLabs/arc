@@ -50,8 +50,8 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get statistics: %w", err)
 	}
 
-	// Get ready work
-	readyIssues, err := c.GetReadyWork(wsID, 5)
+	// Get ready work (use default hybrid sort)
+	readyIssues, err := c.GetReadyWork(wsID, 5, "")
 	if err != nil {
 		return fmt.Errorf("get ready work: %w", err)
 	}

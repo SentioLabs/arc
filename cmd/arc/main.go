@@ -571,8 +571,9 @@ var readyCmd = &cobra.Command{
 		}
 
 		limit, _ := cmd.Flags().GetInt("limit")
+		sortPolicy, _ := cmd.Flags().GetString("sort")
 
-		issues, err := c.GetReadyWork(wsID, limit)
+		issues, err := c.GetReadyWork(wsID, limit, sortPolicy)
 		if err != nil {
 			return err
 		}
@@ -597,6 +598,7 @@ var readyCmd = &cobra.Command{
 
 func init() {
 	readyCmd.Flags().IntP("limit", "l", 10, "Max results")
+	readyCmd.Flags().String("sort", "hybrid", "Sort policy: hybrid (recent by priority, old by age), priority (always by priority), oldest (oldest first)")
 }
 
 var blockedCmd = &cobra.Command{

@@ -425,6 +425,7 @@ func dbIssueToType(row *db.Issue) *types.Issue {
 		Notes:              fromNullString(row.Notes),
 		Status:             types.Status(row.Status),
 		Priority:           int(row.Priority),
+		Rank:               int(row.Rank),
 		IssueType:          types.IssueType(row.IssueType),
 		Assignee:           fromNullString(row.Assignee),
 		ExternalRef:        fromNullString(row.ExternalRef),
