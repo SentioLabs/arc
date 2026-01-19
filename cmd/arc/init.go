@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -45,32 +46,33 @@ func runInit(cmd *cobra.Command, args []string) error {
 	prefix, _ := cmd.Flags().GetString("prefix")
 	description, _ := cmd.Flags().GetString("description")
 
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get current directory: %w", err)
+	}
+
 	// Determine workspace name
 	var name string
 	if len(args) > 0 {
+		// User provided explicit name
 		name = args[0]
 	} else {
-		// Use directory name
-		cwd, err := os.Getwd()
+		// Auto-generate: sanitized-basename-hash
+		name, err = workspace.GenerateName(cwd)
 		if err != nil {
-			return fmt.Errorf("get current directory: %w", err)
+			return fmt.Errorf("generate workspace name: %w", err)
 		}
-		name = filepath.Base(cwd)
 	}
 
-	// Determine prefix
+	// Determine prefix from basename (not the full generated name)
 	if prefix == "" {
-		prefix = name
-		// Normalize: lowercase, no spaces
-		prefix = strings.ToLower(strings.ReplaceAll(prefix, " ", "-"))
+		prefix = workspace.SanitizeBasename(filepath.Base(cwd))
 		// Truncate if too long
 		if len(prefix) > 10 {
 			prefix = prefix[:10]
 		}
 	}
-
-	// Get path for the workspace
-	cwd, _ := os.Getwd()
 
 	// Create workspace on server
 	c, err := getClient()

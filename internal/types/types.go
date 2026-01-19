@@ -40,6 +40,7 @@ type Issue struct {
 	// Core Identification
 	ID          string `json:"id"`
 	WorkspaceID string `json:"workspace_id"`
+	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs (e.g., parent-id.1)
 
 	// Issue Content
 	Title              string `json:"title"`

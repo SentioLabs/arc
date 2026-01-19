@@ -331,8 +331,8 @@ var listCmd = &cobra.Command{
 		}
 
 		for _, issue := range issues {
-			fmt.Printf("[%s] P%d %s - %s (%s)\n",
-				issue.ID, issue.Priority, issue.Status, issue.Title, issue.IssueType)
+			fmt.Println(formatIssue(issue.ID, string(issue.Status), string(issue.IssueType),
+				issue.Priority, issue.Title, issue.Labels))
 		}
 		return nil
 	},
@@ -365,6 +365,7 @@ var createCmd = &cobra.Command{
 		issueType, _ := cmd.Flags().GetString("type")
 		assignee, _ := cmd.Flags().GetString("assignee")
 		description, _ := cmd.Flags().GetString("description")
+		parentID, _ := cmd.Flags().GetString("parent")
 
 		issue, err := c.CreateIssue(wsID, client.CreateIssueRequest{
 			Title:       args[0],
@@ -372,6 +373,7 @@ var createCmd = &cobra.Command{
 			Priority:    priority,
 			IssueType:   issueType,
 			Assignee:    assignee,
+			ParentID:    parentID,
 		})
 		if err != nil {
 			return err
@@ -392,6 +394,7 @@ func init() {
 	createCmd.Flags().StringP("type", "t", "task", "Issue type")
 	createCmd.Flags().StringP("assignee", "a", "", "Assignee")
 	createCmd.Flags().StringP("description", "d", "", "Description")
+	createCmd.Flags().String("parent", "", "Parent issue ID (creates child with .N suffix)")
 }
 
 var showCmd = &cobra.Command{
@@ -585,8 +588,8 @@ var readyCmd = &cobra.Command{
 		}
 
 		for _, issue := range issues {
-			fmt.Printf("[%s] P%d %s - %s\n",
-				issue.ID, issue.Priority, issue.IssueType, issue.Title)
+			fmt.Println(formatIssue(issue.ID, string(issue.Status), string(issue.IssueType),
+				issue.Priority, issue.Title, issue.Labels))
 		}
 		return nil
 	},
@@ -628,8 +631,8 @@ var blockedCmd = &cobra.Command{
 		}
 
 		for _, issue := range issues {
-			fmt.Printf("[%s] P%d %s - %s (blocked by %d)\n",
-				issue.ID, issue.Priority, issue.IssueType, issue.Title, issue.BlockedByCount)
+			fmt.Println(formatBlockedIssue(issue.ID, string(issue.IssueType),
+				issue.Priority, issue.Title, issue.Labels, issue.BlockedByCount))
 		}
 		return nil
 	},
@@ -753,4 +756,56 @@ var statsCmd = &cobra.Command{
 func parsePriority(s string) (int, error) {
 	s = strings.TrimPrefix(strings.ToUpper(s), "P")
 	return strconv.Atoi(s)
+}
+
+// formatIssue returns a beads-style formatted issue line
+func formatIssue(id, status, issueType string, priority int, title string, labels []string) string {
+	// Status icon
+	icon := "○" // open
+	switch status {
+	case "in_progress":
+		icon = "◐"
+	case "blocked":
+		icon = "◌"
+	case "closed":
+		icon = "●"
+	case "deferred":
+		icon = "◇"
+	}
+
+	// Priority badge - filled for high priority (P0-P1), empty for lower
+	priorityIcon := "○"
+	if priority <= 1 {
+		priorityIcon = "●"
+	}
+
+	// Labels as space-separated in brackets
+	labelStr := ""
+	if len(labels) > 0 {
+		labelStr = " [" + strings.Join(labels, " ") + "]"
+	}
+
+	return fmt.Sprintf("%s %s [%s P%d] [%s]%s - %s",
+		icon, id, priorityIcon, priority, issueType, labelStr, title)
+}
+
+// formatBlockedIssue returns a beads-style formatted blocked issue line
+func formatBlockedIssue(id, issueType string, priority int, title string, labels []string, blockedByCount int) string {
+	// Blocked issues always use blocked icon
+	icon := "◌"
+
+	// Priority badge
+	priorityIcon := "○"
+	if priority <= 1 {
+		priorityIcon = "●"
+	}
+
+	// Labels
+	labelStr := ""
+	if len(labels) > 0 {
+		labelStr = " [" + strings.Join(labels, " ") + "]"
+	}
+
+	return fmt.Sprintf("%s %s [%s P%d] [%s]%s - %s (blocked by %d)",
+		icon, id, priorityIcon, priority, issueType, labelStr, title, blockedByCount)
 }

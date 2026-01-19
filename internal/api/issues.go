@@ -18,6 +18,7 @@ type createIssueRequest struct {
 	IssueType          string `json:"issue_type,omitempty"`
 	Assignee           string `json:"assignee,omitempty"`
 	ExternalRef        string `json:"external_ref,omitempty"`
+	ParentID           string `json:"parent_id,omitempty"` // For hierarchical child IDs
 }
 
 // updateIssueRequest is the request body for updating an issue.
@@ -71,6 +72,21 @@ func (s *Server) listIssues(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
+	// Fetch labels for all issues in batch
+	if len(issues) > 0 {
+		issueIDs := make([]string, len(issues))
+		for i, issue := range issues {
+			issueIDs[i] = issue.ID
+		}
+
+		labelsMap, err := s.store.GetLabelsForIssues(c.Request().Context(), issueIDs)
+		if err == nil {
+			for _, issue := range issues {
+				issue.Labels = labelsMap[issue.ID]
+			}
+		}
+	}
+
 	return paginatedJSON(c, issues, len(issues), filter.Limit, filter.Offset)
 }
 
@@ -86,6 +102,7 @@ func (s *Server) createIssue(c echo.Context) error {
 
 	issue := &types.Issue{
 		WorkspaceID:        wsID,
+		ParentID:           req.ParentID,
 		Title:              req.Title,
 		Description:        req.Description,
 		AcceptanceCriteria: req.AcceptanceCriteria,
@@ -264,6 +281,21 @@ func (s *Server) getReadyWork(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
+	// Fetch labels for all issues in batch
+	if len(issues) > 0 {
+		issueIDs := make([]string, len(issues))
+		for i, issue := range issues {
+			issueIDs[i] = issue.ID
+		}
+
+		labelsMap, err := s.store.GetLabelsForIssues(c.Request().Context(), issueIDs)
+		if err == nil {
+			for _, issue := range issues {
+				issue.Labels = labelsMap[issue.ID]
+			}
+		}
+	}
+
 	return successJSON(c, issues)
 }
 
@@ -279,6 +311,21 @@ func (s *Server) getBlockedIssues(c echo.Context) error {
 	issues, err := s.store.GetBlockedIssues(c.Request().Context(), filter)
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+
+	// Fetch labels for all issues in batch
+	if len(issues) > 0 {
+		issueIDs := make([]string, len(issues))
+		for i, issue := range issues {
+			issueIDs[i] = issue.ID
+		}
+
+		labelsMap, err := s.store.GetLabelsForIssues(c.Request().Context(), issueIDs)
+		if err == nil {
+			for _, issue := range issues {
+				issue.Labels = labelsMap[issue.ID]
+			}
+		}
 	}
 
 	return successJSON(c, issues)

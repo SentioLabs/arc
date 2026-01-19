@@ -1,0 +1,189 @@
+# golangci-lint v2 configuration file
+# See full documentation at: https://golangci-lint.run/usage/configuration/
+version: "2"
+
+# Linters configuration section - controls which linters are enabled/disabled
+# See full documentation at: https://golangci-lint.run/usage/linters/
+linters:
+  # Enable all linters we want to use
+  # Each linter serves a specific purpose in ensuring code quality
+  enable:
+    - bodyclose # Custom implementation that properly handles functional response.Body.Close() patterns
+    - containedctx # Detects struct fields that contain a context.Context
+    - copyloopvar # Detects when a range loop variable is captured by func literal
+    - decorder # Checks declaration order and count of types, constants, variables and functions
+    - dogsled # Finds assignments with too many blank identifiers (e.g. x, _, _, _, := f())
+    - dupl # Detects code clone/duplication
+    - durationcheck # Checks for time.Duration mismatches
+    - errname # Checks that error variables are prefixed with Err and error types end with Error
+    - errorlint # Finds code that will cause problems with error wrapping scheme
+    - forbidigo # Forbids use of specific functions/patterns (see settings below)
+    - gocognit # Computes and checks cognitive complexity
+    - goconst # Finds repeated strings that could be constants
+    - gocritic # Provides many diagnostics
+    - gosec # Inspects source code for security problems
+    - importas # Enforces consistent import aliases
+    - interfacebloat # Checks that interfaces don't contain too many methods
+    - lll # Reports long lines
+    - loggercheck # Checks logger function calls
+    - misspell # Finds commonly misspelled English words
+    - mnd # Detects magic numbers
+    - nakedret # Finds naked returns in functions greater than a specified size
+    - nestif # Reports deeply nested if statements
+    - nilerr # Finds code that returns nil even if it checks that the error is not nil
+    - nilnil # Checks that there is no simultaneous return of nil error and invalid value
+    - nolintlint # Reports incorrect uses of //nolint directives
+    - perfsprint # Checks for inefficient string concatenation when using fmt.Sprint
+    - prealloc # Finds slice declarations that could be preallocated
+    - predeclared # Finds code that shadows predeclared identifiers
+    - reassign # Checks that package variables are not reassigned
+    - revive # Fast, configurable, extensible, flexible linter (too noisy for current use)
+    - tagliatelle # Checks the struct tags naming convention
+    - testifylint # Checks for common errors when using the testify package
+    - testpackage # Makes sure tests are in a separate _test package
+    - tparallel # Detects inappropriate use of t.Parallel()
+    - unconvert # Removes unnecessary type conversions
+    - usetesting # Enforces using testing library functions
+    - wastedassign # Finds wasted assignment statements
+    - whitespace # Checks for unnecessary newlines and trailing space
+
+  #   disabled linters
+  #    - tagalign # disabled - no value
+
+  # Detailed settings for specific linters
+  settings:
+    revive:
+      rules:
+        - name: use-any
+        - name: confusing-naming
+        - name: confusing-results
+        - name: context-as-argument
+          arguments:
+            - allowTypesBefore: "*testing.T,*github.com/user/repo/testing.Harness"
+        - name: comments-density
+          arguments:
+            - 15
+          exclude: ["TEST"]
+        - name: defer
+        - name: empty-block
+        - name: empty-lines
+        - name: enforce-map-style
+        - name: enforce-repeated-arg-type-style
+        - name: enforce-slice-style
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers" # Also check private receivers of exported methods
+            - "sayRepetitiveInsteadOfStutters" # Avoid repetitive naming
+        - name: import-alias-naming
+        - name: optimize-operands-order
+        - name: package-comments
+        - name: superfluous-else
+        - name: comment-spacings
+        - name: line-length-limit
+          arguments: [120]
+        - name: function-length
+          arguments: [60, 0] # max lines, max statements (0 = no limit)
+        - name: cognitive-complexity
+          arguments: [20]
+        - name: argument-limit
+          arguments: [5]
+        - name: unexported-naming
+        - name: unexported-return
+        - name: unhandled-error
+        - name: var-declaration
+        - name: var-naming
+
+    # Forbidigo configuration
+    # Controls which function patterns are disallowed in the codebase
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Print.*$
+          msg: use logging instead of fmt.Print
+        - pattern: ^pretty\.Print.*$
+          msg: pretty.Print should not be in production code
+        - pattern: ^pretty\.Fprint.*$
+          msg: pretty.Print should not be in production code
+        - pattern: ^print$
+          msg: use logging instead of print
+      exclude-godoc-examples: true # Don't flag uses in examples
+      analyze-types: true # Check types to avoid false positives
+
+    #    # Golines configuration - currently disabled due to noise
+    #    # Uncomment if needed in the future
+    #    golines:
+    #      max-len: 120
+    #      keep-padding: true
+
+    # Gosec security checker configuration
+    gosec:
+      excludes:
+        - G115 # Exclude G115 (Using non-cryptographically secure random numbers)
+      config:
+        G101: # Hardcoded credentials detector
+          entropy_threshold: "80.0"
+          per_char_threshold: "3.5"
+          truncate: "24"
+
+    # nolintlint ensures proper usage of nolint directives
+    nolintlint:
+      require-specific: true # Require specific linter to be specified in nolint directives
+
+    # Tagliatelle controls struct tag naming conventions
+    tagliatelle:
+      case:
+        rules:
+          json: snake # Enforce snake_case for JSON tags
+
+  # Exclusion rules for linters
+  # Controls which files/patterns are ignored by linters
+  exclusions:
+    generated: lax # How to treat generated files - 'lax' is less strict
+    presets:
+      - comments # Common comment patterns to ignore
+      - common-false-positives # Common patterns that cause false positives
+      - legacy # Legacy code patterns
+      - std-error-handling # Standard error handling patterns
+
+    # Custom exclusion rules
+    rules:
+      - linters:
+          - lll # Long line linter
+        source: "^//go:generate " # Ignore line length for go:generate directives
+      - linters:
+          - forbidigo # Pattern-prohibiting linter
+        path: _test\.go # Allow fmt.Print and other normally forbidden functions in test files
+      - linters:
+          - dupl # Duplicate code detection
+        path: _test\.go # Test files often have similar structures for readability
+      - linters:
+          - testifylint # Testify linter
+        path: _test\.go
+        text: "suite-dont-use-pkg" # Allow assert.X(s.T(),...) style in test suites
+
+    # Directories/file patterns to exclude entirely
+    paths:
+      - third_party$ # Third-party code
+      - builtin$ # Built-in code
+      - examples$ # Example code
+
+# Formatting tools configuration
+# See full details at: https://golangci-lint.run/usage/formatters/
+formatters:
+  # Enabled code formatters
+  enable:
+    - gofmt # Standard Go formatter
+    - gofumpt # Enhanced gofmt with extra rules
+    - goimports # Adds/removes imports
+  #    - golines # Formatter for long lines - disabled as it can be too aggressive
+
+  # Exclusions for formatters
+  exclusions:
+    generated: lax # Less strict rules for generated files
+    paths:
+      - third_party$ # Don't format third-party code
+      - builtin$ # Don't format built-in code
+      - examples$ # Don't format example code

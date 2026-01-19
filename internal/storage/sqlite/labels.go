@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
@@ -129,9 +130,43 @@ func (s *Store) GetIssueLabels(ctx context.Context, issueID string) ([]string, e
 	}
 
 	labels := make([]string, len(rows))
-	for i, row := range rows {
-		labels[i] = row
-	}
+	copy(labels, rows)
 
 	return labels, nil
+}
+
+// GetLabelsForIssues fetches labels for multiple issues in a single query.
+// Returns a map of issue_id -> []labels
+func (s *Store) GetLabelsForIssues(ctx context.Context, issueIDs []string) (map[string][]string, error) {
+	if len(issueIDs) == 0 {
+		return make(map[string][]string), nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]any, len(issueIDs))
+	marks := make([]string, len(issueIDs))
+	for i, id := range issueIDs {
+		placeholders[i] = id
+		marks[i] = "?"
+	}
+
+	query := `SELECT issue_id, label FROM issue_labels WHERE issue_id IN (` +
+		strings.Join(marks, ",") + `) ORDER BY issue_id, label`
+
+	rows, err := s.db.QueryContext(ctx, query, placeholders...)
+	if err != nil {
+		return nil, fmt.Errorf("batch get labels: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]string)
+	for rows.Next() {
+		var issueID, label string
+		if err := rows.Scan(&issueID, &label); err != nil {
+			return nil, err
+		}
+		result[issueID] = append(result[issueID], label)
+	}
+
+	return result, nil
 }

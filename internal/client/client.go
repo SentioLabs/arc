@@ -189,6 +189,7 @@ type CreateIssueRequest struct {
 	Priority    int    `json:"priority,omitempty"`
 	IssueType   string `json:"issue_type,omitempty"`
 	Assignee    string `json:"assignee,omitempty"`
+	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs
 }
 
 // GetIssue retrieves an issue by ID.

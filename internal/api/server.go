@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sentiolabs/arc/internal/storage"
+	"github.com/sentiolabs/arc/web"
 )
 
 // Server represents the REST API server.
@@ -43,6 +44,9 @@ func New(cfg Config) *Server {
 
 	// Register routes
 	s.registerRoutes()
+
+	// Serve embedded SPA for non-API routes
+	web.RegisterSPA(e)
 
 	return s
 }

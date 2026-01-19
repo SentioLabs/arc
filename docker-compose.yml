@@ -1,0 +1,24 @@
+services:
+  arc-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: arc-server:latest
+    container_name: arc-server
+    ports:
+      - "7432:7432"
+    volumes:
+      - arc-data:/data
+    environment:
+      - TZ=UTC
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7432/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  arc-data:
+    name: arc-server-data

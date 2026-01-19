@@ -67,6 +67,19 @@ func (s *Store) GetWorkspaceByName(ctx context.Context, name string) (*types.Wor
 	return dbWorkspaceToType(row), nil
 }
 
+// GetWorkspaceByPath retrieves a workspace by its file system path.
+func (s *Store) GetWorkspaceByPath(ctx context.Context, path string) (*types.Workspace, error) {
+	row, err := s.queries.GetWorkspaceByPath(ctx, toNullString(path))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("workspace not found for path: %s", path)
+		}
+		return nil, fmt.Errorf("get workspace by path: %w", err)
+	}
+
+	return dbWorkspaceToType(row), nil
+}
+
 // ListWorkspaces returns all workspaces.
 func (s *Store) ListWorkspaces(ctx context.Context) ([]*types.Workspace, error) {
 	rows, err := s.queries.ListWorkspaces(ctx)

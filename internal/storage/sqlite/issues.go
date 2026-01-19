@@ -4,13 +4,77 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+// IsHierarchicalID checks if an issue ID is hierarchical (has a parent).
+// Hierarchical IDs have the format {parentID}.{N} where N is a numeric child suffix.
+// Returns true and the parent ID if hierarchical, false and empty string otherwise.
+func IsHierarchicalID(id string) (isHierarchical bool, parentID string) {
+	lastDot := strings.LastIndex(id, ".")
+	if lastDot == -1 {
+		return false, ""
+	}
+
+	// Check if the suffix after the last dot is purely numeric
+	suffix := id[lastDot+1:]
+	if len(suffix) == 0 {
+		return false, ""
+	}
+
+	for _, c := range suffix {
+		if c < '0' || c > '9' {
+			return false, ""
+		}
+	}
+
+	// It's hierarchical - parent is everything before the last dot
+	return true, id[:lastDot]
+}
+
+// getNextChildNumber atomically increments and returns the next child counter for a parent.
+func (s *Store) getNextChildNumber(ctx context.Context, parentID string) (int, error) {
+	var nextChild int
+	err := s.db.QueryRowContext(ctx, `
+		INSERT INTO child_counters (parent_id, last_child)
+		VALUES (?, 1)
+		ON CONFLICT(parent_id) DO UPDATE SET
+			last_child = last_child + 1
+		RETURNING last_child
+	`, parentID).Scan(&nextChild)
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate next child number for parent %s: %w", parentID, err)
+	}
+	return nextChild, nil
+}
+
+// GetNextChildID generates the next hierarchical child ID for a given parent.
+// Returns formatted ID as parentID.{counter} (e.g., arc-a3f8e9.1)
+func (s *Store) GetNextChildID(ctx context.Context, parentID string) (string, error) {
+	// Validate parent exists
+	_, err := s.GetIssue(ctx, parentID)
+	if err != nil {
+		return "", fmt.Errorf("parent issue not found: %s", parentID)
+	}
+
+	// Get next child number atomically
+	nextNum, err := s.getNextChildNumber(ctx, parentID)
+	if err != nil {
+		return "", err
+	}
+
+	// Format as parentID.counter
+	childID := fmt.Sprintf("%s.%d", parentID, nextNum)
+	return childID, nil
+}
+
 // CreateIssue creates a new issue.
+// If ParentID is set, generates a hierarchical child ID (e.g., parent.1) and
+// automatically creates a parent-child dependency.
 func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor string) error {
 	issue.SetDefaults()
 
@@ -24,9 +88,18 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 		return fmt.Errorf("get workspace for ID generation: %w", err)
 	}
 
-	// Generate ID if not provided
+	// Generate ID - use hierarchical ID if parent is specified
 	if issue.ID == "" {
-		issue.ID = generateID(ws.Prefix, issue.Title)
+		if issue.ParentID != "" {
+			// Generate child ID from parent
+			childID, err := s.GetNextChildID(ctx, issue.ParentID)
+			if err != nil {
+				return fmt.Errorf("generate child ID: %w", err)
+			}
+			issue.ID = childID
+		} else {
+			issue.ID = generateID(ws.Prefix, issue.Title)
+		}
 	}
 
 	now := time.Now()
@@ -56,6 +129,21 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 
 	// Record creation event
 	s.recordEvent(ctx, issue.ID, types.EventCreated, actor, nil, &issue.Title)
+
+	// Auto-create parent-child dependency if this is a child issue
+	if issue.ParentID != "" {
+		dep := &types.Dependency{
+			IssueID:     issue.ID,
+			DependsOnID: issue.ParentID,
+			Type:        types.DepParentChild,
+			CreatedAt:   now,
+			CreatedBy:   actor,
+		}
+		if err := s.AddDependency(ctx, dep, actor); err != nil {
+			// Log but don't fail - the issue was created successfully
+			// The dependency creation failure shouldn't rollback the issue
+		}
+	}
 
 	return nil
 }

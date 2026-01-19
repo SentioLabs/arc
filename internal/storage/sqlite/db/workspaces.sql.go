@@ -108,6 +108,25 @@ func (q *Queries) GetWorkspaceByName(ctx context.Context, name string) (*Workspa
 	return &i, err
 }
 
+const getWorkspaceByPath = `-- name: GetWorkspaceByPath :one
+SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces WHERE path = ?
+`
+
+func (q *Queries) GetWorkspaceByPath(ctx context.Context, path sql.NullString) (*Workspace, error) {
+	row := q.db.QueryRowContext(ctx, getWorkspaceByPath, path)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Path,
+		&i.Description,
+		&i.Prefix,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const listWorkspaces = `-- name: ListWorkspaces :many
 SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces ORDER BY name
 `

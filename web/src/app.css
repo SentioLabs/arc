@@ -1,0 +1,268 @@
+/* Import distinctive fonts - must come before @import "tailwindcss" */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+/* Custom theme - Refined Terminal aesthetic */
+@theme {
+  /* Typography */
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Surface colors - deep, rich darks */
+  --color-surface-900: oklch(0.13 0.01 250);
+  --color-surface-800: oklch(0.16 0.01 250);
+  --color-surface-700: oklch(0.20 0.01 250);
+  --color-surface-600: oklch(0.25 0.015 250);
+  --color-surface-500: oklch(0.35 0.02 250);
+  --color-surface-400: oklch(0.45 0.02 250);
+  --color-surface-300: oklch(0.55 0.02 250);
+  --color-surface-200: oklch(0.75 0.01 250);
+  --color-surface-100: oklch(0.90 0.005 250);
+  --color-surface-50: oklch(0.96 0.002 250);
+
+  /* Primary accent - electric indigo */
+  --color-primary-50: oklch(0.96 0.03 270);
+  --color-primary-100: oklch(0.92 0.05 270);
+  --color-primary-200: oklch(0.85 0.08 270);
+  --color-primary-300: oklch(0.75 0.12 270);
+  --color-primary-400: oklch(0.65 0.18 270);
+  --color-primary-500: oklch(0.55 0.22 270);
+  --color-primary-600: oklch(0.48 0.22 270);
+  --color-primary-700: oklch(0.42 0.20 270);
+  --color-primary-800: oklch(0.35 0.16 270);
+  --color-primary-900: oklch(0.28 0.12 270);
+
+  /* Status colors - vivid signals */
+  --color-status-open: oklch(0.72 0.16 145);
+  --color-status-in-progress: oklch(0.70 0.20 270);
+  --color-status-blocked: oklch(0.68 0.22 25);
+  --color-status-deferred: oklch(0.65 0.08 80);
+  --color-status-closed: oklch(0.50 0.02 250);
+
+  /* Priority colors - heat spectrum */
+  --color-priority-critical: oklch(0.65 0.28 25);
+  --color-priority-high: oklch(0.70 0.22 45);
+  --color-priority-medium: oklch(0.75 0.16 85);
+  --color-priority-low: oklch(0.70 0.12 175);
+  --color-priority-none: oklch(0.55 0.02 250);
+
+  /* Issue type colors */
+  --color-type-bug: oklch(0.68 0.22 25);
+  --color-type-feature: oklch(0.70 0.20 270);
+  --color-type-task: oklch(0.70 0.14 200);
+  --color-type-epic: oklch(0.68 0.18 320);
+  --color-type-chore: oklch(0.55 0.04 250);
+
+  /* Semantic text */
+  --color-text-primary: oklch(0.95 0.005 250);
+  --color-text-secondary: oklch(0.70 0.01 250);
+  --color-text-muted: oklch(0.50 0.01 250);
+  --color-text-inverse: oklch(0.15 0.01 250);
+
+  /* Borders */
+  --color-border: oklch(0.25 0.01 250);
+  --color-border-subtle: oklch(0.20 0.01 250);
+  --color-border-focus: oklch(0.55 0.22 270);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.4);
+  --shadow-lg: 0 8px 24px oklch(0 0 0 / 0.5);
+  --shadow-glow: 0 0 20px oklch(0.55 0.22 270 / 0.3);
+}
+
+/* Base styles */
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface-900);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Refined scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface-800);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-500);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-surface-400);
+  }
+
+  /* Focus states */
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Selection */
+  ::selection {
+    background: oklch(0.55 0.22 270 / 0.4);
+  }
+}
+
+/* Component utilities */
+@layer components {
+  .card {
+    background: var(--color-surface-800);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+  }
+
+  .card-elevated {
+    background: var(--color-surface-700);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    border-radius: 4px;
+    transition: all 150ms ease;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--color-primary-600);
+    color: white;
+    border: none;
+  }
+
+  .btn-primary:hover {
+    background: var(--color-primary-500);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+  }
+
+  .btn-ghost:hover {
+    background: var(--color-surface-700);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+  }
+
+  .input {
+    background: var(--color-surface-800);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+    transition: border-color 150ms ease;
+  }
+
+  .input:focus {
+    border-color: var(--color-border-focus);
+    outline: none;
+  }
+
+  .input::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  /* Monospace text for IDs and technical content */
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    letter-spacing: -0.02em;
+  }
+
+  /* Badge base */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 3px;
+  }
+
+  /* Nav link */
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    border-radius: 4px;
+    transition: all 150ms ease;
+  }
+
+  .nav-link:hover {
+    background: var(--color-surface-700);
+    color: var(--color-text-primary);
+  }
+
+  .nav-link.active {
+    background: var(--color-primary-600);
+    color: white;
+  }
+}
+
+/* Animations */
+@layer utilities {
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.22 270 / 0.4); }
+    50% { box-shadow: 0 0 12px 2px oklch(0.55 0.22 270 / 0.2); }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 200ms ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 300ms ease-out;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+}

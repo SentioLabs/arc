@@ -1,0 +1,1332 @@
+openapi: 3.0.3
+info:
+  title: Arc Issue Tracker API
+  description: |
+    Central issue tracking server for AI-assisted coding workflows.
+    Arc provides workspace-scoped issue management with dependency tracking,
+    labels, comments, and audit trails.
+  version: 1.0.0
+  contact:
+    name: SentioLabs
+    url: https://github.com/sentiolabs/arc
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: workspaces
+    description: Workspace management
+  - name: issues
+    description: Issue CRUD and lifecycle operations
+  - name: ready
+    description: Ready work queue and blocked issues
+  - name: dependencies
+    description: Issue dependency management
+  - name: labels
+    description: Label management
+  - name: comments
+    description: Comments and audit events
+
+paths:
+  # ====================
+  # Workspaces
+  # ====================
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      tags: [workspaces]
+      summary: List all workspaces
+      responses:
+        "200":
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workspace"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createWorkspace
+      tags: [workspaces]
+      summary: Create a new workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceRequest"
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: getWorkspace
+      tags: [workspaces]
+      summary: Get workspace by ID
+      responses:
+        "200":
+          description: Workspace details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      operationId: updateWorkspace
+      tags: [workspaces]
+      summary: Update workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkspaceRequest"
+      responses:
+        "200":
+          description: Workspace updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteWorkspace
+      tags: [workspaces]
+      summary: Delete workspace
+      responses:
+        "204":
+          description: Workspace deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/stats:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: getWorkspaceStats
+      tags: [workspaces]
+      summary: Get workspace statistics
+      responses:
+        "200":
+          description: Workspace statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Statistics"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Issues
+  # ====================
+  /workspaces/{workspaceId}/issues:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: listIssues
+      tags: [issues]
+      summary: List issues in workspace
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            $ref: "#/components/schemas/Status"
+        - name: type
+          in: query
+          description: Filter by issue type
+          schema:
+            $ref: "#/components/schemas/IssueType"
+        - name: priority
+          in: query
+          description: Filter by priority (0-4)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 4
+        - name: assignee
+          in: query
+          description: Filter by assignee
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Full-text search query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum results to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Paginated list of issues
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedIssues"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createIssue
+      tags: [issues]
+      summary: Create a new issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIssueRequest"
+      responses:
+        "201":
+          description: Issue created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Issue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+
+    get:
+      operationId: getIssue
+      tags: [issues]
+      summary: Get issue by ID
+      parameters:
+        - name: details
+          in: query
+          description: Include full details (dependencies, comments, labels)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Issue details
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Issue"
+                  - $ref: "#/components/schemas/IssueDetails"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      operationId: updateIssue
+      tags: [issues]
+      summary: Update issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateIssueRequest"
+      responses:
+        "200":
+          description: Issue updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Issue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteIssue
+      tags: [issues]
+      summary: Delete issue
+      responses:
+        "204":
+          description: Issue deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}/close:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+
+    post:
+      operationId: closeIssue
+      tags: [issues]
+      summary: Close an issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseIssueRequest"
+      responses:
+        "200":
+          description: Issue closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Issue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}/reopen:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+
+    post:
+      operationId: reopenIssue
+      tags: [issues]
+      summary: Reopen a closed issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      responses:
+        "200":
+          description: Issue reopened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Issue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Ready & Blocked
+  # ====================
+  /workspaces/{workspaceId}/ready:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: getReadyWork
+      tags: [ready]
+      summary: Get issues ready to work on (no blocking dependencies)
+      parameters:
+        - name: type
+          in: query
+          description: Filter by issue type
+          schema:
+            $ref: "#/components/schemas/IssueType"
+        - name: priority
+          in: query
+          description: Filter by priority (0-4)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 4
+        - name: assignee
+          in: query
+          description: Filter by assignee
+          schema:
+            type: string
+        - name: unassigned
+          in: query
+          description: Filter for unassigned issues only
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          description: Maximum results to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      responses:
+        "200":
+          description: List of ready issues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Issue"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/blocked:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: getBlockedIssues
+      tags: [ready]
+      summary: Get blocked issues
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum results to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      responses:
+        "200":
+          description: List of blocked issues with blocking info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BlockedIssue"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Dependencies
+  # ====================
+  /workspaces/{workspaceId}/issues/{issueId}/deps:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+
+    get:
+      operationId: getDependencies
+      tags: [dependencies]
+      summary: Get issue dependencies and dependents
+      responses:
+        "200":
+          description: Dependencies and dependents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DependencyGraph"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: addDependency
+      tags: [dependencies]
+      summary: Add a dependency to an issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddDependencyRequest"
+      responses:
+        "201":
+          description: Dependency added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dependency"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}/deps/{dependsOnId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+      - name: dependsOnId
+        in: path
+        required: true
+        description: ID of the dependency to remove
+        schema:
+          type: string
+
+    delete:
+      operationId: removeDependency
+      tags: [dependencies]
+      summary: Remove a dependency from an issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      responses:
+        "204":
+          description: Dependency removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Labels
+  # ====================
+  /workspaces/{workspaceId}/labels:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: listLabels
+      tags: [labels]
+      summary: List labels in workspace
+      responses:
+        "200":
+          description: List of labels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Label"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createLabel
+      tags: [labels]
+      summary: Create a new label
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLabelRequest"
+      responses:
+        "201":
+          description: Label created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/labels/{labelName}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: labelName
+        in: path
+        required: true
+        description: Label name
+        schema:
+          type: string
+
+    put:
+      operationId: updateLabel
+      tags: [labels]
+      summary: Update a label
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLabelRequest"
+      responses:
+        "200":
+          description: Label updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteLabel
+      tags: [labels]
+      summary: Delete a label
+      responses:
+        "204":
+          description: Label deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}/labels:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+
+    post:
+      operationId: addLabelToIssue
+      tags: [labels]
+      summary: Add a label to an issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddLabelToIssueRequest"
+      responses:
+        "204":
+          description: Label added to issue
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+      - name: labelName
+        in: path
+        required: true
+        description: Label name to remove
+        schema:
+          type: string
+
+    delete:
+      operationId: removeLabelFromIssue
+      tags: [labels]
+      summary: Remove a label from an issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      responses:
+        "204":
+          description: Label removed from issue
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Comments & Events
+  # ====================
+  /workspaces/{workspaceId}/issues/{issueId}/comments:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+
+    get:
+      operationId: getComments
+      tags: [comments]
+      summary: Get comments for an issue
+      responses:
+        "200":
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: addComment
+      tags: [comments]
+      summary: Add a comment to an issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCommentRequest"
+      responses:
+        "201":
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}/comments/{commentId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+      - name: commentId
+        in: path
+        required: true
+        description: Comment ID
+        schema:
+          type: integer
+          format: int64
+
+    put:
+      operationId: updateComment
+      tags: [comments]
+      summary: Update a comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentRequest"
+      responses:
+        "204":
+          description: Comment updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteComment
+      tags: [comments]
+      summary: Delete a comment
+      responses:
+        "204":
+          description: Comment deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/issues/{issueId}/events:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/IssueId"
+
+    get:
+      operationId: getEvents
+      tags: [comments]
+      summary: Get audit events for an issue
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum events to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      description: Workspace ID
+      schema:
+        type: string
+
+    IssueId:
+      name: issueId
+      in: path
+      required: true
+      description: Issue ID
+      schema:
+        type: string
+
+    ActorHeader:
+      name: X-Actor
+      in: header
+      description: User performing the action (defaults to "anonymous")
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    # ====================
+    # Core Schemas
+    # ====================
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+
+    Status:
+      type: string
+      enum:
+        - open
+        - in_progress
+        - blocked
+        - deferred
+        - closed
+
+    IssueType:
+      type: string
+      enum:
+        - bug
+        - feature
+        - task
+        - epic
+        - chore
+
+    DependencyType:
+      type: string
+      enum:
+        - blocks
+        - parent-child
+        - related
+        - discovered-from
+
+    EventType:
+      type: string
+      enum:
+        - created
+        - updated
+        - status_changed
+        - commented
+        - closed
+        - reopened
+        - dependency_added
+        - dependency_removed
+        - label_added
+        - label_removed
+
+    # ====================
+    # Workspace Schemas
+    # ====================
+    Workspace:
+      type: object
+      required:
+        - id
+        - name
+        - prefix
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique workspace ID (e.g., "ws-a1b2")
+        name:
+          type: string
+          description: Display name
+          maxLength: 100
+        path:
+          type: string
+          description: Optional associated directory path
+        description:
+          type: string
+          description: Workspace description
+        prefix:
+          type: string
+          description: Issue ID prefix (e.g., "bd")
+          maxLength: 10
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateWorkspaceRequest:
+      type: object
+      required:
+        - name
+        - prefix
+      properties:
+        name:
+          type: string
+          description: Display name
+          maxLength: 100
+        path:
+          type: string
+          description: Optional associated directory path
+        description:
+          type: string
+          description: Workspace description
+        prefix:
+          type: string
+          description: Issue ID prefix
+          maxLength: 10
+
+    UpdateWorkspaceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: New display name
+          maxLength: 100
+        path:
+          type: string
+          description: New associated directory path
+        description:
+          type: string
+          description: New description
+
+    Statistics:
+      type: object
+      required:
+        - workspace_id
+        - total_issues
+        - open_issues
+        - in_progress_issues
+        - closed_issues
+        - blocked_issues
+        - deferred_issues
+        - ready_issues
+      properties:
+        workspace_id:
+          type: string
+        total_issues:
+          type: integer
+        open_issues:
+          type: integer
+        in_progress_issues:
+          type: integer
+        closed_issues:
+          type: integer
+        blocked_issues:
+          type: integer
+        deferred_issues:
+          type: integer
+        ready_issues:
+          type: integer
+        avg_lead_time_hours:
+          type: number
+          format: double
+
+    # ====================
+    # Issue Schemas
+    # ====================
+    Issue:
+      type: object
+      required:
+        - id
+        - workspace_id
+        - title
+        - status
+        - priority
+        - issue_type
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique issue ID
+        workspace_id:
+          type: string
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        acceptance_criteria:
+          type: string
+        notes:
+          type: string
+        status:
+          $ref: "#/components/schemas/Status"
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 4
+          description: "0 (critical) - 4 (backlog)"
+        issue_type:
+          $ref: "#/components/schemas/IssueType"
+        assignee:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+        close_reason:
+          type: string
+        external_ref:
+          type: string
+          description: External reference (e.g., "gh-9", "jira-ABC")
+        labels:
+          type: array
+          items:
+            type: string
+        dependencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dependency"
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+
+    IssueDetails:
+      allOf:
+        - $ref: "#/components/schemas/Issue"
+        - type: object
+          properties:
+            dependents:
+              type: array
+              items:
+                $ref: "#/components/schemas/Dependency"
+
+    BlockedIssue:
+      allOf:
+        - $ref: "#/components/schemas/Issue"
+        - type: object
+          required:
+            - blocked_by_count
+            - blocked_by
+          properties:
+            blocked_by_count:
+              type: integer
+            blocked_by:
+              type: array
+              items:
+                type: string
+
+    PaginatedIssues:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Issue"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    CreateIssueRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        acceptance_criteria:
+          type: string
+        notes:
+          type: string
+        status:
+          $ref: "#/components/schemas/Status"
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 4
+          default: 2
+        issue_type:
+          $ref: "#/components/schemas/IssueType"
+        assignee:
+          type: string
+        external_ref:
+          type: string
+
+    UpdateIssueRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        acceptance_criteria:
+          type: string
+        notes:
+          type: string
+        status:
+          $ref: "#/components/schemas/Status"
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 4
+        issue_type:
+          $ref: "#/components/schemas/IssueType"
+        assignee:
+          type: string
+        external_ref:
+          type: string
+
+    CloseIssueRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Reason for closing
+
+    # ====================
+    # Dependency Schemas
+    # ====================
+    Dependency:
+      type: object
+      required:
+        - issue_id
+        - depends_on_id
+        - type
+        - created_at
+      properties:
+        issue_id:
+          type: string
+        depends_on_id:
+          type: string
+        type:
+          $ref: "#/components/schemas/DependencyType"
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+
+    DependencyGraph:
+      type: object
+      required:
+        - dependencies
+        - dependents
+      properties:
+        dependencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dependency"
+        dependents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dependency"
+
+    AddDependencyRequest:
+      type: object
+      required:
+        - depends_on_id
+        - type
+      properties:
+        depends_on_id:
+          type: string
+          description: ID of the issue this depends on
+        type:
+          $ref: "#/components/schemas/DependencyType"
+
+    # ====================
+    # Label Schemas
+    # ====================
+    Label:
+      type: object
+      required:
+        - workspace_id
+        - name
+      properties:
+        workspace_id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex color code (e.g., "#ff0000")
+        description:
+          type: string
+
+    CreateLabelRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        description:
+          type: string
+
+    UpdateLabelRequest:
+      type: object
+      properties:
+        color:
+          type: string
+        description:
+          type: string
+
+    AddLabelToIssueRequest:
+      type: object
+      required:
+        - label
+      properties:
+        label:
+          type: string
+
+    # ====================
+    # Comment Schemas
+    # ====================
+    Comment:
+      type: object
+      required:
+        - id
+        - issue_id
+        - author
+        - text
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        issue_id:
+          type: string
+        author:
+          type: string
+        text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AddCommentRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+
+    UpdateCommentRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+
+    # ====================
+    # Event Schemas
+    # ====================
+    Event:
+      type: object
+      required:
+        - id
+        - issue_id
+        - event_type
+        - actor
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        issue_id:
+          type: string
+        event_type:
+          $ref: "#/components/schemas/EventType"
+        actor:
+          type: string
+        old_value:
+          type: string
+        new_value:
+          type: string
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time

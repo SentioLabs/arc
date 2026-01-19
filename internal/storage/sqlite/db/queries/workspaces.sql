@@ -8,6 +8,9 @@ SELECT * FROM workspaces WHERE id = ?;
 -- name: GetWorkspaceByName :one
 SELECT * FROM workspaces WHERE name = ?;
 
+-- name: GetWorkspaceByPath :one
+SELECT * FROM workspaces WHERE path = ?;
+
 -- name: ListWorkspaces :many
 SELECT * FROM workspaces ORDER BY name;
 

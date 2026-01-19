@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+arc-server
+arc
+*.exe
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+*.test
+coverage.out
+coverage.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation (not needed in image)
+*.md
+!README.md
+
+# Local development
+.env.local
+*.local
+
+# Frontend build artifacts (rebuilt in Docker)
+web/build/
+web/.svelte-kit/
+web/node_modules/
+
+# Scripts (not needed in image)
+scripts/

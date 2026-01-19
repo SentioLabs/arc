@@ -1,0 +1,12 @@
+# oapi-codegen configuration for Arc API
+# Run: go generate ./...
+
+package: api
+output: openapi.gen.go
+generate:
+  models: true          # Generate type definitions for the schema
+  echo-server: true     # Generate Echo server boilerplate
+  embedded-spec: true   # Include the OpenAPI spec in generated code
+  strict-server: true   # Generate strict interfaces with better type safety
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms

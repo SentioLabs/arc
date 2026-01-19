@@ -1,0 +1,17 @@
+# mockery v3 configuration
+# Run: mockery
+
+all: false
+dir: internal/mocks
+filename: '{{snakecase .InterfaceName}}_mock.go'
+force-file-write: true
+formatter: goimports
+log-level: info
+structname: 'Mock{{.InterfaceName}}'
+pkgname: mocks
+recursive: false
+template: testify
+packages:
+  github.com/sentiolabs/envctl/internal/secrets:
+    config:
+      all: true
