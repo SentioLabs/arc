@@ -1,6 +1,5 @@
 # Binaries
-/arc-server
-/arc
+/bin/
 *.exe
 
 # IDE/Editor

@@ -3,8 +3,7 @@
 .gitignore
 
 # Build artifacts
-arc-server
-arc
+bin/
 *.exe
 
 # IDE/Editor

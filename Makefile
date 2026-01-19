@@ -7,9 +7,10 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# Binary names
-SERVER_BIN := arc-server
-CLI_BIN := arc
+# Binary output
+BIN_DIR := ./bin
+SERVER_BIN := $(BIN_DIR)/arc-server
+CLI_BIN := $(BIN_DIR)/arc
 
 # Build settings
 GO := go
@@ -101,11 +102,13 @@ build-server: ## Build the arc-server binary (requires frontend built first)
 	@if [ ! -d "$(WEB_DIR)/build" ]; then \
 		echo "Warning: Frontend not built. Run 'make web-build' first for embedded UI."; \
 	fi
+	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) -o $(SERVER_BIN) ./cmd/server
 
 .PHONY: build-cli
 build-cli: ## Build the arc CLI binary
 	@echo "==> Building $(CLI_BIN)..."
+	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) -o $(CLI_BIN) ./cmd/arc
 
 .PHONY: build-quick
@@ -235,7 +238,7 @@ mocks: ## Generate mocks (requires mockery)
 .PHONY: clean
 clean: ## Remove build artifacts
 	@echo "==> Cleaning build artifacts..."
-	rm -f $(SERVER_BIN) $(CLI_BIN)
+	rm -rf $(BIN_DIR)
 	rm -f coverage.out coverage.html
 	rm -f *.test
 
