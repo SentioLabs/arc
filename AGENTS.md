@@ -1,13 +1,13 @@
 # Agent Instructions
 
-This document provides guidelines for AI agents working with the beads-central codebase.
+This document provides guidelines for AI agents working with the arc codebase.
 
 ## Project Overview
 
-beads-central is a central issue tracking server for AI-assisted coding workflows. It provides:
+arc is a central issue tracking server for AI-assisted coding workflows. It provides:
 
 - **REST API** - Central server at `localhost:7432`
-- **CLI** (`bd`) - Command-line interface for issue management
+- **CLI** (`arc`) - Command-line interface for issue management
 - **SQLite Storage** - Workspace-isolated issue storage
 - **Claude Integration** - Hooks and skills for Claude Code
 
@@ -21,7 +21,7 @@ beads-central is a central issue tracking server for AI-assisted coding workflow
 │  └─────────────┘  └─────────────┘  └─────────────┘     │
 │                         │                               │
 │                    SQLite DB                            │
-│              (~/.beads-server/data.db)                  │
+│              (~/.arc-server/data.db)                  │
 └─────────────────────────────────────────────────────────┘
                           │
               REST API (localhost:7432)
@@ -38,12 +38,12 @@ beads-central is a central issue tracking server for AI-assisted coding workflow
 
 ```bash
 # Build
-go build -o beads-server ./cmd/server
-go build -o bd ./cmd/bd
+go build -o arc-server ./cmd/server
+go build -o arc ./cmd/arc
 
 # Run server
-./beads-server                    # Default port 7432
-./beads-server -addr :8080        # Custom port
+./arc-server                    # Default port 7432
+./arc-server -addr :8080        # Custom port
 
 # Run tests
 go test ./...
@@ -55,7 +55,7 @@ go fmt ./...
 ## Code Organization
 
 - `cmd/server/` - Server binary
-- `cmd/bd/` - CLI binary
+- `cmd/arc/` - CLI binary
 - `internal/api/` - REST API handlers
 - `internal/storage/` - Storage interface
 - `internal/storage/sqlite/` - SQLite implementation
@@ -76,8 +76,8 @@ go fmt ./...
 
 ### CLI Layer
 - Cobra for command parsing
-- Config stored in `~/.config/beads-central/config.json`
-- Project-local config in `.beads-central.json`
+- Config stored in `~/.config/arc/config.json`
+- Project-local config in `.arc.json`
 
 ## Testing
 

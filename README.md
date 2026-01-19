@@ -1,4 +1,4 @@
-# beads-central
+# arc
 
 A central issue tracking server for AI-assisted coding workflows. This is a simplified, centralized version of [beads](https://github.com/steveyegge/beads) - no per-repo daemons, no git sync, just a clean REST API + CLI.
 
@@ -17,57 +17,57 @@ A central issue tracking server for AI-assisted coding workflows. This is a simp
 
 ```bash
 # Build and run
-go build -o beads-server ./cmd/server
-./beads-server
+go build -o arc-server ./cmd/server
+./arc-server
 
 # Or with custom options
-./beads-server -addr :8080 -db /path/to/data.db
+./arc-server -addr :8080 -db /path/to/data.db
 ```
 
-The server stores data in `~/.beads-server/data.db` by default.
+The server stores data in `~/.arc-server/data.db` by default.
 
 ### CLI Usage
 
 ```bash
 # Build CLI
-go build -o bd ./cmd/bd
+go build -o arc ./cmd/arc
 
 # Create a workspace
-bd workspace create my-project --prefix mp
+arc workspace create my-project --prefix mp
 
 # Set default workspace
-bd workspace use my-project
+arc workspace use my-project
 
 # Create issues
-bd create "Implement feature X" -p 1 -t feature
-bd create "Fix bug Y" -p 0 -t bug
+arc create "Implement feature X" -p 1 -t feature
+arc create "Fix bug Y" -p 0 -t bug
 
 # List issues
-bd list
-bd list --status open
-bd list --type bug
+arc list
+arc list --status open
+arc list --type bug
 
 # Show issue details
-bd show mp-abc123
+arc show mp-abc123
 
 # Update issues
-bd update mp-abc123 --status in_progress
-bd update mp-abc123 --assignee alice
+arc update mp-abc123 --status in_progress
+arc update mp-abc123 --assignee alice
 
 # Close issues
-bd close mp-abc123 --reason "Fixed in commit abc"
+arc close mp-abc123 --reason "Fixed in commit abc"
 
 # Find ready work
-bd ready
+arc ready
 
 # Show blocked issues
-bd blocked
+arc blocked
 
 # Add dependencies
-bd dep add mp-def456 mp-abc123  # def456 depends on abc123
+arc dep add mp-def456 mp-abc123  # def456 depends on abc123
 
 # View statistics
-bd stats
+arc stats
 ```
 
 ### API Examples
@@ -103,7 +103,7 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 │  └─────────────┘  └─────────────┘  └─────────────┘     │
 │                         │                               │
 │                    SQLite DB                            │
-│              (~/.beads-server/data.db)                  │
+│              (~/.arc-server/data.db)                  │
 └─────────────────────────────────────────────────────────┘
                           │
               REST API (localhost:7432)
@@ -139,7 +139,7 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 
 ## Configuration
 
-CLI configuration is stored in `~/.config/beads-central/config.json`:
+CLI configuration is stored in `~/.config/arc/config.json`:
 
 ```json
 {
@@ -159,7 +159,7 @@ sqlc generate
 
 # Build both binaries
 go build ./cmd/server
-go build ./cmd/bd
+go build ./cmd/arc
 ```
 
 ## API Reference

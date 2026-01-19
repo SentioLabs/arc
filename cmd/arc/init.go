@@ -12,8 +12,8 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init [name]",
-	Short: "Initialize bd in the current directory",
-	Long: `Initialize bd in the current directory by creating a workspace and
+	Short: "Initialize arc in the current directory",
+	Long: `Initialize arc in the current directory by creating a workspace and
 setting up Claude Code integration.
 
 This command:
@@ -23,10 +23,10 @@ This command:
 4. Optionally sets up Claude Code hooks
 
 Examples:
-  bd init                    # Use directory name as workspace
-  bd init my-project         # Use custom name
-  bd init --prefix mp        # Custom issue prefix
-  bd init --setup-claude     # Also install Claude hooks`,
+  arc init                    # Use directory name as workspace
+  arc init my-project         # Use custom name
+  arc init --prefix mp        # Custom issue prefix
+  arc init --setup-claude     # Also install Claude hooks`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runInit,
 }
@@ -152,7 +152,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// Create project-local config
 	if err := createProjectConfig(cwd, ws.ID, ws.Name); err != nil {
 		if !quiet {
-			fmt.Fprintf(os.Stderr, "Warning: failed to create .beads-central.json: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to create .arc.json: %v\n", err)
 		}
 	}
 
@@ -173,23 +173,23 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	if !quiet {
-		fmt.Printf("\n✓ bd initialized successfully!\n\n")
+		fmt.Printf("\n✓ arc initialized successfully!\n\n")
 		fmt.Printf("  Workspace: %s\n", ws.Name)
 		fmt.Printf("  ID: %s\n", ws.ID)
 		fmt.Printf("  Prefix: %s\n", ws.Prefix)
 		fmt.Printf("  Issues will be named: %s-<hash> (e.g., %s-a3f2dd)\n\n", ws.Prefix, ws.Prefix)
-		fmt.Printf("Run %s to get started.\n\n", "bd quickstart")
+		fmt.Printf("Run %s to get started.\n\n", "arc quickstart")
 		if !setupClaude {
-			fmt.Printf("Tip: Run %s to add Claude Code hooks.\n", "bd setup claude")
+			fmt.Printf("Tip: Run %s to add Claude Code hooks.\n", "arc setup claude")
 		}
 	}
 
 	return nil
 }
 
-// createProjectConfig creates a .beads-central.json file in the project root
+// createProjectConfig creates a .arc.json file in the project root
 func createProjectConfig(dir, workspaceID, workspaceName string) error {
-	configPath := filepath.Join(dir, ".beads-central.json")
+	configPath := filepath.Join(dir, ".arc.json")
 
 	// Don't overwrite existing config
 	if _, err := os.Stat(configPath); err == nil {
@@ -247,15 +247,15 @@ func addLandingThePlaneInstructions(verbose bool) error {
 		// Create new file with basic structure
 		newContent := fmt.Sprintf(`# Agent Instructions
 
-This project uses **bd** (beads-central) for issue tracking. Run `+"`bd onboard`"+` to get started.
+This project uses **arc** for issue tracking. Run `+"`arc onboard`"+` to get started.
 
 ## Quick Reference
 
 `+"```bash"+`
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
+arc ready              # Find available work
+arc show <id>          # View issue details
+arc update <id> --status in_progress  # Claim work
+arc close <id>         # Complete work
 `+"```"+`
 %s
 `, landingThePlaneSection)

@@ -1,12 +1,12 @@
 {
-  "name": "beads-central",
+  "name": "arc",
   "description": "Central issue tracker for AI-assisted coding workflows. Manage tasks, track work, and maintain context with simple CLI commands.",
   "version": "0.1.0",
   "author": {
     "name": "Sentio Labs",
     "url": "https://github.com/sentiolabs"
   },
-  "repository": "https://github.com/sentiolabs/beads-central",
+  "repository": "https://github.com/sentiolabs/arc",
   "license": "MIT",
   "keywords": [
     "issue-tracker",
@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bd prime"
+            "command": "arc prime"
           }
         ]
       }
@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bd prime"
+            "command": "arc prime"
           }
         ]
       }

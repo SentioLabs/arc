@@ -4,7 +4,7 @@ package storage
 import (
 	"context"
 
-	"github.com/sentiolabs/beads-central/internal/types"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 // Storage defines the interface for issue storage backends.

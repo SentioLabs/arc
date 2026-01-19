@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sentiolabs/beads-central/internal/storage/sqlite/db"
-	"github.com/sentiolabs/beads-central/internal/types"
+	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 func nullFloat64ToInt(nf sql.NullFloat64) int {

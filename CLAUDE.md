@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-**beads-central** is a central issue tracking server for AI-assisted coding workflows. Unlike the distributed `beads` project, this uses a central server architecture.
+**arc** is a central issue tracking server for AI-assisted coding workflows. Unlike the distributed `beads` project, this uses a central server architecture.
 
 **Read [AGENTS.md](AGENTS.md)** - it contains the complete workflow for AI agents, including the mandatory "landing the plane" session completion protocol.
 
@@ -12,11 +12,11 @@ This file provides guidance to Claude Code when working with this repository.
 
 ```bash
 # Build binaries
-go build -o beads-server ./cmd/server
-go build -o bd ./cmd/bd
+go build -o arc-server ./cmd/server
+go build -o arc ./cmd/bd
 
 # Run server
-./beads-server
+./arc-server
 
 # Run tests
 go test ./...
@@ -37,9 +37,9 @@ sqlc generate
    - Echo framework for HTTP routing
    - REST endpoints for workspaces, issues, dependencies, labels, comments
 
-3. **CLI Layer** (`cmd/bd/`)
+3. **CLI Layer** (`cmd/arc/`)
    - Cobra commands (commands defined in main.go + separate files)
-   - Config in `~/.config/beads-central/config.json`
+   - Config in `~/.config/arc/config.json`
 
 ### Data Flow
 
@@ -60,22 +60,22 @@ See `internal/types/types.go`:
 
 The project includes Claude Code integration:
 
-- **`bd init`**: Creates workspace and sets up AGENTS.md
-- **`bd prime`**: Outputs AI workflow context for hooks
-- **`bd setup claude`**: Installs SessionStart/PreCompact hooks
-- **`bd onboard`**: Gets workspace orientation
+- **`arc init`**: Creates workspace and sets up AGENTS.md
+- **`arc prime`**: Outputs AI workflow context for hooks
+- **`arc setup claude`**: Installs SessionStart/PreCompact hooks
+- **`arc onboard`**: Gets workspace orientation
 
 ### Hooks
 
-Install with `bd setup claude`:
-- **SessionStart**: Runs `bd prime` when session starts
-- **PreCompact**: Runs `bd prime` before context compaction
+Install with `arc setup claude`:
+- **SessionStart**: Runs `arc prime` when session starts
+- **PreCompact**: Runs `arc prime` before context compaction
 
 ### Plugin
 
 The `claude-plugin/` directory contains a Claude Code plugin:
 - `plugin.json`: Plugin manifest with hooks
-- `skills/beads/SKILL.md`: Skill documentation
+- `skills/arc/SKILL.md`: Skill documentation
 
 ## Session Completion (Mandatory)
 

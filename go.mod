@@ -1,4 +1,4 @@
-module github.com/sentiolabs/beads-central
+module github.com/sentiolabs/arc
 
 go 1.25.5
 

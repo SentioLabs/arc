@@ -1,4 +1,4 @@
-// Package types defines core data structures for the beads-central issue tracker.
+// Package types defines core data structures for the arc issue tracker.
 package types
 
 import (

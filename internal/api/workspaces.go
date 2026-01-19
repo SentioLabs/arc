@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sentiolabs/beads-central/internal/types"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 // createWorkspaceRequest is the request body for creating a workspace.

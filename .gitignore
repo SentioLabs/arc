@@ -1,6 +1,6 @@
 # Binaries
-/beads-server
-/bd
+/arc-server
+/arc
 *.exe
 
 # IDE/Editor
@@ -27,4 +27,4 @@ coverage.out
 coverage.html
 
 # Config (contains user-specific settings)
-# Note: ~/.config/beads-central/config.json is user config
+# Note: ~/.config/arc/config.json is user config

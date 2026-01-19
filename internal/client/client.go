@@ -1,4 +1,4 @@
-// Package client provides an API client for the beads-central server.
+// Package client provides an API client for the arc server.
 package client
 
 import (
@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/sentiolabs/beads-central/internal/types"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
-// Client is the API client for beads-central.
+// Client is the API client for arc.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client

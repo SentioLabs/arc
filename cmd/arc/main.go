@@ -1,4 +1,4 @@
-// Command bd is the CLI for beads-central.
+// Command arc is the CLI for arc.
 package main
 
 import (
@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sentiolabs/beads-central/internal/client"
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +36,7 @@ type Config struct {
 func loadConfig() (*Config, error) {
 	if configPath == "" {
 		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".config", "beads-central", "config.json")
+		configPath = filepath.Join(home, ".config", "arc", "config.json")
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -62,7 +62,7 @@ func loadConfig() (*Config, error) {
 func saveConfig(cfg *Config) error {
 	if configPath == "" {
 		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".config", "beads-central", "config.json")
+		configPath = filepath.Join(home, ".config", "arc", "config.json")
 	}
 
 	// Create directory
@@ -104,7 +104,7 @@ func getWorkspaceID() (string, error) {
 	}
 
 	if cfg.DefaultWorkspace == "" {
-		return "", fmt.Errorf("no workspace specified. Use --workspace or 'bd workspace use <name>' to set default")
+		return "", fmt.Errorf("no workspace specified. Use --workspace or 'arc workspace use <name>' to set default")
 	}
 
 	return cfg.DefaultWorkspace, nil
@@ -121,9 +121,9 @@ func outputResult(data interface{}) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "bd",
-	Short: "beads-central CLI - distributed issue tracking",
-	Long:  `beads-central is a central issue tracking server for AI-assisted coding workflows.`,
+	Use:   "arc",
+	Short: "arc CLI - central issue tracking",
+	Long:  `arc is a central issue tracking server for AI-assisted coding workflows.`,
 }
 
 func init() {
@@ -224,7 +224,7 @@ var workspaceCreateCmd = &cobra.Command{
 }
 
 func init() {
-	workspaceCreateCmd.Flags().StringP("prefix", "p", "bd", "Issue ID prefix")
+	workspaceCreateCmd.Flags().StringP("prefix", "p", "arc", "Issue ID prefix")
 	workspaceCreateCmd.Flags().String("path", "", "Associated directory path")
 	workspaceCreateCmd.Flags().StringP("description", "d", "", "Workspace description")
 }

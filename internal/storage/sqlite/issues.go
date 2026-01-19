@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sentiolabs/beads-central/internal/storage/sqlite/db"
-	"github.com/sentiolabs/beads-central/internal/types"
+	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 // CreateIssue creates a new issue.

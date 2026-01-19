@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sentiolabs/beads-central/internal/client"
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/spf13/cobra"
 )
 
@@ -136,11 +136,11 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 	fmt.Println("## Quick Commands")
 	fmt.Println()
 	fmt.Println("```bash")
-	fmt.Println("bd ready                           # Find available work")
-	fmt.Println("bd show <id>                       # View issue details")
-	fmt.Println("bd update <id> --status in_progress  # Start working")
-	fmt.Println("bd close <id>                      # Complete issue")
-	fmt.Println("bd create \"title\" -p 2            # Create new issue")
+	fmt.Println("arc ready                           # Find available work")
+	fmt.Println("arc show <id>                       # View issue details")
+	fmt.Println("arc update <id> --status in_progress  # Start working")
+	fmt.Println("arc close <id>                      # Complete issue")
+	fmt.Println("arc create \"title\" -p 2            # Create new issue")
 	fmt.Println("```")
 	fmt.Println()
 

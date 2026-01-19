@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/sentiolabs/beads-central/internal/storage/sqlite/db"
-	"github.com/sentiolabs/beads-central/internal/types"
+	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 // CreateLabel creates a new label definition.

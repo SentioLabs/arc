@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sentiolabs/beads-central/internal/storage"
-	"github.com/sentiolabs/beads-central/internal/storage/sqlite/db"
+	"github.com/sentiolabs/arc/internal/storage"
+	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 
 	_ "modernc.org/sqlite"
 )
@@ -25,14 +25,14 @@ type Store struct {
 }
 
 // New creates a new SQLite store at the given path.
-// If the path is empty, uses ~/.beads-server/data.db
+// If the path is empty, uses ~/.arc-server/data.db
 func New(path string) (*Store, error) {
 	if path == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("get home dir: %w", err)
 		}
-		path = filepath.Join(home, ".beads-server", "data.db")
+		path = filepath.Join(home, ".arc-server", "data.db")
 	}
 
 	// Create directory if needed

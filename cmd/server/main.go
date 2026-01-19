@@ -1,4 +1,4 @@
-// Command server starts the beads-central REST API server.
+// Command server starts the arc REST API server.
 package main
 
 import (
@@ -11,14 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sentiolabs/beads-central/internal/api"
-	"github.com/sentiolabs/beads-central/internal/storage/sqlite"
+	"github.com/sentiolabs/arc/internal/api"
+	"github.com/sentiolabs/arc/internal/storage/sqlite"
 )
 
 func main() {
 	var (
 		addr   = flag.String("addr", ":7432", "Server address")
-		dbPath = flag.String("db", "", "Database path (default: ~/.beads-server/data.db)")
+		dbPath = flag.String("db", "", "Database path (default: ~/.arc-server/data.db)")
 	)
 	flag.Parse()
 
@@ -37,7 +37,7 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		fmt.Printf("Starting beads-central server on %s\n", *addr)
+		fmt.Printf("Starting arc server on %s\n", *addr)
 		fmt.Printf("Database: %s\n", store.Path())
 		if err := server.Start(); err != nil {
 			log.Printf("Server error: %v", err)

@@ -24,10 +24,10 @@ Currently supports:
   claude    - Claude Code hooks (SessionStart, PreCompact)
 
 Examples:
-  bd setup claude          # Install Claude Code hooks globally
-  bd setup claude --project  # Install for this project only
-  bd setup claude --check    # Verify installation
-  bd setup claude --remove   # Uninstall hooks`,
+  arc setup claude          # Install Claude Code hooks globally
+  arc setup claude --project  # Install for this project only
+  arc setup claude --check    # Verify installation
+  arc setup claude --remove   # Uninstall hooks`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSetup,
 }
@@ -56,7 +56,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	}
 }
 
-// installClaudeHooks installs Claude Code hooks for bd prime
+// installClaudeHooks installs Claude Code hooks for arc prime
 func installClaudeHooks(verbose bool) error {
 	var settingsPath string
 	if setupProject {
@@ -103,7 +103,7 @@ func installClaudeHooks(verbose bool) error {
 		}
 	}
 
-	command := "bd prime"
+	command := "arc prime"
 
 	// Add hooks
 	if addHookCommand(hooks, "SessionStart", command, verbose) {
@@ -157,7 +157,7 @@ func checkClaudeHooks() error {
 	}
 
 	fmt.Println("✗ No hooks installed")
-	fmt.Println("  Run: bd setup claude")
+	fmt.Println("  Run: arc setup claude")
 	return fmt.Errorf("hooks not installed")
 }
 
@@ -194,8 +194,8 @@ func removeClaudeHooks(project bool) error {
 		return nil
 	}
 
-	removeHookCommand(hooks, "SessionStart", "bd prime")
-	removeHookCommand(hooks, "PreCompact", "bd prime")
+	removeHookCommand(hooks, "SessionStart", "arc prime")
+	removeHookCommand(hooks, "PreCompact", "arc prime")
 
 	data, err = json.MarshalIndent(settings, "", "  ")
 	if err != nil {
@@ -303,7 +303,7 @@ func removeHookCommand(hooks map[string]interface{}, event, command string) {
 	}
 }
 
-// hasBeadsHooks checks if a settings file has bd prime hooks
+// hasBeadsHooks checks if a settings file has arc prime hooks
 func hasBeadsHooks(settingsPath string) bool {
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
@@ -340,7 +340,7 @@ func hasBeadsHooks(settingsPath string) bool {
 				if !ok {
 					continue
 				}
-				if cmdMap["command"] == "bd prime" {
+				if cmdMap["command"] == "arc prime" {
 					return true
 				}
 			}

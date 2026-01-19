@@ -1,4 +1,4 @@
-// Package api provides the REST API server for beads-central.
+// Package api provides the REST API server for arc.
 package api
 
 import (
@@ -8,7 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/sentiolabs/beads-central/internal/storage"
+	"github.com/sentiolabs/arc/internal/storage"
 )
 
 // Server represents the REST API server.

@@ -8,8 +8,8 @@ import (
 
 var quickstartCmd = &cobra.Command{
 	Use:   "quickstart",
-	Short: "Quick start guide for bd",
-	Long:  `Display a quick start guide for using bd (beads-central).`,
+	Short: "Quick start guide for arc",
+	Long:  `Display a quick start guide for using arc.`,
 	Run:   runQuickstart,
 }
 
@@ -20,9 +20,9 @@ func init() {
 func runQuickstart(cmd *cobra.Command, args []string) {
 	fmt.Print(`# Beads-Central Quick Start
 
-## What is bd?
+## What is arc?
 
-bd (beads-central) is a central issue tracking system designed for AI-assisted
+arc is a central issue tracking system designed for AI-assisted
 coding workflows. It helps you track tasks, bugs, and features across projects
 with a simple CLI.
 
@@ -72,16 +72,16 @@ bd blocked                        # Show all blocked issues
 
 | Command | Description |
 |---------|-------------|
-| bd init | Initialize workspace in current directory |
-| bd ready | Show unblocked issues |
-| bd list | List all issues |
-| bd show <id> | Show issue details |
-| bd create <title> | Create new issue |
-| bd update <id> | Update issue fields |
-| bd close <id> | Close an issue |
-| bd blocked | Show blocked issues |
-| bd stats | Show workspace statistics |
-| bd onboard | Get workspace orientation |
+| arc init | Initialize workspace in current directory |
+| arc ready | Show unblocked issues |
+| arc list | List all issues |
+| arc show <id> | Show issue details |
+| arc create <title> | Create new issue |
+| arc update <id> | Update issue fields |
+| arc close <id> | Close an issue |
+| arc blocked | Show blocked issues |
+| arc stats | Show workspace statistics |
+| arc onboard | Get workspace orientation |
 
 ## Priority Levels
 
@@ -103,15 +103,15 @@ bd blocked                        # Show all blocked issues
 
 ## Tips for AI Agents
 
-1. Run ` + "`bd onboard`" + ` at session start to get context
-2. Use ` + "`bd ready`" + ` to find available work
+1. Run ` + "`arc onboard`" + ` at session start to get context
+2. Use ` + "`arc ready`" + ` to find available work
 3. Always close issues when work is complete
 4. Create issues for discovered work during sessions
 5. Push all changes before ending session
 
 ## More Help
 
-- ` + "`bd --help`" + ` - Full command list
-- ` + "`bd <command> --help`" + ` - Command-specific help
+- ` + "`arc --help`" + ` - Full command list
+- ` + "`arc <command> --help`" + ` - Command-specific help
 `)
 }
