@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sentiolabs/arc/internal/storage"
+	"github.com/sentiolabs/arc/internal/types"
 	"github.com/sentiolabs/arc/web"
 )
 
@@ -181,4 +182,32 @@ func queryInt(c echo.Context, name string, defaultVal int) int {
 	var i int
 	fmt.Sscanf(val, "%d", &i)
 	return i
+}
+
+// errWorkspaceMismatch is returned when an issue doesn't belong to the requested workspace.
+var errWorkspaceMismatch = fmt.Errorf("issue does not belong to this workspace")
+
+// validateIssueWorkspace fetches an issue and validates it belongs to the specified workspace.
+// Returns nil if valid, or an error suitable for HTTP response.
+func (s *Server) validateIssueWorkspace(c echo.Context, issueID string) error {
+	_, err := s.getIssueInWorkspace(c, issueID)
+	return err
+}
+
+// getIssueInWorkspace fetches an issue and validates it belongs to the specified workspace.
+// Returns the issue if valid, or an error if not found or workspace mismatch.
+func (s *Server) getIssueInWorkspace(c echo.Context, issueID string) (*types.Issue, error) {
+	wsID := workspaceID(c)
+	ctx := c.Request().Context()
+
+	issue, err := s.store.GetIssue(ctx, issueID)
+	if err != nil {
+		return nil, err
+	}
+
+	if issue.WorkspaceID != wsID {
+		return nil, errWorkspaceMismatch
+	}
+
+	return issue, nil
 }

@@ -106,6 +106,14 @@ func (s *Server) addLabelToIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+
 	var req addLabelToIssueRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
@@ -123,6 +131,14 @@ func (s *Server) removeLabelFromIssue(c echo.Context) error {
 	id := c.Param("id")
 	label := c.Param("label")
 	actor := getActor(c)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	if err := s.store.RemoveLabelFromIssue(c.Request().Context(), id, label, actor); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())

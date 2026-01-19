@@ -17,6 +17,14 @@ type addDependencyRequest struct {
 func (s *Server) getDependencies(c echo.Context) error {
 	id := c.Param("id")
 
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+
 	deps, err := s.store.GetDependencies(c.Request().Context(), id)
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
@@ -37,6 +45,14 @@ func (s *Server) getDependencies(c echo.Context) error {
 func (s *Server) addDependency(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	var req addDependencyRequest
 	if err := c.Bind(&req); err != nil {
@@ -61,6 +77,14 @@ func (s *Server) removeDependency(c echo.Context) error {
 	id := c.Param("id")
 	depID := c.Param("dep")
 	actor := getActor(c)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	if err := s.store.RemoveDependency(c.Request().Context(), id, depID, actor); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())

@@ -125,6 +125,15 @@ func (s *Server) createIssue(c echo.Context) error {
 func (s *Server) getIssue(c echo.Context) error {
 	id := c.Param("id")
 
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	issue, err := s.getIssueInWorkspace(c, id)
+	if err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+
 	// Return detailed view if requested
 	if c.QueryParam("details") == "true" {
 		details, err := s.store.GetIssueDetails(c.Request().Context(), id)
@@ -134,11 +143,6 @@ func (s *Server) getIssue(c echo.Context) error {
 		return successJSON(c, details)
 	}
 
-	issue, err := s.store.GetIssue(c.Request().Context(), id)
-	if err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
-	}
-
 	return successJSON(c, issue)
 }
 
@@ -146,6 +150,14 @@ func (s *Server) getIssue(c echo.Context) error {
 func (s *Server) updateIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	var req updateIssueRequest
 	if err := c.Bind(&req); err != nil {
@@ -203,6 +215,14 @@ func (s *Server) updateIssue(c echo.Context) error {
 func (s *Server) deleteIssue(c echo.Context) error {
 	id := c.Param("id")
 
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+
 	if err := s.store.DeleteIssue(c.Request().Context(), id); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
@@ -214,6 +234,14 @@ func (s *Server) deleteIssue(c echo.Context) error {
 func (s *Server) closeIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	var req closeIssueRequest
 	if err := c.Bind(&req); err != nil {
@@ -237,6 +265,14 @@ func (s *Server) closeIssue(c echo.Context) error {
 func (s *Server) reopenIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	if err := s.store.ReopenIssue(c.Request().Context(), id, actor); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())

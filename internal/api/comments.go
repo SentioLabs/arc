@@ -21,6 +21,14 @@ type updateCommentRequest struct {
 func (s *Server) getComments(c echo.Context) error {
 	id := c.Param("id")
 
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+
 	comments, err := s.store.GetComments(c.Request().Context(), id)
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
@@ -33,6 +41,14 @@ func (s *Server) getComments(c echo.Context) error {
 func (s *Server) addComment(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	var req addCommentRequest
 	if err := c.Bind(&req); err != nil {
@@ -49,10 +65,19 @@ func (s *Server) addComment(c echo.Context) error {
 
 // updateComment updates a comment.
 func (s *Server) updateComment(c echo.Context) error {
+	id := c.Param("id") // issue ID
 	cidStr := c.Param("cid")
 	cid, err := strconv.ParseInt(cidStr, 10, 64)
 	if err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid comment ID")
+	}
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
 	var req updateCommentRequest
@@ -69,10 +94,19 @@ func (s *Server) updateComment(c echo.Context) error {
 
 // deleteComment deletes a comment.
 func (s *Server) deleteComment(c echo.Context) error {
+	id := c.Param("id") // issue ID
 	cidStr := c.Param("cid")
 	cid, err := strconv.ParseInt(cidStr, 10, 64)
 	if err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid comment ID")
+	}
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
 	if err := s.store.DeleteComment(c.Request().Context(), cid); err != nil {
@@ -86,6 +120,14 @@ func (s *Server) deleteComment(c echo.Context) error {
 func (s *Server) getEvents(c echo.Context) error {
 	id := c.Param("id")
 	limit := queryInt(c, "limit", 50)
+
+	// Validate issue belongs to workspace (security: prevents cross-workspace access)
+	if err := s.validateIssueWorkspace(c, id); err != nil {
+		if err == errWorkspaceMismatch {
+			return errorJSON(c, http.StatusForbidden, "access denied")
+		}
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
 
 	events, err := s.store.GetEvents(c.Request().Context(), id, limit)
 	if err != nil {
