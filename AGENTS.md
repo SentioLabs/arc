@@ -37,19 +37,24 @@ arc is a central issue tracking server for AI-assisted coding workflows. It prov
 ## Development Commands
 
 ```bash
-# Build
-go build -o arc-server ./cmd/server
-go build -o arc ./cmd/arc
+# Build everything
+make build
+
+# Build binaries only (faster)
+make build-quick
 
 # Run server
-./arc-server                    # Default port 7432
-./arc-server -addr :8080        # Custom port
+./bin/arc-server                # Default port 7432
+./bin/arc-server -addr :8080    # Custom port
 
 # Run tests
-go test ./...
+make test
 
 # Format code
-go fmt ./...
+make fmt
+
+# Docker
+make docker-up
 ```
 
 ## Code Organization
@@ -91,6 +96,27 @@ go test ./internal/storage/sqlite/...
 # With coverage
 go test -cover ./...
 ```
+
+## Arc Issue Tracking
+
+Use `arc` CLI for issue management. Run `arc prime` for full workflow context.
+
+**Essential commands:**
+```bash
+arc ready                              # Find unblocked work
+arc create "title" --type=task -p 2    # Create issue
+arc update <id> --status in_progress   # Claim work
+arc close <id>                         # Complete work
+arc show <id>                          # View details
+arc dep add <issue> <depends-on>       # Add dependency
+```
+
+### Agent Mode
+
+For bulk operations (creating epics with tasks, batch updates), use the **arc-issue-tracker** agent via the Task tool. This runs arc commands in parallel without consuming main conversation context.
+
+Example: "Create an epic for auth system with login and logout tasks"
+→ Delegate to arc-issue-tracker agent
 
 ## Landing the Plane (Session Completion)
 

@@ -11,18 +11,24 @@ This file provides guidance to Claude Code when working with this repository.
 ## Build & Test Commands
 
 ```bash
-# Build binaries
-go build -o arc-server ./cmd/server
-go build -o arc ./cmd/bd
+# Build everything (frontend + binaries)
+make build
+
+# Build binaries only (faster, skips frontend)
+make build-quick
 
 # Run server
-./arc-server
+./bin/arc-server
 
 # Run tests
-go test ./...
+make test
 
-# Generate sqlc code (after changing queries)
-sqlc generate
+# Generate code (OpenAPI, sqlc, TypeScript types)
+make gen
+
+# Docker
+make docker-build
+make docker-up
 ```
 
 ## Architecture
@@ -75,7 +81,12 @@ Install with `arc setup claude`:
 
 The `claude-plugin/` directory contains a Claude Code plugin:
 - `plugin.json`: Plugin manifest with hooks
-- `skills/arc/SKILL.md`: Skill documentation
+- `skills/arc/SKILL.md`: Skill documentation (points to `arc prime`)
+- `agents/arc-issue-tracker.md`: Agent for bulk operations
+
+### Agent Mode
+
+For bulk issue operations (creating epics with tasks, batch updates), use the **arc-issue-tracker** agent via the Task tool. This runs arc commands in parallel without consuming main conversation context.
 
 ## Session Completion (Mandatory)
 
