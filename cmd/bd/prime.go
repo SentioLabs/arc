@@ -1,0 +1,171 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/spf13/cobra"
+)
+
+var (
+	primeFullMode bool
+	primeMCPMode  bool
+)
+
+var primeCmd = &cobra.Command{
+	Use:   "prime",
+	Short: "Output AI-optimized workflow context",
+	Long: `Output essential Beads workflow context in AI-optimized markdown format.
+
+Designed for Claude Code hooks (SessionStart, PreCompact) to prevent
+agents from forgetting bd workflow after context compaction.
+
+Modes:
+- Default: Full CLI reference (~1-2k tokens)
+- --mcp: Minimal output for MCP users (~50 tokens)
+
+Install hooks:
+  bd setup claude          # Install SessionStart and PreCompact hooks
+
+Workflow customization:
+- Place a .beads/PRIME.md file to override the default output entirely.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// Check if this project has beads-central configured
+		if _, err := os.Stat(".beads-central.json"); os.IsNotExist(err) {
+			// Not in a beads-central project - silent exit with success
+			// This enables cross-platform hook integration
+			os.Exit(0)
+		}
+
+		// Check for custom PRIME.md override
+		localPrimePath := ".beads/PRIME.md"
+		if content, err := os.ReadFile(localPrimePath); err == nil {
+			fmt.Print(string(content))
+			return
+		}
+
+		// Determine output mode
+		mcpMode := primeMCPMode
+		if primeFullMode {
+			mcpMode = false
+		}
+
+		// Output workflow context
+		if err := outputPrimeContext(os.Stdout, mcpMode); err != nil {
+			os.Exit(0)
+		}
+	},
+}
+
+func init() {
+	primeCmd.Flags().BoolVar(&primeFullMode, "full", false, "Force full CLI output")
+	primeCmd.Flags().BoolVar(&primeMCPMode, "mcp", false, "Force MCP mode (minimal output)")
+	rootCmd.AddCommand(primeCmd)
+}
+
+// outputPrimeContext outputs workflow context in markdown format
+func outputPrimeContext(w io.Writer, mcpMode bool) error {
+	if mcpMode {
+		return outputMCPContext(w)
+	}
+	return outputCLIContext(w)
+}
+
+// outputMCPContext outputs minimal context for MCP users
+func outputMCPContext(w io.Writer) error {
+	context := `# Beads-Central Issue Tracker Active
+
+# 🚨 SESSION CLOSE PROTOCOL 🚨
+
+Before saying "done": git status → git add → git commit → git push
+
+## Core Rules
+- Track strategic work in beads-central (multi-session, dependencies, discovered work)
+- TodoWrite is fine for simple single-session linear tasks
+- When in doubt, prefer bd—persistence you don't need beats lost context
+
+Start: Check ` + "`bd ready`" + ` for available work.
+`
+	_, _ = fmt.Fprint(w, context)
+	return nil
+}
+
+// outputCLIContext outputs full CLI reference for non-MCP users
+func outputCLIContext(w io.Writer) error {
+	context := `# Beads-Central Workflow Context
+
+> **Context Recovery**: Run ` + "`bd prime`" + ` after compaction, clear, or new session
+> Hooks auto-call this in Claude Code when .beads-central.json detected
+
+# 🚨 SESSION CLOSE PROTOCOL 🚨
+
+**CRITICAL**: Before saying "done" or "complete", you MUST run this checklist:
+
+` + "```" + `
+[ ] 1. git status              (check what changed)
+[ ] 2. git add <files>         (stage code changes)
+[ ] 3. git commit -m "..."     (commit changes)
+[ ] 4. git push                (push to remote)
+` + "```" + `
+
+**NEVER skip this.** Work is not done until pushed.
+
+## Core Rules
+- Track strategic work in beads-central (multi-session, dependencies, discovered work)
+- Use ` + "`bd create`" + ` for issues, TodoWrite for simple single-session execution
+- When in doubt, prefer bd—persistence you don't need beats lost context
+- Git workflow: commit and push at session end
+- Session management: check ` + "`bd ready`" + ` for available work
+
+## Essential Commands
+
+### Finding Work
+- ` + "`bd ready`" + ` - Show issues ready to work (no blockers)
+- ` + "`bd list --status=open`" + ` - All open issues
+- ` + "`bd list --status=in_progress`" + ` - Your active work
+- ` + "`bd show <id>`" + ` - Detailed issue view with dependencies
+
+### Creating & Updating
+- ` + "`bd create \"title\" --type=task|bug|feature --priority=2`" + ` - New issue
+  - Priority: 0-4 (0=critical, 2=medium, 4=backlog)
+- ` + "`bd update <id> --status=in_progress`" + ` - Claim work
+- ` + "`bd update <id> --assignee=username`" + ` - Assign to someone
+- ` + "`bd update <id> --title=\"new title\"`" + ` - Update fields
+- ` + "`bd close <id>`" + ` - Mark complete
+- ` + "`bd close <id1> <id2> ...`" + ` - Close multiple issues at once
+
+### Dependencies & Blocking
+- ` + "`bd dep add <issue> <depends-on>`" + ` - Add dependency (issue depends on depends-on)
+- ` + "`bd blocked`" + ` - Show all blocked issues
+- ` + "`bd show <id>`" + ` - See what's blocking/blocked by this issue
+
+### Project Health
+- ` + "`bd stats`" + ` - Project statistics (open/closed/blocked counts)
+
+## Common Workflows
+
+**Starting work:**
+` + "```bash" + `
+bd ready           # Find available work
+bd show <id>       # Review issue details
+bd update <id> --status=in_progress  # Claim it
+` + "```" + `
+
+**Completing work:**
+` + "```bash" + `
+bd close <id1> <id2> ...    # Close all completed issues at once
+git add . && git commit -m "..."  # Commit your changes
+git push                    # Push to remote
+` + "```" + `
+
+**Creating dependent work:**
+` + "```bash" + `
+bd create "Implement feature X" --type=feature
+bd create "Write tests for X" --type=task
+bd dep add <tests-id> <feature-id>  # Tests depend on feature
+` + "```" + `
+`
+	_, _ = fmt.Fprint(w, context)
+	return nil
+}
