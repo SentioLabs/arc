@@ -114,7 +114,7 @@ func outputCLIContext(w io.Writer) error {
 ## Core Rules
 - Track strategic work in arc (multi-session, dependencies, discovered work)
 - Use ` + "`arc create`" + ` for issues, TodoWrite for simple single-session execution
-- When in doubt, prefer bd—persistence you don't need beats lost context
+- When in doubt, prefer arc—persistence you don't need beats lost context
 - Git workflow: commit and push at session end
 - Session management: check ` + "`arc ready`" + ` for available work
 
@@ -147,23 +147,23 @@ func outputCLIContext(w io.Writer) error {
 
 **Starting work:**
 ` + "```bash" + `
-bd ready           # Find available work
-bd show <id>       # Review issue details
-bd update <id> --status=in_progress  # Claim it
+arc ready           # Find available work
+arc show <id>       # Review issue details
+arc update <id> --status=in_progress  # Claim it
 ` + "```" + `
 
 **Completing work:**
 ` + "```bash" + `
-bd close <id1> <id2> ...    # Close all completed issues at once
+arc close <id1> <id2> ...   # Close all completed issues at once
 git add . && git commit -m "..."  # Commit your changes
 git push                    # Push to remote
 ` + "```" + `
 
 **Creating dependent work:**
 ` + "```bash" + `
-bd create "Implement feature X" --type=feature
-bd create "Write tests for X" --type=task
-bd dep add <tests-id> <feature-id>  # Tests depend on feature
+arc create "Implement feature X" --type=feature
+arc create "Write tests for X" --type=task
+arc dep add <tests-id> <feature-id>  # Tests depend on feature
 ` + "```" + `
 `
 	_, _ = fmt.Fprint(w, context)
