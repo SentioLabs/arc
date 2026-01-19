@@ -14,7 +14,7 @@ COPY web/ ./
 RUN bun run build
 
 # ===========================================================================
-# Stage 2: Build Go binaries
+# Stage 2: Build Go binary
 # ===========================================================================
 FROM golang:1.25-alpine AS go-builder
 
@@ -33,9 +33,8 @@ COPY . .
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /build/web/build ./web/build
 
-# Build both binaries
+# Build unified binary
 # CGO_ENABLED=0 for static binaries (modernc.org/sqlite is pure Go)
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o arc-server ./cmd/server
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o arc ./cmd/arc
 
 # ===========================================================================
@@ -53,8 +52,7 @@ RUN addgroup -g 1000 arc && \
 # Create data directory
 RUN mkdir -p /data && chown arc:arc /data
 
-# Copy binaries from builder
-COPY --from=go-builder /build/arc-server /usr/local/bin/
+# Copy binary from builder
 COPY --from=go-builder /build/arc /usr/local/bin/
 
 # Switch to non-root user
@@ -71,5 +69,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:7432/health || exit 1
 
 # Default command
-ENTRYPOINT ["arc-server"]
-CMD ["-addr", ":7432", "-db", "/data/arc.db"]
+ENTRYPOINT ["arc", "server", "start", "--foreground"]
+CMD ["--port", "7432", "--db", "/data/arc.db"]

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -13,11 +14,15 @@ import (
 	"github.com/sentiolabs/arc/web"
 )
 
+// Version is set at build time via ldflags
+var Version = "dev"
+
 // Server represents the REST API server.
 type Server struct {
-	echo    *echo.Echo
-	store   storage.Storage
-	address string
+	echo      *echo.Echo
+	store     storage.Storage
+	address   string
+	startTime time.Time
 }
 
 // Config holds server configuration.
@@ -38,9 +43,10 @@ func New(cfg Config) *Server {
 	e.Use(middleware.CORS())
 
 	s := &Server{
-		echo:    e,
-		store:   cfg.Store,
-		address: cfg.Address,
+		echo:      e,
+		store:     cfg.Store,
+		address:   cfg.Address,
+		startTime: time.Now(),
 	}
 
 	// Register routes
@@ -115,10 +121,19 @@ func (s *Server) registerRoutes() {
 	ws.GET("/issues/:id/events", s.getEvents)
 }
 
+// HealthResponse contains health check information.
+type HealthResponse struct {
+	Status  string  `json:"status"`
+	Version string  `json:"version"`
+	Uptime  float64 `json:"uptime"` // seconds
+}
+
 // healthCheck returns server health status.
 func (s *Server) healthCheck(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]string{
-		"status": "healthy",
+	return c.JSON(http.StatusOK, HealthResponse{
+		Status:  "healthy",
+		Version: Version,
+		Uptime:  time.Since(s.startTime).Seconds(),
 	})
 }
 

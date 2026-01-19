@@ -9,7 +9,6 @@
 
 # Binary output
 BIN_DIR := ./bin
-SERVER_BIN := $(BIN_DIR)/arc-server
 CLI_BIN := $(BIN_DIR)/arc
 
 # Build settings
@@ -94,30 +93,23 @@ web-clean: ## Clean frontend build artifacts
 # ===========================================================================
 
 .PHONY: build
-build: web-build build-server build-cli ## Build frontend and all binaries
+build: web-build build-bin ## Build frontend and unified binary
 
-.PHONY: build-server
-build-server: ## Build the arc-server binary (requires frontend built first)
-	@echo "==> Building $(SERVER_BIN)..."
+.PHONY: build-bin
+build-bin: ## Build the unified arc binary (requires frontend built first)
+	@echo "==> Building $(CLI_BIN)..."
 	@if [ ! -d "$(WEB_DIR)/build" ]; then \
 		echo "Warning: Frontend not built. Run 'make web-build' first for embedded UI."; \
 	fi
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) -o $(SERVER_BIN) ./cmd/server
-
-.PHONY: build-cli
-build-cli: ## Build the arc CLI binary
-	@echo "==> Building $(CLI_BIN)..."
-	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) -o $(CLI_BIN) ./cmd/arc
 
 .PHONY: build-quick
-build-quick: build-server build-cli ## Build binaries without rebuilding frontend
+build-quick: build-bin ## Build binary without rebuilding frontend
 
 .PHONY: install
-install: ## Install binaries to GOPATH/bin
-	@echo "==> Installing binaries..."
-	$(GO) install ./cmd/server
+install: ## Install unified binary to GOPATH/bin
+	@echo "==> Installing arc binary..."
 	$(GO) install ./cmd/arc
 
 # ===========================================================================
@@ -216,9 +208,9 @@ docker-clean: ## Remove Docker image and volumes
 # ===========================================================================
 
 .PHONY: run
-run: build-server ## Build and run the server locally
+run: build-bin ## Build and run the server locally (foreground)
 	@echo "==> Starting server..."
-	./$(SERVER_BIN)
+	./$(CLI_BIN) server start --foreground
 
 .PHONY: dev
 dev: ## Run server with live reload (requires air)
