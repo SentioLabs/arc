@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/SentioLabs/arc/compare/v0.1.0...v0.1.1) (2026-01-20)
+
+
+### Bug Fixes
+
+* combine release-please and goreleaser into single workflow ([54d302f](https://github.com/SentioLabs/arc/commit/54d302f9fac1b2bbb857d5e104239fbe995807a0))
+
 ## 0.1.0 (2026-01-20)
 
 
