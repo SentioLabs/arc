@@ -1,0 +1,15 @@
+{
+  "name": "arc-marketplace",
+  "description": "marketplace for arc ai issue tracker",
+  "owner": {
+    "name": "Ben Firestone"
+  },
+  "plugins": [
+    {
+      "name": "arc",
+      "source": "./claude-plugin",
+      "description": "AI issue tracker for coding workflows",
+      "version": "0.1.1"
+    }
+  ]
+}
