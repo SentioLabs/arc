@@ -49,10 +49,24 @@ snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
 changelog:
-  use: git-cliff
   sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Other
+      order: 999
   filters:
     exclude:
+      - "^chore"
+      - "^docs"
+      - "^test"
       - "^Merge"
 
 # Linux packages (deb, rpm, arch) - published as GitHub release artifacts
