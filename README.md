@@ -1,10 +1,11 @@
 # arc
 
-A central issue tracking server for AI-assisted coding workflows. This is a light, centralized issue tracker for claude code inspired heavily by [beads](https://github.com/steveyegge/beads) - key differences are no per-repo daemons, no git sync, and uses a REST API + CLI.
+A central issue tracking server for AI-assisted coding workflows. This is inspired heavily by the good work over at [beads](https://github.com/steveyegge/beads) - key differences are no per-repo daemons, no git sync, and uses a REST API + CLI.
 
 ## Features
 
 - **Central Server**: Single server managing multiple workspaces
+- **Web UI**: Svelete client app embedded in go server
 - **REST API**: Clean JSON API for all operations
 - **Workspaces**: First-class workspace management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
