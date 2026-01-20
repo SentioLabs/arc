@@ -50,7 +50,7 @@ make docker-up
 ### Data Flow
 
 ```
-CLI (bd) → HTTP Client → REST API → Storage → SQLite
+CLI (arc) → HTTP Client → REST API → Storage → SQLite
 ```
 
 ## Key Data Types

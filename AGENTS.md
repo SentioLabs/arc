@@ -21,7 +21,7 @@ arc is a central issue tracking server for AI-assisted coding workflows. It prov
 │  └─────────────┘  └─────────────┘  └─────────────┘     │
 │                         │                               │
 │                    SQLite DB                            │
-│              (~/.arc-server/data.db)                  │
+│              (~/.arc/data.db)                  │
 └─────────────────────────────────────────────────────────┘
                           │
               REST API (localhost:7432)
