@@ -33,6 +33,28 @@ type Config struct {
 	DefaultWorkspace string `json:"default_workspace"`
 }
 
+// WorkspaceSource indicates how the workspace was resolved
+type WorkspaceSource int
+
+const (
+	WorkspaceSourceFlag WorkspaceSource = iota
+	WorkspaceSourceLocal
+	WorkspaceSourceGlobal
+)
+
+func (s WorkspaceSource) String() string {
+	switch s {
+	case WorkspaceSourceFlag:
+		return "command line flag (-w)"
+	case WorkspaceSourceLocal:
+		return ".arc.json (local)"
+	case WorkspaceSourceGlobal:
+		return "default_workspace (global config)"
+	default:
+		return "unknown"
+	}
+}
+
 func loadConfig() (*Config, error) {
 	if configPath == "" {
 		home, _ := os.UserHomeDir()
@@ -79,6 +101,33 @@ func saveConfig(cfg *Config) error {
 	return os.WriteFile(configPath, data, 0o644)
 }
 
+// localConfig represents the .arc.json file structure
+type localConfig struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// loadLocalConfig attempts to load .arc.json from the current directory
+func loadLocalConfig() (*localConfig, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	configPath := filepath.Join(cwd, ".arc.json")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg localConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
 func getClient() (*client.Client, error) {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -93,21 +142,55 @@ func getClient() (*client.Client, error) {
 	return client.New(url), nil
 }
 
+// getWorkspaceID resolves the workspace ID using the following priority:
+// 1. CLI flag (-w/--workspace) - explicit override
+// 2. Local config (.arc.json in current directory)
+//
+// If neither is available, an error is returned. There is no global fallback.
 func getWorkspaceID() (string, error) {
+	wsID, _, _, err := resolveWorkspace()
+	return wsID, err
+}
+
+// resolveWorkspace returns the workspace ID, source, and error.
+// Resolution priority:
+//  1. CLI flag (-w/--workspace) - explicit override always works
+//  2. Local .arc.json - per-directory workspace binding
+//
+// If neither is available, an error is returned. There is no global fallback
+// to prevent accidentally operating in the wrong workspace.
+func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, err error) {
+	// Priority 1: CLI flag (explicit override)
 	if workspaceID != "" {
-		return workspaceID, nil
+		return workspaceID, WorkspaceSourceFlag, "", nil
 	}
 
-	cfg, err := loadConfig()
-	if err != nil {
-		return "", err
+	// Priority 2: Local .arc.json
+	localCfg, localErr := loadLocalConfig()
+	if localErr != nil {
+		if os.IsNotExist(localErr) {
+			return "", 0, "", fmt.Errorf("no workspace configured for this directory\n  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
+		}
+		// .arc.json exists but is invalid
+		return "", 0, "", fmt.Errorf("invalid .arc.json: %w\n  Run 'arc init' to reconfigure", localErr)
 	}
 
-	if cfg.DefaultWorkspace == "" {
-		return "", fmt.Errorf("no workspace specified. Use --workspace or 'arc workspace use <name>' to set default")
+	if localCfg.WorkspaceID == "" {
+		return "", 0, "", fmt.Errorf("invalid .arc.json: missing workspace_id\n  Run 'arc init' to reconfigure")
 	}
 
-	return cfg.DefaultWorkspace, nil
+	// Validate workspace exists on server
+	c, clientErr := getClient()
+	if clientErr == nil {
+		_, wsErr := c.GetWorkspace(localCfg.WorkspaceID)
+		if wsErr != nil {
+			return "", 0, "", fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
+				localCfg.WorkspaceName, localCfg.WorkspaceID)
+		}
+	}
+	// If can't connect to server, trust local config (server might be down temporarily)
+
+	return localCfg.WorkspaceID, WorkspaceSourceLocal, "", nil
 }
 
 func outputResult(data interface{}) {
@@ -158,6 +241,66 @@ func init() {
 	workspaceCmd.AddCommand(workspaceCreateCmd)
 	workspaceCmd.AddCommand(workspaceUseCmd)
 	workspaceCmd.AddCommand(workspaceDeleteCmd)
+}
+
+var whichCmd = &cobra.Command{
+	Use:   "which",
+	Short: "Show which workspace is active and how it was resolved",
+	Long: `Display the currently active workspace and its resolution source.
+
+This helps debug workspace resolution issues by showing:
+- The active workspace ID and name
+- Where the workspace was resolved from (flag, local .arc.json, or global config)
+- Any warnings about the configuration`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		wsID, source, warning, err := resolveWorkspace()
+		if err != nil {
+			return err
+		}
+
+		// Try to get workspace details
+		c, clientErr := getClient()
+		var wsName string
+		if clientErr == nil {
+			if ws, wsErr := c.GetWorkspace(wsID); wsErr == nil {
+				wsName = ws.Name
+			}
+		}
+
+		if outputJSON {
+			result := map[string]string{
+				"workspace_id": wsID,
+				"source":       source.String(),
+			}
+			if wsName != "" {
+				result["workspace_name"] = wsName
+			}
+			if warning != "" {
+				result["warning"] = warning
+			}
+			outputResult(result)
+			return nil
+		}
+
+		// Human-readable output
+		if wsName != "" {
+			fmt.Printf("Workspace: %s (%s)\n", wsName, wsID)
+		} else {
+			fmt.Printf("Workspace: %s\n", wsID)
+		}
+		fmt.Printf("Source: %s\n", source)
+
+		if warning != "" {
+			fmt.Fprintln(os.Stderr)
+			fmt.Fprintln(os.Stderr, warning)
+		}
+
+		return nil
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(whichCmd)
 }
 
 var workspaceListCmd = &cobra.Command{

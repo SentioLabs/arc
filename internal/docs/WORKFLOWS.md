@@ -500,7 +500,7 @@ Research or investigation work:
 ## Decision Points
 
 **Should I create an arc issue or use TodoWrite?**
-→ See [BOUNDARIES.md](BOUNDARIES.md) for decision matrix
+→ Run `arc docs boundaries` for decision matrix
 
 **Should I ask user before creating issue?**
 → Ask if scope unclear; create if obvious follow-up work
@@ -537,7 +537,7 @@ Research or investigation work:
 5. Continue with arc tracking
 
 **"I closed an issue but work isn't done"**
-1. Reopen with arc reopen <issue-id>
+1. Reopen with `arc update <issue-id> --status open`
 2. Or create new issue linking to closed one
 3. Note what's still needed
 

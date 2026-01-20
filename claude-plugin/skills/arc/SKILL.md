@@ -33,7 +33,7 @@ The plugin is the single source of truth for Claude integration. It provides:
 
 **Rule of thumb**: When in doubt, prefer arc—persistence you don't need beats lost context.
 
-**Deep dive**: See [BOUNDARIES.md](resources/BOUNDARIES.md) for detailed decision criteria.
+**Deep dive**: Run `arc docs boundaries` for detailed decision criteria.
 
 ## Quick Start
 
@@ -53,16 +53,18 @@ Run `arc prime` for full workflow context, or `arc <command> --help` for specifi
 - `arc show` - View details
 - `arc dep` - Manage dependencies
 
-## Resource Index
+## Deep Dive Documentation
 
-Detailed guides for specific topics:
+For detailed guidance, use `arc docs <topic>`:
 
-| Resource | Purpose |
-|----------|---------|
-| [BOUNDARIES.md](resources/BOUNDARIES.md) | When to use arc vs TodoWrite - decision matrix, integration patterns, common mistakes |
-| [WORKFLOWS.md](resources/WORKFLOWS.md) | Step-by-step checklists for session start, epic planning, side quests, handoff |
-| [DEPENDENCIES.md](resources/DEPENDENCIES.md) | Dependency types (blocks, related, parent-child, discovered-from) and when to use each |
-| [RESUMABILITY.md](resources/RESUMABILITY.md) | Writing notes that survive compaction - templates and anti-patterns |
+| Command | Purpose |
+|---------|---------|
+| `arc docs boundaries` | When to use arc vs TodoWrite - decision matrix, integration patterns, common mistakes |
+| `arc docs workflows` | Step-by-step checklists for session start, epic planning, side quests, handoff |
+| `arc docs dependencies` | Dependency types (blocks, related, parent-child, discovered-from) and when to use each |
+| `arc docs resumability` | Writing notes that survive compaction - templates and anti-patterns |
+
+Run `arc docs` without a topic to see an overview.
 
 ## Agent Mode
 
@@ -79,7 +81,7 @@ Arc supports four dependency types:
 | **parent-child** | Epic/subtask hierarchy | No |
 | **discovered-from** | Track provenance of discovered work | No |
 
-**Deep dive**: See [DEPENDENCIES.md](resources/DEPENDENCIES.md) for examples and patterns.
+**Deep dive**: Run `arc docs dependencies` for examples and patterns.
 
 ## Session Protocol
 
@@ -100,7 +102,7 @@ Work is NOT done until `git push` succeeds.
 arc update <id> --notes "COMPLETED: X. IN PROGRESS: Y. NEXT: Z"
 ```
 
-**Deep dive**: See [RESUMABILITY.md](resources/RESUMABILITY.md) for templates.
+**Deep dive**: Run `arc docs resumability` for templates.
 
 ## Common Workflows
 
@@ -125,4 +127,4 @@ arc close <id>                      # Complete issue
 arc ready                           # See what unblocked
 ```
 
-**Deep dive**: See [WORKFLOWS.md](resources/WORKFLOWS.md) for complete checklists.
+**Deep dive**: Run `arc docs workflows` for complete checklists.
