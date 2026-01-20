@@ -1,6 +1,6 @@
 # arc
 
-A central issue tracking server for AI-assisted coding workflows. This is a simplified, centralized version of [beads](https://github.com/steveyegge/beads) - no per-repo daemons, no git sync, just a clean REST API + CLI.
+A central issue tracking server for AI-assisted coding workflows. This is a light, centralized issue tracker for claude code inspired heavily by [beads](https://github.com/steveyegge/beads) - key differences are no per-repo daemons, no git sync, and uses a REST API + CLI.
 
 ## Features
 
@@ -128,13 +128,13 @@ arc setup claude --check    # Verify installation
 
 **What the Plugin Provides:**
 
-| Component | Benefit |
-|-----------|---------|
+| Component         | Benefit                                |
+| ----------------- | -------------------------------------- |
 | SessionStart Hook | Auto-runs `arc prime` on session start |
-| PreCompact Hook | Preserves context before compaction |
-| Prompt Config | Reminds Claude to run `arc onboard` |
-| Skills | Detailed guides for arc workflows |
-| Agent | Bulk operations via Task tool |
+| PreCompact Hook   | Preserves context before compaction    |
+| Prompt Config     | Reminds Claude to run `arc onboard`    |
+| Skills            | Detailed guides for arc workflows      |
+| Agent             | Bulk operations via Task tool          |
 
 **Typical Setup:**
 
@@ -201,11 +201,13 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 ## Data Model
 
 ### Workspace
+
 - ID (e.g., "ws-a1b2")
 - Name, description, path
 - Prefix for issue IDs
 
 ### Issue
+
 - ID (e.g., "mp-abc123")
 - Title, description
 - Status: open, in_progress, blocked, deferred, closed
@@ -214,6 +216,7 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 - Assignee, external reference
 
 ### Dependency Types
+
 - `blocks`: Issue A blocks issue B
 - `parent-child`: Hierarchical relationship
 - `related`: Loose association
@@ -253,6 +256,7 @@ make docker-up
 ## API Reference
 
 ### Workspaces
+
 - `GET /api/v1/workspaces` - List workspaces
 - `POST /api/v1/workspaces` - Create workspace
 - `GET /api/v1/workspaces/:id` - Get workspace
@@ -261,6 +265,7 @@ make docker-up
 - `GET /api/v1/workspaces/:id/stats` - Get statistics
 
 ### Issues
+
 - `GET /api/v1/workspaces/:ws/issues` - List issues
 - `POST /api/v1/workspaces/:ws/issues` - Create issue
 - `GET /api/v1/workspaces/:ws/issues/:id` - Get issue
@@ -270,15 +275,18 @@ make docker-up
 - `POST /api/v1/workspaces/:ws/issues/:id/reopen` - Reopen issue
 
 ### Ready Work & Blocked
+
 - `GET /api/v1/workspaces/:ws/ready` - Ready issues
 - `GET /api/v1/workspaces/:ws/blocked` - Blocked issues
 
 ### Dependencies
+
 - `GET /api/v1/workspaces/:ws/issues/:id/deps` - Get dependencies
 - `POST /api/v1/workspaces/:ws/issues/:id/deps` - Add dependency
 - `DELETE /api/v1/workspaces/:ws/issues/:id/deps/:dep` - Remove dependency
 
 ### Labels
+
 - `GET /api/v1/workspaces/:ws/labels` - List labels
 - `POST /api/v1/workspaces/:ws/labels` - Create label
 - `PUT /api/v1/workspaces/:ws/labels/:name` - Update label
@@ -287,12 +295,14 @@ make docker-up
 - `DELETE /api/v1/workspaces/:ws/issues/:id/labels/:label` - Remove label
 
 ### Comments
+
 - `GET /api/v1/workspaces/:ws/issues/:id/comments` - Get comments
 - `POST /api/v1/workspaces/:ws/issues/:id/comments` - Add comment
 - `PUT /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Update comment
 - `DELETE /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Delete comment
 
 ### Events
+
 - `GET /api/v1/workspaces/:ws/issues/:id/events` - Get audit events
 
 ## License
