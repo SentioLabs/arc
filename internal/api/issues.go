@@ -9,29 +9,25 @@ import (
 
 // createIssueRequest is the request body for creating an issue.
 type createIssueRequest struct {
-	Title              string `json:"title"`
-	Description        string `json:"description,omitempty"`
-	AcceptanceCriteria string `json:"acceptance_criteria,omitempty"`
-	Notes              string `json:"notes,omitempty"`
-	Status             string `json:"status,omitempty"`
-	Priority           int    `json:"priority,omitempty"`
-	IssueType          string `json:"issue_type,omitempty"`
-	Assignee           string `json:"assignee,omitempty"`
-	ExternalRef        string `json:"external_ref,omitempty"`
-	ParentID           string `json:"parent_id,omitempty"` // For hierarchical child IDs
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Priority    int    `json:"priority,omitempty"`
+	IssueType   string `json:"issue_type,omitempty"`
+	Assignee    string `json:"assignee,omitempty"`
+	ExternalRef string `json:"external_ref,omitempty"`
+	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs
 }
 
 // updateIssueRequest is the request body for updating an issue.
 type updateIssueRequest struct {
-	Title              *string `json:"title,omitempty"`
-	Description        *string `json:"description,omitempty"`
-	AcceptanceCriteria *string `json:"acceptance_criteria,omitempty"`
-	Notes              *string `json:"notes,omitempty"`
-	Status             *string `json:"status,omitempty"`
-	Priority           *int    `json:"priority,omitempty"`
-	IssueType          *string `json:"issue_type,omitempty"`
-	Assignee           *string `json:"assignee,omitempty"`
-	ExternalRef        *string `json:"external_ref,omitempty"`
+	Title       *string `json:"title,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Status      *string `json:"status,omitempty"`
+	Priority    *int    `json:"priority,omitempty"`
+	IssueType   *string `json:"issue_type,omitempty"`
+	Assignee    *string `json:"assignee,omitempty"`
+	ExternalRef *string `json:"external_ref,omitempty"`
 }
 
 // closeIssueRequest is the request body for closing an issue.
@@ -101,17 +97,15 @@ func (s *Server) createIssue(c echo.Context) error {
 	}
 
 	issue := &types.Issue{
-		WorkspaceID:        wsID,
-		ParentID:           req.ParentID,
-		Title:              req.Title,
-		Description:        req.Description,
-		AcceptanceCriteria: req.AcceptanceCriteria,
-		Notes:              req.Notes,
-		Status:             types.Status(req.Status),
-		Priority:           req.Priority,
-		IssueType:          types.IssueType(req.IssueType),
-		Assignee:           req.Assignee,
-		ExternalRef:        req.ExternalRef,
+		WorkspaceID: wsID,
+		ParentID:    req.ParentID,
+		Title:       req.Title,
+		Description: req.Description,
+		Status:      types.Status(req.Status),
+		Priority:    req.Priority,
+		IssueType:   types.IssueType(req.IssueType),
+		Assignee:    req.Assignee,
+		ExternalRef: req.ExternalRef,
 	}
 
 	if err := s.store.CreateIssue(c.Request().Context(), issue, actor); err != nil {
@@ -171,12 +165,6 @@ func (s *Server) updateIssue(c echo.Context) error {
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
-	}
-	if req.AcceptanceCriteria != nil {
-		updates["acceptance_criteria"] = *req.AcceptanceCriteria
-	}
-	if req.Notes != nil {
-		updates["notes"] = *req.Notes
 	}
 	if req.Status != nil {
 		updates["status"] = *req.Status

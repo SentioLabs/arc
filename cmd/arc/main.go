@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -204,9 +205,10 @@ func outputResult(data interface{}) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "arc",
-	Short: "arc CLI - central issue tracking",
-	Long:  `arc is a central issue tracking server for AI-assisted coding workflows.`,
+	Use:     "arc",
+	Short:   "arc CLI - central issue tracking",
+	Long:    `arc is a central issue tracking server for AI-assisted coding workflows.`,
+	Version: version.Info(),
 }
 
 func init() {
@@ -641,12 +643,6 @@ var updateCmd = &cobra.Command{
 		if val, _ := cmd.Flags().GetString("description"); val != "" {
 			updates["description"] = val
 		}
-		if val, _ := cmd.Flags().GetString("notes"); val != "" {
-			updates["notes"] = val
-		}
-		if val, _ := cmd.Flags().GetString("acceptance-criteria"); val != "" {
-			updates["acceptance_criteria"] = val
-		}
 
 		if len(updates) == 0 {
 			return fmt.Errorf("no updates specified")
@@ -674,8 +670,6 @@ func init() {
 	updateCmd.Flags().IntP("priority", "p", 0, "New priority")
 	updateCmd.Flags().StringP("type", "t", "", "New type")
 	updateCmd.Flags().StringP("description", "d", "", "New description")
-	updateCmd.Flags().String("notes", "", "New notes")
-	updateCmd.Flags().String("acceptance-criteria", "", "New acceptance criteria")
 }
 
 var closeCmd = &cobra.Command{

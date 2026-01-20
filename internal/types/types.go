@@ -43,10 +43,8 @@ type Issue struct {
 	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs (e.g., parent-id.1)
 
 	// Issue Content
-	Title              string `json:"title"`
-	Description        string `json:"description,omitempty"`
-	AcceptanceCriteria string `json:"acceptance_criteria,omitempty"`
-	Notes              string `json:"notes,omitempty"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
 
 	// Status & Workflow
 	Status    Status    `json:"status"`

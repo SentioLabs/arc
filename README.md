@@ -11,17 +11,51 @@ A central issue tracking server for AI-assisted coding workflows. This is a simp
 - **Ready Work**: Find issues with no blockers
 - **Statistics**: Aggregate metrics per workspace
 
+## Installation
+
+### Quick Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sentiolabs/arc/main/scripts/install.sh | bash
+```
+
+### Linux Packages
+
+Download `.deb`, `.rpm`, or `.pkg.tar.zst` (Arch) from the [latest release](https://github.com/sentiolabs/arc/releases/latest).
+
+```bash
+# Debian/Ubuntu
+sudo dpkg -i arc_*_linux_amd64.deb
+
+# Fedora/RHEL
+sudo rpm -i arc_*_linux_amd64.rpm
+
+# Arch Linux
+sudo pacman -U arc_*_linux_amd64.pkg.tar.zst
+```
+
+### From Source
+
+```bash
+git clone https://github.com/sentiolabs/arc
+cd arc
+make build
+# Binary at ./bin/arc
+```
+
 ## Quick Start
 
 ### Start the Server
 
 ```bash
-# Build and run
-go build -o arc-server ./cmd/server
-./arc-server
+# Start the daemon (background)
+arc server start
 
-# Or with custom options
-./arc-server -addr :8080 -db /path/to/data.db
+# Or run in foreground
+arc server run
+
+# Custom options
+arc server run --addr :8080 --db /path/to/data.db
 ```
 
 The server stores data in `~/.arc/data.db` by default.
@@ -29,8 +63,6 @@ The server stores data in `~/.arc/data.db` by default.
 ### CLI Usage
 
 ```bash
-# Build CLI
-go build -o arc ./cmd/arc
 
 # Create a workspace
 arc workspace create my-project --prefix mp
@@ -175,7 +207,7 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 
 ### Issue
 - ID (e.g., "mp-abc123")
-- Title, description, acceptance criteria, notes
+- Title, description
 - Status: open, in_progress, blocked, deferred, closed
 - Priority: 0 (critical) - 4 (backlog)
 - Type: bug, feature, task, epic, chore
@@ -201,15 +233,21 @@ CLI configuration is stored in `~/.config/arc/config.json`:
 ## Development
 
 ```bash
+# Build everything (frontend + binaries)
+make build
+
+# Build binaries only (faster)
+make build-quick
+
 # Run tests
-go test ./...
+make test
 
-# Regenerate sqlc
-sqlc generate
+# Generate code (sqlc, OpenAPI, TypeScript)
+make gen
 
-# Build both binaries
-go build ./cmd/server
-go build ./cmd/arc
+# Docker
+make docker-build
+make docker-up
 ```
 
 ## API Reference

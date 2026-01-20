@@ -33,14 +33,14 @@ type Repository struct {
 }
 
 // New creates a new SQLite repository at the given path.
-// If the path is empty, uses ~/.arc-server/data.db
+// If the path is empty, uses ~/.arc/data.db
 func New(path string) (*Repository, error) {
 	if path == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("get home dir: %w", err)
 		}
-		path = filepath.Join(home, ".arc-server", "data.db")
+		path = filepath.Join(home, ".arc", "data.db")
 	}
 
 	// Create directory if needed
@@ -127,13 +127,12 @@ CREATE TABLE IF NOT EXISTS issues (
     workspace_id TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
-    acceptance_criteria TEXT,
-    notes TEXT,
     status TEXT NOT NULL DEFAULT 'open',
     priority INTEGER NOT NULL DEFAULT 2,
     issue_type TEXT NOT NULL DEFAULT 'task',
     assignee TEXT,
     external_ref TEXT,
+    rank INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at TIMESTAMP,

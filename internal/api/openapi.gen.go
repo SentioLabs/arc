@@ -88,16 +88,15 @@ type AddLabelToIssueRequest struct {
 
 // BlockedIssue defines model for BlockedIssue.
 type BlockedIssue struct {
-	AcceptanceCriteria *string       `json:"acceptance_criteria,omitempty"`
-	Assignee           *string       `json:"assignee,omitempty"`
-	BlockedBy          []string      `json:"blocked_by"`
-	BlockedByCount     int           `json:"blocked_by_count"`
-	CloseReason        *string       `json:"close_reason,omitempty"`
-	ClosedAt           *time.Time    `json:"closed_at,omitempty"`
-	Comments           *[]Comment    `json:"comments,omitempty"`
-	CreatedAt          time.Time     `json:"created_at"`
-	Dependencies       *[]Dependency `json:"dependencies,omitempty"`
-	Description        *string       `json:"description,omitempty"`
+	Assignee       *string       `json:"assignee,omitempty"`
+	BlockedBy      []string      `json:"blocked_by"`
+	BlockedByCount int           `json:"blocked_by_count"`
+	CloseReason    *string       `json:"close_reason,omitempty"`
+	ClosedAt       *time.Time    `json:"closed_at,omitempty"`
+	Comments       *[]Comment    `json:"comments,omitempty"`
+	CreatedAt      time.Time     `json:"created_at"`
+	Dependencies   *[]Dependency `json:"dependencies,omitempty"`
+	Description    *string       `json:"description,omitempty"`
 
 	// ExternalRef External reference (e.g., "gh-9", "jira-ABC")
 	ExternalRef *string `json:"external_ref,omitempty"`
@@ -106,7 +105,6 @@ type BlockedIssue struct {
 	ID        string    `json:"id"`
 	IssueType IssueType `json:"issue_type"`
 	Labels    *[]string `json:"labels,omitempty"`
-	Notes     *string   `json:"notes,omitempty"`
 
 	// Priority 0 (critical) - 4 (backlog)
 	Priority int `json:"priority"`
@@ -137,15 +135,13 @@ type Comment struct {
 
 // CreateIssueRequest defines model for CreateIssueRequest.
 type CreateIssueRequest struct {
-	AcceptanceCriteria *string    `json:"acceptance_criteria,omitempty"`
-	Assignee           *string    `json:"assignee,omitempty"`
-	Description        *string    `json:"description,omitempty"`
-	ExternalRef        *string    `json:"external_ref,omitempty"`
-	IssueType          *IssueType `json:"issue_type,omitempty"`
-	Notes              *string    `json:"notes,omitempty"`
-	Priority           *int       `json:"priority,omitempty"`
-	Status             *Status    `json:"status,omitempty"`
-	Title              string     `json:"title"`
+	Assignee    *string    `json:"assignee,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	ExternalRef *string    `json:"external_ref,omitempty"`
+	IssueType   *IssueType `json:"issue_type,omitempty"`
+	Priority    *int       `json:"priority,omitempty"`
+	Status      *Status    `json:"status,omitempty"`
+	Title       string     `json:"title"`
 }
 
 // CreateLabelRequest defines model for CreateLabelRequest.
@@ -211,14 +207,13 @@ type EventType string
 
 // Issue defines model for Issue.
 type Issue struct {
-	AcceptanceCriteria *string       `json:"acceptance_criteria,omitempty"`
-	Assignee           *string       `json:"assignee,omitempty"`
-	CloseReason        *string       `json:"close_reason,omitempty"`
-	ClosedAt           *time.Time    `json:"closed_at,omitempty"`
-	Comments           *[]Comment    `json:"comments,omitempty"`
-	CreatedAt          time.Time     `json:"created_at"`
-	Dependencies       *[]Dependency `json:"dependencies,omitempty"`
-	Description        *string       `json:"description,omitempty"`
+	Assignee     *string       `json:"assignee,omitempty"`
+	CloseReason  *string       `json:"close_reason,omitempty"`
+	ClosedAt     *time.Time    `json:"closed_at,omitempty"`
+	Comments     *[]Comment    `json:"comments,omitempty"`
+	CreatedAt    time.Time     `json:"created_at"`
+	Dependencies *[]Dependency `json:"dependencies,omitempty"`
+	Description  *string       `json:"description,omitempty"`
 
 	// ExternalRef External reference (e.g., "gh-9", "jira-ABC")
 	ExternalRef *string `json:"external_ref,omitempty"`
@@ -227,7 +222,6 @@ type Issue struct {
 	ID        string    `json:"id"`
 	IssueType IssueType `json:"issue_type"`
 	Labels    *[]string `json:"labels,omitempty"`
-	Notes     *string   `json:"notes,omitempty"`
 
 	// Priority 0 (critical) - 4 (backlog)
 	Priority int `json:"priority"`
@@ -242,15 +236,14 @@ type Issue struct {
 
 // IssueDetails defines model for IssueDetails.
 type IssueDetails struct {
-	AcceptanceCriteria *string       `json:"acceptance_criteria,omitempty"`
-	Assignee           *string       `json:"assignee,omitempty"`
-	CloseReason        *string       `json:"close_reason,omitempty"`
-	ClosedAt           *time.Time    `json:"closed_at,omitempty"`
-	Comments           *[]Comment    `json:"comments,omitempty"`
-	CreatedAt          time.Time     `json:"created_at"`
-	Dependencies       *[]Dependency `json:"dependencies,omitempty"`
-	Dependents         *[]Dependency `json:"dependents,omitempty"`
-	Description        *string       `json:"description,omitempty"`
+	Assignee     *string       `json:"assignee,omitempty"`
+	CloseReason  *string       `json:"close_reason,omitempty"`
+	ClosedAt     *time.Time    `json:"closed_at,omitempty"`
+	Comments     *[]Comment    `json:"comments,omitempty"`
+	CreatedAt    time.Time     `json:"created_at"`
+	Dependencies *[]Dependency `json:"dependencies,omitempty"`
+	Dependents   *[]Dependency `json:"dependents,omitempty"`
+	Description  *string       `json:"description,omitempty"`
 
 	// ExternalRef External reference (e.g., "gh-9", "jira-ABC")
 	ExternalRef *string `json:"external_ref,omitempty"`
@@ -259,7 +252,6 @@ type IssueDetails struct {
 	ID        string    `json:"id"`
 	IssueType IssueType `json:"issue_type"`
 	Labels    *[]string `json:"labels,omitempty"`
-	Notes     *string   `json:"notes,omitempty"`
 
 	// Priority 0 (critical) - 4 (backlog)
 	Priority int `json:"priority"`
@@ -315,15 +307,13 @@ type UpdateCommentRequest struct {
 
 // UpdateIssueRequest defines model for UpdateIssueRequest.
 type UpdateIssueRequest struct {
-	AcceptanceCriteria *string    `json:"acceptance_criteria,omitempty"`
-	Assignee           *string    `json:"assignee,omitempty"`
-	Description        *string    `json:"description,omitempty"`
-	ExternalRef        *string    `json:"external_ref,omitempty"`
-	IssueType          *IssueType `json:"issue_type,omitempty"`
-	Notes              *string    `json:"notes,omitempty"`
-	Priority           *int       `json:"priority,omitempty"`
-	Status             *Status    `json:"status,omitempty"`
-	Title              *string    `json:"title,omitempty"`
+	Assignee    *string    `json:"assignee,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	ExternalRef *string    `json:"external_ref,omitempty"`
+	IssueType   *IssueType `json:"issue_type,omitempty"`
+	Priority    *int       `json:"priority,omitempty"`
+	Status      *Status    `json:"status,omitempty"`
+	Title       *string    `json:"title,omitempty"`
 }
 
 // UpdateLabelRequest defines model for UpdateLabelRequest.
@@ -3638,64 +3628,64 @@ func (sh *strictHandler) GetWorkspaceStats(ctx echo.Context, workspaceID Workspa
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"W4b0XjcBxTFNvZXFdLr/LwAA///JU78eJWMAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

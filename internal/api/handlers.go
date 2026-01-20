@@ -190,12 +190,6 @@ func (h *StrictHandler) CreateIssue(ctx context.Context, request CreateIssueRequ
 	if body.Description != nil {
 		input.Description = *body.Description
 	}
-	if body.AcceptanceCriteria != nil {
-		input.AcceptanceCriteria = *body.AcceptanceCriteria
-	}
-	if body.Notes != nil {
-		input.Notes = *body.Notes
-	}
 	if body.Status != nil {
 		s := types.Status(*body.Status)
 		input.Status = &s
@@ -269,12 +263,6 @@ func (h *StrictHandler) UpdateIssue(ctx context.Context, request UpdateIssueRequ
 	}
 	if body.Description != nil {
 		input.Description = body.Description
-	}
-	if body.AcceptanceCriteria != nil {
-		input.AcceptanceCriteria = body.AcceptanceCriteria
-	}
-	if body.Notes != nil {
-		input.Notes = body.Notes
 	}
 	if body.Status != nil {
 		s := string(*body.Status)
@@ -686,21 +674,19 @@ func statisticsToAPI(s *types.Statistics) Statistics {
 
 func issueToAPI(i *types.Issue) Issue {
 	return Issue{
-		ID:                 i.ID,
-		WorkspaceID:        i.WorkspaceID,
-		Title:              i.Title,
-		Description:        ptrString(i.Description),
-		AcceptanceCriteria: ptrString(i.AcceptanceCriteria),
-		Notes:              ptrString(i.Notes),
-		Status:             Status(i.Status),
-		Priority:           i.Priority,
-		IssueType:          IssueType(i.IssueType),
-		Assignee:           ptrString(i.Assignee),
-		ExternalRef:        ptrString(i.ExternalRef),
-		CreatedAt:          i.CreatedAt,
-		UpdatedAt:          i.UpdatedAt,
-		ClosedAt:           i.ClosedAt,
-		CloseReason:        ptrString(i.CloseReason),
+		ID:          i.ID,
+		WorkspaceID: i.WorkspaceID,
+		Title:       i.Title,
+		Description: ptrString(i.Description),
+		Status:      Status(i.Status),
+		Priority:    i.Priority,
+		IssueType:   IssueType(i.IssueType),
+		Assignee:    ptrString(i.Assignee),
+		ExternalRef: ptrString(i.ExternalRef),
+		CreatedAt:   i.CreatedAt,
+		UpdatedAt:   i.UpdatedAt,
+		ClosedAt:    i.ClosedAt,
+		CloseReason: ptrString(i.CloseReason),
 	}
 }
 
@@ -732,23 +718,21 @@ func issueDetailsToAPI(d *types.IssueDetails) Issue {
 
 func blockedIssueToAPI(b *types.BlockedIssue) BlockedIssue {
 	return BlockedIssue{
-		ID:                 b.ID,
-		WorkspaceID:        b.WorkspaceID,
-		Title:              b.Title,
-		Description:        ptrString(b.Description),
-		AcceptanceCriteria: ptrString(b.AcceptanceCriteria),
-		Notes:              ptrString(b.Notes),
-		Status:             Status(b.Status),
-		Priority:           b.Priority,
-		IssueType:          IssueType(b.IssueType),
-		Assignee:           ptrString(b.Assignee),
-		ExternalRef:        ptrString(b.ExternalRef),
-		CreatedAt:          b.CreatedAt,
-		UpdatedAt:          b.UpdatedAt,
-		ClosedAt:           b.ClosedAt,
-		CloseReason:        ptrString(b.CloseReason),
-		BlockedByCount:     b.BlockedByCount,
-		BlockedBy:          b.BlockedBy,
+		ID:             b.ID,
+		WorkspaceID:   b.WorkspaceID,
+		Title:         b.Title,
+		Description:   ptrString(b.Description),
+		Status:        Status(b.Status),
+		Priority:      b.Priority,
+		IssueType:     IssueType(b.IssueType),
+		Assignee:      ptrString(b.Assignee),
+		ExternalRef:   ptrString(b.ExternalRef),
+		CreatedAt:     b.CreatedAt,
+		UpdatedAt:     b.UpdatedAt,
+		ClosedAt:      b.ClosedAt,
+		CloseReason:   ptrString(b.CloseReason),
+		BlockedByCount: b.BlockedByCount,
+		BlockedBy:     b.BlockedBy,
 	}
 }
 

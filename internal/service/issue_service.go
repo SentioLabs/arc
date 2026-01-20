@@ -20,28 +20,24 @@ func NewIssueService(issues repository.IssueRepository) *IssueService {
 
 // CreateIssueInput contains the input for creating an issue.
 type CreateIssueInput struct {
-	WorkspaceID        string
-	Title              string
-	Description        string
-	AcceptanceCriteria string
-	Notes              string
-	Status             *types.Status
-	Priority           *int
-	IssueType          *types.IssueType
-	Assignee           string
-	ExternalRef        string
+	WorkspaceID string
+	Title       string
+	Description string
+	Status      *types.Status
+	Priority    *int
+	IssueType   *types.IssueType
+	Assignee    string
+	ExternalRef string
 }
 
 // Create creates a new issue.
 func (s *IssueService) Create(ctx context.Context, input CreateIssueInput, actor string) (*types.Issue, error) {
 	issue := &types.Issue{
-		WorkspaceID:        input.WorkspaceID,
-		Title:              input.Title,
-		Description:        input.Description,
-		AcceptanceCriteria: input.AcceptanceCriteria,
-		Notes:              input.Notes,
-		Assignee:           input.Assignee,
-		ExternalRef:        input.ExternalRef,
+		WorkspaceID: input.WorkspaceID,
+		Title:       input.Title,
+		Description: input.Description,
+		Assignee:    input.Assignee,
+		ExternalRef: input.ExternalRef,
 	}
 
 	// Apply optional fields
@@ -86,15 +82,13 @@ func (s *IssueService) List(ctx context.Context, filter types.IssueFilter) ([]*t
 
 // UpdateIssueInput contains the input for updating an issue.
 type UpdateIssueInput struct {
-	Title              *string
-	Description        *string
-	AcceptanceCriteria *string
-	Notes              *string
-	Status             *string
-	Priority           *int
-	IssueType          *string
-	Assignee           *string
-	ExternalRef        *string
+	Title       *string
+	Description *string
+	Status      *string
+	Priority    *int
+	IssueType   *string
+	Assignee    *string
+	ExternalRef *string
 }
 
 // Update updates an issue.
@@ -106,12 +100,6 @@ func (s *IssueService) Update(ctx context.Context, id string, input UpdateIssueI
 	}
 	if input.Description != nil {
 		updates["description"] = *input.Description
-	}
-	if input.AcceptanceCriteria != nil {
-		updates["acceptance_criteria"] = *input.AcceptanceCriteria
-	}
-	if input.Notes != nil {
-		updates["notes"] = *input.Notes
 	}
 	if input.Status != nil {
 		// Validate status

@@ -16,6 +16,11 @@ type BlockedIssuesCache struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
+type ChildCounter struct {
+	ParentID  string `json:"parent_id"`
+	LastChild int64  `json:"last_child"`
+}
+
 type Comment struct {
 	ID        int64        `json:"id"`
 	IssueID   string       `json:"issue_id"`
@@ -56,22 +61,20 @@ type GlobalConfig struct {
 }
 
 type Issue struct {
-	ID                 string         `json:"id"`
-	WorkspaceID        string         `json:"workspace_id"`
-	Title              string         `json:"title"`
-	Description        sql.NullString `json:"description"`
-	AcceptanceCriteria sql.NullString `json:"acceptance_criteria"`
-	Notes              sql.NullString `json:"notes"`
-	Status             string         `json:"status"`
-	Priority           int64          `json:"priority"`
-	IssueType          string         `json:"issue_type"`
-	Assignee           sql.NullString `json:"assignee"`
-	ExternalRef        sql.NullString `json:"external_ref"`
-	Rank               int64          `json:"rank"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	ClosedAt           sql.NullTime   `json:"closed_at"`
-	CloseReason        sql.NullString `json:"close_reason"`
+	ID          string         `json:"id"`
+	WorkspaceID string         `json:"workspace_id"`
+	Title       string         `json:"title"`
+	Description sql.NullString `json:"description"`
+	Status      string         `json:"status"`
+	Priority    int64          `json:"priority"`
+	IssueType   string         `json:"issue_type"`
+	Assignee    sql.NullString `json:"assignee"`
+	ExternalRef sql.NullString `json:"external_ref"`
+	Rank        int64          `json:"rank"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	ClosedAt    sql.NullTime   `json:"closed_at"`
+	CloseReason sql.NullString `json:"close_reason"`
 }
 
 type IssueLabel struct {

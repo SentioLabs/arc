@@ -77,28 +77,26 @@ func (q *Queries) CountIssuesByWorkspace(ctx context.Context, workspaceID string
 
 const createIssue = `-- name: CreateIssue :exec
 INSERT INTO issues (
-    id, workspace_id, title, description, acceptance_criteria, notes,
+    id, workspace_id, title, description,
     status, priority, issue_type, assignee, external_ref,
     created_at, updated_at, closed_at, close_reason
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateIssueParams struct {
-	ID                 string         `json:"id"`
-	WorkspaceID        string         `json:"workspace_id"`
-	Title              string         `json:"title"`
-	Description        sql.NullString `json:"description"`
-	AcceptanceCriteria sql.NullString `json:"acceptance_criteria"`
-	Notes              sql.NullString `json:"notes"`
-	Status             string         `json:"status"`
-	Priority           int64          `json:"priority"`
-	IssueType          string         `json:"issue_type"`
-	Assignee           sql.NullString `json:"assignee"`
-	ExternalRef        sql.NullString `json:"external_ref"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	ClosedAt           sql.NullTime   `json:"closed_at"`
-	CloseReason        sql.NullString `json:"close_reason"`
+	ID          string         `json:"id"`
+	WorkspaceID string         `json:"workspace_id"`
+	Title       string         `json:"title"`
+	Description sql.NullString `json:"description"`
+	Status      string         `json:"status"`
+	Priority    int64          `json:"priority"`
+	IssueType   string         `json:"issue_type"`
+	Assignee    sql.NullString `json:"assignee"`
+	ExternalRef sql.NullString `json:"external_ref"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	ClosedAt    sql.NullTime   `json:"closed_at"`
+	CloseReason sql.NullString `json:"close_reason"`
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) error {
@@ -107,8 +105,6 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) error 
 		arg.WorkspaceID,
 		arg.Title,
 		arg.Description,
-		arg.AcceptanceCriteria,
-		arg.Notes,
 		arg.Status,
 		arg.Priority,
 		arg.IssueType,
@@ -132,7 +128,7 @@ func (q *Queries) DeleteIssue(ctx context.Context, id string) error {
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE id = ?
+SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE id = ?
 `
 
 func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
@@ -143,8 +139,6 @@ func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
 		&i.WorkspaceID,
 		&i.Title,
 		&i.Description,
-		&i.AcceptanceCriteria,
-		&i.Notes,
 		&i.Status,
 		&i.Priority,
 		&i.IssueType,
@@ -160,7 +154,7 @@ func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
 }
 
 const getIssueByExternalRef = `-- name: GetIssueByExternalRef :one
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE external_ref = ?
+SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE external_ref = ?
 `
 
 func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.NullString) (*Issue, error) {
@@ -171,8 +165,6 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 		&i.WorkspaceID,
 		&i.Title,
 		&i.Description,
-		&i.AcceptanceCriteria,
-		&i.Notes,
 		&i.Status,
 		&i.Priority,
 		&i.IssueType,
@@ -188,7 +180,7 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 }
 
 const getOpenNonBlockedIssues = `-- name: GetOpenNonBlockedIssues :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
@@ -218,8 +210,6 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -245,7 +235,7 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 }
 
 const getReadyIssuesHybrid = `-- name: GetReadyIssuesHybrid :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
@@ -287,8 +277,6 @@ func (q *Queries) GetReadyIssuesHybrid(ctx context.Context, arg GetReadyIssuesHy
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -314,7 +302,7 @@ func (q *Queries) GetReadyIssuesHybrid(ctx context.Context, arg GetReadyIssuesHy
 }
 
 const getReadyIssuesOldest = `-- name: GetReadyIssuesOldest :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
@@ -345,8 +333,6 @@ func (q *Queries) GetReadyIssuesOldest(ctx context.Context, arg GetReadyIssuesOl
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -372,7 +358,7 @@ func (q *Queries) GetReadyIssuesOldest(ctx context.Context, arg GetReadyIssuesOl
 }
 
 const getReadyIssuesPriority = `-- name: GetReadyIssuesPriority :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
@@ -406,8 +392,6 @@ func (q *Queries) GetReadyIssuesPriority(ctx context.Context, arg GetReadyIssues
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -433,7 +417,7 @@ func (q *Queries) GetReadyIssuesPriority(ctx context.Context, arg GetReadyIssues
 }
 
 const listIssuesByAssignee = `-- name: ListIssuesByAssignee :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ? AND assignee = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -465,8 +449,6 @@ func (q *Queries) ListIssuesByAssignee(ctx context.Context, arg ListIssuesByAssi
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -492,7 +474,7 @@ func (q *Queries) ListIssuesByAssignee(ctx context.Context, arg ListIssuesByAssi
 }
 
 const listIssuesByStatus = `-- name: ListIssuesByStatus :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ? AND status = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -524,8 +506,6 @@ func (q *Queries) ListIssuesByStatus(ctx context.Context, arg ListIssuesByStatus
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -551,7 +531,7 @@ func (q *Queries) ListIssuesByStatus(ctx context.Context, arg ListIssuesByStatus
 }
 
 const listIssuesByType = `-- name: ListIssuesByType :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ? AND issue_type = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -583,8 +563,6 @@ func (q *Queries) ListIssuesByType(ctx context.Context, arg ListIssuesByTypePara
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -610,7 +588,7 @@ func (q *Queries) ListIssuesByType(ctx context.Context, arg ListIssuesByTypePara
 }
 
 const listIssuesByWorkspace = `-- name: ListIssuesByWorkspace :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ?
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?
@@ -636,8 +614,6 @@ func (q *Queries) ListIssuesByWorkspace(ctx context.Context, arg ListIssuesByWor
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -682,7 +658,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, workspace_id, title, description, acceptance_criteria, notes, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE workspace_id = ?
   AND (title LIKE ? OR description LIKE ?)
 ORDER BY priority ASC, updated_at DESC
@@ -717,8 +693,6 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]*
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -741,21 +715,6 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]*
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateIssueAcceptanceCriteria = `-- name: UpdateIssueAcceptanceCriteria :exec
-UPDATE issues SET acceptance_criteria = ?, updated_at = ? WHERE id = ?
-`
-
-type UpdateIssueAcceptanceCriteriaParams struct {
-	AcceptanceCriteria sql.NullString `json:"acceptance_criteria"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	ID                 string         `json:"id"`
-}
-
-func (q *Queries) UpdateIssueAcceptanceCriteria(ctx context.Context, arg UpdateIssueAcceptanceCriteriaParams) error {
-	_, err := q.db.ExecContext(ctx, updateIssueAcceptanceCriteria, arg.AcceptanceCriteria, arg.UpdatedAt, arg.ID)
-	return err
 }
 
 const updateIssueAssignee = `-- name: UpdateIssueAssignee :exec
@@ -800,21 +759,6 @@ type UpdateIssueExternalRefParams struct {
 
 func (q *Queries) UpdateIssueExternalRef(ctx context.Context, arg UpdateIssueExternalRefParams) error {
 	_, err := q.db.ExecContext(ctx, updateIssueExternalRef, arg.ExternalRef, arg.UpdatedAt, arg.ID)
-	return err
-}
-
-const updateIssueNotes = `-- name: UpdateIssueNotes :exec
-UPDATE issues SET notes = ?, updated_at = ? WHERE id = ?
-`
-
-type UpdateIssueNotesParams struct {
-	Notes     sql.NullString `json:"notes"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	ID        string         `json:"id"`
-}
-
-func (q *Queries) UpdateIssueNotes(ctx context.Context, arg UpdateIssueNotesParams) error {
-	_, err := q.db.ExecContext(ctx, updateIssueNotes, arg.Notes, arg.UpdatedAt, arg.ID)
 	return err
 }
 

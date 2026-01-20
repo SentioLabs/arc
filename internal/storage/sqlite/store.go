@@ -25,14 +25,14 @@ type Store struct {
 }
 
 // New creates a new SQLite store at the given path.
-// If the path is empty, uses ~/.arc-server/data.db
+// If the path is empty, uses ~/.arc/data.db
 func New(path string) (*Store, error) {
 	if path == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("get home dir: %w", err)
 		}
-		path = filepath.Join(home, ".arc-server", "data.db")
+		path = filepath.Join(home, ".arc", "data.db")
 	}
 
 	// Create directory if needed

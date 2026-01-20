@@ -1027,10 +1027,6 @@ components:
           maxLength: 500
         description:
           type: string
-        acceptance_criteria:
-          type: string
-        notes:
-          type: string
         status:
           $ref: "#/components/schemas/Status"
         priority:
@@ -1123,10 +1119,6 @@ components:
           maxLength: 500
         description:
           type: string
-        acceptance_criteria:
-          type: string
-        notes:
-          type: string
         status:
           $ref: "#/components/schemas/Status"
         priority:
@@ -1148,10 +1140,6 @@ components:
           type: string
           maxLength: 500
         description:
-          type: string
-        acceptance_criteria:
-          type: string
-        notes:
           type: string
         status:
           $ref: "#/components/schemas/Status"

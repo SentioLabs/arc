@@ -107,21 +107,19 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 	issue.UpdatedAt = now
 
 	err = s.queries.CreateIssue(ctx, db.CreateIssueParams{
-		ID:                 issue.ID,
-		WorkspaceID:        issue.WorkspaceID,
-		Title:              issue.Title,
-		Description:        toNullString(issue.Description),
-		AcceptanceCriteria: toNullString(issue.AcceptanceCriteria),
-		Notes:              toNullString(issue.Notes),
-		Status:             string(issue.Status),
-		Priority:           int64(issue.Priority),
-		IssueType:          string(issue.IssueType),
-		Assignee:           toNullString(issue.Assignee),
-		ExternalRef:        toNullString(issue.ExternalRef),
-		CreatedAt:          now,
-		UpdatedAt:          now,
-		ClosedAt:           toNullTime(issue.ClosedAt),
-		CloseReason:        toNullString(issue.CloseReason),
+		ID:          issue.ID,
+		WorkspaceID: issue.WorkspaceID,
+		Title:       issue.Title,
+		Description: toNullString(issue.Description),
+		Status:      string(issue.Status),
+		Priority:    int64(issue.Priority),
+		IssueType:   string(issue.IssueType),
+		Assignee:    toNullString(issue.Assignee),
+		ExternalRef: toNullString(issue.ExternalRef),
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		ClosedAt:    toNullTime(issue.ClosedAt),
+		CloseReason: toNullString(issue.CloseReason),
 	})
 	if err != nil {
 		return fmt.Errorf("create issue: %w", err)
@@ -284,18 +282,6 @@ func (s *Store) UpdateIssue(ctx context.Context, id string, updates map[string]i
 				UpdatedAt: now,
 				ID:        id,
 			})
-		case "notes":
-			err = s.queries.UpdateIssueNotes(ctx, db.UpdateIssueNotesParams{
-				Notes:     toNullString(value.(string)),
-				UpdatedAt: now,
-				ID:        id,
-			})
-		case "acceptance_criteria":
-			err = s.queries.UpdateIssueAcceptanceCriteria(ctx, db.UpdateIssueAcceptanceCriteriaParams{
-				AcceptanceCriteria: toNullString(value.(string)),
-				UpdatedAt:          now,
-				ID:                 id,
-			})
 		case "external_ref":
 			err = s.queries.UpdateIssueExternalRef(ctx, db.UpdateIssueExternalRefParams{
 				ExternalRef: toNullString(value.(string)),
@@ -417,22 +403,20 @@ func (s *Store) GetIssueDetails(ctx context.Context, id string) (*types.IssueDet
 // dbIssueToType converts a database issue to a types.Issue.
 func dbIssueToType(row *db.Issue) *types.Issue {
 	return &types.Issue{
-		ID:                 row.ID,
-		WorkspaceID:        row.WorkspaceID,
-		Title:              row.Title,
-		Description:        fromNullString(row.Description),
-		AcceptanceCriteria: fromNullString(row.AcceptanceCriteria),
-		Notes:              fromNullString(row.Notes),
-		Status:             types.Status(row.Status),
-		Priority:           int(row.Priority),
-		Rank:               int(row.Rank),
-		IssueType:          types.IssueType(row.IssueType),
-		Assignee:           fromNullString(row.Assignee),
-		ExternalRef:        fromNullString(row.ExternalRef),
-		CreatedAt:          row.CreatedAt,
-		UpdatedAt:          row.UpdatedAt,
-		ClosedAt:           fromNullTime(row.ClosedAt),
-		CloseReason:        fromNullString(row.CloseReason),
+		ID:          row.ID,
+		WorkspaceID: row.WorkspaceID,
+		Title:       row.Title,
+		Description: fromNullString(row.Description),
+		Status:      types.Status(row.Status),
+		Priority:    int(row.Priority),
+		Rank:        int(row.Rank),
+		IssueType:   types.IssueType(row.IssueType),
+		Assignee:    fromNullString(row.Assignee),
+		ExternalRef: fromNullString(row.ExternalRef),
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
+		ClosedAt:    fromNullTime(row.ClosedAt),
+		CloseReason: fromNullString(row.CloseReason),
 	}
 }
 

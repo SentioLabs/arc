@@ -1,3 +1,5 @@
+//go:build webui
+
 // Package web provides embedded static files for the Arc web UI.
 package web
 

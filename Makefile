@@ -13,8 +13,9 @@ CLI_BIN := $(BIN_DIR)/arc
 
 # Build settings
 GO := go
-GOFLAGS := -ldflags="-s -w"
-CGO_ENABLED := 0
+
+# Build scripts
+BUILD_SCRIPT := ./scripts/build.sh
 
 # Frontend settings
 WEB_DIR := web
@@ -96,16 +97,20 @@ web-clean: ## Clean frontend build artifacts
 build: web-build build-bin ## Build frontend and unified binary
 
 .PHONY: build-bin
-build-bin: ## Build the unified arc binary (requires frontend built first)
-	@echo "==> Building $(CLI_BIN)..."
-	@if [ ! -d "$(WEB_DIR)/build" ]; then \
-		echo "Warning: Frontend not built. Run 'make web-build' first for embedded UI."; \
-	fi
-	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) -o $(CLI_BIN) ./cmd/arc
+build-bin: ## Build arc binary with embedded web UI (requires frontend built first)
+	$(BUILD_SCRIPT) --webui
 
 .PHONY: build-quick
-build-quick: build-bin ## Build binary without rebuilding frontend
+build-quick: ## Build CLI-only binary (no embedded web UI)
+	$(BUILD_SCRIPT)
+
+.PHONY: release
+release: ## Build release with goreleaser (requires git tag)
+	goreleaser release --clean
+
+.PHONY: release-snapshot
+release-snapshot: ## Build release snapshot locally (no tag required)
+	goreleaser release --snapshot --clean
 
 .PHONY: install
 install: ## Install unified binary to GOPATH/bin
@@ -208,9 +213,9 @@ docker-clean: ## Remove Docker image and volumes
 # ===========================================================================
 
 .PHONY: run
-run: build-bin ## Build and run the server locally (foreground)
+run: build ## Build and run the server locally (foreground)
 	@echo "==> Starting server..."
-	./$(CLI_BIN) server start --foreground
+	$(CLI_BIN) server start --foreground
 
 .PHONY: dev
 dev: ## Run server with live reload (requires air)
@@ -230,7 +235,7 @@ mocks: ## Generate mocks (requires mockery)
 .PHONY: clean
 clean: ## Remove build artifacts
 	@echo "==> Cleaning build artifacts..."
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) dist
 	rm -f coverage.out coverage.html
 	rm -f *.test
 

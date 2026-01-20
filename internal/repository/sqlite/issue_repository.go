@@ -39,21 +39,19 @@ func (r *IssueRepository) Create(ctx context.Context, issue *types.Issue, actor 
 	issue.UpdatedAt = now
 
 	err = r.repo.queries.CreateIssue(ctx, db.CreateIssueParams{
-		ID:                 issue.ID,
-		WorkspaceID:        issue.WorkspaceID,
-		Title:              issue.Title,
-		Description:        toNullString(issue.Description),
-		AcceptanceCriteria: toNullString(issue.AcceptanceCriteria),
-		Notes:              toNullString(issue.Notes),
-		Status:             string(issue.Status),
-		Priority:           int64(issue.Priority),
-		IssueType:          string(issue.IssueType),
-		Assignee:           toNullString(issue.Assignee),
-		ExternalRef:        toNullString(issue.ExternalRef),
-		CreatedAt:          now,
-		UpdatedAt:          now,
-		ClosedAt:           toNullTime(issue.ClosedAt),
-		CloseReason:        toNullString(issue.CloseReason),
+		ID:          issue.ID,
+		WorkspaceID: issue.WorkspaceID,
+		Title:       issue.Title,
+		Description: toNullString(issue.Description),
+		Status:      string(issue.Status),
+		Priority:    int64(issue.Priority),
+		IssueType:   string(issue.IssueType),
+		Assignee:    toNullString(issue.Assignee),
+		ExternalRef: toNullString(issue.ExternalRef),
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		ClosedAt:    toNullTime(issue.ClosedAt),
+		CloseReason: toNullString(issue.CloseReason),
 	})
 	if err != nil {
 		return fmt.Errorf("create issue: %w", err)
@@ -200,18 +198,6 @@ func (r *IssueRepository) Update(ctx context.Context, id string, updates map[str
 				Assignee:  toNullString(value.(string)),
 				UpdatedAt: now,
 				ID:        id,
-			})
-		case "notes":
-			err = r.repo.queries.UpdateIssueNotes(ctx, db.UpdateIssueNotesParams{
-				Notes:     toNullString(value.(string)),
-				UpdatedAt: now,
-				ID:        id,
-			})
-		case "acceptance_criteria":
-			err = r.repo.queries.UpdateIssueAcceptanceCriteria(ctx, db.UpdateIssueAcceptanceCriteriaParams{
-				AcceptanceCriteria: toNullString(value.(string)),
-				UpdatedAt:          now,
-				ID:                 id,
 			})
 		case "external_ref":
 			err = r.repo.queries.UpdateIssueExternalRef(ctx, db.UpdateIssueExternalRefParams{
@@ -399,21 +385,19 @@ func (r *IssueRepository) GetBlockedIssues(ctx context.Context, filter types.Wor
 
 		blocked := &types.BlockedIssue{
 			Issue: types.Issue{
-				ID:                 row.ID,
-				WorkspaceID:        row.WorkspaceID,
-				Title:              row.Title,
-				Description:        fromNullString(row.Description),
-				AcceptanceCriteria: fromNullString(row.AcceptanceCriteria),
-				Notes:              fromNullString(row.Notes),
-				Status:             types.Status(row.Status),
-				Priority:           int(row.Priority),
-				IssueType:          types.IssueType(row.IssueType),
-				Assignee:           fromNullString(row.Assignee),
-				ExternalRef:        fromNullString(row.ExternalRef),
-				CreatedAt:          row.CreatedAt,
-				UpdatedAt:          row.UpdatedAt,
-				ClosedAt:           fromNullTime(row.ClosedAt),
-				CloseReason:        fromNullString(row.CloseReason),
+				ID:          row.ID,
+				WorkspaceID: row.WorkspaceID,
+				Title:       row.Title,
+				Description: fromNullString(row.Description),
+				Status:      types.Status(row.Status),
+				Priority:    int(row.Priority),
+				IssueType:   types.IssueType(row.IssueType),
+				Assignee:    fromNullString(row.Assignee),
+				ExternalRef: fromNullString(row.ExternalRef),
+				CreatedAt:   row.CreatedAt,
+				UpdatedAt:   row.UpdatedAt,
+				ClosedAt:    fromNullTime(row.ClosedAt),
+				CloseReason: fromNullString(row.CloseReason),
 			},
 			BlockedByCount: int(row.BlockedByCount),
 			BlockedBy:      blockingIDs,
@@ -446,20 +430,18 @@ func (r *IssueRepository) IsBlocked(ctx context.Context, issueID string) (bool, 
 // dbIssueToType converts a database issue to a types.Issue.
 func (r *IssueRepository) dbIssueToType(row *db.Issue) *types.Issue {
 	return &types.Issue{
-		ID:                 row.ID,
-		WorkspaceID:        row.WorkspaceID,
-		Title:              row.Title,
-		Description:        fromNullString(row.Description),
-		AcceptanceCriteria: fromNullString(row.AcceptanceCriteria),
-		Notes:              fromNullString(row.Notes),
-		Status:             types.Status(row.Status),
-		Priority:           int(row.Priority),
-		IssueType:          types.IssueType(row.IssueType),
-		Assignee:           fromNullString(row.Assignee),
-		ExternalRef:        fromNullString(row.ExternalRef),
-		CreatedAt:          row.CreatedAt,
-		UpdatedAt:          row.UpdatedAt,
-		ClosedAt:           fromNullTime(row.ClosedAt),
-		CloseReason:        fromNullString(row.CloseReason),
+		ID:          row.ID,
+		WorkspaceID: row.WorkspaceID,
+		Title:       row.Title,
+		Description: fromNullString(row.Description),
+		Status:      types.Status(row.Status),
+		Priority:    int(row.Priority),
+		IssueType:   types.IssueType(row.IssueType),
+		Assignee:    fromNullString(row.Assignee),
+		ExternalRef: fromNullString(row.ExternalRef),
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
+		ClosedAt:    fromNullTime(row.ClosedAt),
+		CloseReason: fromNullString(row.CloseReason),
 	}
 }

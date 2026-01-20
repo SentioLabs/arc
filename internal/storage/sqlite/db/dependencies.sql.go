@@ -86,9 +86,9 @@ func (q *Queries) DeleteDependenciesByIssue(ctx context.Context, arg DeleteDepen
 }
 
 const getBlockedIssuesInWorkspace = `-- name: GetBlockedIssuesInWorkspace :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria,
-       i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref,
-       i.created_at, i.updated_at, i.closed_at, i.close_reason,
+SELECT i.id, i.workspace_id, i.title, i.description,
+       i.status, i.priority, i.issue_type, i.assignee, i.external_ref,
+       i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason,
        COUNT(blocker.id) as blocked_by_count
 FROM issues i
 JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
@@ -106,22 +106,21 @@ type GetBlockedIssuesInWorkspaceParams struct {
 }
 
 type GetBlockedIssuesInWorkspaceRow struct {
-	ID                 string         `json:"id"`
-	WorkspaceID        string         `json:"workspace_id"`
-	Title              string         `json:"title"`
-	Description        sql.NullString `json:"description"`
-	AcceptanceCriteria sql.NullString `json:"acceptance_criteria"`
-	Notes              sql.NullString `json:"notes"`
-	Status             string         `json:"status"`
-	Priority           int64          `json:"priority"`
-	IssueType          string         `json:"issue_type"`
-	Assignee           sql.NullString `json:"assignee"`
-	ExternalRef        sql.NullString `json:"external_ref"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
-	ClosedAt           sql.NullTime   `json:"closed_at"`
-	CloseReason        sql.NullString `json:"close_reason"`
-	BlockedByCount     int64          `json:"blocked_by_count"`
+	ID             string         `json:"id"`
+	WorkspaceID    string         `json:"workspace_id"`
+	Title          string         `json:"title"`
+	Description    sql.NullString `json:"description"`
+	Status         string         `json:"status"`
+	Priority       int64          `json:"priority"`
+	IssueType      string         `json:"issue_type"`
+	Assignee       sql.NullString `json:"assignee"`
+	ExternalRef    sql.NullString `json:"external_ref"`
+	Rank           int64          `json:"rank"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	ClosedAt       sql.NullTime   `json:"closed_at"`
+	CloseReason    sql.NullString `json:"close_reason"`
+	BlockedByCount int64          `json:"blocked_by_count"`
 }
 
 func (q *Queries) GetBlockedIssuesInWorkspace(ctx context.Context, arg GetBlockedIssuesInWorkspaceParams) ([]*GetBlockedIssuesInWorkspaceRow, error) {
@@ -138,13 +137,12 @@ func (q *Queries) GetBlockedIssuesInWorkspace(ctx context.Context, arg GetBlocke
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
 			&i.Assignee,
 			&i.ExternalRef,
+			&i.Rank,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
@@ -165,7 +163,7 @@ func (q *Queries) GetBlockedIssuesInWorkspace(ctx context.Context, arg GetBlocke
 }
 
 const getBlockingIssues = `-- name: GetBlockingIssues :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
   AND d.type IN ('blocks', 'parent-child')
@@ -187,8 +185,6 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -214,7 +210,7 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 }
 
 const getDependencies = `-- name: GetDependencies :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
 ORDER BY i.priority ASC
@@ -234,8 +230,6 @@ func (q *Queries) GetDependencies(ctx context.Context, issueID string) ([]*Issue
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
@@ -327,7 +321,7 @@ func (q *Queries) GetDependentRecords(ctx context.Context, dependsOnID string) (
 }
 
 const getDependents = `-- name: GetDependents :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria, i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.issue_id
 WHERE d.depends_on_id = ?
 ORDER BY i.priority ASC
@@ -347,8 +341,6 @@ func (q *Queries) GetDependents(ctx context.Context, dependsOnID string) ([]*Iss
 			&i.WorkspaceID,
 			&i.Title,
 			&i.Description,
-			&i.AcceptanceCriteria,
-			&i.Notes,
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,

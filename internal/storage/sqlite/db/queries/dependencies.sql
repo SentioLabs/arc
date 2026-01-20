@@ -47,9 +47,9 @@ WHERE d.issue_id = ?
   AND i.status != 'closed';
 
 -- name: GetBlockedIssuesInWorkspace :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.acceptance_criteria,
-       i.notes, i.status, i.priority, i.issue_type, i.assignee, i.external_ref,
-       i.created_at, i.updated_at, i.closed_at, i.close_reason,
+SELECT i.id, i.workspace_id, i.title, i.description,
+       i.status, i.priority, i.issue_type, i.assignee, i.external_ref,
+       i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason,
        COUNT(blocker.id) as blocked_by_count
 FROM issues i
 JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')

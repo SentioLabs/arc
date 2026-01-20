@@ -1,9 +1,9 @@
 -- name: CreateIssue :exec
 INSERT INTO issues (
-    id, workspace_id, title, description, acceptance_criteria, notes,
+    id, workspace_id, title, description,
     status, priority, issue_type, assignee, external_ref,
     created_at, updated_at, closed_at, close_reason
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetIssue :one
 SELECT * FROM issues WHERE id = ?;
@@ -59,12 +59,6 @@ UPDATE issues SET issue_type = ?, updated_at = ? WHERE id = ?;
 
 -- name: UpdateIssueAssignee :exec
 UPDATE issues SET assignee = ?, updated_at = ? WHERE id = ?;
-
--- name: UpdateIssueNotes :exec
-UPDATE issues SET notes = ?, updated_at = ? WHERE id = ?;
-
--- name: UpdateIssueAcceptanceCriteria :exec
-UPDATE issues SET acceptance_criteria = ?, updated_at = ? WHERE id = ?;
 
 -- name: UpdateIssueExternalRef :exec
 UPDATE issues SET external_ref = ?, updated_at = ? WHERE id = ?;
