@@ -1,4 +1,4 @@
-# arc
+# Arc AI Issue Tracker
 
 A central issue tracking server for AI-assisted coding workflows. This is inspired heavily by the good work over at [beads](https://github.com/steveyegge/beads) - key differences are no per-repo daemons, no git sync, and uses a REST API + CLI.
 
