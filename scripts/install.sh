@@ -128,16 +128,37 @@ detect_platform() {
 
 # ============ Server Management ============
 
+SERVER_WAS_RUNNING="false"
+
+check_server_running() {
+    if ! command -v arc &> /dev/null; then
+        return 1
+    fi
+    arc server status &>/dev/null
+}
+
 stop_existing_server() {
     if ! command -v arc &> /dev/null; then
         return 0
     fi
 
-    log_step "Stopping arc server..."
-    if arc server stop 2>/dev/null; then
-        log_step "Server stopped"
+    if check_server_running; then
+        SERVER_WAS_RUNNING="true"
+        log_step "Stopping arc server..."
+        if arc server stop 2>/dev/null; then
+            log_step "Server stopped"
+        fi
     fi
     return 0
+}
+
+restart_server_if_needed() {
+    if [[ "$SERVER_WAS_RUNNING" == "true" ]]; then
+        log_step "Restarting arc server..."
+        if arc server start 2>/dev/null; then
+            log_step "Server restarted"
+        fi
+    fi
 }
 
 # ============ macOS Code Signing ============
@@ -284,6 +305,9 @@ install_from_release() {
     rm -rf "$tmp_dir"
 
     log_success "Installed arc ${latest_version} to ${install_dir}/${BINARY_NAME}"
+
+    # Restart server if it was running before update
+    restart_server_if_needed
 
     # PATH warning
     if [[ ":$PATH:" != *":$install_dir:"* ]]; then
