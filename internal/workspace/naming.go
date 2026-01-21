@@ -102,9 +102,10 @@ func GeneratePrefix(dirPath string) (string, error) {
 	normalized := filepath.ToSlash(evalPath)
 
 	// Get sanitized basename, truncated for prefix use
+	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	basename := SanitizeBasename(filepath.Base(evalPath))
-	if len(basename) > 6 {
-		basename = basename[:6]
+	if len(basename) > 5 {
+		basename = basename[:5]
 	}
 
 	// Generate deterministic hash from full path using base36
@@ -128,9 +129,10 @@ func GeneratePrefix(dirPath string) (string, error) {
 // Includes timestamp for uniqueness when same name is used multiple times.
 func GeneratePrefixFromName(name string) string {
 	// Sanitize and truncate the name
+	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	sanitized := SanitizeBasename(name)
-	if len(sanitized) > 6 {
-		sanitized = sanitized[:6]
+	if len(sanitized) > 5 {
+		sanitized = sanitized[:5]
 	}
 
 	// Generate hash from name + timestamp for uniqueness

@@ -213,20 +213,20 @@ func TestGeneratePrefixUniqueness(t *testing.T) {
 }
 
 func TestGeneratePrefixTruncation(t *testing.T) {
-	// Long basename should be truncated to 6 chars before hash
+	// Long basename should be truncated to 5 chars before hash
 	prefix, err := GeneratePrefix("/tmp/my-very-long-project-name")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
 	}
 
-	// Format: xxxxxx-yyyy (6 basename + 1 dash + 4 hash = 11 chars max)
-	if len(prefix) > 11 {
-		t.Errorf("Prefix should be max 11 chars, got %q (len %d)", prefix, len(prefix))
+	// Format: xxxxx-yyyy (5 basename + 1 dash + 4 hash = 10 chars max)
+	if len(prefix) > 10 {
+		t.Errorf("Prefix should be max 10 chars, got %q (len %d)", prefix, len(prefix))
 	}
 
-	// Should start with truncated basename "my-ver-"
-	if prefix[:7] != "my-ver-" {
-		t.Errorf("Expected prefix to start with truncated 'my-ver-', got %q", prefix)
+	// Should start with truncated basename "my-ve-"
+	if prefix[:6] != "my-ve-" {
+		t.Errorf("Expected prefix to start with truncated 'my-ve-', got %q", prefix)
 	}
 }
 
@@ -256,14 +256,14 @@ func TestGeneratePrefixFromName(t *testing.T) {
 		}
 	}
 
-	// Test that basename portion is correct (truncated to 6 chars)
+	// Test that basename portion is correct (truncated to 5 chars)
 	basename := prefix[:lastHyphen]
-	if basename != "my-pro" {
-		t.Errorf("Expected basename 'my-pro', got %q", basename)
+	if basename != "my-pr" {
+		t.Errorf("Expected basename 'my-pr', got %q", basename)
 	}
 
-	// Test max length: 6 basename + 1 dash + 4 hash = 11 chars
-	if len(prefix) > 11 {
-		t.Errorf("Prefix should be max 11 chars, got %q (len %d)", prefix, len(prefix))
+	// Test max length: 5 basename + 1 dash + 4 hash = 10 chars
+	if len(prefix) > 10 {
+		t.Errorf("Prefix should be max 10 chars, got %q (len %d)", prefix, len(prefix))
 	}
 }

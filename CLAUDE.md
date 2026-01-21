@@ -88,16 +88,9 @@ The `claude-plugin/` directory contains a Claude Code plugin:
 
 For bulk issue operations (creating epics with tasks, batch updates), use the **arc-issue-tracker** agent via the Task tool. This runs arc commands in parallel without consuming main conversation context.
 
-## Session Completion (Mandatory)
+## Session Completion
 
-Before ending work, complete ALL steps:
-
-```bash
-git status              # Check changes
-git add <files>         # Stage code
-git commit -m "..."     # Commit
-git push                # Push - NOT DONE UNTIL THIS SUCCEEDS
-```
+See **[AGENTS.md § Landing the Plane](AGENTS.md#landing-the-plane-session-completion)** for the mandatory session completion workflow.
 
 ## Key Documentation
 

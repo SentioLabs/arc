@@ -9,6 +9,7 @@ Available updates:
 - `--status open|in_progress|blocked|deferred|closed`
 - `--priority 0-4`
 - `--title "new title"`
+- `--description "text"` (use for resumability notes)
 - `--assignee NAME`
 - `--type bug|feature|task|epic|chore`
 

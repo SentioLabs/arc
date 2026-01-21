@@ -91,15 +91,15 @@ arc onboard  # Get context, recover workspace if needed
 ```
 
 **Before ending any session:**
-```
-git status → git add → git commit → git push
-```
-
-Work is NOT done until `git push` succeeds.
+Follow the **Landing the Plane** protocol in `AGENTS.md`. This includes:
+- Filing issues for remaining work
+- Running quality gates (tests, linters)
+- Committing and pushing (work is NOT done until `git push` succeeds)
+- Handing off context for the next session
 
 **Writing notes for resumability:**
-```
-arc update <id> --notes "COMPLETED: X. IN PROGRESS: Y. NEXT: Z"
+```bash
+arc update <id> --description "COMPLETED: X. IN PROGRESS: Y. NEXT: Z"
 ```
 
 **Deep dive**: Run `arc docs resumability` for templates.
@@ -123,7 +123,7 @@ arc dep add child-id parent-id --type parent-child  # Link to epic
 
 ### Completing Work
 ```bash
-arc close <id>                      # Complete issue
+arc close <id> --reason "done"      # Complete issue
 arc ready                           # See what unblocked
 ```
 

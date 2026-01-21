@@ -47,8 +47,8 @@ arc update <id> --title="New title"     # Update title
 
 ### Closing Issues
 ```bash
-arc close <id>                  # Close single issue
-arc close <id1> <id2> <id3>     # Close multiple issues at once
+arc close <id> --reason "done"  # Close single issue
+arc close <id1> <id2> <id3> --reason "batch complete"  # Close multiple
 ```
 
 ### Managing Dependencies
@@ -72,15 +72,14 @@ When asked to create an epic with subtasks:
 ```bash
 # 1. Create the epic
 arc create "Epic: Feature name" --type=epic --priority=2
+# Returns: Created issue <epic-id>
 
-# 2. Create child tasks
-arc create "Task 1 description" --type=task --priority=2
-arc create "Task 2 description" --type=task --priority=2
-
-# 3. Add dependencies (tasks depend on epic for grouping)
-arc dep add <task1-id> <epic-id>
-arc dep add <task2-id> <epic-id>
+# 2. Create child tasks under the epic using --parent
+arc create "Task 1 description" --type=task --parent=<epic-id>
+arc create "Task 2 description" --type=task --parent=<epic-id>
 ```
+
+The `--parent` flag automatically creates a parent-child dependency. No manual `dep add` needed.
 
 ## Bulk Operations
 
@@ -93,7 +92,7 @@ arc list --status=open
 # Update each as needed
 arc update <id1> --priority=1
 arc update <id2> --status=blocked
-arc close <id3>
+arc close <id3> --reason "resolved"
 ```
 
 ## Important Guidelines

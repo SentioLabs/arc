@@ -19,8 +19,4 @@ arc setup claude --remove   # Remove hooks
 
 This installs SessionStart and PreCompact hooks that run `arc prime` to provide workflow context.
 
-**Alternative:** Install the arc plugin which includes hooks plus skills and agents:
-```
-/plugin marketplace add sentiolabs/arc
-/plugin install arc
-```
+**Note:** If you installed the arc Claude plugin, hooks are already configured in the plugin. You only need `arc setup claude` if using arc without the plugin.
