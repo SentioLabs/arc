@@ -8,7 +8,6 @@ Initialize arc in the current directory.
 ```bash
 arc init                    # Use directory name as workspace
 arc init my-project         # Custom workspace name
-arc init --prefix mp        # Custom issue prefix
 ```
 
 This command:

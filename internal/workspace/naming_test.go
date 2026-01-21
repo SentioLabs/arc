@@ -144,3 +144,126 @@ func TestGenerateNameSameBaseDifferentPath(t *testing.T) {
 		t.Errorf("Same basename in different paths should produce different names: %q == %q", name1, name2)
 	}
 }
+
+func TestGeneratePrefix(t *testing.T) {
+	// Test determinism: same path produces same prefix
+	prefix1, err := GeneratePrefix("/tmp/test-project")
+	if err != nil {
+		t.Fatalf("GeneratePrefix failed: %v", err)
+	}
+
+	prefix2, err := GeneratePrefix("/tmp/test-project")
+	if err != nil {
+		t.Fatalf("GeneratePrefix failed: %v", err)
+	}
+
+	if prefix1 != prefix2 {
+		t.Errorf("GeneratePrefix should be deterministic: %q != %q", prefix1, prefix2)
+	}
+
+	// Test format: should be basename-xxxx (4-char base36 hash)
+	// Find the last hyphen (before the hash suffix)
+	lastHyphen := -1
+	for i := len(prefix1) - 1; i >= 0; i-- {
+		if prefix1[i] == '-' {
+			lastHyphen = i
+			break
+		}
+	}
+	if lastHyphen == -1 {
+		t.Errorf("GeneratePrefix should contain a hyphen, got %q", prefix1)
+	} else {
+		suffix := prefix1[lastHyphen+1:]
+		if len(suffix) != 4 {
+			t.Errorf("Expected 4-char hash suffix, got %q (len %d)", suffix, len(suffix))
+		}
+		// Verify suffix contains only base36 chars
+		for _, c := range suffix {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+				t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
+			}
+		}
+	}
+}
+
+func TestGeneratePrefixUniqueness(t *testing.T) {
+	// Different paths should produce different prefixes
+	prefix1, err := GeneratePrefix("/home/user/projects/api")
+	if err != nil {
+		t.Fatalf("GeneratePrefix failed: %v", err)
+	}
+
+	prefix2, err := GeneratePrefix("/home/user/work/api")
+	if err != nil {
+		t.Fatalf("GeneratePrefix failed: %v", err)
+	}
+
+	// Both should start with "api-" (same basename)
+	if prefix1[:4] != "api-" {
+		t.Errorf("Expected prefix to start with 'api-', got %q", prefix1)
+	}
+	if prefix2[:4] != "api-" {
+		t.Errorf("Expected prefix to start with 'api-', got %q", prefix2)
+	}
+
+	// But the full prefixes should be different
+	if prefix1 == prefix2 {
+		t.Errorf("Same basename in different paths should produce different prefixes: %q == %q", prefix1, prefix2)
+	}
+}
+
+func TestGeneratePrefixTruncation(t *testing.T) {
+	// Long basename should be truncated to 6 chars before hash
+	prefix, err := GeneratePrefix("/tmp/my-very-long-project-name")
+	if err != nil {
+		t.Fatalf("GeneratePrefix failed: %v", err)
+	}
+
+	// Format: xxxxxx-yyyy (6 basename + 1 dash + 4 hash = 11 chars max)
+	if len(prefix) > 11 {
+		t.Errorf("Prefix should be max 11 chars, got %q (len %d)", prefix, len(prefix))
+	}
+
+	// Should start with truncated basename "my-ver-"
+	if prefix[:7] != "my-ver-" {
+		t.Errorf("Expected prefix to start with truncated 'my-ver-', got %q", prefix)
+	}
+}
+
+func TestGeneratePrefixFromName(t *testing.T) {
+	prefix := GeneratePrefixFromName("my-project")
+
+	// Test format: should be basename-xxxx (4-char base36 hash)
+	lastHyphen := -1
+	for i := len(prefix) - 1; i >= 0; i-- {
+		if prefix[i] == '-' {
+			lastHyphen = i
+			break
+		}
+	}
+	if lastHyphen == -1 {
+		t.Errorf("GeneratePrefixFromName should contain a hyphen, got %q", prefix)
+	} else {
+		suffix := prefix[lastHyphen+1:]
+		if len(suffix) != 4 {
+			t.Errorf("Expected 4-char hash suffix, got %q (len %d)", suffix, len(suffix))
+		}
+		// Verify suffix contains only base36 chars
+		for _, c := range suffix {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+				t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
+			}
+		}
+	}
+
+	// Test that basename portion is correct (truncated to 6 chars)
+	basename := prefix[:lastHyphen]
+	if basename != "my-pro" {
+		t.Errorf("Expected basename 'my-pro', got %q", basename)
+	}
+
+	// Test max length: 6 basename + 1 dash + 4 hash = 11 chars
+	if len(prefix) > 11 {
+		t.Errorf("Prefix should be max 11 chars, got %q (len %d)", prefix, len(prefix))
+	}
+}

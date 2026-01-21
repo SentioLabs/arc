@@ -81,6 +81,73 @@ func GenerateName(dirPath string) (string, error) {
 	return basename + "-" + suffix, nil
 }
 
+// GeneratePrefix creates an issue prefix from a directory path.
+// Format: {sanitized-basename-truncated}-{4-char-base36-hash}
+// The hash is derived from the full absolute path, making it deterministic.
+// Example: /home/user/projects/api -> "api-a3f2"
+func GeneratePrefix(dirPath string) (string, error) {
+	absPath, err := filepath.Abs(dirPath)
+	if err != nil {
+		return "", err
+	}
+
+	// Resolve symlinks for consistency
+	evalPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// Fall back to absPath if symlink resolution fails (e.g., path doesn't exist yet)
+		evalPath = absPath
+	}
+
+	// Normalize path separators for cross-platform consistency
+	normalized := filepath.ToSlash(evalPath)
+
+	// Get sanitized basename, truncated for prefix use
+	basename := SanitizeBasename(filepath.Base(evalPath))
+	if len(basename) > 6 {
+		basename = basename[:6]
+	}
+
+	// Generate deterministic hash from full path using base36
+	hash := sha256.Sum256([]byte(normalized))
+	suffix := Base36Encode(hash[:2]) // 2 bytes -> ~3-4 base36 chars
+
+	// Ensure exactly 4 chars for the suffix
+	for len(suffix) < 4 {
+		suffix = "0" + suffix
+	}
+	if len(suffix) > 4 {
+		suffix = suffix[:4]
+	}
+
+	return basename + "-" + suffix, nil
+}
+
+// GeneratePrefixFromName creates an issue prefix from a workspace name (without path).
+// Format: {sanitized-name-truncated}-{4-char-base36-hash}
+// Used when creating a workspace without an associated directory path.
+// Includes timestamp for uniqueness when same name is used multiple times.
+func GeneratePrefixFromName(name string) string {
+	// Sanitize and truncate the name
+	sanitized := SanitizeBasename(name)
+	if len(sanitized) > 6 {
+		sanitized = sanitized[:6]
+	}
+
+	// Generate hash from name + timestamp for uniqueness
+	hash := sha256.Sum256([]byte(name + time.Now().String()))
+	suffix := Base36Encode(hash[:2])
+
+	// Ensure exactly 4 chars for the suffix
+	for len(suffix) < 4 {
+		suffix = "0" + suffix
+	}
+	if len(suffix) > 4 {
+		suffix = suffix[:4]
+	}
+
+	return sanitized + "-" + suffix
+}
+
 // SanitizeBasename normalizes a directory name for use in workspace names.
 func SanitizeBasename(name string) string {
 	// Lowercase

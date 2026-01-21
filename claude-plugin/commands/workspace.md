@@ -12,7 +12,7 @@ arc workspace list
 
 **Create workspace:**
 ```bash
-arc workspace create my-project --prefix mp
+arc workspace create my-project --path /path/to/project
 ```
 
 **Set default workspace:**

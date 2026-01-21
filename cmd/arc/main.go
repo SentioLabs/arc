@@ -12,6 +12,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/version"
+	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -381,12 +382,19 @@ var workspaceCreateCmd = &cobra.Command{
 			return err
 		}
 
-		prefix, _ := cmd.Flags().GetString("prefix")
 		path, _ := cmd.Flags().GetString("path")
 		description, _ := cmd.Flags().GetString("description")
 
-		if prefix == "" {
-			prefix = "bd"
+		// Generate prefix from path if provided, otherwise from workspace name
+		var prefix string
+		if path != "" {
+			prefix, err = workspace.GeneratePrefix(path)
+			if err != nil {
+				return fmt.Errorf("generate prefix: %w", err)
+			}
+		} else {
+			// No path - generate prefix from workspace name with hash
+			prefix = workspace.GeneratePrefixFromName(args[0])
 		}
 
 		ws, err := c.CreateWorkspace(args[0], prefix, path, description)
@@ -405,7 +413,6 @@ var workspaceCreateCmd = &cobra.Command{
 }
 
 func init() {
-	workspaceCreateCmd.Flags().StringP("prefix", "p", "arc", "Issue ID prefix")
 	workspaceCreateCmd.Flags().String("path", "", "Associated directory path")
 	workspaceCreateCmd.Flags().StringP("description", "d", "", "Workspace description")
 }

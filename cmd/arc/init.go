@@ -28,14 +28,12 @@ workspace initialization automatically.
 
 Examples:
   arc init                    # Use directory name as workspace
-  arc init my-project         # Use custom name
-  arc init --prefix mp        # Custom issue prefix`,
+  arc init my-project         # Use custom name`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runInit,
 }
 
 func init() {
-	initCmd.Flags().StringP("prefix", "p", "", "Issue ID prefix (default: workspace name)")
 	initCmd.Flags().StringP("description", "d", "", "Workspace description")
 	initCmd.Flags().BoolP("quiet", "q", false, "Suppress output")
 	rootCmd.AddCommand(initCmd)
@@ -43,7 +41,6 @@ func init() {
 
 func runInit(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
-	prefix, _ := cmd.Flags().GetString("prefix")
 	description, _ := cmd.Flags().GetString("description")
 
 	// Get current working directory
@@ -65,13 +62,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Determine prefix from basename (not the full generated name)
-	if prefix == "" {
-		prefix = workspace.SanitizeBasename(filepath.Base(cwd))
-		// Truncate if too long
-		if len(prefix) > 10 {
-			prefix = prefix[:10]
-		}
+	// Generate prefix with hash for guaranteed uniqueness
+	prefix, err := workspace.GeneratePrefix(cwd)
+	if err != nil {
+		return fmt.Errorf("generate prefix: %w", err)
 	}
 
 	// Create workspace on server

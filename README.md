@@ -74,7 +74,7 @@ The server stores data in `~/.arc/data.db` by default.
 ```bash
 
 # Create a workspace
-arc workspace create my-project --prefix mp
+arc workspace create my-project --path /path/to/project
 
 # Set default workspace
 arc workspace use my-project

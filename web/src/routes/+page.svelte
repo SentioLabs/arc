@@ -29,7 +29,7 @@
 			<div
 				class="bg-surface-800 rounded-lg p-4 font-mono text-sm text-text-secondary text-left inline-block"
 			>
-				<code>arc init --name "My Project" --prefix mp</code>
+				<code>arc init my-project</code>
 			</div>
 		</div>
 	{:else}
