@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/version"
@@ -324,14 +325,34 @@ var workspaceListCmd = &cobra.Command{
 			return nil
 		}
 
+		if len(workspaces) == 0 {
+			fmt.Println("No workspaces found. Create one with: arc workspace create <name>")
+			return nil
+		}
+
 		cfg, _ := loadConfig()
+
+		// Create a tabwriter for aligned columns
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION\tPATH")
+		fmt.Fprintln(w, "  \t────\t──────\t──\t───────────\t────")
+
 		for _, ws := range workspaces {
 			marker := " "
 			if ws.ID == cfg.DefaultWorkspace {
 				marker = "*"
 			}
-			fmt.Printf("%s %s (%s) - %s\n", marker, ws.Name, ws.ID, ws.Description)
+			path := ws.Path
+			if path == "" {
+				path = "-"
+			}
+			desc := ws.Description
+			if desc == "" {
+				desc = "-"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc, path)
 		}
+		w.Flush()
 		return nil
 	},
 }
