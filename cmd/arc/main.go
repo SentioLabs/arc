@@ -230,6 +230,7 @@ func init() {
 	rootCmd.AddCommand(depCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(serverCmd)
+	rootCmd.AddCommand(selfCmd)
 }
 
 // ============ Workspace Commands ============
