@@ -8,29 +8,30 @@ import (
 
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
+	"github.com/sentiolabs/arc/internal/workspace"
 )
 
 // CreateWorkspace creates a new workspace.
-func (s *Store) CreateWorkspace(ctx context.Context, workspace *types.Workspace) error {
-	if err := workspace.Validate(); err != nil {
+func (s *Store) CreateWorkspace(ctx context.Context, ws *types.Workspace) error {
+	if err := ws.Validate(); err != nil {
 		return fmt.Errorf("validate workspace: %w", err)
 	}
 
 	// Generate ID if not provided
-	if workspace.ID == "" {
-		workspace.ID = generateID("ws", workspace.Name)
+	if ws.ID == "" {
+		ws.ID = workspace.GenerateWorkspaceID("ws", ws.Name)
 	}
 
 	now := time.Now()
-	workspace.CreatedAt = now
-	workspace.UpdatedAt = now
+	ws.CreatedAt = now
+	ws.UpdatedAt = now
 
 	err := s.queries.CreateWorkspace(ctx, db.CreateWorkspaceParams{
-		ID:          workspace.ID,
-		Name:        workspace.Name,
-		Path:        toNullString(workspace.Path),
-		Description: toNullString(workspace.Description),
-		Prefix:      workspace.Prefix,
+		ID:          ws.ID,
+		Name:        ws.Name,
+		Path:        toNullString(ws.Path),
+		Description: toNullString(ws.Description),
+		Prefix:      ws.Prefix,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	})
@@ -96,15 +97,15 @@ func (s *Store) ListWorkspaces(ctx context.Context) ([]*types.Workspace, error) 
 }
 
 // UpdateWorkspace updates a workspace.
-func (s *Store) UpdateWorkspace(ctx context.Context, workspace *types.Workspace) error {
-	workspace.UpdatedAt = time.Now()
+func (s *Store) UpdateWorkspace(ctx context.Context, ws *types.Workspace) error {
+	ws.UpdatedAt = time.Now()
 
 	err := s.queries.UpdateWorkspace(ctx, db.UpdateWorkspaceParams{
-		Name:        workspace.Name,
-		Path:        toNullString(workspace.Path),
-		Description: toNullString(workspace.Description),
-		UpdatedAt:   workspace.UpdatedAt,
-		ID:          workspace.ID,
+		Name:        ws.Name,
+		Path:        toNullString(ws.Path),
+		Description: toNullString(ws.Description),
+		UpdatedAt:   ws.UpdatedAt,
+		ID:          ws.ID,
 	})
 	if err != nil {
 		return fmt.Errorf("update workspace: %w", err)
@@ -114,8 +115,20 @@ func (s *Store) UpdateWorkspace(ctx context.Context, workspace *types.Workspace)
 }
 
 // DeleteWorkspace deletes a workspace and all its issues.
-func (s *Store) DeleteWorkspace(ctx context.Context, id string) error {
-	err := s.queries.DeleteWorkspace(ctx, id)
+// Accepts either workspace ID (e.g., "ws-00blnw") or name (e.g., "my-project-a1b2c3").
+func (s *Store) DeleteWorkspace(ctx context.Context, idOrName string) error {
+	// Try to resolve by ID first
+	ws, err := s.GetWorkspace(ctx, idOrName)
+	if err != nil {
+		// If not found by ID, try by name
+		ws, err = s.GetWorkspaceByName(ctx, idOrName)
+		if err != nil {
+			return fmt.Errorf("workspace not found: %s", idOrName)
+		}
+	}
+
+	// Delete by the resolved ID
+	err = s.queries.DeleteWorkspace(ctx, ws.ID)
 	if err != nil {
 		return fmt.Errorf("delete workspace: %w", err)
 	}

@@ -34,9 +34,23 @@ func Base36Encode(data []byte) string {
 }
 
 // GenerateIssueID creates an issue ID from content.
-// Format: prefix-{6-char-base36-hash}
+// Format: prefix.{6-char-base36-hash}
+// Uses period separator to distinguish from workspace prefixes which use hyphens.
 func GenerateIssueID(prefix, title string) string {
-	h := sha256.Sum256([]byte(title + time.Now().String()))
+	return generateHashID(prefix, title, ".")
+}
+
+// GenerateWorkspaceID creates a workspace ID from content.
+// Format: prefix-{6-char-base36-hash}
+// Uses hyphen separator consistent with workspace naming conventions.
+func GenerateWorkspaceID(prefix, name string) string {
+	return generateHashID(prefix, name, "-")
+}
+
+// generateHashID is the internal function that creates hash-based IDs.
+// Format: prefix{separator}{6-char-base36-hash}
+func generateHashID(prefix, content, separator string) string {
+	h := sha256.Sum256([]byte(content + time.Now().String()))
 	// Use first 3 bytes for ~5-6 base36 characters
 	encoded := Base36Encode(h[:3])
 
@@ -49,7 +63,7 @@ func GenerateIssueID(prefix, title string) string {
 		encoded = encoded[:6]
 	}
 
-	return prefix + "-" + encoded
+	return prefix + separator + encoded
 }
 
 // GenerateName creates a workspace name from a directory path.
@@ -82,9 +96,9 @@ func GenerateName(dirPath string) (string, error) {
 }
 
 // GeneratePrefix creates an issue prefix from a directory path.
-// Format: {sanitized-basename-truncated}-{4-char-base36-hash}
+// Format: {alphanumeric-basename-truncated}-{4-char-base36-hash}
 // The hash is derived from the full absolute path, making it deterministic.
-// Example: /home/user/projects/api -> "api-a3f2"
+// Example: /home/user/projects/my-api -> "myapi-a3f2"
 func GeneratePrefix(dirPath string) (string, error) {
 	absPath, err := filepath.Abs(dirPath)
 	if err != nil {
@@ -101,9 +115,9 @@ func GeneratePrefix(dirPath string) (string, error) {
 	// Normalize path separators for cross-platform consistency
 	normalized := filepath.ToSlash(evalPath)
 
-	// Get sanitized basename, truncated for prefix use
+	// Get alphanumeric-only basename, truncated for prefix use
 	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
-	basename := SanitizeBasename(filepath.Base(evalPath))
+	basename := normalizeForPrefix(filepath.Base(evalPath))
 	if len(basename) > 5 {
 		basename = basename[:5]
 	}
@@ -124,15 +138,15 @@ func GeneratePrefix(dirPath string) (string, error) {
 }
 
 // GeneratePrefixFromName creates an issue prefix from a workspace name (without path).
-// Format: {sanitized-name-truncated}-{4-char-base36-hash}
+// Format: {alphanumeric-name-truncated}-{4-char-base36-hash}
 // Used when creating a workspace without an associated directory path.
 // Includes timestamp for uniqueness when same name is used multiple times.
 func GeneratePrefixFromName(name string) string {
-	// Sanitize and truncate the name
+	// Normalize to alphanumeric only and truncate
 	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
-	sanitized := SanitizeBasename(name)
-	if len(sanitized) > 5 {
-		sanitized = sanitized[:5]
+	normalized := normalizeForPrefix(name)
+	if len(normalized) > 5 {
+		normalized = normalized[:5]
 	}
 
 	// Generate hash from name + timestamp for uniqueness
@@ -147,7 +161,26 @@ func GeneratePrefixFromName(name string) string {
 		suffix = suffix[:4]
 	}
 
-	return sanitized + "-" + suffix
+	return normalized + "-" + suffix
+}
+
+// normalizeForPrefix converts a name to lowercase alphanumeric only.
+// All special characters (including hyphens, spaces, underscores) are removed.
+// Example: "My-Cool_Project!" -> "mycoolproject"
+func normalizeForPrefix(name string) string {
+	// Lowercase
+	name = strings.ToLower(name)
+
+	// Keep only alphanumeric characters
+	re := regexp.MustCompile(`[^a-z0-9]`)
+	name = re.ReplaceAllString(name, "")
+
+	// Fallback for empty result
+	if name == "" {
+		name = "ws"
+	}
+
+	return name
 }
 
 // SanitizeBasename normalizes a directory name for use in workspace names.

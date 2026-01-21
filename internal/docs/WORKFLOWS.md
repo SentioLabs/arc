@@ -301,7 +301,7 @@ Session Start with in_progress issues:
 - [ ] For each in_progress issue: arc show <issue-id>
 - [ ] Read notes field to understand: COMPLETED, IN PROGRESS, NEXT
 - [ ] Report to user with context from notes field
-- [ ] Example: "arc-a3f2 is in_progress. Last session:
+- [ ] Example: "arc.a3f2 is in_progress. Last session:
        completed tidying. No code written yet. Next step: create
        markdown_to_docs.py. Should I continue with that?"
 - [ ] Wait for user confirmation or direction

@@ -3,7 +3,6 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"os"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
-	"github.com/sentiolabs/arc/internal/workspace"
 
 	_ "modernc.org/sqlite"
 )
@@ -80,25 +78,6 @@ func (s *Store) Close() error {
 // Path returns the database file path.
 func (s *Store) Path() string {
 	return s.path
-}
-
-// generateID creates a short base36 hash ID with the given prefix.
-// Format: prefix-{6-char-base36-hash}
-func generateID(prefix string, content string) string {
-	h := sha256.Sum256([]byte(content + time.Now().String()))
-	// Use first 3 bytes for ~5-6 base36 characters
-	encoded := workspace.Base36Encode(h[:3])
-
-	// Pad to exactly 6 chars
-	for len(encoded) < 6 {
-		encoded = "0" + encoded
-	}
-	// Trim if longer
-	if len(encoded) > 6 {
-		encoded = encoded[:6]
-	}
-
-	return prefix + "-" + encoded
 }
 
 // Ensure Store implements storage.Storage

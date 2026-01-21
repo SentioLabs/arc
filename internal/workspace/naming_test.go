@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -93,16 +94,16 @@ func TestBase36Encode(t *testing.T) {
 }
 
 func TestGenerateIssueID(t *testing.T) {
-	// Test that IDs follow the format prefix-xxxxxx (6 base36 chars)
+	// Test that IDs follow the format prefix.xxxxxx (6 base36 chars)
 	id1 := GenerateIssueID("arc", "Test issue")
 
-	if len(id1) < 10 || id1[3] != '-' {
-		t.Errorf("GenerateIssueID should produce format 'arc-xxxxxx', got %q", id1)
+	if len(id1) < 10 || id1[3] != '.' {
+		t.Errorf("GenerateIssueID should produce format 'arc.xxxxxx', got %q", id1)
 	}
 
 	// Verify the prefix
-	if id1[:4] != "arc-" {
-		t.Errorf("Expected ID to start with 'arc-', got %q", id1)
+	if id1[:4] != "arc." {
+		t.Errorf("Expected ID to start with 'arc.', got %q", id1)
 	}
 
 	// Verify the suffix is 6 characters (base36)
@@ -213,7 +214,8 @@ func TestGeneratePrefixUniqueness(t *testing.T) {
 }
 
 func TestGeneratePrefixTruncation(t *testing.T) {
-	// Long basename should be truncated to 5 chars before hash
+	// Long basename should be truncated to 5 alphanumeric chars before hash
+	// "my-very-long-project-name" -> "myverylongprojectname" -> "myver"
 	prefix, err := GeneratePrefix("/tmp/my-very-long-project-name")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
@@ -224,13 +226,54 @@ func TestGeneratePrefixTruncation(t *testing.T) {
 		t.Errorf("Prefix should be max 10 chars, got %q (len %d)", prefix, len(prefix))
 	}
 
-	// Should start with truncated basename "my-ve-"
-	if prefix[:6] != "my-ve-" {
-		t.Errorf("Expected prefix to start with truncated 'my-ve-', got %q", prefix)
+	// Should start with truncated alphanumeric basename "myver-"
+	if prefix[:6] != "myver-" {
+		t.Errorf("Expected prefix to start with 'myver-', got %q", prefix)
+	}
+}
+
+func TestGeneratePrefixNormalization(t *testing.T) {
+	tests := []struct {
+		name           string
+		path           string
+		expectedPrefix string // Just the basename part before the hash
+	}{
+		{"hyphens removed", "/tmp/test-id-format", "testi"},
+		{"underscores removed", "/tmp/my_cool_project", "mycoo"},
+		{"spaces removed", "/tmp/my project", "mypro"},
+		{"special chars removed", "/tmp/I was_here#yesterday!", "iwash"},
+		{"already clean", "/tmp/myapi", "myapi"},
+		{"short name", "/tmp/api", "api"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			prefix, err := GeneratePrefix(tc.path)
+			if err != nil {
+				t.Fatalf("GeneratePrefix failed: %v", err)
+			}
+
+			// Extract basename part (before the last hyphen)
+			lastHyphen := strings.LastIndex(prefix, "-")
+			if lastHyphen == -1 {
+				t.Fatalf("Prefix should contain a hyphen, got %q", prefix)
+			}
+			basename := prefix[:lastHyphen]
+
+			if basename != tc.expectedPrefix {
+				t.Errorf("Expected basename %q, got %q (full prefix: %q)", tc.expectedPrefix, basename, prefix)
+			}
+
+			// Should never have double hyphens
+			if strings.Contains(prefix, "--") {
+				t.Errorf("Prefix should not contain double hyphens, got %q", prefix)
+			}
+		})
 	}
 }
 
 func TestGeneratePrefixFromName(t *testing.T) {
+	// "my-project" normalizes to "myproject", truncates to "mypro"
 	prefix := GeneratePrefixFromName("my-project")
 
 	// Test format: should be basename-xxxx (4-char base36 hash)
@@ -256,10 +299,10 @@ func TestGeneratePrefixFromName(t *testing.T) {
 		}
 	}
 
-	// Test that basename portion is correct (truncated to 5 chars)
+	// Test that basename portion is correct (alphanumeric only, truncated to 5 chars)
 	basename := prefix[:lastHyphen]
-	if basename != "my-pr" {
-		t.Errorf("Expected basename 'my-pr', got %q", basename)
+	if basename != "mypro" {
+		t.Errorf("Expected basename 'mypro', got %q", basename)
 	}
 
 	// Test max length: 5 basename + 1 dash + 4 hash = 10 chars

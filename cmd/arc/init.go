@@ -163,7 +163,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Workspace: %s\n", ws.Name)
 		fmt.Printf("  ID: %s\n", ws.ID)
 		fmt.Printf("  Prefix: %s\n", ws.Prefix)
-		fmt.Printf("  Issues will be named: %s-<hash> (e.g., %s-a3f2dd)\n\n", ws.Prefix, ws.Prefix)
+		fmt.Printf("  Issues will be named: %s.<hash> (e.g., %s.a3f2dd)\n\n", ws.Prefix, ws.Prefix)
 		fmt.Printf("Run %s to get started.\n", "arc quickstart")
 	}
 

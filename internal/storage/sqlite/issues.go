@@ -9,6 +9,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
+	"github.com/sentiolabs/arc/internal/workspace"
 )
 
 // IsHierarchicalID checks if an issue ID is hierarchical (has a parent).
@@ -98,7 +99,7 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 			}
 			issue.ID = childID
 		} else {
-			issue.ID = generateID(ws.Prefix, issue.Title)
+			issue.ID = workspace.GenerateIssueID(ws.Prefix, issue.Title)
 		}
 	}
 

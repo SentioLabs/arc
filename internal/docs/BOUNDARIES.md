@@ -190,7 +190,7 @@ TodoWrite (for JWT validation):
 **Example:**
 ```
 Session start:
-- Check arc: issue "arc-a3f2: Add JWT token validation" is ready
+- Check arc: issue "arc.a3f2: Add JWT token validation" is ready
 - Extract acceptance criteria into TodoWrite
 - Mark arc issue as in_progress
 - Work through TodoWrite items
