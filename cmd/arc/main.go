@@ -31,8 +31,7 @@ func main() {
 
 // Config holds CLI configuration
 type Config struct {
-	ServerURL        string `json:"server_url"`
-	DefaultWorkspace string `json:"default_workspace"`
+	ServerURL string `json:"server_url"`
 }
 
 // WorkspaceSource indicates how the workspace was resolved
@@ -41,7 +40,6 @@ type WorkspaceSource int
 const (
 	WorkspaceSourceFlag WorkspaceSource = iota
 	WorkspaceSourceLocal
-	WorkspaceSourceGlobal
 )
 
 func (s WorkspaceSource) String() string {
@@ -50,8 +48,6 @@ func (s WorkspaceSource) String() string {
 		return "command line flag (-w)"
 	case WorkspaceSourceLocal:
 		return ".arc.json (local)"
-	case WorkspaceSourceGlobal:
-		return "default_workspace (global config)"
 	default:
 		return "unknown"
 	}
@@ -205,6 +201,22 @@ func outputResult(data interface{}) {
 	}
 }
 
+// isSubdirectory returns true if child is the same as or a subdirectory of parent.
+func isSubdirectory(parent, child string) bool {
+	// Clean paths for consistent comparison
+	parent = filepath.Clean(parent)
+	child = filepath.Clean(child)
+
+	// Exact match
+	if parent == child {
+		return true
+	}
+
+	// Check if child starts with parent + separator
+	// This prevents /home/foo/project matching /home/foo/project2
+	return strings.HasPrefix(child, parent+string(filepath.Separator))
+}
+
 var rootCmd = &cobra.Command{
 	Use:     "arc",
 	Short:   "arc CLI - central issue tracking",
@@ -243,7 +255,6 @@ var workspaceCmd = &cobra.Command{
 func init() {
 	workspaceCmd.AddCommand(workspaceListCmd)
 	workspaceCmd.AddCommand(workspaceCreateCmd)
-	workspaceCmd.AddCommand(workspaceUseCmd)
 	workspaceCmd.AddCommand(workspaceDeleteCmd)
 }
 
@@ -331,7 +342,8 @@ var workspaceListCmd = &cobra.Command{
 			return nil
 		}
 
-		cfg, _ := loadConfig()
+		// Get current directory to mark the active workspace
+		cwd, _ := os.Getwd()
 
 		// Create a tabwriter for aligned columns
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -340,7 +352,8 @@ var workspaceListCmd = &cobra.Command{
 
 		for _, ws := range workspaces {
 			marker := " "
-			if ws.ID == cfg.DefaultWorkspace {
+			// Mark workspace if current directory is within its path
+			if ws.Path != "" && cwd != "" && isSubdirectory(ws.Path, cwd) {
 				marker = "*"
 			}
 			path := ws.Path
@@ -395,50 +408,6 @@ func init() {
 	workspaceCreateCmd.Flags().StringP("prefix", "p", "arc", "Issue ID prefix")
 	workspaceCreateCmd.Flags().String("path", "", "Associated directory path")
 	workspaceCreateCmd.Flags().StringP("description", "d", "", "Workspace description")
-}
-
-var workspaceUseCmd = &cobra.Command{
-	Use:   "use <id-or-name>",
-	Short: "Set default workspace",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-
-		// Try to find workspace by ID or name
-		ws, err := c.GetWorkspace(args[0])
-		if err != nil {
-			// Try by name - list and find
-			workspaces, listErr := c.ListWorkspaces()
-			if listErr != nil {
-				return err // Return original error
-			}
-			for _, w := range workspaces {
-				if w.Name == args[0] {
-					ws = w
-					break
-				}
-			}
-			if ws == nil {
-				return fmt.Errorf("workspace not found: %s", args[0])
-			}
-		}
-
-		cfg, err := loadConfig()
-		if err != nil {
-			return err
-		}
-
-		cfg.DefaultWorkspace = ws.ID
-		if err := saveConfig(cfg); err != nil {
-			return err
-		}
-
-		fmt.Printf("Default workspace set to: %s (%s)\n", ws.Name, ws.ID)
-		return nil
-	},
 }
 
 var workspaceDeleteCmd = &cobra.Command{

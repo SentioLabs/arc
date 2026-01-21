@@ -141,16 +141,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Save as default workspace
-	cfg, err := loadConfig()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	cfg.DefaultWorkspace = ws.ID
-	if err := saveConfig(cfg); err != nil {
-		return fmt.Errorf("save config: %w", err)
-	}
-
 	// Create project-local config
 	if err := createProjectConfig(cwd, ws.ID, ws.Name); err != nil {
 		if !quiet {

@@ -138,15 +138,6 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 			} else {
 				fmt.Println("✓ Created .arc.json")
 			}
-
-			// Update global config
-			globalCfg, _ := loadConfig()
-			globalCfg.DefaultWorkspace = ws.ID
-			if err := saveConfig(globalCfg); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: could not update global config: %v\n", err)
-			} else {
-				fmt.Println("✓ Updated default workspace")
-			}
 			fmt.Println()
 
 			wsID = ws.ID
