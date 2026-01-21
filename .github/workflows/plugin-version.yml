@@ -1,0 +1,48 @@
+name: Bump Plugin Version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'claude-plugin/**'
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    # Don't run on commits from this workflow (checked via commit author)
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump plugin version
+        id: bump
+        run: |
+          # Read current version
+          PLUGIN_JSON="claude-plugin/.claude-plugin/plugin.json"
+          CURRENT=$(jq -r '.version' "$PLUGIN_JSON")
+
+          # Parse semver and bump patch
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+
+          # Update plugin.json
+          jq --arg v "$NEW_VERSION" '.version = $v' "$PLUGIN_JSON" > tmp.json
+          mv tmp.json "$PLUGIN_JSON"
+
+          echo "Bumped plugin version: $CURRENT → $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add claude-plugin/.claude-plugin/plugin.json
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore(plugin): bump version to $NEW_VERSION"
+          git push
