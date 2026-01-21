@@ -43,10 +43,11 @@ const countBlockingIssues = `-- name: CountBlockingIssues :one
 SELECT COUNT(*) as count FROM dependencies d
 JOIN issues i ON d.depends_on_id = i.id
 WHERE d.issue_id = ?
-  AND d.type IN ('blocks', 'parent-child')
+  AND d.type = 'blocks'
   AND i.status != 'closed'
 `
 
+// Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 func (q *Queries) CountBlockingIssues(ctx context.Context, issueID string) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countBlockingIssues, issueID)
 	var count int64
@@ -91,7 +92,7 @@ SELECT i.id, i.workspace_id, i.title, i.description,
        i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason,
        COUNT(blocker.id) as blocked_by_count
 FROM issues i
-JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status != 'closed'
@@ -123,6 +124,7 @@ type GetBlockedIssuesInWorkspaceRow struct {
 	BlockedByCount int64          `json:"blocked_by_count"`
 }
 
+// Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 func (q *Queries) GetBlockedIssuesInWorkspace(ctx context.Context, arg GetBlockedIssuesInWorkspaceParams) ([]*GetBlockedIssuesInWorkspaceRow, error) {
 	rows, err := q.db.QueryContext(ctx, getBlockedIssuesInWorkspace, arg.WorkspaceID, arg.Limit)
 	if err != nil {
@@ -166,11 +168,12 @@ const getBlockingIssues = `-- name: GetBlockingIssues :many
 SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
-  AND d.type IN ('blocks', 'parent-child')
+  AND d.type = 'blocks'
   AND i.status != 'closed'
 ORDER BY i.priority ASC
 `
 
+// Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Issue, error) {
 	rows, err := q.db.QueryContext(ctx, getBlockingIssues, issueID)
 	if err != nil {

@@ -181,7 +181,7 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 
 const getOpenNonBlockedIssues = `-- name: GetOpenNonBlockedIssues :many
 SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -236,7 +236,7 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 
 const getReadyIssuesHybrid = `-- name: GetReadyIssuesHybrid :many
 SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -263,6 +263,7 @@ type GetReadyIssuesHybridParams struct {
 
 // Hybrid sort: recent issues (<48h) by priority/rank, older issues by age.
 // Uses CASE to create two sorting groups, then appropriate sub-ordering within each.
+// Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 func (q *Queries) GetReadyIssuesHybrid(ctx context.Context, arg GetReadyIssuesHybridParams) ([]*Issue, error) {
 	rows, err := q.db.QueryContext(ctx, getReadyIssuesHybrid, arg.WorkspaceID, arg.Limit)
 	if err != nil {
@@ -303,7 +304,7 @@ func (q *Queries) GetReadyIssuesHybrid(ctx context.Context, arg GetReadyIssuesHy
 
 const getReadyIssuesOldest = `-- name: GetReadyIssuesOldest :many
 SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -319,6 +320,7 @@ type GetReadyIssuesOldestParams struct {
 }
 
 // Oldest-first sort: for backlog clearing.
+// Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 func (q *Queries) GetReadyIssuesOldest(ctx context.Context, arg GetReadyIssuesOldestParams) ([]*Issue, error) {
 	rows, err := q.db.QueryContext(ctx, getReadyIssuesOldest, arg.WorkspaceID, arg.Limit)
 	if err != nil {
@@ -359,7 +361,7 @@ func (q *Queries) GetReadyIssuesOldest(ctx context.Context, arg GetReadyIssuesOl
 
 const getReadyIssuesPriority = `-- name: GetReadyIssuesPriority :many
 SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -378,6 +380,7 @@ type GetReadyIssuesPriorityParams struct {
 }
 
 // Priority-first sort: priority -> rank -> created_at.
+// Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 func (q *Queries) GetReadyIssuesPriority(ctx context.Context, arg GetReadyIssuesPriorityParams) ([]*Issue, error) {
 	rows, err := q.db.QueryContext(ctx, getReadyIssuesPriority, arg.WorkspaceID, arg.Limit)
 	if err != nil {

@@ -1,15 +1,16 @@
 {
   "name": "arc-marketplace",
-  "description": "marketplace for arc ai issue tracker",
+  "description": "Central issue tracker for AI-assisted coding workflows",
   "owner": {
-    "name": "Ben Firestone"
+    "name": "Sentio Labs",
+    "url": "https://github.com/sentiolabs"
   },
   "plugins": [
     {
       "name": "arc",
       "source": "./claude-plugin",
-      "description": "AI issue tracker for coding workflows",
-      "version": "0.1.1"
+      "description": "Central issue tracker for AI-assisted coding workflows. Manage tasks, track work, and maintain context with simple CLI commands.",
+      "version": "0.1.0"
     }
   ]
 }

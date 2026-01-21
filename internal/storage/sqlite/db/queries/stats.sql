@@ -9,6 +9,7 @@ SELECT
     (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = sqlc.arg(workspace_id) AND issues.status = 'deferred') as deferred_issues;
 
 -- name: GetReadyIssueCount :one
+-- Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 SELECT COUNT(*) as count FROM issues i
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -16,7 +17,7 @@ WHERE i.workspace_id = ?
     SELECT 1 FROM dependencies d
     JOIN issues blocker ON d.depends_on_id = blocker.id
     WHERE d.issue_id = i.id
-      AND d.type IN ('blocks', 'parent-child')
+      AND d.type = 'blocks'
       AND blocker.status != 'closed'
   );
 

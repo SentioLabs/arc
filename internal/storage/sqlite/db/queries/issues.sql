@@ -93,7 +93,7 @@ SELECT COUNT(*) as count FROM issues WHERE id = ?;
 
 -- name: GetOpenNonBlockedIssues :many
 SELECT i.* FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -105,8 +105,9 @@ LIMIT ?;
 -- name: GetReadyIssuesHybrid :many
 -- Hybrid sort: recent issues (<48h) by priority/rank, older issues by age.
 -- Uses CASE to create two sorting groups, then appropriate sub-ordering within each.
+-- Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 SELECT i.* FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -127,8 +128,9 @@ LIMIT ?;
 
 -- name: GetReadyIssuesPriority :many
 -- Priority-first sort: priority -> rank -> created_at.
+-- Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 SELECT i.* FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')
@@ -142,8 +144,9 @@ LIMIT ?;
 
 -- name: GetReadyIssuesOldest :many
 -- Oldest-first sort: for backlog clearing.
+-- Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 SELECT i.* FROM issues i
-LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type IN ('blocks', 'parent-child')
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.workspace_id = ?
   AND i.status IN ('open', 'in_progress')

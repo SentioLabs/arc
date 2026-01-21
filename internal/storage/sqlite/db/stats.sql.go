@@ -35,11 +35,12 @@ WHERE i.workspace_id = ?
     SELECT 1 FROM dependencies d
     JOIN issues blocker ON d.depends_on_id = blocker.id
     WHERE d.issue_id = i.id
-      AND d.type IN ('blocks', 'parent-child')
+      AND d.type = 'blocks'
       AND blocker.status != 'closed'
   )
 `
 
+// Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 func (q *Queries) GetReadyIssueCount(ctx context.Context, workspaceID string) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getReadyIssueCount, workspaceID)
 	var count int64
