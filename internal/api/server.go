@@ -11,11 +11,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
+	"github.com/sentiolabs/arc/internal/version"
 	"github.com/sentiolabs/arc/web"
 )
-
-// Version is set at build time via ldflags
-var Version = "dev"
 
 // Server represents the REST API server.
 type Server struct {
@@ -132,7 +130,7 @@ type HealthResponse struct {
 func (s *Server) healthCheck(c echo.Context) error {
 	return c.JSON(http.StatusOK, HealthResponse{
 		Status:  "healthy",
-		Version: Version,
+		Version: version.Version,
 		Uptime:  time.Since(s.startTime).Seconds(),
 	})
 }
