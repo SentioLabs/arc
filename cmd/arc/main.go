@@ -106,13 +106,13 @@ type localConfig struct {
 	WorkspaceName string `json:"workspace_name"`
 }
 
-// loadLocalConfig attempts to load .arc.json from the current directory
+// loadLocalConfig attempts to load .arc.json from the current directory or any parent directory.
+// This allows arc commands to work from any subdirectory within a project.
 func loadLocalConfig() (*localConfig, error) {
-	cwd, err := os.Getwd()
+	configPath, err := findProjectConfig()
 	if err != nil {
 		return nil, err
 	}
-	configPath := filepath.Join(cwd, ".arc.json")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -125,6 +125,31 @@ func loadLocalConfig() (*localConfig, error) {
 	}
 
 	return &cfg, nil
+}
+
+// findProjectConfig searches for .arc.json starting from the current directory
+// and walking up to parent directories until found or root is reached.
+func findProjectConfig() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	dir := cwd
+	for {
+		configPath := filepath.Join(dir, ".arc.json")
+		if _, err := os.Stat(configPath); err == nil {
+			return configPath, nil
+		}
+
+		// Move to parent directory
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached root, no config found
+			return "", os.ErrNotExist
+		}
+		dir = parent
+	}
 }
 
 func getClient() (*client.Client, error) {
