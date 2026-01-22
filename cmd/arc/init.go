@@ -257,6 +257,7 @@ var sessionCompletionPattern = regexp.MustCompile(`(?s)## Session Completion.*?`
 // updateClaudeMdReference updates CLAUDE.md to reference AGENTS.md for session completion.
 // If CLAUDE.md doesn't exist, creates a minimal one with just the reference.
 // If it exists with a duplicated session completion section, replaces it with a reference.
+// If it exists without any session completion section, appends the reference.
 func updateClaudeMdReference(verbose bool) error {
 	filename := "CLAUDE.md"
 
@@ -293,22 +294,22 @@ func updateClaudeMdReference(verbose bool) error {
 		return nil
 	}
 
-	// Look for a "Session Completion" section with git commands (indicating duplication)
-	if !sessionCompletionPattern.MatchString(contentStr) {
-		// No duplicated session completion section found
-		if verbose {
-			fmt.Printf("  %s has no session completion section to update\n", filename)
+	// Check if there's a "Session Completion" section with git commands (indicating duplication)
+	var newContent string
+	if sessionCompletionPattern.MatchString(contentStr) {
+		// Replace duplicated section with reference
+		newContent = replaceSectionUntilNextHeader(contentStr, "## Session Completion", reference)
+		if newContent == contentStr {
+			// No changes made
+			return nil
 		}
-		return nil
-	}
-
-	// Find the section boundaries using string manipulation
-	// (Go's regexp doesn't support lookahead)
-	newContent := replaceSectionUntilNextHeader(contentStr, "## Session Completion", reference)
-
-	if newContent == contentStr {
-		// No changes made
-		return nil
+	} else {
+		// No session completion section - append the reference
+		newContent = contentStr
+		if !strings.HasSuffix(newContent, "\n") {
+			newContent += "\n"
+		}
+		newContent += "\n" + reference
 	}
 
 	if err := os.WriteFile(filename, []byte(newContent), 0644); err != nil {
