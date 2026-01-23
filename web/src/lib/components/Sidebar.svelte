@@ -21,10 +21,8 @@
 
 	// Icons as SVG paths
 	const icons: Record<string, string> = {
-		issues:
-			'M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z',
-		ready:
-			'M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z',
+		issues: 'M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z',
+		ready: 'M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z',
 		blocked:
 			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z',
 		labels:
@@ -42,9 +40,7 @@
 	}
 </script>
 
-<aside
-	class="w-64 h-screen bg-surface-800 border-r border-border flex flex-col sticky top-0"
->
+<aside class="w-64 h-screen bg-surface-800 border-r border-border flex flex-col sticky top-0">
 	<!-- Logo/Brand -->
 	<div class="p-4 border-b border-border">
 		<a href="/" class="flex items-center gap-2 group">
@@ -60,7 +56,10 @@
 	<!-- Workspace Selector -->
 	{#if workspaces.length > 0}
 		<div class="p-3 border-b border-border">
-			<label for="workspace-selector" class="block text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
+			<label
+				for="workspace-selector"
+				class="block text-xs font-medium text-text-muted uppercase tracking-wider mb-2"
+			>
 				Workspace
 			</label>
 			<div class="relative">
@@ -100,10 +99,7 @@
 
 			{#each navItems as item (item.href)}
 				{@const active = isActive(item.href)}
-				<a
-					href="/{currentWorkspace.id}/{item.href}"
-					class="nav-link {active ? 'active' : ''}"
-				>
+				<a href="/{currentWorkspace.id}/{item.href}" class="nav-link {active ? 'active' : ''}">
 					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
 						<path d={icons[item.icon]} />
 					</svg>
@@ -113,10 +109,7 @@
 
 			<!-- Create Issue button -->
 			<div class="pt-4 mt-4 border-t border-border">
-				<a
-					href="/{currentWorkspace.id}/issues/new"
-					class="btn btn-primary w-full justify-center"
-				>
+				<a href="/{currentWorkspace.id}/issues/new" class="btn btn-primary w-full justify-center">
 					<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
 						<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
 					</svg>

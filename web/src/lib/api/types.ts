@@ -4,1492 +4,1504 @@
  */
 
 export interface paths {
-    "/workspaces": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List all workspaces */
-        get: operations["listWorkspaces"];
-        put?: never;
-        /** Create a new workspace */
-        post: operations["createWorkspace"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        /** Get workspace by ID */
-        get: operations["getWorkspace"];
-        /** Update workspace */
-        put: operations["updateWorkspace"];
-        post?: never;
-        /** Delete workspace */
-        delete: operations["deleteWorkspace"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        /** Get workspace statistics */
-        get: operations["getWorkspaceStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        /** List issues in workspace */
-        get: operations["listIssues"];
-        put?: never;
-        /** Create a new issue */
-        post: operations["createIssue"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        /** Get issue by ID */
-        get: operations["getIssue"];
-        /** Update issue */
-        put: operations["updateIssue"];
-        post?: never;
-        /** Delete issue */
-        delete: operations["deleteIssue"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/close": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Close an issue */
-        post: operations["closeIssue"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/reopen": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reopen a closed issue */
-        post: operations["reopenIssue"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/ready": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        /** Get issues ready to work on (no blocking dependencies) */
-        get: operations["getReadyWork"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/blocked": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        /** Get blocked issues */
-        get: operations["getBlockedIssues"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/deps": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        /** Get issue dependencies and dependents */
-        get: operations["getDependencies"];
-        put?: never;
-        /** Add a dependency to an issue */
-        post: operations["addDependency"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/deps/{dependsOnId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-                /** @description ID of the dependency to remove */
-                dependsOnId: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a dependency from an issue */
-        delete: operations["removeDependency"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/labels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        /** List labels in workspace */
-        get: operations["listLabels"];
-        put?: never;
-        /** Create a new label */
-        post: operations["createLabel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/labels/{labelName}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Label name */
-                labelName: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /** Update a label */
-        put: operations["updateLabel"];
-        post?: never;
-        /** Delete a label */
-        delete: operations["deleteLabel"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/labels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add a label to an issue */
-        post: operations["addLabelToIssue"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-                /** @description Label name to remove */
-                labelName: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a label from an issue */
-        delete: operations["removeLabelFromIssue"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/comments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        /** Get comments for an issue */
-        get: operations["getComments"];
-        put?: never;
-        /** Add a comment to an issue */
-        post: operations["addComment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/comments/{commentId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-                /** @description Comment ID */
-                commentId: number;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /** Update a comment */
-        put: operations["updateComment"];
-        post?: never;
-        /** Delete a comment */
-        delete: operations["deleteComment"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workspaces/{workspaceId}/issues/{issueId}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        /** Get audit events for an issue */
-        get: operations["getEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+	'/workspaces': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** List all workspaces */
+		get: operations['listWorkspaces'];
+		put?: never;
+		/** Create a new workspace */
+		post: operations['createWorkspace'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		/** Get workspace by ID */
+		get: operations['getWorkspace'];
+		/** Update workspace */
+		put: operations['updateWorkspace'];
+		post?: never;
+		/** Delete workspace */
+		delete: operations['deleteWorkspace'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/stats': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		/** Get workspace statistics */
+		get: operations['getWorkspaceStats'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		/** List issues in workspace */
+		get: operations['listIssues'];
+		put?: never;
+		/** Create a new issue */
+		post: operations['createIssue'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		/** Get issue by ID */
+		get: operations['getIssue'];
+		/** Update issue */
+		put: operations['updateIssue'];
+		post?: never;
+		/** Delete issue */
+		delete: operations['deleteIssue'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/close': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Close an issue */
+		post: operations['closeIssue'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/reopen': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Reopen a closed issue */
+		post: operations['reopenIssue'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/ready': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		/** Get issues ready to work on (no blocking dependencies) */
+		get: operations['getReadyWork'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/blocked': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		/** Get blocked issues */
+		get: operations['getBlockedIssues'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/deps': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		/** Get issue dependencies and dependents */
+		get: operations['getDependencies'];
+		put?: never;
+		/** Add a dependency to an issue */
+		post: operations['addDependency'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/deps/{dependsOnId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+				/** @description ID of the dependency to remove */
+				dependsOnId: string;
+			};
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/** Remove a dependency from an issue */
+		delete: operations['removeDependency'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/labels': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		/** List labels in workspace */
+		get: operations['listLabels'];
+		put?: never;
+		/** Create a new label */
+		post: operations['createLabel'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/labels/{labelName}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Label name */
+				labelName: string;
+			};
+			cookie?: never;
+		};
+		get?: never;
+		/** Update a label */
+		put: operations['updateLabel'];
+		post?: never;
+		/** Delete a label */
+		delete: operations['deleteLabel'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/labels': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Add a label to an issue */
+		post: operations['addLabelToIssue'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+				/** @description Label name to remove */
+				labelName: string;
+			};
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/** Remove a label from an issue */
+		delete: operations['removeLabelFromIssue'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/comments': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		/** Get comments for an issue */
+		get: operations['getComments'];
+		put?: never;
+		/** Add a comment to an issue */
+		post: operations['addComment'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/comments/{commentId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+				/** @description Comment ID */
+				commentId: number;
+			};
+			cookie?: never;
+		};
+		get?: never;
+		/** Update a comment */
+		put: operations['updateComment'];
+		post?: never;
+		/** Delete a comment */
+		delete: operations['deleteComment'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/workspaces/{workspaceId}/issues/{issueId}/events': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		/** Get audit events for an issue */
+		get: operations['getEvents'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        Error: {
-            /** @description Error message */
-            error: string;
-        };
-        /** @enum {string} */
-        Status: "open" | "in_progress" | "blocked" | "deferred" | "closed";
-        /** @enum {string} */
-        IssueType: "bug" | "feature" | "task" | "epic" | "chore";
-        /** @enum {string} */
-        DependencyType: "blocks" | "parent-child" | "related" | "discovered-from";
-        /** @enum {string} */
-        EventType: "created" | "updated" | "status_changed" | "commented" | "closed" | "reopened" | "dependency_added" | "dependency_removed" | "label_added" | "label_removed";
-        Workspace: {
-            /** @description Unique workspace ID (e.g., "ws-a1b2") */
-            id: string;
-            /** @description Display name */
-            name: string;
-            /** @description Optional associated directory path */
-            path?: string;
-            /** @description Workspace description */
-            description?: string;
-            /** @description Issue ID prefix (e.g., "bd") */
-            prefix: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CreateWorkspaceRequest: {
-            /** @description Display name */
-            name: string;
-            /** @description Optional associated directory path */
-            path?: string;
-            /** @description Workspace description */
-            description?: string;
-            /** @description Issue ID prefix */
-            prefix: string;
-        };
-        UpdateWorkspaceRequest: {
-            /** @description New display name */
-            name?: string;
-            /** @description New associated directory path */
-            path?: string;
-            /** @description New description */
-            description?: string;
-        };
-        Statistics: {
-            workspace_id: string;
-            total_issues: number;
-            open_issues: number;
-            in_progress_issues: number;
-            closed_issues: number;
-            blocked_issues: number;
-            deferred_issues: number;
-            ready_issues: number;
-            /** Format: double */
-            avg_lead_time_hours?: number;
-        };
-        Issue: {
-            /** @description Unique issue ID */
-            id: string;
-            workspace_id: string;
-            title: string;
-            description?: string;
-            acceptance_criteria?: string;
-            notes?: string;
-            status: components["schemas"]["Status"];
-            /** @description 0 (critical) - 4 (backlog) */
-            priority: number;
-            issue_type: components["schemas"]["IssueType"];
-            assignee?: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            closed_at?: string;
-            close_reason?: string;
-            /** @description External reference (e.g., "gh-9", "jira-ABC") */
-            external_ref?: string;
-            labels?: string[];
-            dependencies?: components["schemas"]["Dependency"][];
-            comments?: components["schemas"]["Comment"][];
-        };
-        IssueDetails: components["schemas"]["Issue"] & {
-            dependents?: components["schemas"]["Dependency"][];
-        };
-        BlockedIssue: components["schemas"]["Issue"] & {
-            blocked_by_count: number;
-            blocked_by: string[];
-        };
-        PaginatedIssues: {
-            data: components["schemas"]["Issue"][];
-            total?: number;
-            limit?: number;
-            offset?: number;
-        };
-        CreateIssueRequest: {
-            title: string;
-            description?: string;
-            acceptance_criteria?: string;
-            notes?: string;
-            status?: components["schemas"]["Status"];
-            /** @default 2 */
-            priority: number;
-            issue_type?: components["schemas"]["IssueType"];
-            assignee?: string;
-            external_ref?: string;
-        };
-        UpdateIssueRequest: {
-            title?: string;
-            description?: string;
-            acceptance_criteria?: string;
-            notes?: string;
-            status?: components["schemas"]["Status"];
-            priority?: number;
-            issue_type?: components["schemas"]["IssueType"];
-            assignee?: string;
-            external_ref?: string;
-        };
-        CloseIssueRequest: {
-            /** @description Reason for closing */
-            reason?: string;
-        };
-        Dependency: {
-            issue_id: string;
-            depends_on_id: string;
-            type: components["schemas"]["DependencyType"];
-            /** Format: date-time */
-            created_at: string;
-            created_by?: string;
-        };
-        DependencyGraph: {
-            dependencies: components["schemas"]["Dependency"][];
-            dependents: components["schemas"]["Dependency"][];
-        };
-        AddDependencyRequest: {
-            /** @description ID of the issue this depends on */
-            depends_on_id: string;
-            type: components["schemas"]["DependencyType"];
-        };
-        Label: {
-            workspace_id: string;
-            name: string;
-            /** @description Hex color code (e.g., "#ff0000") */
-            color?: string;
-            description?: string;
-        };
-        CreateLabelRequest: {
-            name: string;
-            color?: string;
-            description?: string;
-        };
-        UpdateLabelRequest: {
-            color?: string;
-            description?: string;
-        };
-        AddLabelToIssueRequest: {
-            label: string;
-        };
-        Comment: {
-            /** Format: int64 */
-            id: number;
-            issue_id: string;
-            author: string;
-            text: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at?: string;
-        };
-        AddCommentRequest: {
-            text: string;
-        };
-        UpdateCommentRequest: {
-            text: string;
-        };
-        Event: {
-            /** Format: int64 */
-            id: number;
-            issue_id: string;
-            event_type: components["schemas"]["EventType"];
-            actor: string;
-            old_value?: string;
-            new_value?: string;
-            comment?: string;
-            /** Format: date-time */
-            created_at: string;
-        };
-    };
-    responses: {
-        /** @description Bad request */
-        BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Resource not found */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Internal server error */
-        InternalError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-    };
-    parameters: {
-        /** @description Workspace ID */
-        WorkspaceId: string;
-        /** @description Issue ID */
-        IssueId: string;
-        /** @description User performing the action (defaults to "anonymous") */
-        ActorHeader: string;
-    };
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+	schemas: {
+		Error: {
+			/** @description Error message */
+			error: string;
+		};
+		/** @enum {string} */
+		Status: 'open' | 'in_progress' | 'blocked' | 'deferred' | 'closed';
+		/** @enum {string} */
+		IssueType: 'bug' | 'feature' | 'task' | 'epic' | 'chore';
+		/** @enum {string} */
+		DependencyType: 'blocks' | 'parent-child' | 'related' | 'discovered-from';
+		/** @enum {string} */
+		EventType:
+			| 'created'
+			| 'updated'
+			| 'status_changed'
+			| 'commented'
+			| 'closed'
+			| 'reopened'
+			| 'dependency_added'
+			| 'dependency_removed'
+			| 'label_added'
+			| 'label_removed';
+		Workspace: {
+			/** @description Unique workspace ID (e.g., "ws-a1b2") */
+			id: string;
+			/** @description Display name */
+			name: string;
+			/** @description Optional associated directory path */
+			path?: string;
+			/** @description Workspace description */
+			description?: string;
+			/** @description Issue ID prefix (e.g., "bd") */
+			prefix: string;
+			/** Format: date-time */
+			created_at: string;
+			/** Format: date-time */
+			updated_at: string;
+		};
+		CreateWorkspaceRequest: {
+			/** @description Display name */
+			name: string;
+			/** @description Optional associated directory path */
+			path?: string;
+			/** @description Workspace description */
+			description?: string;
+			/** @description Issue ID prefix */
+			prefix: string;
+		};
+		UpdateWorkspaceRequest: {
+			/** @description New display name */
+			name?: string;
+			/** @description New associated directory path */
+			path?: string;
+			/** @description New description */
+			description?: string;
+		};
+		Statistics: {
+			workspace_id: string;
+			total_issues: number;
+			open_issues: number;
+			in_progress_issues: number;
+			closed_issues: number;
+			blocked_issues: number;
+			deferred_issues: number;
+			ready_issues: number;
+			/** Format: double */
+			avg_lead_time_hours?: number;
+		};
+		Issue: {
+			/** @description Unique issue ID */
+			id: string;
+			workspace_id: string;
+			title: string;
+			description?: string;
+			acceptance_criteria?: string;
+			notes?: string;
+			status: components['schemas']['Status'];
+			/** @description 0 (critical) - 4 (backlog) */
+			priority: number;
+			issue_type: components['schemas']['IssueType'];
+			assignee?: string;
+			/** Format: date-time */
+			created_at: string;
+			/** Format: date-time */
+			updated_at: string;
+			/** Format: date-time */
+			closed_at?: string;
+			close_reason?: string;
+			/** @description External reference (e.g., "gh-9", "jira-ABC") */
+			external_ref?: string;
+			labels?: string[];
+			dependencies?: components['schemas']['Dependency'][];
+			comments?: components['schemas']['Comment'][];
+		};
+		IssueDetails: components['schemas']['Issue'] & {
+			dependents?: components['schemas']['Dependency'][];
+		};
+		BlockedIssue: components['schemas']['Issue'] & {
+			blocked_by_count: number;
+			blocked_by: string[];
+		};
+		PaginatedIssues: {
+			data: components['schemas']['Issue'][];
+			total?: number;
+			limit?: number;
+			offset?: number;
+		};
+		CreateIssueRequest: {
+			title: string;
+			description?: string;
+			acceptance_criteria?: string;
+			notes?: string;
+			status?: components['schemas']['Status'];
+			/** @default 2 */
+			priority: number;
+			issue_type?: components['schemas']['IssueType'];
+			assignee?: string;
+			external_ref?: string;
+		};
+		UpdateIssueRequest: {
+			title?: string;
+			description?: string;
+			acceptance_criteria?: string;
+			notes?: string;
+			status?: components['schemas']['Status'];
+			priority?: number;
+			issue_type?: components['schemas']['IssueType'];
+			assignee?: string;
+			external_ref?: string;
+		};
+		CloseIssueRequest: {
+			/** @description Reason for closing */
+			reason?: string;
+		};
+		Dependency: {
+			issue_id: string;
+			depends_on_id: string;
+			type: components['schemas']['DependencyType'];
+			/** Format: date-time */
+			created_at: string;
+			created_by?: string;
+		};
+		DependencyGraph: {
+			dependencies: components['schemas']['Dependency'][];
+			dependents: components['schemas']['Dependency'][];
+		};
+		AddDependencyRequest: {
+			/** @description ID of the issue this depends on */
+			depends_on_id: string;
+			type: components['schemas']['DependencyType'];
+		};
+		Label: {
+			workspace_id: string;
+			name: string;
+			/** @description Hex color code (e.g., "#ff0000") */
+			color?: string;
+			description?: string;
+		};
+		CreateLabelRequest: {
+			name: string;
+			color?: string;
+			description?: string;
+		};
+		UpdateLabelRequest: {
+			color?: string;
+			description?: string;
+		};
+		AddLabelToIssueRequest: {
+			label: string;
+		};
+		Comment: {
+			/** Format: int64 */
+			id: number;
+			issue_id: string;
+			author: string;
+			text: string;
+			/** Format: date-time */
+			created_at: string;
+			/** Format: date-time */
+			updated_at?: string;
+		};
+		AddCommentRequest: {
+			text: string;
+		};
+		UpdateCommentRequest: {
+			text: string;
+		};
+		Event: {
+			/** Format: int64 */
+			id: number;
+			issue_id: string;
+			event_type: components['schemas']['EventType'];
+			actor: string;
+			old_value?: string;
+			new_value?: string;
+			comment?: string;
+			/** Format: date-time */
+			created_at: string;
+		};
+	};
+	responses: {
+		/** @description Bad request */
+		BadRequest: {
+			headers: {
+				[name: string]: unknown;
+			};
+			content: {
+				'application/json': components['schemas']['Error'];
+			};
+		};
+		/** @description Resource not found */
+		NotFound: {
+			headers: {
+				[name: string]: unknown;
+			};
+			content: {
+				'application/json': components['schemas']['Error'];
+			};
+		};
+		/** @description Internal server error */
+		InternalError: {
+			headers: {
+				[name: string]: unknown;
+			};
+			content: {
+				'application/json': components['schemas']['Error'];
+			};
+		};
+	};
+	parameters: {
+		/** @description Workspace ID */
+		WorkspaceId: string;
+		/** @description Issue ID */
+		IssueId: string;
+		/** @description User performing the action (defaults to "anonymous") */
+		ActorHeader: string;
+	};
+	requestBodies: never;
+	headers: never;
+	pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    listWorkspaces: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of workspaces */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"][];
-                };
-            };
-            500: components["responses"]["InternalError"];
-        };
-    };
-    createWorkspace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateWorkspaceRequest"];
-            };
-        };
-        responses: {
-            /** @description Workspace created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getWorkspace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Workspace details */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    updateWorkspace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateWorkspaceRequest"];
-            };
-        };
-        responses: {
-            /** @description Workspace updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    deleteWorkspace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Workspace deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getWorkspaceStats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Workspace statistics */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Statistics"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    listIssues: {
-        parameters: {
-            query?: {
-                /** @description Filter by status */
-                status?: components["schemas"]["Status"];
-                /** @description Filter by issue type */
-                type?: components["schemas"]["IssueType"];
-                /** @description Filter by priority (0-4) */
-                priority?: number;
-                /** @description Filter by assignee */
-                assignee?: string;
-                /** @description Full-text search query */
-                q?: string;
-                /** @description Maximum results to return */
-                limit?: number;
-                /** @description Pagination offset */
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated list of issues */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedIssues"];
-                };
-            };
-            500: components["responses"]["InternalError"];
-        };
-    };
-    createIssue: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateIssueRequest"];
-            };
-        };
-        responses: {
-            /** @description Issue created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Issue"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getIssue: {
-        parameters: {
-            query?: {
-                /** @description Include full details (dependencies, comments, labels) */
-                details?: boolean;
-            };
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Issue details */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Issue"] | components["schemas"]["IssueDetails"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    updateIssue: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateIssueRequest"];
-            };
-        };
-        responses: {
-            /** @description Issue updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Issue"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    deleteIssue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Issue deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    closeIssue: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["CloseIssueRequest"];
-            };
-        };
-        responses: {
-            /** @description Issue closed */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Issue"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    reopenIssue: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Issue reopened */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Issue"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getReadyWork: {
-        parameters: {
-            query?: {
-                /** @description Filter by issue type */
-                type?: components["schemas"]["IssueType"];
-                /** @description Filter by priority (0-4) */
-                priority?: number;
-                /** @description Filter by assignee */
-                assignee?: string;
-                /** @description Filter for unassigned issues only */
-                unassigned?: boolean;
-                /** @description Maximum results to return */
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of ready issues */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Issue"][];
-                };
-            };
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getBlockedIssues: {
-        parameters: {
-            query?: {
-                /** @description Maximum results to return */
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of blocked issues with blocking info */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BlockedIssue"][];
-                };
-            };
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getDependencies: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Dependencies and dependents */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DependencyGraph"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    addDependency: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddDependencyRequest"];
-            };
-        };
-        responses: {
-            /** @description Dependency added */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Dependency"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    removeDependency: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-                /** @description ID of the dependency to remove */
-                dependsOnId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Dependency removed */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    listLabels: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of labels */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Label"][];
-                };
-            };
-            500: components["responses"]["InternalError"];
-        };
-    };
-    createLabel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateLabelRequest"];
-            };
-        };
-        responses: {
-            /** @description Label created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Label"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    updateLabel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Label name */
-                labelName: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateLabelRequest"];
-            };
-        };
-        responses: {
-            /** @description Label updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Label"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    deleteLabel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Label name */
-                labelName: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Label deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    addLabelToIssue: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddLabelToIssueRequest"];
-            };
-        };
-        responses: {
-            /** @description Label added to issue */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    removeLabelFromIssue: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-                /** @description Label name to remove */
-                labelName: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Label removed from issue */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getComments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of comments */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Comment"][];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    addComment: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddCommentRequest"];
-            };
-        };
-        responses: {
-            /** @description Comment added */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Comment"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    updateComment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-                /** @description Comment ID */
-                commentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateCommentRequest"];
-            };
-        };
-        responses: {
-            /** @description Comment updated */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    deleteComment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-                /** @description Comment ID */
-                commentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Comment deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    getEvents: {
-        parameters: {
-            query?: {
-                /** @description Maximum events to return */
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
-                /** @description Issue ID */
-                issueId: components["parameters"]["IssueId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of events */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Event"][];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
+	listWorkspaces: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of workspaces */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Workspace'][];
+				};
+			};
+			500: components['responses']['InternalError'];
+		};
+	};
+	createWorkspace: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CreateWorkspaceRequest'];
+			};
+		};
+		responses: {
+			/** @description Workspace created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Workspace'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	getWorkspace: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Workspace details */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Workspace'];
+				};
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	updateWorkspace: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['UpdateWorkspaceRequest'];
+			};
+		};
+		responses: {
+			/** @description Workspace updated */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Workspace'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	deleteWorkspace: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Workspace deleted */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	getWorkspaceStats: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Workspace statistics */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Statistics'];
+				};
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	listIssues: {
+		parameters: {
+			query?: {
+				/** @description Filter by status */
+				status?: components['schemas']['Status'];
+				/** @description Filter by issue type */
+				type?: components['schemas']['IssueType'];
+				/** @description Filter by priority (0-4) */
+				priority?: number;
+				/** @description Filter by assignee */
+				assignee?: string;
+				/** @description Full-text search query */
+				q?: string;
+				/** @description Maximum results to return */
+				limit?: number;
+				/** @description Pagination offset */
+				offset?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Paginated list of issues */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PaginatedIssues'];
+				};
+			};
+			500: components['responses']['InternalError'];
+		};
+	};
+	createIssue: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CreateIssueRequest'];
+			};
+		};
+		responses: {
+			/** @description Issue created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Issue'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	getIssue: {
+		parameters: {
+			query?: {
+				/** @description Include full details (dependencies, comments, labels) */
+				details?: boolean;
+			};
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Issue details */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json':
+						| components['schemas']['Issue']
+						| components['schemas']['IssueDetails'];
+				};
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	updateIssue: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['UpdateIssueRequest'];
+			};
+		};
+		responses: {
+			/** @description Issue updated */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Issue'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	deleteIssue: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Issue deleted */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	closeIssue: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: {
+			content: {
+				'application/json': components['schemas']['CloseIssueRequest'];
+			};
+		};
+		responses: {
+			/** @description Issue closed */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Issue'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	reopenIssue: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Issue reopened */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Issue'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	getReadyWork: {
+		parameters: {
+			query?: {
+				/** @description Filter by issue type */
+				type?: components['schemas']['IssueType'];
+				/** @description Filter by priority (0-4) */
+				priority?: number;
+				/** @description Filter by assignee */
+				assignee?: string;
+				/** @description Filter for unassigned issues only */
+				unassigned?: boolean;
+				/** @description Maximum results to return */
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of ready issues */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Issue'][];
+				};
+			};
+			500: components['responses']['InternalError'];
+		};
+	};
+	getBlockedIssues: {
+		parameters: {
+			query?: {
+				/** @description Maximum results to return */
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of blocked issues with blocking info */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['BlockedIssue'][];
+				};
+			};
+			500: components['responses']['InternalError'];
+		};
+	};
+	getDependencies: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Dependencies and dependents */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['DependencyGraph'];
+				};
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	addDependency: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['AddDependencyRequest'];
+			};
+		};
+		responses: {
+			/** @description Dependency added */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Dependency'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	removeDependency: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+				/** @description ID of the dependency to remove */
+				dependsOnId: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Dependency removed */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	listLabels: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of labels */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Label'][];
+				};
+			};
+			500: components['responses']['InternalError'];
+		};
+	};
+	createLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CreateLabelRequest'];
+			};
+		};
+		responses: {
+			/** @description Label created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Label'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	updateLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Label name */
+				labelName: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['UpdateLabelRequest'];
+			};
+		};
+		responses: {
+			/** @description Label updated */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Label'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	deleteLabel: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Label name */
+				labelName: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Label deleted */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	addLabelToIssue: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['AddLabelToIssueRequest'];
+			};
+		};
+		responses: {
+			/** @description Label added to issue */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	removeLabelFromIssue: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+				/** @description Label name to remove */
+				labelName: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Label removed from issue */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	getComments: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of comments */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Comment'][];
+				};
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	addComment: {
+		parameters: {
+			query?: never;
+			header?: {
+				/** @description User performing the action (defaults to "anonymous") */
+				'X-Actor'?: components['parameters']['ActorHeader'];
+			};
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['AddCommentRequest'];
+			};
+		};
+		responses: {
+			/** @description Comment added */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Comment'];
+				};
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	updateComment: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+				/** @description Comment ID */
+				commentId: number;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['UpdateCommentRequest'];
+			};
+		};
+		responses: {
+			/** @description Comment updated */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			400: components['responses']['BadRequest'];
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	deleteComment: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+				/** @description Comment ID */
+				commentId: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Comment deleted */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
+	getEvents: {
+		parameters: {
+			query?: {
+				/** @description Maximum events to return */
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Workspace ID */
+				workspaceId: components['parameters']['WorkspaceId'];
+				/** @description Issue ID */
+				issueId: components['parameters']['IssueId'];
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description List of events */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['Event'][];
+				};
+			};
+			404: components['responses']['NotFound'];
+			500: components['responses']['InternalError'];
+		};
+	};
 }

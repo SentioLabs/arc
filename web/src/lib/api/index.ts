@@ -70,7 +70,13 @@ export async function listIssues(
 		params: {
 			path: { workspaceId },
 			query: {
-				status: filters.status as 'open' | 'in_progress' | 'blocked' | 'deferred' | 'closed' | undefined,
+				status: filters.status as
+					| 'open'
+					| 'in_progress'
+					| 'blocked'
+					| 'deferred'
+					| 'closed'
+					| undefined,
 				type: filters.type as 'bug' | 'feature' | 'task' | 'epic' | 'chore' | undefined,
 				priority: filters.priority,
 				assignee: filters.assignee,
@@ -150,10 +156,7 @@ export async function getReadyWork(
 	return data ?? [];
 }
 
-export async function getBlockedIssues(
-	workspaceId: string,
-	limit = 50
-): Promise<BlockedIssue[]> {
+export async function getBlockedIssues(workspaceId: string, limit = 50): Promise<BlockedIssue[]> {
 	const { data, error } = await api.GET('/workspaces/{workspaceId}/blocked', {
 		params: {
 			path: { workspaceId },
@@ -175,12 +178,9 @@ export async function listLabels(workspaceId: string): Promise<Label[]> {
 
 // Comment APIs
 export async function getComments(workspaceId: string, issueId: string): Promise<Comment[]> {
-	const { data, error } = await api.GET(
-		'/workspaces/{workspaceId}/issues/{issueId}/comments',
-		{
-			params: { path: { workspaceId, issueId } }
-		}
-	);
+	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues/{issueId}/comments', {
+		params: { path: { workspaceId, issueId } }
+	});
 	if (error) handleError(error);
 	return data ?? [];
 }
@@ -206,12 +206,9 @@ export async function getDependencies(
 	workspaceId: string,
 	issueId: string
 ): Promise<DependencyGraph> {
-	const { data, error } = await api.GET(
-		'/workspaces/{workspaceId}/issues/{issueId}/deps',
-		{
-			params: { path: { workspaceId, issueId } }
-		}
-	);
+	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues/{issueId}/deps', {
+		params: { path: { workspaceId, issueId } }
+	});
 	if (error) handleError(error);
 	return data ?? { dependencies: [], dependents: [] };
 }

@@ -26,7 +26,9 @@
 </script>
 
 <span
-	class="inline-flex items-center gap-1 font-mono font-semibold uppercase tracking-wider border rounded {statusStyles[status]} {sizeStyles[size]}"
+	class="inline-flex items-center gap-1 font-mono font-semibold uppercase tracking-wider border rounded {statusStyles[
+		status
+	]} {sizeStyles[size]}"
 >
 	<!-- Status indicator dot -->
 	<span

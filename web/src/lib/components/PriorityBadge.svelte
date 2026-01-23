@@ -28,9 +28,7 @@
 	<span class="flex items-end gap-0.5 h-3">
 		{#each [1, 2, 3, 4] as bar}
 			<span
-				class="w-1 rounded-sm transition-all {bar <= config.bars
-					? config.color
-					: 'bg-surface-600'}"
+				class="w-1 rounded-sm transition-all {bar <= config.bars ? config.color : 'bg-surface-600'}"
 				style="height: {bar * 25}%"
 			></span>
 		{/each}

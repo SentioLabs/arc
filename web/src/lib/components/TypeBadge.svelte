@@ -39,12 +39,7 @@
 </script>
 
 <span class="inline-flex items-center gap-1.5" title={issueTypeLabels[type]}>
-	<svg
-		viewBox="0 0 24 24"
-		fill="currentColor"
-		class="w-4 h-4 {config.color}"
-		aria-hidden="true"
-	>
+	<svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 {config.color}" aria-hidden="true">
 		{@html config.icon}
 	</svg>
 	{#if showLabel}

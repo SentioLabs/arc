@@ -121,12 +121,7 @@
 						<label for="type" class="block text-sm font-medium text-text-secondary mb-2">
 							Type
 						</label>
-						<select
-							id="type"
-							bind:value={issueType}
-							class="input w-full"
-							disabled={submitting}
-						>
+						<select id="type" bind:value={issueType} class="input w-full" disabled={submitting}>
 							{#each issueTypes as type (type.value)}
 								<option value={type.value}>{type.label}</option>
 							{/each}
@@ -137,12 +132,7 @@
 						<label for="priority" class="block text-sm font-medium text-text-secondary mb-2">
 							Priority
 						</label>
-						<select
-							id="priority"
-							bind:value={priority}
-							class="input w-full"
-							disabled={submitting}
-						>
+						<select id="priority" bind:value={priority} class="input w-full" disabled={submitting}>
 							{#each priorities as p (p.value)}
 								<option value={p.value}>{p.label}</option>
 							{/each}
@@ -167,19 +157,10 @@
 
 				<!-- Actions -->
 				<div class="flex items-center justify-end gap-3 pt-4 border-t border-border">
-					<button
-						type="button"
-						class="btn btn-ghost"
-						onclick={handleCancel}
-						disabled={submitting}
-					>
+					<button type="button" class="btn btn-ghost" onclick={handleCancel} disabled={submitting}>
 						Cancel
 					</button>
-					<button
-						type="submit"
-						class="btn btn-primary"
-						disabled={submitting || !title.trim()}
-					>
+					<button type="submit" class="btn btn-primary" disabled={submitting || !title.trim()}>
 						{#if submitting}
 							Creating...
 						{:else}

@@ -17,9 +17,7 @@
 
 	// Current workspace from URL
 	const currentWorkspaceId = $derived($page.params.workspaceId);
-	const currentWorkspace = $derived(
-		$workspacesStore.find((ws) => ws.id === currentWorkspaceId)
-	);
+	const currentWorkspace = $derived($workspacesStore.find((ws) => ws.id === currentWorkspaceId));
 
 	// Load workspaces on mount
 	$effect(() => {
@@ -58,9 +56,13 @@
 		{:else if $errorStore}
 			<div class="flex-1 flex items-center justify-center p-8">
 				<div class="card p-8 text-center max-w-md">
-					<div class="w-12 h-12 bg-status-blocked/20 rounded-xl flex items-center justify-center mx-auto mb-4">
+					<div
+						class="w-12 h-12 bg-status-blocked/20 rounded-xl flex items-center justify-center mx-auto mb-4"
+					>
 						<svg class="w-6 h-6 text-status-blocked" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+							<path
+								d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+							/>
 						</svg>
 					</div>
 					<h2 class="text-lg font-semibold text-text-primary mb-2">Connection Error</h2>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Header, StatusBadge, PriorityBadge, TypeBadge } from '$lib/components';
+	import { Header, PriorityBadge, TypeBadge } from '$lib/components';
 	import { formatRelativeTime } from '$lib/utils';
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';

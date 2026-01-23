@@ -14,9 +14,6 @@
 	}
 
 	let { issue, href, compact = false }: Props = $props();
-
-	// Extract short ID for display (unused currently but available for compact views)
-	const shortId = $derived(issue.id.split('-').pop() ?? issue.id);
 </script>
 
 {#if href}
