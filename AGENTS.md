@@ -118,6 +118,21 @@ For bulk operations (creating epics with tasks, batch updates), use the **arc-is
 Example: "Create an epic for auth system with login and logout tasks"
 → Delegate to arc-issue-tracker agent
 
+### Documentation Lookup
+
+When needing arc guidance:
+1. Use `arc docs search "query"` for targeted retrieval across all topics
+2. Only read full topic (`arc docs <topic>`) if search results indicate deeper reading needed
+3. Fuzzy matching handles typos - don't worry about exact spelling
+
+Examples:
+```bash
+arc docs search "blocks vs related"     # dependency types
+arc docs search "todowrite vs arc"      # boundaries
+arc docs search "compaction notes"      # resumability
+arc docs search "session start"         # workflows
+```
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below.

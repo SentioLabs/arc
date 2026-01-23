@@ -6,10 +6,18 @@ import (
 	"strings"
 
 	"github.com/sentiolabs/arc/internal/docs"
+	"github.com/sentiolabs/arc/internal/docsearch"
 	"github.com/spf13/cobra"
 )
 
 var validDocTopics = []string{"workflows", "dependencies", "boundaries", "resumability", "plugin"}
+
+// Search flags
+var (
+	searchLimit   int
+	searchExact   bool
+	searchVerbose bool
+)
 
 var docsCmd = &cobra.Command{
 	Use:   "docs [topic]",
@@ -29,8 +37,28 @@ Run without a topic to see an overview.`,
 	ValidArgsFunction: completeDocTopics,
 }
 
+var docsSearchCmd = &cobra.Command{
+	Use:   "search <query>",
+	Short: "Search documentation with fuzzy matching",
+	Long: `Search arc documentation using BM25 ranking with fuzzy matching.
+
+Fuzzy matching handles typos automatically:
+  arc docs search "dependncy"     # finds "dependency" docs
+  arc docs search "workflo"       # finds "workflow" docs
+
+Use --exact for precise matching only.`,
+	Args: cobra.MinimumNArgs(1),
+	RunE: runDocsSearch,
+}
+
 func init() {
 	rootCmd.AddCommand(docsCmd)
+	docsCmd.AddCommand(docsSearchCmd)
+
+	// Search command flags
+	docsSearchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "Maximum number of results")
+	docsSearchCmd.Flags().BoolVar(&searchExact, "exact", false, "Disable fuzzy matching")
+	docsSearchCmd.Flags().BoolVarP(&searchVerbose, "verbose", "v", false, "Show relevance scores")
 }
 
 func runDocs(cmd *cobra.Command, args []string) error {
@@ -67,4 +95,46 @@ func completeDocTopics(cmd *cobra.Command, args []string, toComplete string) ([]
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 	return validDocTopics, cobra.ShellCompDirectiveNoFileComp
+}
+
+func runDocsSearch(cmd *cobra.Command, args []string) error {
+	query := strings.Join(args, " ")
+
+	// Build index from embedded docs
+	chunks := docsearch.ChunkAllDocs()
+	searcher, err := docsearch.NewSearcher(chunks)
+	if err != nil {
+		return fmt.Errorf("failed to create searcher: %w", err)
+	}
+	defer searcher.Close()
+
+	// Perform search
+	results, err := searcher.Search(query, searchLimit, searchExact)
+	if err != nil {
+		return fmt.Errorf("search failed: %w", err)
+	}
+
+	if len(results) == 0 {
+		fmt.Fprintf(os.Stderr, "No results found for %q\n", query)
+		fmt.Fprintf(os.Stderr, "\nTry:\n")
+		fmt.Fprintf(os.Stderr, "  - Different keywords\n")
+		fmt.Fprintf(os.Stderr, "  - arc docs <topic> to browse topics\n")
+		return nil
+	}
+
+	// Display results
+	fmt.Printf("Results for %q:\n\n", query)
+
+	for i, result := range results {
+		if searchVerbose {
+			fmt.Printf("%d. [%s] %s (%.2f)\n",
+				i+1, result.Chunk.Topic, result.Chunk.Heading, result.Score)
+		} else {
+			fmt.Printf("%d. [%s] %s\n",
+				i+1, result.Chunk.Topic, result.Chunk.Heading)
+		}
+		fmt.Printf("   %s\n\n", result.Chunk.Preview)
+	}
+
+	return nil
 }
