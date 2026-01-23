@@ -21,4 +21,4 @@ arc server logs -f   # Follow logs
 arc server restart   # Restart the server
 ```
 
-**Data location:** `~/.arc/` (data.db, server.log, arc.pid)
+**Data location:** `~/.arc/` (data.db, server.log, server.pid, cli-config.json)

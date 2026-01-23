@@ -27,4 +27,4 @@ coverage.out
 coverage.html
 
 # Config (contains user-specific settings)
-# Note: ~/.config/arc/config.json is user config
+# Note: ~/.arc/cli-config.json is user config

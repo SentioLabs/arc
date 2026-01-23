@@ -57,7 +57,7 @@ func (s WorkspaceSource) String() string {
 func loadConfig() (*Config, error) {
 	if configPath == "" {
 		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".config", "arc", "config.json")
+		configPath = filepath.Join(home, ".arc", "cli-config.json")
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -83,7 +83,7 @@ func loadConfig() (*Config, error) {
 func saveConfig(cfg *Config) error {
 	if configPath == "" {
 		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".config", "arc", "config.json")
+		configPath = filepath.Join(home, ".arc", "cli-config.json")
 	}
 
 	// Create directory

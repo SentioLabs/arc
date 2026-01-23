@@ -34,7 +34,7 @@ func DefaultDBPath() string {
 
 // PIDPath returns the path to the PID file.
 func PIDPath() string {
-	return filepath.Join(DefaultDataDir(), "arc.pid")
+	return filepath.Join(DefaultDataDir(), "server.pid")
 }
 
 // LogPath returns the path to the log file.

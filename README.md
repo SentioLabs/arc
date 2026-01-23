@@ -238,7 +238,7 @@ flowchart TB
 
 ## Configuration
 
-CLI configuration is stored in `~/.config/arc/config.json`:
+CLI configuration is stored in `~/.arc/cli-config.json`:
 
 ```json
 {
