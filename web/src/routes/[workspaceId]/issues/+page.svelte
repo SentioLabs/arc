@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Header, IssueCard } from '$lib/components';
+	import { Header, IssueCard, Select } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { getContext } from 'svelte';
@@ -109,35 +109,23 @@
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Filters -->
 		<div class="flex flex-wrap items-center gap-3 mb-6">
-			<select
-				class="input text-sm"
+			<Select
+				options={statuses}
 				value={filters.status ?? ''}
-				onchange={(e) => updateFilter('status', e.currentTarget.value)}
-			>
-				{#each statuses as opt (opt.value)}
-					<option value={opt.value}>{opt.label}</option>
-				{/each}
-			</select>
+				onchange={(v) => updateFilter('status', v)}
+			/>
 
-			<select
-				class="input text-sm"
+			<Select
+				options={types}
 				value={filters.type ?? ''}
-				onchange={(e) => updateFilter('type', e.currentTarget.value)}
-			>
-				{#each types as opt (opt.value)}
-					<option value={opt.value}>{opt.label}</option>
-				{/each}
-			</select>
+				onchange={(v) => updateFilter('type', v)}
+			/>
 
-			<select
-				class="input text-sm"
+			<Select
+				options={priorities}
 				value={filters.priority?.toString() ?? ''}
-				onchange={(e) => updateFilter('priority', e.currentTarget.value)}
-			>
-				{#each priorities as opt (opt.value)}
-					<option value={opt.value}>{opt.label}</option>
-				{/each}
-			</select>
+				onchange={(v) => updateFilter('priority', v)}
+			/>
 
 			{#if hasActiveFilters}
 				<button type="button" class="btn btn-ghost text-sm" onclick={clearFilters}>

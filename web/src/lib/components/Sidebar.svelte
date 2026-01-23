@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 
 	type Workspace = components['schemas']['Workspace'];
 
@@ -10,6 +11,26 @@
 	}
 
 	let { workspaces = [], currentWorkspace }: Props = $props();
+
+	// Workspace search state
+	let searchQuery = $state('');
+
+	// Filter workspaces based on search
+	const filteredWorkspaces = $derived(() => {
+		if (!searchQuery.trim()) return workspaces;
+		const q = searchQuery.toLowerCase().trim();
+		return workspaces.filter(
+			(w) =>
+				w.name.toLowerCase().includes(q) ||
+				w.prefix.toLowerCase().includes(q) ||
+				(w.description?.toLowerCase().includes(q) ?? false)
+		);
+	});
+
+	function selectWorkspace(ws: Workspace) {
+		searchQuery = '';
+		goto(`/${ws.id}`);
+	}
 
 	// Navigation items for workspace context
 	const navItems = [
@@ -53,39 +74,72 @@
 		</a>
 	</div>
 
-	<!-- Workspace Selector -->
-	{#if workspaces.length > 0}
+	<!-- Workspace List with Search (only when viewing a workspace) -->
+	{#if workspaces.length > 0 && currentWorkspace}
 		<div class="p-3 border-b border-border">
-			<label
-				for="workspace-selector"
-				class="block text-xs font-medium text-text-muted uppercase tracking-wider mb-2"
-			>
-				Workspace
-			</label>
-			<div class="relative">
-				<select
-					id="workspace-selector"
-					class="w-full input appearance-none pr-8 cursor-pointer"
-					value={currentWorkspace?.id ?? ''}
-					onchange={(e) => {
-						const wsId = e.currentTarget.value;
-						if (wsId) {
-							window.location.href = `/${wsId}`;
-						}
-					}}
-				>
-					<option value="" disabled>Select workspace</option>
-					{#each workspaces as ws (ws.id)}
-						<option value={ws.id}>{ws.name}</option>
-					{/each}
-				</select>
+			<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
+				Workspaces
+			</div>
+			<!-- Search input -->
+			<div class="relative mb-2">
 				<svg
-					class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+					class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted"
 					viewBox="0 0 24 24"
 					fill="currentColor"
 				>
-					<path d="M7 10l5 5 5-5H7z" />
+					<path
+						d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+					/>
 				</svg>
+				<input
+					type="text"
+					placeholder="Search..."
+					bind:value={searchQuery}
+					class="w-full input pl-8 pr-7 py-1.5 text-sm"
+				/>
+				{#if searchQuery}
+					<button
+						type="button"
+						onclick={() => (searchQuery = '')}
+						class="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+						aria-label="Clear search"
+					>
+						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+							/>
+						</svg>
+					</button>
+				{/if}
+			</div>
+			<!-- Workspace list -->
+			<div class="max-h-40 overflow-y-auto space-y-0.5">
+				{#each filteredWorkspaces() as ws (ws.id)}
+					{@const isCurrent = ws.id === currentWorkspace?.id}
+					<button
+						type="button"
+						class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-sm transition-colors {isCurrent
+							? 'bg-primary-600/20 text-primary-400'
+							: 'text-text-secondary hover:bg-surface-700 hover:text-text-primary'}"
+						onclick={() => selectWorkspace(ws)}
+					>
+						<span
+							class="flex-shrink-0 w-5 h-5 rounded bg-surface-600 flex items-center justify-center text-xs font-mono font-medium {isCurrent
+								? 'text-primary-400'
+								: 'text-text-muted'}"
+						>
+							{ws.prefix.charAt(0).toUpperCase()}
+						</span>
+						<span class="truncate">{ws.name}</span>
+						{#if isCurrent}
+							<svg class="w-3.5 h-3.5 ml-auto flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+							</svg>
+						{/if}
+					</button>
+				{:else}
+					<p class="text-xs text-text-muted px-2 py-1">No matching workspaces</p>
+				{/each}
 			</div>
 		</div>
 	{/if}
@@ -118,19 +172,57 @@
 			</div>
 		</nav>
 	{:else}
-		<nav class="flex-1 p-3">
+		<nav class="flex-1 p-3 flex flex-col overflow-hidden">
 			<div class="text-xs font-medium text-text-muted uppercase tracking-wider px-2 mb-3">
 				Workspaces
 			</div>
-			{#each workspaces as ws (ws.id)}
-				<a href="/{ws.id}" class="nav-link">
-					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-						<path d={icons.workspace} />
+			{#if workspaces.length > 0}
+				<!-- Search input -->
+				<div class="relative mb-3 flex-shrink-0">
+					<svg
+						class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
+						<path
+							d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+						/>
 					</svg>
-					{ws.name}
-				</a>
-			{/each}
-			{#if workspaces.length === 0}
+					<input
+						type="text"
+						placeholder="Search workspaces..."
+						bind:value={searchQuery}
+						class="w-full input pl-8 pr-7 py-1.5 text-sm"
+					/>
+					{#if searchQuery}
+						<button
+							type="button"
+							onclick={() => (searchQuery = '')}
+							class="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+							aria-label="Clear search"
+						>
+							<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+								<path
+									d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+								/>
+							</svg>
+						</button>
+					{/if}
+				</div>
+				<!-- Workspace list -->
+				<div class="flex-1 overflow-y-auto space-y-1">
+					{#each filteredWorkspaces() as ws (ws.id)}
+						<a href="/{ws.id}" class="nav-link">
+							<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+								<path d={icons.workspace} />
+							</svg>
+							{ws.name}
+						</a>
+					{:else}
+						<p class="text-sm text-text-muted px-2">No matching workspaces</p>
+					{/each}
+				</div>
+			{:else}
 				<p class="text-sm text-text-muted px-2">No workspaces yet</p>
 			{/if}
 		</nav>

@@ -6,6 +6,26 @@
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
 
+	// Search state
+	let searchQuery = $state('');
+	let searchFocused = $state(false);
+
+	// Filter workspaces based on search query
+	const filteredWorkspaces = $derived(() => {
+		if (!searchQuery.trim()) return $workspaces;
+		const q = searchQuery.toLowerCase().trim();
+		return $workspaces.filter(
+			(w) =>
+				w.name.toLowerCase().includes(q) ||
+				w.prefix.toLowerCase().includes(q) ||
+				(w.description?.toLowerCase().includes(q) ?? false)
+		);
+	});
+
+	function clearSearch() {
+		searchQuery = '';
+	}
+
 	// Edit mode state
 	let editMode = $state(false);
 	let selectedIds = $state<Set<string>>(new Set());
@@ -20,7 +40,10 @@
 
 	function toggleEditMode() {
 		editMode = !editMode;
-		if (!editMode) {
+		if (editMode) {
+			// Clear search when entering edit mode to show all workspaces
+			searchQuery = '';
+		} else {
 			selectedIds = new Set();
 		}
 	}
@@ -113,6 +136,43 @@
 			{/if}
 		</div>
 		<p class="text-lg text-text-secondary">Select a workspace to view and manage issues</p>
+
+		<!-- Search box (hidden in edit mode) -->
+		{#if $workspaces.length > 0 && !editMode}
+			<div class="mt-6 relative transition-all duration-200 {searchFocused ? 'max-w-md' : 'max-w-sm'}">
+				<svg
+					class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted"
+					viewBox="0 0 24 24"
+					fill="currentColor"
+				>
+					<path
+						d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+					/>
+				</svg>
+				<input
+					type="text"
+					placeholder="Search workspaces..."
+					bind:value={searchQuery}
+					onfocus={() => (searchFocused = true)}
+					onblur={() => (searchFocused = false)}
+					class="w-full input pl-9 pr-8 py-2 text-sm"
+				/>
+				{#if searchQuery}
+					<button
+						type="button"
+						onclick={clearSearch}
+						class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+						aria-label="Clear search"
+					>
+						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+							/>
+						</svg>
+					</button>
+				{/if}
+			</div>
+		{/if}
 	</header>
 
 	<!-- Select all / batch actions bar -->
@@ -169,9 +229,27 @@
 				<code>arc init my-project</code>
 			</div>
 		</div>
+	{:else if filteredWorkspaces().length === 0}
+		<!-- No results from search -->
+		<div class="card p-12 text-center">
+			<div
+				class="w-16 h-16 bg-surface-700 rounded-2xl flex items-center justify-center mx-auto mb-4"
+			>
+				<svg class="w-8 h-8 text-text-muted" viewBox="0 0 24 24" fill="currentColor">
+					<path
+						d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+					/>
+				</svg>
+			</div>
+			<h2 class="text-xl font-semibold text-text-primary mb-2">No matching workspaces</h2>
+			<p class="text-text-secondary mb-4">No workspaces match "{searchQuery}"</p>
+			<button type="button" class="btn btn-primary" onclick={clearSearch}>
+				Clear search
+			</button>
+		</div>
 	{:else}
 		<div class="grid gap-4 sm:grid-cols-2">
-			{#each $workspaces as workspace (workspace.id)}
+			{#each filteredWorkspaces() as workspace (workspace.id)}
 				{@const isSelected = selectedIds.has(workspace.id)}
 				{#if editMode}
 					<!-- Edit mode: clickable card for selection -->
