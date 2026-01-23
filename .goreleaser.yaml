@@ -60,6 +60,9 @@ changelog:
     - title: Performance
       regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
       order: 2
+    - title: Refactoring
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
     - title: Other
       order: 999
   filters:
