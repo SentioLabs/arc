@@ -76,10 +76,8 @@
 			</div>
 		{:else}
 			<div class="space-y-3">
-				{#each issues as issue, i (issue.id)}
-					<div class="animate-slide-up" style="animation-delay: {Math.min(i * 30, 300)}ms">
-						<IssueCard {issue} href="/{workspaceId}/issues/{issue.id}" />
-					</div>
+				{#each issues as issue (issue.id)}
+					<IssueCard {issue} href="/{workspaceId}/issues/{issue.id}" />
 				{/each}
 			</div>
 		{/if}

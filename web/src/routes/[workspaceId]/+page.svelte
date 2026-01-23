@@ -75,8 +75,8 @@
 		{:else if stats}
 			<!-- Stats Grid -->
 			<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-				{#each statCards as stat, i (stat.label)}
-					<div class="card p-4 animate-slide-up" style="animation-delay: {i * 50}ms">
+				{#each statCards as stat (stat.label)}
+					<div class="card p-4">
 						<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
 							{stat.label}
 						</div>

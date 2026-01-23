@@ -51,6 +51,17 @@ export async function getWorkspaceStats(workspaceId: string): Promise<Statistics
 	return data;
 }
 
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+	const { error } = await api.DELETE('/workspaces/{workspaceId}', {
+		params: { path: { workspaceId } }
+	});
+	if (error) handleError(error);
+}
+
+export async function deleteWorkspaces(workspaceIds: string[]): Promise<void> {
+	await Promise.all(workspaceIds.map((id) => deleteWorkspace(id)));
+}
+
 // Issue APIs
 export interface IssueFilters {
 	status?: string;

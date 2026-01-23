@@ -79,7 +79,9 @@ export default [
 			'build/',
 			'dist/',
 			'node_modules/',
-			'src/lib/api/v1.d.ts' // Generated OpenAPI types
+			'src/lib/api/v1.d.ts', // Generated OpenAPI types
+			'playwright.config.ts', // Playwright config (uses own tsconfig)
+			'tests/' // Playwright tests (uses own tsconfig)
 		]
 	}
 ];

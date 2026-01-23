@@ -75,11 +75,10 @@
 			</div>
 		{:else}
 			<div class="space-y-3">
-				{#each issues as issue, i (issue.id)}
+				{#each issues as issue (issue.id)}
 					<a
 						href="/{workspaceId}/issues/{issue.id}"
-						class="card p-4 block hover:border-border-focus/50 transition-all duration-200 group animate-slide-up"
-						style="animation-delay: {Math.min(i * 30, 300)}ms"
+						class="card p-4 block hover:border-border-focus/50 transition-all duration-200 group"
 					>
 						<div class="flex items-start gap-4">
 							<div class="flex-shrink-0 mt-1">
