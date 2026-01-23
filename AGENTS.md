@@ -120,18 +120,22 @@ Example: "Create an epic for auth system with login and logout tasks"
 
 ### Documentation Lookup
 
-When needing arc guidance:
-1. Use `arc docs search "query"` for targeted retrieval across all topics
-2. Only read full topic (`arc docs <topic>`) if search results indicate deeper reading needed
-3. Fuzzy matching handles typos - don't worry about exact spelling
+**Two-step workflow:**
+1. **Search** to find which topic has the info: `arc docs search "query"`
+2. **Read** the full topic for details: `arc docs <topic>`
 
-Examples:
+Search results show `[topic]` in brackets - use that with `arc docs <topic>` for full content.
+
 ```bash
-arc docs search "blocks vs related"     # dependency types
-arc docs search "todowrite vs arc"      # boundaries
-arc docs search "compaction notes"      # resumability
-arc docs search "session start"         # workflows
+# Search returns topic name in brackets
+arc docs search "create issue"
+# Results: [workflows] Discovery and Issue Creation...
+
+# Read that topic for full details
+arc docs workflows
 ```
+
+Fuzzy matching handles typos - "dependncy" finds "dependency" docs.
 
 ## Landing the Plane (Session Completion)
 

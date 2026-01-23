@@ -55,7 +55,22 @@ Run `arc prime` for full workflow context, or `arc <command> --help` for specifi
 
 ## Deep Dive Documentation
 
-For detailed guidance, use `arc docs <topic>`:
+**Two-step workflow:**
+1. **Search** to find which topic has the info: `arc docs search "query"`
+2. **Read** the full topic for details: `arc docs <topic>`
+
+```bash
+# Search returns [topic] in brackets - tells you where to look
+arc docs search "create issue"
+# Results show: [workflows] Discovery and Issue Creation...
+
+# Then read that topic for full content
+arc docs workflows
+```
+
+Fuzzy matching handles typos - "dependncy" finds "dependency" docs.
+
+**Available topics** with `arc docs <topic>`:
 
 | Command | Purpose |
 |---------|---------|
