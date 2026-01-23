@@ -54,18 +54,29 @@ func (s WorkspaceSource) String() string {
 	}
 }
 
+// defaultConfigPath returns the default config file path.
+func defaultConfigPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".arc", "cli-config.json")
+}
+
 func loadConfig() (*Config, error) {
 	if configPath == "" {
-		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".arc", "cli-config.json")
+		configPath = defaultConfigPath()
 	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		// Return defaults if config doesn't exist
-		return &Config{
-			ServerURL: "http://localhost:7432",
-		}, nil
+		if os.IsNotExist(err) {
+			// Create default config on first use
+			cfg := &Config{
+				ServerURL: "http://localhost:7432",
+			}
+			// Try to save, but don't fail if we can't
+			_ = saveConfig(cfg)
+			return cfg, nil
+		}
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 
 	var cfg Config
@@ -81,13 +92,13 @@ func loadConfig() (*Config, error) {
 }
 
 func saveConfig(cfg *Config) error {
-	if configPath == "" {
-		home, _ := os.UserHomeDir()
-		configPath = filepath.Join(home, ".arc", "cli-config.json")
+	path := configPath
+	if path == "" {
+		path = defaultConfigPath()
 	}
 
 	// Create directory
-	dir := filepath.Dir(configPath)
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
@@ -97,7 +108,7 @@ func saveConfig(cfg *Config) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	return os.WriteFile(configPath, data, 0o644)
+	return os.WriteFile(path, data, 0o644)
 }
 
 // localConfig represents the .arc.json file structure
