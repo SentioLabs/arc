@@ -186,25 +186,30 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Central Server                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ Workspace A │  │ Workspace B │  │ Workspace C │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-│                         │                               │
-│                    SQLite DB                            │
-│              (~/.arc/data.db)                  │
-└─────────────────────────────────────────────────────────┘
-                          │
-              REST API (localhost:7432)
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-   ┌────▼────┐      ┌────▼────┐      ┌────▼────┐
-   │  CLI    │      │  CLI    │      │  CLI    │
-   │(proj-1) │      │(proj-2) │      │(proj-3) │
-   └─────────┘      └─────────┘      └─────────┘
+```mermaid
+flowchart TB
+    subgraph server["Central Server"]
+        subgraph workspaces["Workspaces"]
+            ws1["Workspace A"]
+            ws2["Workspace B"]
+            ws3["Workspace C"]
+        end
+        db[("SQLite DB<br/>~/.arc/data.db")]
+        workspaces --> db
+    end
+
+    api{{"REST API<br/>localhost:7432"}}
+    server --> api
+
+    subgraph clients["CLI Clients"]
+        cli1["arc CLI<br/>(project-1)"]
+        cli2["arc CLI<br/>(project-2)"]
+        cli3["arc CLI<br/>(project-3)"]
+    end
+
+    api --> cli1
+    api --> cli2
+    api --> cli3
 ```
 
 ## Data Model
