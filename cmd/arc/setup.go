@@ -18,8 +18,8 @@ var (
 )
 
 var setupCmd = &cobra.Command{
-	Use:   "setup [recipe]",
-	Short: "Setup integration with AI editors",
+	Use:   "setup <recipe>",
+	Short: "Setup integration with AI editors (claude, codex)",
 	Long: `Setup integration files for AI editors and coding assistants.
 
 Currently supports:
@@ -34,7 +34,7 @@ Examples:
   arc setup codex           # Install Codex repo skill bundle
   arc setup codex --check   # Verify installation
   arc setup codex --remove  # Uninstall repo skill bundle`,
-	Args: cobra.ExactArgs(1),
+	Args: validateSetupArgs,
 	RunE: runSetup,
 }
 
@@ -68,6 +68,21 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	default:
 		return fmt.Errorf("unknown recipe: %s (supported: claude, codex)", recipe)
 	}
+}
+
+func validateSetupArgs(cmd *cobra.Command, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf(`missing recipe
+
+Supported recipes:
+  claude  - Claude Code hooks (SessionStart, PreCompact)
+  codex   - Codex CLI repo-scoped skills (.codex/skills)
+
+Examples:
+  arc setup claude --check
+  arc setup codex --check`)
+	}
+	return nil
 }
 
 // installClaudeHooks installs Claude Code hooks for arc prime
