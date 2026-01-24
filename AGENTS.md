@@ -97,6 +97,16 @@ go test ./internal/storage/sqlite/...
 go test -cover ./...
 ```
 
+## Commit Messages
+
+Use Conventional Commits so tooling like goreleaser can generate changelogs:
+
+- `feat: add workspace recovery`
+- `fix: handle missing config`
+- `chore: update deps`
+- `docs: clarify setup`
+- `refactor: simplify setup flow`
+
 ## Arc Issue Tracking
 
 Use `arc` CLI for issue management. Run `arc prime` for full workflow context.
