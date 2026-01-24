@@ -18,8 +18,9 @@ var (
 )
 
 var setupCmd = &cobra.Command{
-	Use:   "setup <recipe>",
-	Short: "Setup integration with AI editors (claude, codex)",
+	Use:          "setup <recipe>",
+	Short:        "Setup integration with AI editors (claude, codex)",
+	SilenceUsage: true,
 	Long: `Setup integration files for AI editors and coding assistants.
 
 Currently supports:
