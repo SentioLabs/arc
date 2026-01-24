@@ -33,3 +33,21 @@ func RenderAgentsMd() (string, error) {
 	}
 	return buf.String(), nil
 }
+
+// RenderCodexSkillToml renders the Codex skill.toml content
+func RenderCodexSkillToml() (string, error) {
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "codex_skill_toml.tmpl", nil); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// RenderCodexSkillMd renders the Codex SKILL.md content
+func RenderCodexSkillMd() (string, error) {
+	var buf bytes.Buffer
+	if err := templates.ExecuteTemplate(&buf, "codex_skill_md.tmpl", nil); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}

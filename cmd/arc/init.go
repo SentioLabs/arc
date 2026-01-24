@@ -28,6 +28,9 @@ For Claude Code users: Install the arc plugin for full integration
 (hooks, skills, agents). The plugin's onboard skill will handle
 workspace initialization automatically.
 
+For Codex CLI users: Run arc setup codex to install the repo-scoped
+arc skill bundle under .codex/skills.
+
 Examples:
   arc init                    # Use directory name as workspace
   arc init my-project         # Use custom name`,

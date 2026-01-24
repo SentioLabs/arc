@@ -30,7 +30,7 @@ Arc is a central issue tracking system for AI-assisted coding workflows.
   arc docs dependencies  - Dependency types and when to use each
   arc docs boundaries    - When to use arc vs TodoWrite
   arc docs resumability  - Writing notes that survive compaction
-  arc docs plugin        - Claude Code plugin installation guide
+  arc docs plugin        - Claude Code plugin and Codex CLI integration guide
 
 ## Quick Reference
 

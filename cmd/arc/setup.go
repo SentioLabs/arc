@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sentiolabs/arc/internal/templates"
 	"github.com/spf13/cobra"
 )
 
@@ -23,12 +24,16 @@ var setupCmd = &cobra.Command{
 
 Currently supports:
   claude    - Claude Code hooks (SessionStart, PreCompact)
+  codex     - Codex CLI repo-scoped skills (.codex/skills)
 
 Examples:
   arc setup claude          # Install Claude Code hooks globally
   arc setup claude --project  # Install for this project only
   arc setup claude --check    # Verify installation
-  arc setup claude --remove   # Uninstall hooks`,
+  arc setup claude --remove   # Uninstall hooks
+  arc setup codex           # Install Codex repo skill bundle
+  arc setup codex --check   # Verify installation
+  arc setup codex --remove  # Uninstall repo skill bundle`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSetup,
 }
@@ -52,8 +57,16 @@ func runSetup(cmd *cobra.Command, args []string) error {
 			return removeClaudeHooks(setupProject)
 		}
 		return installClaudeHooks(!setupProject)
+	case "codex":
+		if setupCheck {
+			return checkCodexSkill()
+		}
+		if setupRemove {
+			return removeCodexSkill()
+		}
+		return installCodexSkill()
 	default:
-		return fmt.Errorf("unknown recipe: %s (supported: claude)", recipe)
+		return fmt.Errorf("unknown recipe: %s (supported: claude, codex)", recipe)
 	}
 }
 
@@ -413,5 +426,139 @@ func configureClaudePrompt(projectLevel bool, verbose bool) error {
 		fmt.Println("✓ Configured Claude prompt with 'arc onboard' instruction")
 	}
 
+	return nil
+}
+
+func installCodexSkill() error {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return err
+	}
+
+	dstDir := filepath.Join(repoRoot, ".codex", "skills", "arc")
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		return fmt.Errorf("create codex skill directory: %w", err)
+	}
+
+	if err := writeCodexSkillFiles(repoRoot, dstDir); err != nil {
+		return err
+	}
+
+	fmt.Println("✓ Codex skill bundle installed")
+	fmt.Printf("  Location: %s\n", dstDir)
+	fmt.Println("  Restart Codex to pick up repo-scoped skills.")
+	return nil
+}
+
+func writeCodexSkillFiles(repoRoot, dstDir string) error {
+	srcDir := filepath.Join(repoRoot, "codex-plugin", "skills", "arc")
+	if exists(srcDir) {
+		if err := copyCodexSkillFromSource(srcDir, dstDir); err == nil {
+			return nil
+		}
+	}
+
+	skillToml, err := templates.RenderCodexSkillToml()
+	if err != nil {
+		return fmt.Errorf("render codex skill.toml: %w", err)
+	}
+	skillMd, err := templates.RenderCodexSkillMd()
+	if err != nil {
+		return fmt.Errorf("render codex SKILL.md: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dstDir, "skill.toml"), []byte(skillToml), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Join(dstDir, "skill.toml"), err)
+	}
+	if err := os.WriteFile(filepath.Join(dstDir, "SKILL.md"), []byte(skillMd), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Join(dstDir, "SKILL.md"), err)
+	}
+
+	return nil
+}
+
+func copyCodexSkillFromSource(srcDir, dstDir string) error {
+	for _, name := range []string{"skill.toml", "SKILL.md"} {
+		srcPath := filepath.Join(srcDir, name)
+		dstPath := filepath.Join(dstDir, name)
+		if err := copyFile(srcPath, dstPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkCodexSkill() error {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return err
+	}
+
+	skillDir := filepath.Join(repoRoot, ".codex", "skills", "arc")
+	missing := false
+	for _, name := range []string{"skill.toml", "SKILL.md"} {
+		if _, err := os.Stat(filepath.Join(skillDir, name)); err != nil {
+			missing = true
+			break
+		}
+	}
+
+	if missing {
+		fmt.Println("✗ Codex skill bundle not installed")
+		fmt.Println("  Run: arc setup codex")
+		return fmt.Errorf("codex skill bundle not installed")
+	}
+
+	fmt.Printf("✓ Codex skill bundle installed: %s\n", skillDir)
+	return nil
+}
+
+func removeCodexSkill() error {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return err
+	}
+
+	skillDir := filepath.Join(repoRoot, ".codex", "skills", "arc")
+	if err := os.RemoveAll(skillDir); err != nil {
+		return fmt.Errorf("remove codex skill bundle: %w", err)
+	}
+
+	fmt.Println("✓ Codex skill bundle removed")
+	return nil
+}
+
+func findRepoRoot() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("get current directory: %w", err)
+	}
+
+	dir := cwd
+	for {
+		if exists(filepath.Join(dir, ".codex")) || exists(filepath.Join(dir, ".arc.json")) || exists(filepath.Join(dir, ".git")) {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return cwd, nil
+		}
+		dir = parent
+	}
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func copyFile(srcPath, dstPath string) error {
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", srcPath, err)
+	}
+	if err := os.WriteFile(dstPath, data, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", dstPath, err)
+	}
 	return nil
 }

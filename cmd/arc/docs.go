@@ -29,7 +29,7 @@ Available topics:
   dependencies  - Dependency types and when to use each
   boundaries    - When to use arc vs TodoWrite
   resumability  - Writing notes that survive compaction
-  plugin        - Claude Code plugin installation guide
+  plugin        - Claude Code plugin and Codex CLI integration guide
 
 Run without a topic to see an overview.`,
 	Args:              cobra.MaximumNArgs(1),

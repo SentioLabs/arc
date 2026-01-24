@@ -161,6 +161,27 @@ arc init
 arc setup claude                                                # Hooks only
 ```
 
+### Codex CLI Integration
+
+Codex CLI supports repo-scoped skills under `.codex/skills`. Arc provides a Codex skill bundle
+and a setup command to install it into your repo.
+
+```bash
+# 1. Start the server (if not running)
+arc server start
+
+# 2. Initialize workspace in your project
+cd your-project
+arc init
+
+# 3. Install Codex integration (repo-scoped skill)
+arc setup codex
+```
+
+**Notes:**
+- Codex CLI does not support lifecycle hooks. Run `arc onboard` at session start.
+- Use `arc prime` after compaction or if workflow context is stale.
+
 ### API Examples
 
 ```bash

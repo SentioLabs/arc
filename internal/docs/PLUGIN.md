@@ -1,6 +1,7 @@
-# Claude Code Plugin Installation
+# Claude Code Plugin and Codex CLI Integration
 
-This guide covers installing the arc Claude Code plugin for AI-assisted workflows.
+This guide covers installing the arc Claude Code plugin and enabling Codex CLI integration
+for AI-assisted workflows.
 
 ## Contents
 
@@ -9,7 +10,9 @@ This guide covers installing the arc Claude Code plugin for AI-assisted workflow
   - [Option A: Remote Marketplace](#option-a-remote-marketplace-recommended)
   - [Option B: Local Installation](#option-b-local-installation-development)
   - [Option C: Hooks Only](#option-c-hooks-only-minimal)
+- [Codex CLI Integration](#codex-cli-integration)
 - [Verification](#verification)
+- [Validation Checklist](#validation-checklist)
 - [Plugin Components](#plugin-components)
 - [Troubleshooting](#troubleshooting)
 
@@ -99,6 +102,26 @@ arc setup claude --check
 
 **What you lose**: Skills documentation, arc-issue-tracker agent, prompt configuration.
 
+## Codex CLI Integration
+
+Codex CLI supports repo-scoped skills under `.codex/skills`. Arc provides a Codex skill
+bundle and a setup command to install it into your repository.
+
+```bash
+# Install repo-scoped skill bundle
+arc setup codex
+
+# Verify installation
+arc setup codex --check
+
+# Remove
+arc setup codex --remove
+```
+
+**Notes:**
+- Codex CLI does not support lifecycle hooks like SessionStart/PreCompact.
+- Run `arc onboard` at session start and `arc prime` after compaction or if context is stale.
+
 ## Verification
 
 After installation, verify the plugin is working:
@@ -118,6 +141,18 @@ arc prime
 **In a new session**, you should see `arc prime` output automatically if:
 1. The plugin is installed
 2. You're in a directory with `.arc.json` (arc-enabled project)
+
+## Validation Checklist
+
+Use this checklist when validating Codex CLI integration:
+
+1. Run `arc setup codex` in the repo root.
+2. Confirm `.codex/skills/arc/skill.toml` and `SKILL.md` exist.
+3. Start Codex CLI from the repo root.
+4. Verify the arc skill is discoverable (e.g., `/skills`).
+5. Run `arc onboard` and `arc prime` once per session.
+6. Run `arc ready` to confirm workspace access.
+7. Uninstall with `arc setup codex --remove` and verify cleanup.
 
 ## Plugin Components
 
@@ -233,5 +268,8 @@ git pull
 /plugin uninstall arc
 
 # If using hooks-only installation
-arc setup claude --uninstall
+arc setup claude --remove
+
+# If using Codex repo-scoped skill bundle
+arc setup codex --remove
 ```
