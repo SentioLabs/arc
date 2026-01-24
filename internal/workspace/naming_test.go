@@ -272,6 +272,39 @@ func TestGeneratePrefixNormalization(t *testing.T) {
 	}
 }
 
+func TestGeneratePlanID(t *testing.T) {
+	// Test that IDs follow the format plan.xxxxxx (6 base36 chars)
+	id1 := GeneratePlanID("Test plan")
+
+	if len(id1) < 11 || id1[4] != '.' {
+		t.Errorf("GeneratePlanID should produce format 'plan.xxxxxx', got %q", id1)
+	}
+
+	// Verify the prefix
+	if id1[:5] != "plan." {
+		t.Errorf("Expected ID to start with 'plan.', got %q", id1)
+	}
+
+	// Verify the suffix is 6 characters (base36)
+	suffix := id1[5:]
+	if len(suffix) != 6 {
+		t.Errorf("Expected 6-char base36 suffix, got %q (len %d)", suffix, len(suffix))
+	}
+
+	// Verify the suffix contains only base36 chars
+	for _, c := range suffix {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
+		}
+	}
+
+	// Each call should produce a different ID (contains timestamp)
+	id2 := GeneratePlanID("Test plan")
+	if id1 == id2 {
+		t.Errorf("GeneratePlanID should produce unique IDs, but got same: %q", id1)
+	}
+}
+
 func TestGeneratePrefixFromName(t *testing.T) {
 	// "my-project" normalizes to "myproject", truncates to "mypro"
 	prefix := GeneratePrefixFromName("my-project")

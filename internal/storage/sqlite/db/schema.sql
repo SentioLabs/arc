@@ -83,12 +83,14 @@ CREATE TABLE comments (
     issue_id TEXT NOT NULL,
     author TEXT NOT NULL,
     text TEXT NOT NULL,
+    comment_type TEXT NOT NULL DEFAULT 'comment',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
     FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_comments_issue ON comments(issue_id);
+CREATE INDEX idx_comments_type ON comments(issue_id, comment_type);
 
 -- Events table (audit trail)
 CREATE TABLE events (
@@ -135,3 +137,28 @@ CREATE TABLE child_counters (
     last_child INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (parent_id) REFERENCES issues(id) ON DELETE CASCADE
 );
+
+-- Shared plans table for cross-issue planning
+CREATE TABLE plans (
+    id TEXT PRIMARY KEY,              -- plan.xxxxx format
+    workspace_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_plans_workspace ON plans(workspace_id);
+
+-- Issue-plan links (many-to-many)
+CREATE TABLE issue_plans (
+    issue_id TEXT NOT NULL,
+    plan_id TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (issue_id, plan_id),
+    FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_issue_plans_plan ON issue_plans(plan_id);

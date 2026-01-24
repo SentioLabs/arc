@@ -637,6 +637,34 @@ var showCmd = &cobra.Command{
 			}
 		}
 
+		// Display plan context if available
+		if details.PlanContext != nil && details.PlanContext.HasPlan() {
+			pc := details.PlanContext
+			fmt.Println()
+
+			if pc.InlinePlan != nil {
+				fmt.Printf("Plan:\n")
+				// Indent the plan text
+				for _, line := range strings.Split(pc.InlinePlan.Text, "\n") {
+					fmt.Printf("  %s\n", line)
+				}
+			}
+
+			if pc.ParentPlan != nil {
+				fmt.Printf("Plan (from %s):\n", pc.ParentIssueID)
+				for _, line := range strings.Split(pc.ParentPlan.Text, "\n") {
+					fmt.Printf("  %s\n", line)
+				}
+			}
+
+			if len(pc.SharedPlans) > 0 {
+				fmt.Printf("Linked Plans:\n")
+				for _, plan := range pc.SharedPlans {
+					fmt.Printf("  - %s: %s\n", plan.ID, plan.Title)
+				}
+			}
+		}
+
 		return nil
 	},
 }

@@ -57,6 +57,23 @@ type Storage interface {
 	UpdateComment(ctx context.Context, commentID int64, text string) error
 	DeleteComment(ctx context.Context, commentID int64) error
 
+	// Plans (shared plans)
+	CreatePlan(ctx context.Context, plan *types.Plan) error
+	GetPlan(ctx context.Context, id string) (*types.Plan, error)
+	ListPlans(ctx context.Context, workspaceID string) ([]*types.Plan, error)
+	UpdatePlan(ctx context.Context, id, title, content string) error
+	DeletePlan(ctx context.Context, id string) error
+	LinkIssueToPlan(ctx context.Context, issueID, planID string) error
+	UnlinkIssueFromPlan(ctx context.Context, issueID, planID string) error
+	GetLinkedPlans(ctx context.Context, issueID string) ([]*types.Plan, error)
+	GetLinkedIssues(ctx context.Context, planID string) ([]string, error)
+
+	// Inline Plans (comment-based plans on issues)
+	SetInlinePlan(ctx context.Context, issueID, author, text string) (*types.Comment, error)
+	GetInlinePlan(ctx context.Context, issueID string) (*types.Comment, error)
+	GetPlanHistory(ctx context.Context, issueID string) ([]*types.Comment, error)
+	GetPlanContext(ctx context.Context, issueID string) (*types.PlanContext, error)
+
 	// Events (audit trail)
 	GetEvents(ctx context.Context, issueID string, limit int) ([]*types.Event, error)
 

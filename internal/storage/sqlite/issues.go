@@ -392,12 +392,18 @@ func (s *Store) GetIssueDetails(ctx context.Context, id string) (*types.IssueDet
 		return nil, fmt.Errorf("get comments: %w", err)
 	}
 
+	planContext, err := s.GetPlanContext(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get plan context: %w", err)
+	}
+
 	return &types.IssueDetails{
 		Issue:        *issue,
 		Labels:       labels,
 		Dependencies: deps,
 		Dependents:   dependents,
 		Comments:     comments,
+		PlanContext:  planContext,
 	}, nil
 }
 

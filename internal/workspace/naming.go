@@ -40,6 +40,13 @@ func GenerateIssueID(prefix, title string) string {
 	return generateHashID(prefix, title, ".")
 }
 
+// GeneratePlanID creates a plan ID from content.
+// Format: plan.{6-char-base36-hash}
+// Uses "plan" prefix to identify shared plans.
+func GeneratePlanID(title string) string {
+	return generateHashID("plan", title, ".")
+}
+
 // GenerateWorkspaceID creates a workspace ID from content.
 // Format: prefix-{6-char-base36-hash}
 // Uses hyphen separator consistent with workspace naming conventions.

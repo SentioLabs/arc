@@ -1,6 +1,6 @@
 -- name: CreateComment :one
-INSERT INTO comments (issue_id, author, text, created_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO comments (issue_id, author, text, comment_type, created_at)
+VALUES (?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetComment :one
@@ -25,3 +25,19 @@ ORDER BY issue_id, created_at ASC;
 
 -- name: CountComments :one
 SELECT COUNT(*) as count FROM comments WHERE issue_id = ?;
+
+-- name: ListCommentsByType :many
+SELECT * FROM comments
+WHERE issue_id = ? AND comment_type = ?
+ORDER BY created_at ASC;
+
+-- name: GetLatestPlanComment :one
+SELECT * FROM comments
+WHERE issue_id = ? AND comment_type = 'plan'
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: GetPlanHistory :many
+SELECT * FROM comments
+WHERE issue_id = ? AND comment_type = 'plan'
+ORDER BY created_at DESC;

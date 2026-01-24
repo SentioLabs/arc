@@ -24,16 +24,17 @@ func (q *Queries) CountComments(ctx context.Context, issueID string) (int64, err
 }
 
 const createComment = `-- name: CreateComment :one
-INSERT INTO comments (issue_id, author, text, created_at)
-VALUES (?, ?, ?, ?)
-RETURNING id, issue_id, author, text, created_at, updated_at
+INSERT INTO comments (issue_id, author, text, comment_type, created_at)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id, issue_id, author, text, comment_type, created_at, updated_at
 `
 
 type CreateCommentParams struct {
-	IssueID   string    `json:"issue_id"`
-	Author    string    `json:"author"`
-	Text      string    `json:"text"`
-	CreatedAt time.Time `json:"created_at"`
+	IssueID     string    `json:"issue_id"`
+	Author      string    `json:"author"`
+	Text        string    `json:"text"`
+	CommentType string    `json:"comment_type"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (*Comment, error) {
@@ -41,6 +42,7 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (*
 		arg.IssueID,
 		arg.Author,
 		arg.Text,
+		arg.CommentType,
 		arg.CreatedAt,
 	)
 	var i Comment
@@ -49,6 +51,7 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (*
 		&i.IssueID,
 		&i.Author,
 		&i.Text,
+		&i.CommentType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -65,7 +68,7 @@ func (q *Queries) DeleteComment(ctx context.Context, id int64) error {
 }
 
 const getComment = `-- name: GetComment :one
-SELECT id, issue_id, author, text, created_at, updated_at FROM comments WHERE id = ?
+SELECT id, issue_id, author, text, comment_type, created_at, updated_at FROM comments WHERE id = ?
 `
 
 func (q *Queries) GetComment(ctx context.Context, id int64) (*Comment, error) {
@@ -76,6 +79,7 @@ func (q *Queries) GetComment(ctx context.Context, id int64) (*Comment, error) {
 		&i.IssueID,
 		&i.Author,
 		&i.Text,
+		&i.CommentType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -83,7 +87,7 @@ func (q *Queries) GetComment(ctx context.Context, id int64) (*Comment, error) {
 }
 
 const getCommentsForIssues = `-- name: GetCommentsForIssues :many
-SELECT id, issue_id, author, text, created_at, updated_at FROM comments
+SELECT id, issue_id, author, text, comment_type, created_at, updated_at FROM comments
 WHERE issue_id IN (/*SLICE:issue_ids*/?)
 ORDER BY issue_id, created_at ASC
 `
@@ -112,6 +116,66 @@ func (q *Queries) GetCommentsForIssues(ctx context.Context, issueIds []string) (
 			&i.IssueID,
 			&i.Author,
 			&i.Text,
+			&i.CommentType,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLatestPlanComment = `-- name: GetLatestPlanComment :one
+SELECT id, issue_id, author, text, comment_type, created_at, updated_at FROM comments
+WHERE issue_id = ? AND comment_type = 'plan'
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestPlanComment(ctx context.Context, issueID string) (*Comment, error) {
+	row := q.db.QueryRowContext(ctx, getLatestPlanComment, issueID)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.IssueID,
+		&i.Author,
+		&i.Text,
+		&i.CommentType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getPlanHistory = `-- name: GetPlanHistory :many
+SELECT id, issue_id, author, text, comment_type, created_at, updated_at FROM comments
+WHERE issue_id = ? AND comment_type = 'plan'
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetPlanHistory(ctx context.Context, issueID string) ([]*Comment, error) {
+	rows, err := q.db.QueryContext(ctx, getPlanHistory, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Comment{}
+	for rows.Next() {
+		var i Comment
+		if err := rows.Scan(
+			&i.ID,
+			&i.IssueID,
+			&i.Author,
+			&i.Text,
+			&i.CommentType,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -129,7 +193,7 @@ func (q *Queries) GetCommentsForIssues(ctx context.Context, issueIds []string) (
 }
 
 const listComments = `-- name: ListComments :many
-SELECT id, issue_id, author, text, created_at, updated_at FROM comments
+SELECT id, issue_id, author, text, comment_type, created_at, updated_at FROM comments
 WHERE issue_id = ?
 ORDER BY created_at ASC
 `
@@ -148,6 +212,49 @@ func (q *Queries) ListComments(ctx context.Context, issueID string) ([]*Comment,
 			&i.IssueID,
 			&i.Author,
 			&i.Text,
+			&i.CommentType,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCommentsByType = `-- name: ListCommentsByType :many
+SELECT id, issue_id, author, text, comment_type, created_at, updated_at FROM comments
+WHERE issue_id = ? AND comment_type = ?
+ORDER BY created_at ASC
+`
+
+type ListCommentsByTypeParams struct {
+	IssueID     string `json:"issue_id"`
+	CommentType string `json:"comment_type"`
+}
+
+func (q *Queries) ListCommentsByType(ctx context.Context, arg ListCommentsByTypeParams) ([]*Comment, error) {
+	rows, err := q.db.QueryContext(ctx, listCommentsByType, arg.IssueID, arg.CommentType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Comment{}
+	for rows.Next() {
+		var i Comment
+		if err := rows.Scan(
+			&i.ID,
+			&i.IssueID,
+			&i.Author,
+			&i.Text,
+			&i.CommentType,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

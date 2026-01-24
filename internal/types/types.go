@@ -238,14 +238,32 @@ type Label struct {
 	Description string `json:"description,omitempty"`
 }
 
+// CommentType distinguishes between regular comments and inline plans.
+type CommentType string
+
+const (
+	CommentTypeComment CommentType = "comment"
+	CommentTypePlan    CommentType = "plan"
+)
+
+// IsValid checks if the comment type value is valid.
+func (c CommentType) IsValid() bool {
+	switch c {
+	case CommentTypeComment, CommentTypePlan:
+		return true
+	}
+	return false
+}
+
 // Comment represents a comment on an issue.
 type Comment struct {
-	ID        int64     `json:"id"`
-	IssueID   string    `json:"issue_id"`
-	Author    string    `json:"author"`
-	Text      string    `json:"text"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	ID          int64       `json:"id"`
+	IssueID     string      `json:"issue_id"`
+	Author      string      `json:"author"`
+	Text        string      `json:"text"`
+	CommentType CommentType `json:"comment_type"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at,omitempty"`
 }
 
 // Event represents an audit trail entry.
@@ -330,4 +348,55 @@ type IssueDetails struct {
 	Dependencies []*Dependency `json:"dependencies,omitempty"`
 	Dependents   []*Dependency `json:"dependents,omitempty"`
 	Comments     []*Comment    `json:"comments,omitempty"`
+	PlanContext  *PlanContext  `json:"plan_context,omitempty"`
+}
+
+// Plan represents a shared plan that can be linked to multiple issues.
+type Plan struct {
+	ID          string    `json:"id"` // plan.xxxxx format
+	WorkspaceID string    `json:"workspace_id"`
+	Title       string    `json:"title"`
+	Content     string    `json:"content"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	// LinkedIssues contains issue IDs linked to this plan (populated on detail views)
+	LinkedIssues []string `json:"linked_issues,omitempty"`
+}
+
+// Validate checks if the plan has valid field values.
+func (p *Plan) Validate() error {
+	if p.Title == "" {
+		return fmt.Errorf("plan title is required")
+	}
+	if len(p.Title) > 200 {
+		return fmt.Errorf("plan title must be 200 characters or less")
+	}
+	if p.WorkspaceID == "" {
+		return fmt.Errorf("workspace_id is required")
+	}
+	return nil
+}
+
+// PlanContext aggregates all plans relevant to an issue.
+// It supports three patterns:
+// 1. InlinePlan: A plan comment directly on the issue
+// 2. ParentPlan: A plan inherited from a parent issue (via parent-child dependency)
+// 3. SharedPlans: Standalone plans linked to this issue
+type PlanContext struct {
+	// InlinePlan is a plan comment directly on this issue
+	InlinePlan *Comment `json:"inline_plan,omitempty"`
+	// ParentPlan is a plan inherited from a parent issue
+	ParentPlan *Comment `json:"parent_plan,omitempty"`
+	// ParentIssueID is the ID of the parent issue if ParentPlan is set
+	ParentIssueID string `json:"parent_issue_id,omitempty"`
+	// SharedPlans are standalone plans linked to this issue
+	SharedPlans []*Plan `json:"shared_plans,omitempty"`
+}
+
+// HasPlan returns true if any plan is available in this context.
+func (pc *PlanContext) HasPlan() bool {
+	if pc == nil {
+		return false
+	}
+	return pc.InlinePlan != nil || pc.ParentPlan != nil || len(pc.SharedPlans) > 0
 }

@@ -18,8 +18,8 @@ var primeCmd = &cobra.Command{
 	Short: "Output AI-optimized workflow context",
 	Long: `Output essential Arc workflow context in AI-optimized markdown format.
 
-Designed for Claude Code hooks (SessionStart, PreCompact) to prevent
-agents from forgetting arc workflow after context compaction.
+Designed for Claude Code hooks (SessionStart, PreCompact) and manual use
+in Codex CLI to prevent agents from forgetting arc workflow after compaction.
 
 Modes:
 - Default: Full CLI reference (~1-2k tokens)
@@ -27,6 +27,7 @@ Modes:
 
 Install hooks:
   arc setup claude          # Install SessionStart and PreCompact hooks
+  arc setup codex           # Install repo-scoped Codex skill bundle
 
 Workflow customization:
 - Place a .arc/PRIME.md file to override the default output entirely.`,
@@ -146,6 +147,12 @@ func outputCLIContext(w io.Writer) error {
 - ` + "`arc dep add <issue> <depends-on>`" + ` - Add dependency (issue depends on depends-on)
 - ` + "`arc blocked`" + ` - Show all blocked issues
 - ` + "`arc show <id>`" + ` - See what's blocking/blocked by this issue
+
+### Plans
+- ` + "`arc plan set <issue-id> \"plan\"`" + ` - Set inline plan on issue
+- ` + "`arc plan show <issue-id>`" + ` - Show all plans for issue (inline, parent, shared)
+- ` + "`arc plan create \"title\"`" + ` - Create shared plan
+- ` + "`arc plan link <plan-id> <issue>...`" + ` - Link plan to issues
 
 ### Project Health
 - ` + "`arc stats`" + ` - Project statistics (open/closed/blocked counts)

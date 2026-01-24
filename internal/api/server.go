@@ -61,6 +61,11 @@ func (s *Server) Start() error {
 	return s.echo.Start(s.address)
 }
 
+// Echo returns the underlying Echo instance for testing.
+func (s *Server) Echo() *echo.Echo {
+	return s.echo
+}
+
 // Shutdown gracefully shuts down the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
@@ -114,6 +119,20 @@ func (s *Server) registerRoutes() {
 	ws.POST("/issues/:id/comments", s.addComment)
 	ws.PUT("/issues/:id/comments/:cid", s.updateComment)
 	ws.DELETE("/issues/:id/comments/:cid", s.deleteComment)
+
+	// Inline Plans (on issues)
+	ws.POST("/issues/:id/plan", s.setIssuePlan)
+	ws.GET("/issues/:id/plan", s.getIssuePlan)
+	ws.GET("/issues/:id/plan/history", s.getIssuePlanHistory)
+
+	// Shared Plans
+	ws.GET("/plans", s.listPlans)
+	ws.POST("/plans", s.createPlan)
+	ws.GET("/plans/:pid", s.getPlan)
+	ws.PUT("/plans/:pid", s.updatePlan)
+	ws.DELETE("/plans/:pid", s.deletePlan)
+	ws.POST("/plans/:pid/link", s.linkIssuesToPlan)
+	ws.DELETE("/plans/:pid/link/:id", s.unlinkIssueFromPlan)
 
 	// Events (audit trail)
 	ws.GET("/issues/:id/events", s.getEvents)

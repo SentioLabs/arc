@@ -374,6 +374,167 @@ func (c *Client) GetStatistics(wsID string) (*types.Statistics, error) {
 	return &stats, nil
 }
 
+// --- Plan methods ---
+
+// SetInlinePlan sets or updates an inline plan on an issue.
+func (c *Client) SetInlinePlan(wsID, issueID, text string) (*types.Comment, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/plan", wsID, issueID)
+
+	body := map[string]string{"text": text}
+	resp, err := c.post(path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var comment types.Comment
+	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &comment, nil
+}
+
+// GetPlanContext returns the plan context for an issue.
+func (c *Client) GetPlanContext(wsID, issueID string) (*types.PlanContext, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/plan", wsID, issueID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var pc types.PlanContext
+	if err := json.NewDecoder(resp.Body).Decode(&pc); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &pc, nil
+}
+
+// GetPlanHistory returns the plan version history for an issue.
+func (c *Client) GetPlanHistory(wsID, issueID string) ([]*types.Comment, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/plan/history", wsID, issueID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var comments []*types.Comment
+	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return comments, nil
+}
+
+// ListPlans returns all shared plans in a workspace.
+func (c *Client) ListPlans(wsID string) ([]*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/plans", wsID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var plans []*types.Plan
+	if err := json.NewDecoder(resp.Body).Decode(&plans); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return plans, nil
+}
+
+// CreatePlan creates a new shared plan.
+func (c *Client) CreatePlan(wsID, title, content string) (*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/plans", wsID)
+
+	body := map[string]string{"title": title, "content": content}
+	resp, err := c.post(path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var plan types.Plan
+	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &plan, nil
+}
+
+// GetPlan retrieves a plan by ID.
+func (c *Client) GetPlan(wsID, planID string) (*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s", wsID, planID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var plan types.Plan
+	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &plan, nil
+}
+
+// UpdatePlan updates a shared plan.
+func (c *Client) UpdatePlan(wsID, planID, title, content string) (*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s", wsID, planID)
+
+	body := map[string]string{"title": title, "content": content}
+	resp, err := c.put(path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var plan types.Plan
+	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &plan, nil
+}
+
+// DeletePlan deletes a shared plan.
+func (c *Client) DeletePlan(wsID, planID string) error {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s", wsID, planID)
+
+	resp, err := c.delete(path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// LinkIssuesToPlan links one or more issues to a plan.
+func (c *Client) LinkIssuesToPlan(wsID, planID string, issueIDs []string) error {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s/link", wsID, planID)
+
+	body := map[string][]string{"issue_ids": issueIDs}
+	resp, err := c.post(path, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// UnlinkIssueFromPlan removes a link between an issue and a plan.
+func (c *Client) UnlinkIssueFromPlan(wsID, planID, issueID string) error {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s/link/%s", wsID, planID, issueID)
+
+	resp, err := c.delete(path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
 // HTTP helpers
 
 func (c *Client) get(path string) (*http.Response, error) {

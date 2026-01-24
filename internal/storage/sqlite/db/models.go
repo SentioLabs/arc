@@ -22,12 +22,13 @@ type ChildCounter struct {
 }
 
 type Comment struct {
-	ID        int64        `json:"id"`
-	IssueID   string       `json:"issue_id"`
-	Author    string       `json:"author"`
-	Text      string       `json:"text"`
-	CreatedAt time.Time    `json:"created_at"`
-	UpdatedAt sql.NullTime `json:"updated_at"`
+	ID          int64        `json:"id"`
+	IssueID     string       `json:"issue_id"`
+	Author      string       `json:"author"`
+	Text        string       `json:"text"`
+	CommentType string       `json:"comment_type"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   sql.NullTime `json:"updated_at"`
 }
 
 type Config struct {
@@ -82,11 +83,26 @@ type IssueLabel struct {
 	Label   string `json:"label"`
 }
 
+type IssuePlan struct {
+	IssueID   string    `json:"issue_id"`
+	PlanID    string    `json:"plan_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Label struct {
 	WorkspaceID string         `json:"workspace_id"`
 	Name        string         `json:"name"`
 	Color       sql.NullString `json:"color"`
 	Description sql.NullString `json:"description"`
+}
+
+type Plan struct {
+	ID          string    `json:"id"`
+	WorkspaceID string    `json:"workspace_id"`
+	Title       string    `json:"title"`
+	Content     string    `json:"content"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type Workspace struct {
