@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
 	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
@@ -140,10 +139,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Create project-local config
-	if err := createProjectConfig(cwd, ws.ID, ws.Name); err != nil {
+	// Create project config in ~/.arc/projects/
+	arcHome := project.DefaultArcHome()
+	projectCfg := &project.Config{
+		WorkspaceID:   ws.ID,
+		WorkspaceName: ws.Name,
+		ProjectRoot:   cwd,
+	}
+	if err := project.WriteConfig(arcHome, cwd, projectCfg); err != nil {
 		if !quiet {
-			fmt.Fprintf(os.Stderr, "Warning: failed to create .arc.json: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to create project config: %v\n", err)
 		}
 	}
 
@@ -171,28 +176,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// createProjectConfig creates a .arc.json file in the project root
-func createProjectConfig(dir, workspaceID, workspaceName string) error {
-	configPath := filepath.Join(dir, ".arc.json")
-
-	// Don't overwrite existing config
-	if _, err := os.Stat(configPath); err == nil {
-		return nil
-	}
-
-	config := map[string]string{
-		"workspace_id":   workspaceID,
-		"workspace_name": workspaceName,
-	}
-
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(configPath, data, 0644)
 }
 
 // addLandingThePlaneInstructions adds "landing the plane" instructions to AGENTS.md
