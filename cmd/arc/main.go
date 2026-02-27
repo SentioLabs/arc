@@ -278,7 +278,8 @@ var whichCmd = &cobra.Command{
 
 This helps debug workspace resolution issues by showing:
 - The active workspace ID and name
-- Where the workspace was resolved from (flag, local .arc.json, or global config)
+- Where the workspace was resolved from (flag, project config, or legacy .arc.json)
+- The project config file path
 - Any warnings about the configuration`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wsID, source, warning, err := resolveWorkspace()
@@ -317,6 +318,14 @@ This helps debug workspace resolution issues by showing:
 			fmt.Printf("Workspace: %s\n", wsID)
 		}
 		fmt.Printf("Source: %s\n", source)
+
+		if source == WorkspaceSourceProject || source == WorkspaceSourceLegacy {
+			cwd, _ := os.Getwd()
+			arcHome := project.DefaultArcHome()
+			if root, err := project.FindProjectRootWithArcHome(cwd, arcHome); err == nil {
+				fmt.Printf("Config: ~/.arc/projects/%s/config.json\n", project.PathToProjectDir(root))
+			}
+		}
 
 		if warning != "" {
 			fmt.Fprintln(os.Stderr)
