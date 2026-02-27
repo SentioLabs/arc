@@ -217,12 +217,14 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 			"pid":        pid,
 			"responding": true,
 			"status":     health.Status,
+			"port":       health.Port,
 			"version":    health.Version,
 			"uptime":     health.Uptime,
 		})
 	} else {
 		fmt.Printf("Server running (PID %d)\n", pid)
 		fmt.Printf("  Status:  %s\n", health.Status)
+		fmt.Printf("  Port:    %d\n", health.Port)
 		fmt.Printf("  Version: %s\n", health.Version)
 		fmt.Printf("  Uptime:  %s\n", formatDuration(time.Duration(health.Uptime)*time.Second))
 	}

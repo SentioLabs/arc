@@ -4,7 +4,9 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -143,14 +145,20 @@ type HealthResponse struct {
 	Status  string  `json:"status"`
 	Version string  `json:"version"`
 	Uptime  float64 `json:"uptime"` // seconds
+	Port    int     `json:"port"`
 }
 
 // healthCheck returns server health status.
 func (s *Server) healthCheck(c echo.Context) error {
+	var port int
+	if _, portStr, err := net.SplitHostPort(s.address); err == nil {
+		port, _ = strconv.Atoi(portStr)
+	}
 	return c.JSON(http.StatusOK, HealthResponse{
 		Status:  "healthy",
 		Version: version.Version,
 		Uptime:  time.Since(s.startTime).Seconds(),
+		Port:    port,
 	})
 }
 
