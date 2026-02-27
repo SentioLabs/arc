@@ -1,9 +1,11 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -96,12 +98,20 @@ func (s *Server) updateWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// deleteWorkspace deletes a workspace.
+// deleteWorkspace deletes a workspace and cleans up any project configs referencing it.
 func (s *Server) deleteWorkspace(c echo.Context) error {
 	id := c.Param("id")
 
 	if err := s.store.DeleteWorkspace(c.Request().Context(), id); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+
+	// Best-effort cleanup of project configs referencing this workspace
+	arcHome := project.DefaultArcHome()
+	if removed, err := project.CleanupWorkspaceConfigs(arcHome, id); err != nil {
+		log.Printf("Warning: failed to clean up project configs for workspace %s: %v", id, err)
+	} else if removed > 0 {
+		log.Printf("Cleaned up %d project config(s) for deleted workspace %s", removed, id)
 	}
 
 	return c.NoContent(http.StatusNoContent)
