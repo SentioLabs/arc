@@ -142,23 +142,34 @@ func (s *Server) registerRoutes() {
 
 // HealthResponse contains health check information.
 type HealthResponse struct {
-	Status  string  `json:"status"`
-	Version string  `json:"version"`
-	Uptime  float64 `json:"uptime"` // seconds
-	Port    int     `json:"port"`
+	Status   string  `json:"status"`
+	Version  string  `json:"version"`
+	Uptime   float64 `json:"uptime"` // seconds
+	Port     int     `json:"port"`
+	WebUIURL string  `json:"webui_url"`
 }
 
 // healthCheck returns server health status.
 func (s *Server) healthCheck(c echo.Context) error {
+	var host string
 	var port int
-	if _, portStr, err := net.SplitHostPort(s.address); err == nil {
+	if h, portStr, err := net.SplitHostPort(s.address); err == nil {
+		host = h
 		port, _ = strconv.Atoi(portStr)
 	}
+	if host == "" {
+		host = "localhost"
+	}
+	var webuiURL string
+	if port > 0 && web.Enabled {
+		webuiURL = fmt.Sprintf("http://%s:%d", host, port)
+	}
 	return c.JSON(http.StatusOK, HealthResponse{
-		Status:  "healthy",
-		Version: version.Version,
-		Uptime:  time.Since(s.startTime).Seconds(),
-		Port:    port,
+		Status:   "healthy",
+		Version:  version.Version,
+		Uptime:   time.Since(s.startTime).Seconds(),
+		Port:     port,
+		WebUIURL: webuiURL,
 	})
 }
 

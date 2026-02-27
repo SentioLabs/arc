@@ -121,7 +121,7 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Server started (PID %d)\n", daemonCmd.Process.Pid)
-	fmt.Printf("  Address: http://localhost:%d\n", port)
+	fmt.Printf("  WebUI:   http://localhost:%d\n", port)
 	fmt.Printf("  Logs:    %s\n", server.LogPath())
 	return nil
 }
@@ -218,6 +218,7 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 			"responding": true,
 			"status":     health.Status,
 			"port":       health.Port,
+			"webui_url":  health.WebUIURL,
 			"version":    health.Version,
 			"uptime":     health.Uptime,
 		})
@@ -225,6 +226,7 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Server running (PID %d)\n", pid)
 		fmt.Printf("  Status:  %s\n", health.Status)
 		fmt.Printf("  Port:    %d\n", health.Port)
+		fmt.Printf("  WebUI:   %s\n", health.WebUIURL)
 		fmt.Printf("  Version: %s\n", health.Version)
 		fmt.Printf("  Uptime:  %s\n", formatDuration(time.Duration(health.Uptime)*time.Second))
 	}

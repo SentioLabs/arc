@@ -8,6 +8,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Enabled indicates whether the web UI was compiled into this build.
+const Enabled = false
+
 // RegisterSPA is a no-op when built without the webui tag.
 // The web UI is not available in this build.
 func RegisterSPA(e *echo.Echo) {

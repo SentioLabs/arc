@@ -12,6 +12,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Enabled indicates whether the web UI was compiled into this build.
+const Enabled = true
+
 //go:embed all:build
 var staticFiles embed.FS
 
