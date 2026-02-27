@@ -140,3 +140,59 @@ func PathToProjectDir(absPath string) string {
 	cleaned := filepath.Clean(absPath)
 	return strings.ReplaceAll(cleaned, string(filepath.Separator), "-")
 }
+
+// legacyConfig matches the old .arc.json structure.
+type legacyConfig struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// FindLegacyConfig searches for .arc.json starting from dir and walking up.
+func FindLegacyConfig(dir string) (string, error) {
+	current, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		candidate := filepath.Join(current, ".arc.json")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", os.ErrNotExist
+		}
+		current = parent
+	}
+}
+
+// MigrateLegacyConfig reads a .arc.json from projectRoot, creates the new
+// config under arcHome, and returns the migrated config.
+// Does NOT delete the original .arc.json.
+func MigrateLegacyConfig(projectRoot, arcHome string) (*Config, error) {
+	legacyPath := filepath.Join(projectRoot, ".arc.json")
+
+	data, err := os.ReadFile(legacyPath)
+	if err != nil {
+		return nil, fmt.Errorf("read legacy config: %w", err)
+	}
+
+	var legacy legacyConfig
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return nil, fmt.Errorf("parse legacy config: %w", err)
+	}
+
+	cfg := &Config{
+		WorkspaceID:   legacy.WorkspaceID,
+		WorkspaceName: legacy.WorkspaceName,
+		ProjectRoot:   projectRoot,
+	}
+
+	if err := WriteConfig(arcHome, projectRoot, cfg); err != nil {
+		return nil, fmt.Errorf("write migrated config: %w", err)
+	}
+
+	return cfg, nil
+}

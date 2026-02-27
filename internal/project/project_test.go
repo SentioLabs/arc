@@ -132,3 +132,62 @@ func TestFindProjectRootNoMatch(t *testing.T) {
 		t.Fatal("FindProjectRootWithArcHome should fail when no project found")
 	}
 }
+
+func TestMigrateLegacyConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	arcHome := t.TempDir()
+
+	// Create a legacy .arc.json
+	legacyContent := `{"workspace_id": "ws-old123", "workspace_name": "legacy-project"}`
+	legacyPath := filepath.Join(tmpDir, ".arc.json")
+	if err := os.WriteFile(legacyPath, []byte(legacyContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := MigrateLegacyConfig(tmpDir, arcHome)
+	if err != nil {
+		t.Fatalf("MigrateLegacyConfig failed: %v", err)
+	}
+
+	if cfg.WorkspaceID != "ws-old123" {
+		t.Errorf("WorkspaceID = %q, want %q", cfg.WorkspaceID, "ws-old123")
+	}
+	if cfg.WorkspaceName != "legacy-project" {
+		t.Errorf("WorkspaceName = %q, want %q", cfg.WorkspaceName, "legacy-project")
+	}
+
+	// Verify the new config was written
+	loaded, err := LoadConfig(arcHome, tmpDir)
+	if err != nil {
+		t.Fatalf("LoadConfig after migration failed: %v", err)
+	}
+	if loaded.WorkspaceID != "ws-old123" {
+		t.Errorf("Migrated config WorkspaceID = %q, want %q", loaded.WorkspaceID, "ws-old123")
+	}
+}
+
+func TestFindLegacyConfigWalksUp(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .arc.json in the root
+	legacyContent := `{"workspace_id": "ws-walk", "workspace_name": "walk-test"}`
+	if err := os.WriteFile(filepath.Join(tmpDir, ".arc.json"), []byte(legacyContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Search from nested dir
+	nested := filepath.Join(tmpDir, "a", "b")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	path, err := FindLegacyConfig(nested)
+	if err != nil {
+		t.Fatalf("FindLegacyConfig failed: %v", err)
+	}
+
+	expected := filepath.Join(tmpDir, ".arc.json")
+	if path != expected {
+		t.Errorf("FindLegacyConfig = %q, want %q", path, expected)
+	}
+}
