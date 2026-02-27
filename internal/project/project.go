@@ -196,3 +196,44 @@ func MigrateLegacyConfig(projectRoot, arcHome string) (*Config, error) {
 
 	return cfg, nil
 }
+
+// CleanupWorkspaceConfigs removes all project configs under arcHome that reference
+// the given workspace ID. Returns the number of project directories removed.
+func CleanupWorkspaceConfigs(arcHome, workspaceID string) (int, error) {
+	projDir := projectsDir(arcHome)
+
+	entries, err := os.ReadDir(projDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("read projects dir: %w", err)
+	}
+
+	removed := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		cfgPath := filepath.Join(projDir, entry.Name(), "config.json")
+		data, err := os.ReadFile(cfgPath)
+		if err != nil {
+			continue // skip dirs without config.json
+		}
+
+		var cfg Config
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			continue // skip unparseable configs
+		}
+
+		if cfg.WorkspaceID == workspaceID {
+			if err := os.RemoveAll(filepath.Join(projDir, entry.Name())); err != nil {
+				return removed, fmt.Errorf("remove project dir %s: %w", entry.Name(), err)
+			}
+			removed++
+		}
+	}
+
+	return removed, nil
+}

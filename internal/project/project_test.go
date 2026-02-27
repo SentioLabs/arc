@@ -191,3 +191,73 @@ func TestFindLegacyConfigWalksUp(t *testing.T) {
 		t.Errorf("FindLegacyConfig = %q, want %q", path, expected)
 	}
 }
+
+func TestCleanupWorkspaceConfigs(t *testing.T) {
+	arcHome := t.TempDir()
+
+	// Create three project configs: two for workspace "ws-target", one for "ws-other"
+	cfg1 := &Config{WorkspaceID: "ws-target", WorkspaceName: "proj-a", ProjectRoot: "/home/user/proj-a"}
+	cfg2 := &Config{WorkspaceID: "ws-target", WorkspaceName: "proj-b", ProjectRoot: "/home/user/proj-b"}
+	cfg3 := &Config{WorkspaceID: "ws-other", WorkspaceName: "proj-c", ProjectRoot: "/home/user/proj-c"}
+
+	if err := WriteConfig(arcHome, "/home/user/proj-a", cfg1); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteConfig(arcHome, "/home/user/proj-b", cfg2); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteConfig(arcHome, "/home/user/proj-c", cfg3); err != nil {
+		t.Fatal(err)
+	}
+
+	// Clean up configs for ws-target
+	removed, err := CleanupWorkspaceConfigs(arcHome, "ws-target")
+	if err != nil {
+		t.Fatalf("CleanupWorkspaceConfigs failed: %v", err)
+	}
+
+	if removed != 2 {
+		t.Errorf("removed = %d, want 2", removed)
+	}
+
+	// ws-target configs should be gone
+	if _, err := LoadConfig(arcHome, "/home/user/proj-a"); err == nil {
+		t.Error("proj-a config should have been removed")
+	}
+	if _, err := LoadConfig(arcHome, "/home/user/proj-b"); err == nil {
+		t.Error("proj-b config should have been removed")
+	}
+
+	// ws-other config should still exist
+	loaded, err := LoadConfig(arcHome, "/home/user/proj-c")
+	if err != nil {
+		t.Fatalf("proj-c config should still exist: %v", err)
+	}
+	if loaded.WorkspaceID != "ws-other" {
+		t.Errorf("proj-c WorkspaceID = %q, want %q", loaded.WorkspaceID, "ws-other")
+	}
+}
+
+func TestCleanupWorkspaceConfigsNoMatch(t *testing.T) {
+	arcHome := t.TempDir()
+
+	// Create a config for a different workspace
+	cfg := &Config{WorkspaceID: "ws-keep", WorkspaceName: "keep", ProjectRoot: "/home/user/keep"}
+	if err := WriteConfig(arcHome, "/home/user/keep", cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := CleanupWorkspaceConfigs(arcHome, "ws-nonexistent")
+	if err != nil {
+		t.Fatalf("CleanupWorkspaceConfigs failed: %v", err)
+	}
+
+	if removed != 0 {
+		t.Errorf("removed = %d, want 0", removed)
+	}
+
+	// Original config should still exist
+	if _, err := LoadConfig(arcHome, "/home/user/keep"); err != nil {
+		t.Fatalf("config should still exist: %v", err)
+	}
+}
