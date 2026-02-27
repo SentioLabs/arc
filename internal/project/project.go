@@ -59,6 +59,80 @@ func LoadConfig(arcHome, absProjectPath string) (*Config, error) {
 	return &cfg, nil
 }
 
+// DefaultArcHome returns the default arc home directory (~/.arc).
+func DefaultArcHome() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".arc")
+}
+
+// FindProjectRoot resolves the project root for the given directory
+// using the default arc home (~/.arc).
+// Resolution order:
+//  1. Git walk — walk up looking for .git/
+//  2. Prefix walk — longest-to-shortest match in ~/.arc/projects/
+//  3. Returns error if nothing found
+func FindProjectRoot(dir string) (string, error) {
+	return FindProjectRootWithArcHome(dir, DefaultArcHome())
+}
+
+// FindProjectRootWithArcHome resolves the project root using a custom arc home.
+func FindProjectRootWithArcHome(dir string, arcHome string) (string, error) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve absolute path: %w", err)
+	}
+
+	// Strategy 1: Walk up looking for .git/
+	if root, err := findGitRoot(absDir); err == nil {
+		return root, nil
+	}
+
+	// Strategy 2: Prefix walk (longest to shortest)
+	if root, err := findByPrefixWalk(absDir, arcHome); err == nil {
+		return root, nil
+	}
+
+	return "", fmt.Errorf("no project found for %s\n  Run 'arc init' to set up a workspace", absDir)
+}
+
+// findGitRoot walks up from dir looking for a .git directory.
+func findGitRoot(dir string) (string, error) {
+	current := dir
+	for {
+		gitPath := filepath.Join(current, ".git")
+		if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
+			return current, nil
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", fmt.Errorf("no .git found")
+		}
+		current = parent
+	}
+}
+
+// findByPrefixWalk converts dir to the project dir format and strips trailing
+// segments (longest to shortest) looking for a match in ~/.arc/projects/.
+func findByPrefixWalk(dir string, arcHome string) (string, error) {
+	projDir := projectsDir(arcHome)
+	current := dir
+
+	for {
+		dirName := PathToProjectDir(current)
+		candidate := filepath.Join(projDir, dirName, "config.json")
+		if _, err := os.Stat(candidate); err == nil {
+			return current, nil
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", fmt.Errorf("no registered project found")
+		}
+		current = parent
+	}
+}
+
 // PathToProjectDir converts an absolute filesystem path to a project directory name.
 // Replaces "/" with "-", matching the Claude Code ~/.claude/projects/ convention.
 // Example: "/home/user/my-repo" → "-home-user-my-repo"
