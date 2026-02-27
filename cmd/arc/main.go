@@ -11,6 +11,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/version"
 	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
@@ -39,16 +40,19 @@ type Config struct {
 type WorkspaceSource int
 
 const (
-	WorkspaceSourceFlag WorkspaceSource = iota
-	WorkspaceSourceLocal
+	WorkspaceSourceFlag    WorkspaceSource = iota
+	WorkspaceSourceProject                         // ~/.arc/projects/<path>/config.json
+	WorkspaceSourceLegacy                          // .arc.json (migrated)
 )
 
 func (s WorkspaceSource) String() string {
 	switch s {
 	case WorkspaceSourceFlag:
 		return "command line flag (-w)"
-	case WorkspaceSourceLocal:
-		return ".arc.json (local)"
+	case WorkspaceSourceProject:
+		return "~/.arc/projects/ (local)"
+	case WorkspaceSourceLegacy:
+		return ".arc.json (legacy, migrated)"
 	default:
 		return "unknown"
 	}
@@ -111,58 +115,6 @@ func saveConfig(cfg *Config) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// localConfig represents the .arc.json file structure
-type localConfig struct {
-	WorkspaceID   string `json:"workspace_id"`
-	WorkspaceName string `json:"workspace_name"`
-}
-
-// loadLocalConfig attempts to load .arc.json from the current directory or any parent directory.
-// This allows arc commands to work from any subdirectory within a project.
-func loadLocalConfig() (*localConfig, error) {
-	configPath, err := findProjectConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var cfg localConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
-}
-
-// findProjectConfig searches for .arc.json starting from the current directory
-// and walking up to parent directories until found or root is reached.
-func findProjectConfig() (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	dir := cwd
-	for {
-		configPath := filepath.Join(dir, ".arc.json")
-		if _, err := os.Stat(configPath); err == nil {
-			return configPath, nil
-		}
-
-		// Move to parent directory
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Reached root, no config found
-			return "", os.ErrNotExist
-		}
-		dir = parent
-	}
-}
-
 func getClient() (*client.Client, error) {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -179,9 +131,10 @@ func getClient() (*client.Client, error) {
 
 // getWorkspaceID resolves the workspace ID using the following priority:
 // 1. CLI flag (-w/--workspace) - explicit override
-// 2. Local config (.arc.json in current directory)
+// 2. Project config (~/.arc/projects/<path>/config.json)
+// 3. Legacy .arc.json (auto-migrated)
 //
-// If neither is available, an error is returned. There is no global fallback.
+// If none is available, an error is returned. There is no global fallback.
 func getWorkspaceID() (string, error) {
 	wsID, _, _, err := resolveWorkspace()
 	return wsID, err
@@ -190,9 +143,10 @@ func getWorkspaceID() (string, error) {
 // resolveWorkspace returns the workspace ID, source, and error.
 // Resolution priority:
 //  1. CLI flag (-w/--workspace) - explicit override always works
-//  2. Local .arc.json - per-directory workspace binding
+//  2. Project config (~/.arc/projects/<path>/config.json)
+//  3. Legacy .arc.json - auto-migrated to project config
 //
-// If neither is available, an error is returned. There is no global fallback
+// If none is available, an error is returned. There is no global fallback
 // to prevent accidentally operating in the wrong workspace.
 func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, err error) {
 	// Priority 1: CLI flag (explicit override)
@@ -200,32 +154,54 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 		return workspaceID, WorkspaceSourceFlag, "", nil
 	}
 
-	// Priority 2: Local .arc.json
-	localCfg, localErr := loadLocalConfig()
-	if localErr != nil {
-		if os.IsNotExist(localErr) {
-			return "", 0, "", fmt.Errorf("no workspace configured for this directory\n  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", 0, "", fmt.Errorf("get current directory: %w", err)
+	}
+
+	arcHome := project.DefaultArcHome()
+
+	// Priority 2: Find project root and load config from ~/.arc/projects/
+	projectRoot, rootErr := project.FindProjectRootWithArcHome(cwd, arcHome)
+	if rootErr == nil {
+		cfg, cfgErr := project.LoadConfig(arcHome, projectRoot)
+		if cfgErr == nil && cfg.WorkspaceID != "" {
+			// Validate workspace exists on server
+			c, clientErr := getClient()
+			if clientErr == nil {
+				_, wsErr := c.GetWorkspace(cfg.WorkspaceID)
+				if wsErr != nil {
+					return "", 0, "", fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
+						cfg.WorkspaceName, cfg.WorkspaceID)
+				}
+			}
+			return cfg.WorkspaceID, WorkspaceSourceProject, "", nil
 		}
-		// .arc.json exists but is invalid
-		return "", 0, "", fmt.Errorf("invalid .arc.json: %w\n  Run 'arc init' to reconfigure", localErr)
 	}
 
-	if localCfg.WorkspaceID == "" {
-		return "", 0, "", fmt.Errorf("invalid .arc.json: missing workspace_id\n  Run 'arc init' to reconfigure")
-	}
+	// Priority 3: Legacy .arc.json fallback with migration
+	legacyPath, legacyErr := project.FindLegacyConfig(cwd)
+	if legacyErr == nil {
+		legacyRoot := filepath.Dir(legacyPath)
+		cfg, migrateErr := project.MigrateLegacyConfig(legacyRoot, arcHome)
+		if migrateErr == nil && cfg.WorkspaceID != "" {
+			fmt.Fprintf(os.Stderr, "Migrated .arc.json → ~/.arc/projects/%s/config.json\n",
+				project.PathToProjectDir(legacyRoot))
 
-	// Validate workspace exists on server
-	c, clientErr := getClient()
-	if clientErr == nil {
-		_, wsErr := c.GetWorkspace(localCfg.WorkspaceID)
-		if wsErr != nil {
-			return "", 0, "", fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
-				localCfg.WorkspaceName, localCfg.WorkspaceID)
+			// Validate workspace exists on server
+			c, clientErr := getClient()
+			if clientErr == nil {
+				_, wsErr := c.GetWorkspace(cfg.WorkspaceID)
+				if wsErr != nil {
+					return "", 0, "", fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
+						cfg.WorkspaceName, cfg.WorkspaceID)
+				}
+			}
+			return cfg.WorkspaceID, WorkspaceSourceLegacy, "", nil
 		}
 	}
-	// If can't connect to server, trust local config (server might be down temporarily)
 
-	return localCfg.WorkspaceID, WorkspaceSourceLocal, "", nil
+	return "", 0, "", fmt.Errorf("no workspace configured for this directory\n  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
 }
 
 func outputResult(data interface{}) {
