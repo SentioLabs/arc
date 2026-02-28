@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
+	"text/template"
 
 	"github.com/spf13/cobra"
 )
@@ -49,7 +49,7 @@ Workflow customization:
 		// Check for custom PRIME.md override
 		localPrimePath := ".arc/PRIME.md"
 		if content, err := os.ReadFile(localPrimePath); err == nil {
-			fmt.Print(string(content))
+			os.Stdout.Write(content) //nolint:errcheck // best-effort output
 			return
 		}
 
@@ -102,7 +102,34 @@ func outputPrimeContext(w io.Writer, mcpMode bool) error {
 
 // outputMCPContext outputs minimal context for MCP users
 func outputMCPContext(w io.Writer) error {
-	context := `# Arc Issue Tracker Active
+	return tmplMCP.Execute(w, nil)
+}
+
+// outputTeamLeadContext outputs context for the team lead role.
+// Includes the full CLI reference plus team sync protocol.
+func outputTeamLeadContext(w io.Writer) error {
+	if err := outputCLIContext(w); err != nil {
+		return err
+	}
+	return tmplTeamLead.Execute(w, nil)
+}
+
+// outputTeammateContext outputs context for a specific teammate role.
+// Concise — no full CLI reference or session close protocol.
+// Teammates coordinate via TaskList and report to the team lead.
+func outputTeammateContext(w io.Writer, role string) error {
+	return tmplTeammate.Execute(w, map[string]string{"Role": role})
+}
+
+// outputCLIContext outputs full CLI reference for non-MCP users
+func outputCLIContext(w io.Writer) error {
+	return tmplCLI.Execute(w, nil)
+}
+
+// Prime output templates — each renders markdown context for a specific audience.
+// Using text/template keeps the markdown readable without string concatenation.
+
+var tmplMCP = template.Must(template.New("mcp").Parse(`# Arc Issue Tracker Active
 
 # 🚨 SESSION CLOSE PROTOCOL 🚨
 
@@ -114,19 +141,9 @@ Before saying "done": git status → git add → git commit → git push
 - When in doubt, prefer arc—persistence you don't need beats lost context
 
 Start: Check ` + "`arc ready`" + ` for available work.
-`
-	_, _ = fmt.Fprint(w, context)
-	return nil
-}
+`))
 
-// outputTeamLeadContext outputs context for the team lead role.
-// Includes the full CLI reference plus team sync protocol.
-func outputTeamLeadContext(w io.Writer) error {
-	if err := outputCLIContext(w); err != nil {
-		return err
-	}
-
-	teamContext := `
+var tmplTeamLead = template.Must(template.New("team-lead").Parse(`
 ## Team Lead Protocol
 
 You are the **team lead**. You coordinate teammates and verify their work.
@@ -140,41 +157,19 @@ You are the **team lead**. You coordinate teammates and verify their work.
 - Set ` + "`ARC_TEAMMATE_ROLE=<role>`" + ` env var when spawning each teammate
 - Each teammate gets role-filtered context via ` + "`arc prime`" + `
 - Teammates focus on issues labeled ` + "`teammate:<role>`" + `
-`
-	_, _ = fmt.Fprint(w, teamContext)
-	return nil
-}
+`))
 
-// outputTeammateContext outputs context for a specific teammate role.
-// Concise — no full CLI reference, just role guidance and session protocol.
-func outputTeammateContext(w io.Writer, role string) error {
-	context := `# Arc Teammate Context
+var tmplTeammate = template.Must(template.New("teammate").Parse(`# Arc Teammate Context
 
-You are the **` + role + `** teammate.
+You are the **{{.Role}}** teammate.
 
 ## Your Focus
-- Work on issues labeled ` + "`teammate:" + role + "`" + `
+- Work on issues labeled ` + "`teammate:{{.Role}}`" + `
 - Use TaskList for real-time task coordination with the team
 - Report completion to the team lead when done
+`))
 
-## Session Close Protocol
-
-**CRITICAL**: Before saying "done", you MUST:
-
-` + "```" + `
-[ ] 1. git status              (check what changed)
-[ ] 2. git add <files>         (stage code changes)
-[ ] 3. git commit -m "..."     (commit changes)
-[ ] 4. git push                (push to remote)
-` + "```" + `
-`
-	_, _ = fmt.Fprint(w, context)
-	return nil
-}
-
-// outputCLIContext outputs full CLI reference for non-MCP users
-func outputCLIContext(w io.Writer) error {
-	context := `# Arc Workflow Context
+var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 
 > **Context Recovery**: Run ` + "`arc prime`" + ` after compaction, clear, or new session
 > Hooks auto-call this in Claude Code when .arc.json detected
@@ -259,7 +254,4 @@ arc create "Implement feature X" --type=feature
 arc create "Write tests for X" --type=task
 arc dep add <tests-id> <feature-id>  # Tests depend on feature
 ` + "```" + `
-`
-	_, _ = fmt.Fprint(w, context)
-	return nil
-}
+`))
