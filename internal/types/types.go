@@ -242,9 +242,8 @@ func AllDependencyTypes() []DependencyType {
 	return []DependencyType{DepBlocks, DepParentChild, DepRelated, DepDiscoveredFrom}
 }
 
-// Label represents a tag that can be applied to issues.
+// Label represents a global tag that can be applied to issues.
 type Label struct {
-	WorkspaceID string `json:"workspace_id"`
 	Name        string `json:"name"`
 	Color       string `json:"color,omitempty"`
 	Description string `json:"description,omitempty"`
