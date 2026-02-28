@@ -62,81 +62,112 @@ make build
 arc server start
 
 # Or run in foreground
-arc server run
+arc server start --foreground
 
 # Custom options
-arc server run --addr :8080 --db /path/to/data.db
+arc server start --foreground --port 8080 --db /path/to/data.db
 ```
 
 The server stores data in `~/.arc/data.db` by default.
 
 ### CLI Usage
 
+#### Getting Started
+
 ```bash
+# Initialize arc in your project directory (creates workspace + config)
+cd your-project
+arc init                        # Uses directory name as workspace
+arc init my-project             # Custom workspace name
+arc init --prefix mp            # Custom issue prefix (e.g., mp-a3f2)
 
-# Create a workspace
-arc workspace create my-project --path /path/to/project
+# Check which workspace is active
+arc which
+```
 
-# Set default workspace
-arc workspace use my-project
+#### Day-to-Day Workflow
+
+```bash
+# Find available work
+arc ready                       # Issues with no blockers
+arc blocked                     # Issues waiting on dependencies
 
 # Create issues
 arc create "Implement feature X" -p 1 -t feature
 arc create "Fix bug Y" -p 0 -t bug
 
-# List issues
-arc list
-arc list --status open
-arc list --type bug
-
-# Show issue details
+# View and update issues
 arc show mp-abc123
-
-# Update issues
+arc list                        # All issues
+arc list --status open --type bug
 arc update mp-abc123 --status in_progress
 arc update mp-abc123 --assignee alice
 
 # Close issues
 arc close mp-abc123 --reason "Fixed in commit abc"
 
-# Find ready work
-arc ready
-
-# Show blocked issues
-arc blocked
-
-# Add dependencies
-arc dep add mp-def456 mp-abc123  # def456 depends on abc123
-
-# Create child issue under a parent
-arc create "Subtask" --parent mp-abc123
-
 # View statistics
 arc stats
+```
 
-# Show active workspace
-arc which
+#### Dependencies
 
-# Initialize with custom prefix
-arc init --prefix myproj
+```bash
+# Add a blocker: def456 depends on abc123
+arc dep add mp-def456 mp-abc123
 
-# Plans
+# Other dependency types
+arc dep add child parent --type parent-child
+arc dep add issue-a issue-b --type related
+arc dep add side-quest origin --type discovered-from
+```
+
+#### Epic & Subtask Patterns
+
+```bash
+# Create an epic with child issues
+arc create "Auth overhaul" -t epic
+arc create "JWT tokens" -t task --parent mp-abc123
+arc create "OAuth provider" -t task --parent mp-abc123
+```
+
+#### Plans
+
+```bash
+# Inline plan on a single issue
 arc plan set mp-abc123 "Step 1: do X. Step 2: do Y."
+arc plan set mp-abc123 --editor          # Open $EDITOR
 arc plan show mp-abc123
 arc plan history mp-abc123
-arc plan create "Q1 Initiative" --content "High-level plan..."
-arc plan list
-arc plan edit plan.xxxxx --content "Updated plan"
-arc plan delete plan.xxxxx
+
+# Shared plans (linkable to multiple issues)
+arc plan create "Q1 Initiative"
+arc plan create "Q1 Initiative" --editor
 arc plan link plan.xxxxx mp-abc123 mp-def456
 arc plan unlink plan.xxxxx mp-abc123
+arc plan list
+arc plan edit plan.xxxxx
+arc plan delete plan.xxxxx
+```
 
-# Documentation
-arc docs                        # Overview
-arc docs search "dependencies"  # Search docs
+#### Documentation & Help
 
-# Self-update
-arc self update
+```bash
+arc docs                        # Overview of all topics
+arc docs search "dependencies"  # Fuzzy search across all docs
+arc docs plans                  # Full topic on plans
+arc quickstart                  # Quick start guide
+arc self update                 # Update to latest version
+```
+
+#### Advanced: Workspace Management
+
+```bash
+# For multi-project setups or manual workspace control
+arc workspace create my-project --path /path/to/project
+arc workspace use my-project    # Set default workspace
+arc workspace list
+arc workspace delete ws-abc123
 ```
 
 ### Claude Code Integration
