@@ -152,6 +152,43 @@ func GeneratePrefix(dirPath string) (string, error) {
 	return basename + "-" + suffix, nil
 }
 
+// GeneratePrefixWithCustomName creates an issue prefix using a user-provided basename
+// combined with a path-derived hash suffix for uniqueness.
+// The custom name is normalized (lowercased, non-alphanumeric stripped) and truncated to MaxBasenameTruncation chars.
+// Format: {normalized-custom-name}-{4-char-base36-hash}
+func GeneratePrefixWithCustomName(dirPath, customName string) (string, error) {
+	absPath, err := filepath.Abs(dirPath)
+	if err != nil {
+		return "", err
+	}
+
+	evalPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		evalPath = absPath
+	}
+
+	normalized := filepath.ToSlash(evalPath)
+
+	// Normalize and truncate custom name
+	basename := normalizeForPrefix(customName)
+	if len(basename) > MaxBasenameTruncation {
+		basename = basename[:MaxBasenameTruncation]
+	}
+
+	// Generate deterministic hash from full path using base36
+	hash := sha256.Sum256([]byte(normalized))
+	suffix := Base36Encode(hash[:2])
+
+	for len(suffix) < PrefixHashSuffixLength {
+		suffix = "0" + suffix
+	}
+	if len(suffix) > PrefixHashSuffixLength {
+		suffix = suffix[:PrefixHashSuffixLength]
+	}
+
+	return basename + "-" + suffix, nil
+}
+
 // GeneratePrefixFromName creates an issue prefix from a workspace name (without path).
 // Format: {alphanumeric-name-truncated}-{4-char-base36-hash}
 // Used when creating a workspace without an associated directory path.

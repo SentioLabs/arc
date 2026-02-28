@@ -337,3 +337,64 @@ func TestGeneratePrefixFromName(t *testing.T) {
 		t.Errorf("Prefix should be max %d chars, got %q (len %d)", MaxPrefixLength, prefix, len(prefix))
 	}
 }
+
+func TestGeneratePrefixWithCustomName(t *testing.T) {
+	// Custom name should be normalized and used as basename
+	prefix, err := GeneratePrefixWithCustomName("/tmp/cortex-shell", "cxsh")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+
+	// Should start with custom basename
+	lastHyphen := strings.LastIndex(prefix, "-")
+	if lastHyphen == -1 {
+		t.Fatalf("Prefix should contain a hyphen, got %q", prefix)
+	}
+	basename := prefix[:lastHyphen]
+	if basename != "cxsh" {
+		t.Errorf("Expected basename 'cxsh', got %q (full prefix: %q)", basename, prefix)
+	}
+
+	// Hash suffix should be 4 chars
+	suffix := prefix[lastHyphen+1:]
+	if len(suffix) != PrefixHashSuffixLength {
+		t.Errorf("Expected %d-char hash suffix, got %q (len %d)", PrefixHashSuffixLength, suffix, len(suffix))
+	}
+
+	// Should be deterministic (same path = same hash)
+	prefix2, err := GeneratePrefixWithCustomName("/tmp/cortex-shell", "cxsh")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	if prefix != prefix2 {
+		t.Errorf("Should be deterministic: %q != %q", prefix, prefix2)
+	}
+
+	// Different paths with same custom name should produce different prefixes
+	prefix3, err := GeneratePrefixWithCustomName("/tmp/other-project", "cxsh")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	if prefix == prefix3 {
+		t.Errorf("Different paths should produce different prefixes: %q == %q", prefix, prefix3)
+	}
+
+	// Custom name should be normalized (special chars stripped)
+	prefix4, err := GeneratePrefixWithCustomName("/tmp/test", "cx-sh!")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	basename4 := prefix4[:strings.LastIndex(prefix4, "-")]
+	if basename4 != "cxsh" {
+		t.Errorf("Expected normalized basename 'cxsh', got %q", basename4)
+	}
+
+	// Long custom name should be truncated to MaxBasenameTruncation
+	prefix5, err := GeneratePrefixWithCustomName("/tmp/test", "verylongcustomname")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	if len(prefix5) > MaxPrefixLength {
+		t.Errorf("Prefix should be max %d chars, got %q (len %d)", MaxPrefixLength, prefix5, len(prefix5))
+	}
+}
