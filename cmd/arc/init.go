@@ -32,13 +32,15 @@ arc skill bundle under .codex/skills.
 
 Examples:
   arc init                    # Use directory name as workspace
-  arc init my-project         # Use custom name`,
+  arc init my-project         # Use custom name
+  arc init --prefix cxsh      # Custom issue prefix (e.g., cxsh-0b7w)`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runInit,
 }
 
 func init() {
 	initCmd.Flags().StringP("description", "d", "", "Workspace description")
+	initCmd.Flags().StringP("prefix", "p", "", "Custom issue prefix (alphanumeric, max 10 chars)")
 	initCmd.Flags().BoolP("quiet", "q", false, "Suppress output")
 	rootCmd.AddCommand(initCmd)
 }
@@ -67,9 +69,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Generate prefix with hash for guaranteed uniqueness
-	prefix, err := workspace.GeneratePrefix(cwd)
-	if err != nil {
-		return fmt.Errorf("generate prefix: %w", err)
+	customPrefix, _ := cmd.Flags().GetString("prefix")
+
+	var prefix string
+	if customPrefix != "" {
+		prefix, err = workspace.GeneratePrefixWithCustomName(cwd, customPrefix)
+		if err != nil {
+			return fmt.Errorf("generate prefix: %w", err)
+		}
+	} else {
+		prefix, err = workspace.GeneratePrefix(cwd)
+		if err != nil {
+			return fmt.Errorf("generate prefix: %w", err)
+		}
 	}
 
 	// Create workspace on server
