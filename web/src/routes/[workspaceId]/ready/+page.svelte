@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { getReadyWork, type Workspace, type Issue } from '$lib/api';
+	import { getReadyWork, listLabels, type Workspace, type Issue, type Label } from '$lib/api';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
 	const workspaceId = $derived($page.params.workspaceId);
@@ -12,10 +12,21 @@
 	let issues = $state<Issue[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let labelMap = $state(new Map<string, Label>());
 
 	$effect(() => {
-		if (workspaceId) loadIssues();
+		if (workspaceId) {
+			loadIssues();
+			loadLabelMap();
+		}
 	});
+
+	async function loadLabelMap() {
+		try {
+			const labels = await listLabels();
+			labelMap = new Map(labels.map(l => [l.name, l]));
+		} catch { /* labels are optional for display */ }
+	}
 
 	async function loadIssues() {
 		if (!workspaceId) return;
@@ -77,7 +88,7 @@
 		{:else}
 			<div class="space-y-3">
 				{#each issues as issue (issue.id)}
-					<IssueCard {issue} href="/{workspaceId}/issues/{issue.id}" />
+					<IssueCard {issue} {labelMap} href="/{workspaceId}/issues/{issue.id}" />
 				{/each}
 			</div>
 		{/if}

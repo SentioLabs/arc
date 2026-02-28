@@ -6,14 +6,16 @@
 	import TypeBadge from './TypeBadge.svelte';
 
 	type Issue = components['schemas']['Issue'];
+	type Label = components['schemas']['Label'];
 
 	interface Props {
 		issue: Issue;
 		href?: string;
 		compact?: boolean;
+		labelMap?: Map<string, Label>;
 	}
 
-	let { issue, href, compact = false }: Props = $props();
+	let { issue, href, compact = false, labelMap }: Props = $props();
 </script>
 
 {#if href}
@@ -72,8 +74,15 @@
 				{#if issue.labels && issue.labels.length > 0}
 					<div class="flex items-center gap-1">
 						{#each issue.labels.slice(0, 3) as label (label)}
+							{@const color = labelMap?.get(label)?.color}
 							<span
-								class="px-1.5 py-0.5 text-[10px] font-medium bg-surface-600 text-text-secondary rounded"
+								class="px-1.5 py-0.5 text-[10px] font-medium rounded border"
+								style={color
+									? `background-color: ${color}20; color: ${color}; border-color: ${color}40`
+									: ''}
+								class:bg-surface-600={!color}
+								class:text-text-secondary={!color}
+								class:border-transparent={!color}
 							>
 								{label}
 							</span>
