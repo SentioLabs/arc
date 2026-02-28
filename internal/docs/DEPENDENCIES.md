@@ -45,10 +45,10 @@ Arc supports four dependency types that serve different purposes in organizing a
 |------|---------|---------------------|------------|
 | **blocks** | Hard blocker | Yes - blocked issues excluded | Sequential work, prerequisites |
 | **related** | Soft link | No - just informational | Context, related work |
-| **parent-child** | Hierarchy | No - structural only | Epics and subtasks |
+| **parent-child** | Hierarchy | Yes - children wait for parent | Epics and subtasks |
 | **discovered-from** | Provenance | No - tracks origin | Side quests, research findings |
 
-**Key insight**: Only `blocks` dependencies affect what work is ready. The other three provide structure and context.
+**Key insight**: Both `blocks` and `parent-child` dependencies affect what work is ready. The other two (`related`, `discovered-from`) provide structure and context.
 
 ---
 
@@ -699,14 +699,14 @@ Nested hierarchy with phase ordering.
    - Use liberally for discoverability
 
 3. **parent-child**: Epics and subtasks, hierarchical structure
-   - Organizational only
+   - Children excluded from `arc ready` until parent is closed
    - Use for work breakdown
 
 4. **discovered-from**: Side quests, research findings, provenance
    - Context preservation
    - Use to track emergence
 
-**Key insight**: Only `blocks` affects what work is ready. The other three provide rich context without constraining execution.
+**Key insight**: Both `blocks` and `parent-child` affect what work is ready. The other two (`related`, `discovered-from`) provide rich context without constraining execution.
 
 Use dependencies to create a graph that:
 - Automatically maintains ready work

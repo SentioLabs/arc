@@ -28,6 +28,7 @@ var topicDocs = map[string]string{
 	"dependencies": docs.Dependencies,
 	"boundaries":   docs.Boundaries,
 	"resumability": docs.Resumability,
+	"plans":        docs.Plans,
 	"plugin":       docs.Plugin,
 }
 

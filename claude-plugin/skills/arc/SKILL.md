@@ -7,8 +7,8 @@ Track complex, multi-session work with a central issue tracking system.
 **For Claude Code users** (recommended):
 1. Install the arc plugin (provides hooks, skills, agents)
 2. Run `arc onboard` in any project - it will:
-   - Detect existing workspace from `.arc.json`
-   - Or recover workspace from server if `.arc.json` is missing
+   - Detect existing workspace from project config (`~/.arc/projects/`) or legacy `.arc.json`
+   - Or recover workspace from server if local config is missing
    - Or prompt you to run `arc init` for new projects
 
 **For non-Claude users**:
@@ -52,6 +52,8 @@ Run `arc prime` for full workflow context, or `arc <command> --help` for specifi
 - `arc close` - Complete work
 - `arc show` - View details
 - `arc dep` - Manage dependencies
+- `arc plan` - Manage plans (inline, shared)
+- `arc which` - Show active workspace
 
 ## Deep Dive Documentation
 
@@ -78,6 +80,8 @@ Fuzzy matching handles typos - "dependncy" finds "dependency" docs.
 | `arc docs workflows` | Step-by-step checklists for session start, epic planning, side quests, handoff |
 | `arc docs dependencies` | Dependency types (blocks, related, parent-child, discovered-from) and when to use each |
 | `arc docs resumability` | Writing notes that survive compaction - templates and anti-patterns |
+| `arc docs plans` | Plan patterns (inline, parent-epic, shared) with examples |
+| `arc docs plugin` | Claude Code plugin and Codex CLI integration guide |
 
 Run `arc docs` without a topic to see an overview.
 
@@ -93,10 +97,26 @@ Arc supports four dependency types:
 |------|---------|----------------|
 | **blocks** | Hard blocker - B can't start until A complete | Yes |
 | **related** | Soft link - informational only | No |
-| **parent-child** | Epic/subtask hierarchy | No |
+| **parent-child** | Epic/subtask hierarchy | Yes |
 | **discovered-from** | Track provenance of discovered work | No |
 
 **Deep dive**: Run `arc docs dependencies` for examples and patterns.
+
+## Plans
+
+Arc supports three plan patterns:
+
+| Pattern | When to Use | Command |
+|---------|------------|---------|
+| **Inline** | Single issue with clear steps | `arc plan set <id> "steps..."` |
+| **Parent Epic** | Epic with children sharing a plan | Set plan on parent; children inherit |
+| **Shared** | Initiative spanning unrelated issues | `arc plan create "title"` + `arc plan link` |
+
+Plans are shown automatically in `arc show <id>`. Run `arc docs plans` for full details.
+
+## Labels
+
+Labels are global (shared across all workspaces) and support colors and descriptions. Use labels for cross-cutting categorization like `security`, `performance`, `tech-debt`.
 
 ## Session Protocol
 
@@ -133,7 +153,8 @@ arc update <id> --status in_progress  # Claim work
 ```bash
 arc create "Title" -t task          # Create task
 arc create "Epic title" -t epic     # Create epic
-arc dep add child-id parent-id --type parent-child  # Link to epic
+arc create "Subtask" --parent <epic-id>  # Create child issue
+arc dep add child-id parent-id --type parent-child  # Or link existing issue to epic
 ```
 
 ### Completing Work

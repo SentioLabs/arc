@@ -17,7 +17,7 @@ import (
 const defaultSearchLimit = 5
 
 // validDocTopics lists the available documentation topic names.
-var validDocTopics = []string{"workflows", "dependencies", "boundaries", "resumability", "plugin"}
+var validDocTopics = []string{"workflows", "dependencies", "boundaries", "resumability", "plans", "plugin"}
 
 // searchLimit controls the maximum number of search results to display.
 // searchExact disables fuzzy matching when true.
@@ -38,6 +38,7 @@ Available topics:
   dependencies  - Dependency types and when to use each
   boundaries    - When to use arc vs TodoWrite
   resumability  - Writing notes that survive compaction
+  plans         - Plan patterns (inline, parent-epic, shared)
   plugin        - Claude Code plugin and Codex CLI integration guide
 
 Run without a topic to see an overview.`,
@@ -88,6 +89,8 @@ func runDocs(cmd *cobra.Command, args []string) error {
 		content = docs.Boundaries
 	case "resumability":
 		content = docs.Resumability
+	case "plans":
+		content = docs.Plans
 	case "plugin":
 		content = docs.Plugin
 	default:

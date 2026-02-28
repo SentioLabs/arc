@@ -17,6 +17,7 @@ Key Differences:
 - **REST API**: Clean JSON API for all operations
 - **Workspaces**: First-class workspace management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
+- **Plans**: Inline plans on issues, shared plans linkable to multiple issues
 - **Ready Work**: Find issues with no blockers
 - **Statistics**: Aggregate metrics per workspace
 
@@ -107,8 +108,35 @@ arc blocked
 # Add dependencies
 arc dep add mp-def456 mp-abc123  # def456 depends on abc123
 
+# Create child issue under a parent
+arc create "Subtask" --parent mp-abc123
+
 # View statistics
 arc stats
+
+# Show active workspace
+arc which
+
+# Initialize with custom prefix
+arc init --prefix myproj
+
+# Plans
+arc plan set mp-abc123 "Step 1: do X. Step 2: do Y."
+arc plan show mp-abc123
+arc plan history mp-abc123
+arc plan create "Q1 Initiative" --content "High-level plan..."
+arc plan list
+arc plan edit plan.xxxxx --content "Updated plan"
+arc plan delete plan.xxxxx
+arc plan link plan.xxxxx mp-abc123 mp-def456
+arc plan unlink plan.xxxxx mp-abc123
+
+# Documentation
+arc docs                        # Overview
+arc docs search "dependencies"  # Search docs
+
+# Self-update
+arc self update
 ```
 
 ### Claude Code Integration
@@ -252,21 +280,47 @@ flowchart TB
 
 ### Dependency Types
 
-- `blocks`: Issue A blocks issue B
-- `parent-child`: Hierarchical relationship
+- `blocks`: Issue A blocks issue B (affects ready work)
+- `parent-child`: Hierarchical relationship (affects ready work)
 - `related`: Loose association
 - `discovered-from`: Discovered during work on another issue
 
+### Label
+
+- Name, color, description
+- Global scope (shared across workspaces)
+
+### Comment
+
+- Text with author
+- Type: `comment` (regular) or `plan` (inline plan)
+
+### Event
+
+- Audit trail entries (status changes, field updates, etc.)
+
+### Plan (Shared)
+
+- ID (e.g., "plan.xxxxx"), title, content
+- Scoped to workspace, linkable to multiple issues
+
 ## Configuration
 
-CLI configuration is stored in `~/.arc/cli-config.json`:
+Arc uses three configuration layers (highest priority wins):
+
+1. **CLI config** (`~/.arc/cli-config.json`) — server URL, default workspace
+2. **Project config** (`~/.arc/projects/<path>/config.json`) — per-project workspace binding
+3. **Legacy** (`.arc.json` in project root) — auto-migrated to project config
 
 ```json
+// ~/.arc/cli-config.json
 {
   "server_url": "http://localhost:7432",
   "default_workspace": "ws-abc123"
 }
 ```
+
+Resolution priority: CLI flag > project config > legacy `.arc.json` > CLI config defaults.
 
 ## Development
 
@@ -320,12 +374,15 @@ make docker-up
 - `POST /api/v1/workspaces/:ws/issues/:id/deps` - Add dependency
 - `DELETE /api/v1/workspaces/:ws/issues/:id/deps/:dep` - Remove dependency
 
-### Labels
+### Labels (Global)
 
-- `GET /api/v1/workspaces/:ws/labels` - List labels
-- `POST /api/v1/workspaces/:ws/labels` - Create label
-- `PUT /api/v1/workspaces/:ws/labels/:name` - Update label
-- `DELETE /api/v1/workspaces/:ws/labels/:name` - Delete label
+- `GET /api/v1/labels` - List labels
+- `POST /api/v1/labels` - Create label
+- `PUT /api/v1/labels/:name` - Update label
+- `DELETE /api/v1/labels/:name` - Delete label
+
+### Issue Labels
+
 - `POST /api/v1/workspaces/:ws/issues/:id/labels` - Add label to issue
 - `DELETE /api/v1/workspaces/:ws/issues/:id/labels/:label` - Remove label
 
@@ -335,6 +392,22 @@ make docker-up
 - `POST /api/v1/workspaces/:ws/issues/:id/comments` - Add comment
 - `PUT /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Update comment
 - `DELETE /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Delete comment
+
+### Inline Plans
+
+- `POST /api/v1/workspaces/:ws/issues/:id/plan` - Set inline plan
+- `GET /api/v1/workspaces/:ws/issues/:id/plan` - Get inline plan
+- `GET /api/v1/workspaces/:ws/issues/:id/plan/history` - Get plan history
+
+### Shared Plans
+
+- `GET /api/v1/workspaces/:ws/plans` - List shared plans
+- `POST /api/v1/workspaces/:ws/plans` - Create shared plan
+- `GET /api/v1/workspaces/:ws/plans/:pid` - Get shared plan
+- `PUT /api/v1/workspaces/:ws/plans/:pid` - Update shared plan
+- `DELETE /api/v1/workspaces/:ws/plans/:pid` - Delete shared plan
+- `POST /api/v1/workspaces/:ws/plans/:pid/link` - Link issues to plan
+- `DELETE /api/v1/workspaces/:ws/plans/:pid/link/:id` - Unlink issue from plan
 
 ### Events
 

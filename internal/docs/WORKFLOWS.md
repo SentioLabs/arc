@@ -57,13 +57,13 @@ After Compaction:
 - [ ] Reconstruct TodoWrite list from notes if needed
 ```
 
-**Pattern**: Well-written notes enable full context recovery even with zero conversation history.
+**Pattern**: Well-written descriptions enable full context recovery even with zero conversation history.
 
-**Writing notes for compaction survival:**
+**Writing descriptions for compaction survival:**
 
-**Good note (enables recovery):**
+**Good description (enables recovery):**
 ```
-arc update issue-42 --notes "COMPLETED: User authentication - added JWT token
+arc update issue-42 --description "COMPLETED: User authentication - added JWT token
 generation with 1hr expiry, implemented refresh token endpoint using rotating
 tokens pattern. IN PROGRESS: Password reset flow. Email service integration
 working. NEXT: Need to add rate limiting to reset endpoint (currently unlimited
@@ -71,9 +71,9 @@ requests). KEY DECISION: Using bcrypt with 12 rounds after reviewing OWASP
 recommendations, tech lead concerned about response time but benchmarks show <100ms."
 ```
 
-**Bad note (insufficient for recovery):**
+**Bad description (insufficient for recovery):**
 ```
-arc update issue-42 --notes "Working on auth feature. Made some progress.
+arc update issue-42 --description "Working on auth feature. Made some progress.
 More to do later."
 ```
 
@@ -319,7 +319,7 @@ Session End Handoff:
 - [ ] Prompt user: "We just completed X and started Y on <issue-id>.
        Should I update the arc notes for next session?"
 - [ ] If yes, suggest command:
-       arc update <issue-id> --notes "COMPLETED: X. IN PROGRESS: Y. NEXT: Z"
+       arc update <issue-id> --description "COMPLETED: X. IN PROGRESS: Y. NEXT: Z"
 - [ ] User reviews and confirms
 - [ ] Claude executes the update
 - [ ] Notes saved for next session's resumption
