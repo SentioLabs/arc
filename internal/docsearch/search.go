@@ -7,6 +7,16 @@ import (
 	"github.com/blevesearch/bleve/v2/search/query"
 )
 
+// Search scoring and fuzzy matching constants.
+const (
+	exactMatchBoost  = 2.0 // boost factor for exact match queries
+	phraseMatchBoost = 1.5 // boost factor for phrase match queries
+	minFuzzyLength   = 4   // minimum term length to enable fuzzy matching
+	shortTermLength  = 4   // upper bound for short terms (fuzziness = 1)
+	mediumTermLength = 7   // upper bound for medium terms (fuzziness = 1)
+	maxFuzziness     = 2   // fuzziness for long terms
+)
+
 // SearchResult represents a search hit with score.
 type SearchResult struct {
 	Chunk DocChunk
@@ -75,13 +85,13 @@ func (s *Searcher) Search(queryStr string, limit int, exact bool) ([]SearchResul
 
 		// Add exact match with high boost
 		matchQuery := bleve.NewMatchQuery(queryStr)
-		matchQuery.SetBoost(2.0)
+		matchQuery.SetBoost(exactMatchBoost)
 		boolQuery.AddShould(matchQuery)
 
 		// Add fuzzy matches for each term
 		terms := strings.Fields(queryStr)
 		for _, term := range terms {
-			if len(term) >= 4 { // Only fuzzy match longer terms
+			if len(term) >= minFuzzyLength { // Only fuzzy match longer terms
 				fuzzyQuery := bleve.NewFuzzyQuery(term)
 				fuzzyQuery.SetFuzziness(getFuzziness(term))
 				boolQuery.AddShould(fuzzyQuery)
@@ -91,7 +101,7 @@ func (s *Searcher) Search(queryStr string, limit int, exact bool) ([]SearchResul
 		// Also try phrase matching for multi-word queries
 		if len(terms) > 1 {
 			phraseQuery := bleve.NewMatchPhraseQuery(queryStr)
-			phraseQuery.SetBoost(1.5)
+			phraseQuery.SetBoost(phraseMatchBoost)
 			boolQuery.AddShould(phraseQuery)
 		}
 
@@ -125,12 +135,12 @@ func (s *Searcher) Search(queryStr string, limit int, exact bool) ([]SearchResul
 // Shorter words get less tolerance, longer words get more.
 func getFuzziness(term string) int {
 	switch {
-	case len(term) <= 4:
+	case len(term) <= shortTermLength:
 		return 1
-	case len(term) <= 7:
+	case len(term) <= mediumTermLength:
 		return 1
 	default:
-		return 2
+		return maxFuzziness
 	}
 }
 

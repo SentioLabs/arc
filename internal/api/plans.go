@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -42,7 +43,7 @@ func (s *Server) setIssuePlan(c echo.Context) error {
 
 	// Validate issue belongs to workspace
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -71,7 +72,7 @@ func (s *Server) getIssuePlan(c echo.Context) error {
 
 	// Validate issue belongs to workspace
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -92,7 +93,7 @@ func (s *Server) getIssuePlanHistory(c echo.Context) error {
 
 	// Validate issue belongs to workspace
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())

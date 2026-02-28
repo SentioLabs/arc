@@ -1,29 +1,25 @@
-package client
+package client_test
 
 import (
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/sentiolabs/arc/internal/api"
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
 // testClientServer creates a test server and client for testing.
-func testClientServer(t *testing.T) (*Client, func()) {
+func testClientServer(t *testing.T) (*client.Client, func()) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "arc-client-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
+	tmpDir := t.TempDir()
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	store, err := sqlite.New(dbPath)
 	if err != nil {
-		os.RemoveAll(tmpDir)
 		t.Fatalf("failed to create store: %v", err)
 	}
 
@@ -34,20 +30,19 @@ func testClientServer(t *testing.T) (*Client, func()) {
 
 	ts := httptest.NewServer(server.Echo())
 
-	client := New(ts.URL)
-	client.SetActor("test-user")
+	c := client.New(ts.URL)
+	c.SetActor("test-user")
 
 	cleanup := func() {
 		ts.Close()
-		store.Close()
-		os.RemoveAll(tmpDir)
+		_ = store.Close()
 	}
 
-	return client, cleanup
+	return c, cleanup
 }
 
 // createTestWorkspaceClient creates a workspace for testing via client.
-func createTestWorkspaceClient(t *testing.T, c *Client) *types.Workspace {
+func createTestWorkspaceClient(t *testing.T, c *client.Client) *types.Workspace {
 	t.Helper()
 
 	ws, err := c.CreateWorkspace("Test Workspace", "test", "/tmp/test", "Test description")
@@ -58,10 +53,10 @@ func createTestWorkspaceClient(t *testing.T, c *Client) *types.Workspace {
 }
 
 // createTestIssueClient creates an issue for testing via client.
-func createTestIssueClient(t *testing.T, c *Client, wsID, title string) *types.Issue {
+func createTestIssueClient(t *testing.T, c *client.Client, wsID, title string) *types.Issue {
 	t.Helper()
 
-	issue, err := c.CreateIssue(wsID, CreateIssueRequest{
+	issue, err := c.CreateIssue(wsID, client.CreateIssueRequest{
 		Title:     title,
 		IssueType: "task",
 		Priority:  2,
@@ -193,7 +188,7 @@ func TestClientListPlans(t *testing.T) {
 	ws := createTestWorkspaceClient(t, client)
 
 	// Create multiple plans
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, err := client.CreatePlan(ws.ID, "Plan "+string(rune('A'+i)), "Content")
 		if err != nil {
 			t.Fatalf("CreatePlan failed: %v", err)
@@ -312,14 +307,9 @@ func TestClientHealth(t *testing.T) {
 	}
 }
 
+// TestClientSetActor verifies that SetActor does not panic.
+// The actor field is unexported; actual behavior is tested through integration tests.
 func TestClientSetActor(t *testing.T) {
-	client := New("http://localhost:8080")
-	if client.actor != "cli" {
-		t.Errorf("default actor = %q, want %q", client.actor, "cli")
-	}
-
-	client.SetActor("test-user")
-	if client.actor != "test-user" {
-		t.Errorf("actor after SetActor = %q, want %q", client.actor, "test-user")
-	}
+	c := client.New("http://localhost:8080")
+	c.SetActor("test-user") // should not panic
 }

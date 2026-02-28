@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,36 @@ import (
 	"github.com/sentiolabs/arc/internal/api"
 	"github.com/sentiolabs/arc/internal/server"
 	"github.com/spf13/cobra"
+)
+
+// Server-related constants.
+const (
+	// defaultServerPort is the default port for the arc server.
+	defaultServerPort = 7432
+
+	// defaultLogLines is the default number of log lines to display.
+	defaultLogLines = 50
+
+	// serverPollInterval is the interval between process status checks during shutdown.
+	serverPollInterval = 100 * time.Millisecond
+
+	// serverRestartDelay is the time to wait between stop and start during a restart.
+	serverRestartDelay = 500 * time.Millisecond
+
+	// hoursPerDay is the number of hours in a day, used for duration formatting.
+	hoursPerDay = 24
+
+	// logFilePerm is the permission for log files.
+	logFilePerm = 0o644
+
+	// serverDirPerm is the permission for server data directories.
+	serverDirPerm = 0o755
+
+	// gracefulShutdownChecks is the number of checks (at serverPollInterval) before force kill.
+	gracefulShutdownChecks = 100
+
+	// healthCheckTimeout is how long to wait for the server to pass a health check after starting.
+	healthCheckTimeout = 10 * time.Second
 )
 
 var serverCmd = &cobra.Command{
@@ -45,7 +76,7 @@ The server stores data in ~/.arc/ by default.`,
 
 func init() {
 	serverStartCmd.Flags().BoolP("foreground", "f", false, "Run in foreground (don't daemonize)")
-	serverStartCmd.Flags().IntP("port", "p", 7432, "Server port")
+	serverStartCmd.Flags().IntP("port", "p", defaultServerPort, "Server port")
 	serverStartCmd.Flags().String("db", "", "Database path (default: ~/.arc/data.db)")
 }
 
@@ -70,7 +101,7 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	}
 
 	// Ensure data directory exists
-	if err := os.MkdirAll(server.DefaultDataDir(), 0o755); err != nil {
+	if err := os.MkdirAll(server.DefaultDataDir(), serverDirPerm); err != nil {
 		return fmt.Errorf("create data directory: %w", err)
 	}
 
@@ -89,7 +120,7 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	daemonCmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	// Redirect output to log file
-	logFile, err := os.OpenFile(server.LogPath(), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	logFile, err := os.OpenFile(server.LogPath(), os.O_CREATE|os.O_APPEND|os.O_WRONLY, logFilePerm)
 	if err != nil {
 		return fmt.Errorf("open log file: %w", err)
 	}
@@ -97,32 +128,32 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	daemonCmd.Stderr = logFile
 
 	if err := daemonCmd.Start(); err != nil {
-		logFile.Close()
+		_ = logFile.Close()
 		return fmt.Errorf("start daemon: %w", err)
 	}
 
 	// Write PID file
 	pidPath := server.PIDPath()
-	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(daemonCmd.Process.Pid)), 0o644); err != nil {
+	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(daemonCmd.Process.Pid)), logFilePerm); err != nil {
 		// Try to kill the child if we can't write PID
-		daemonCmd.Process.Kill()
-		logFile.Close()
+		_ = daemonCmd.Process.Kill()
+		_ = logFile.Close()
 		return fmt.Errorf("write PID file: %w", err)
 	}
 
 	// Don't wait for the child - it's now a daemon
-	logFile.Close()
+	_ = logFile.Close()
 
 	// Wait for health check to confirm startup
-	if err := waitForHealth(port, 10*time.Second); err != nil {
+	if err := waitForHealth(port, healthCheckTimeout); err != nil {
 		// Cleanup on failure
-		os.Remove(pidPath)
+		_ = os.Remove(pidPath)
 		return fmt.Errorf("server failed to start: %w", err)
 	}
 
-	fmt.Printf("Server started (PID %d)\n", daemonCmd.Process.Pid)
-	fmt.Printf("  WebUI:   http://localhost:%d\n", port)
-	fmt.Printf("  Logs:    %s\n", server.LogPath())
+	_, _ = fmt.Printf("Server started (PID %d)\n", daemonCmd.Process.Pid)
+	_, _ = fmt.Printf("  WebUI:   http://localhost:%d\n", port)
+	_, _ = fmt.Printf("  Logs:    %s\n", server.LogPath())
 	return nil
 }
 
@@ -137,7 +168,7 @@ var serverStopCmd = &cobra.Command{
 func runServerStop(cmd *cobra.Command, args []string) error {
 	pid, running := isServerRunning()
 	if !running {
-		fmt.Println("Server is not running")
+		_, _ = fmt.Println("Server is not running")
 		return nil
 	}
 
@@ -148,27 +179,27 @@ func runServerStop(cmd *cobra.Command, args []string) error {
 
 	// Send SIGTERM for graceful shutdown
 	if err := process.Signal(syscall.SIGTERM); err != nil {
-		// Process might already be dead
-		os.Remove(server.PIDPath())
-		fmt.Println("Server stopped")
-		return nil
+		// Process might already be dead - clean up PID file
+		_ = os.Remove(server.PIDPath())
+		_, _ = fmt.Println("Server stopped (process already exited)")
+		return nil //nolint:nilerr // SIGTERM failure means process already exited
 	}
 
 	// Wait up to 10 seconds for graceful shutdown
-	for i := 0; i < 100; i++ {
+	for range gracefulShutdownChecks {
 		if !isProcessRunning(pid) {
-			os.Remove(server.PIDPath())
-			fmt.Println("Server stopped")
+			_ = os.Remove(server.PIDPath())
+			_, _ = fmt.Println("Server stopped")
 			return nil
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(serverPollInterval)
 	}
 
 	// Force kill if still running
-	process.Signal(syscall.SIGKILL)
-	time.Sleep(100 * time.Millisecond)
-	os.Remove(server.PIDPath())
-	fmt.Println("Server killed (forced)")
+	_ = process.Signal(syscall.SIGKILL)
+	time.Sleep(serverPollInterval)
+	_ = os.Remove(server.PIDPath())
+	_, _ = fmt.Println("Server killed (forced)")
 	return nil
 }
 
@@ -185,22 +216,21 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 
 	if !running {
 		if outputJSON {
-			outputResult(map[string]interface{}{
+			outputResult(map[string]any{
 				"running": false,
 			})
 		} else {
-			fmt.Println("Server is not running")
+			_, _ = fmt.Println("Server is not running")
 		}
 		return nil
 	}
 
 	// Try to get health info
-	port := 7432 // Default port
+	port := defaultServerPort
 	health, err := getHealth(port)
-
 	if err != nil {
 		if outputJSON {
-			outputResult(map[string]interface{}{
+			outputResult(map[string]any{
 				"running":    true,
 				"pid":        pid,
 				"responding": false,
@@ -212,7 +242,7 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if outputJSON {
-		outputResult(map[string]interface{}{
+		outputResult(map[string]any{
 			"running":    true,
 			"pid":        pid,
 			"responding": true,
@@ -243,7 +273,7 @@ var serverLogsCmd = &cobra.Command{
 
 func init() {
 	serverLogsCmd.Flags().BoolP("follow", "f", false, "Follow log output")
-	serverLogsCmd.Flags().IntP("lines", "n", 50, "Number of lines to show")
+	serverLogsCmd.Flags().IntP("lines", "n", defaultLogLines, "Number of lines to show")
 }
 
 func runServerLogs(cmd *cobra.Command, args []string) error {
@@ -273,7 +303,7 @@ var serverRestartCmd = &cobra.Command{
 }
 
 func init() {
-	serverRestartCmd.Flags().IntP("port", "p", 7432, "Server port")
+	serverRestartCmd.Flags().IntP("port", "p", defaultServerPort, "Server port")
 	serverRestartCmd.Flags().String("db", "", "Database path")
 }
 
@@ -285,7 +315,7 @@ func runServerRestart(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		// Give it a moment
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(serverRestartDelay)
 	}
 
 	// Start
@@ -322,24 +352,26 @@ func isServerRunning() (int, bool) {
 
 func waitForHealth(port int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
-	url := fmt.Sprintf("http://localhost:%d/health", port)
+	healthURL := fmt.Sprintf("http://localhost:%d/health", port)
 
 	for time.Now().Before(deadline) {
-		resp, err := http.Get(url)
+		//nolint:gosec // URL is constructed from localhost with a numeric port, not user input
+		resp, err := http.Get(healthURL)
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(serverPollInterval)
 	}
-	return fmt.Errorf("timeout waiting for server to become healthy")
+	return errors.New("timeout waiting for server to become healthy")
 }
 
 func getHealth(port int) (*api.HealthResponse, error) {
-	url := fmt.Sprintf("http://localhost:%d/health", port)
-	resp, err := http.Get(url)
+	healthURL := fmt.Sprintf("http://localhost:%d/health", port)
+	//nolint:gosec // URL is constructed from localhost with a numeric port, not user input
+	resp, err := http.Get(healthURL)
 	if err != nil {
 		return nil, err
 	}
@@ -359,10 +391,10 @@ func formatDuration(d time.Duration) string {
 	if d < time.Hour {
 		return fmt.Sprintf("%.0fm", d.Minutes())
 	}
-	if d < 24*time.Hour {
+	if d < hoursPerDay*time.Hour {
 		return fmt.Sprintf("%.1fh", d.Hours())
 	}
-	return fmt.Sprintf("%.1fd", d.Hours()/24)
+	return fmt.Sprintf("%.1fd", d.Hours()/hoursPerDay)
 }
 
 // tailLines reads the last n lines from a file
@@ -406,18 +438,20 @@ func tailFollow(path string, initialLines int) error {
 	defer file.Close()
 
 	// Seek to end
-	file.Seek(0, io.SeekEnd)
+	if _, err := file.Seek(0, io.SeekEnd); err != nil {
+		return fmt.Errorf("seek to end of log: %w", err)
+	}
 
 	reader := bufio.NewReader(file)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(serverPollInterval)
 				continue
 			}
 			return err
 		}
-		fmt.Print(line)
+		_, _ = fmt.Print(line)
 	}
 }

@@ -1,7 +1,10 @@
+// Package sqlite implements the storage interface using SQLite.
+// This file handles dependency (relationship) operations between issues.
 package sqlite
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,9 +13,10 @@ import (
 )
 
 // AddDependency adds a dependency between two issues.
+// It validates that the issue does not depend on itself and that the dependency type is valid.
 func (s *Store) AddDependency(ctx context.Context, dep *types.Dependency, actor string) error {
 	if dep.IssueID == dep.DependsOnID {
-		return fmt.Errorf("issue cannot depend on itself")
+		return errors.New("issue cannot depend on itself")
 	}
 
 	if !dep.Type.IsValid() {

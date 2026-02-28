@@ -1,7 +1,12 @@
+// Package main provides the onboard command, which gives AI agents and human
+// users a quick orientation in the current arc workspace. It shows project
+// statistics, in-progress work, ready items, and blocked issues so the user
+// can decide what to work on next.
 package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +17,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// onboardLimit is the default number of issues shown per category in onboard output.
+const onboardLimit = 5
+
+// errWorkspaceNotFound is returned when no workspace matches the current directory.
+var errWorkspaceNotFound = errors.New("no workspace found for current directory")
+
+// onboardCmd displays essential workspace context for new sessions.
 var onboardCmd = &cobra.Command{
 	Use:   "onboard",
 	Short: "Get oriented with the current workspace",
@@ -79,7 +91,7 @@ func saveProjectConfig(workspaceID, workspaceName string) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(configPath, data, defaultFilePerm)
 }
 
 // findWorkspaceByPath queries the server for a workspace matching the current directory
@@ -100,9 +112,37 @@ func findWorkspaceByPath(c *client.Client) (*types.Workspace, error) {
 		}
 	}
 
-	return nil, nil // Not found, but not an error
+	return nil, errWorkspaceNotFound
 }
 
+// tryRecoverWorkspace attempts to find and restore a workspace matching the
+// current directory from the server. Returns the workspace ID if found, or
+// an empty string when no matching workspace exists.
+func tryRecoverWorkspace(c *client.Client) string {
+	ws, err := findWorkspaceByPath(c)
+	if err != nil {
+		return ""
+	}
+
+	// Found workspace on server - restore local config
+	_, _ = fmt.Println("## Workspace Recovery")
+	_, _ = fmt.Println()
+	_, _ = fmt.Printf("Found workspace **%s** on server for this directory.\n", ws.Name)
+	_, _ = fmt.Println("Restoring local configuration...")
+	_, _ = fmt.Println()
+
+	// Save .arc.json
+	if err := saveProjectConfig(ws.ID, ws.Name); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: could not save .arc.json: %v\n", err)
+	} else {
+		_, _ = fmt.Println("\u2713 Created .arc.json")
+	}
+	_, _ = fmt.Println()
+
+	return ws.ID
+}
+
+//nolint:revive // function-length + CLI output: onboard prints many sequential lines
 func runOnboard(cmd *cobra.Command, args []string) error {
 	c, err := getClient()
 	if err != nil {
@@ -119,29 +159,7 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 
 	// Step 2: If no local config, try to find workspace by path from server
 	if wsID == "" {
-		ws, err := findWorkspaceByPath(c)
-		if err != nil {
-			return fmt.Errorf("query workspaces: %w", err)
-		}
-
-		if ws != nil {
-			// Found workspace on server - restore local config
-			fmt.Println("## Workspace Recovery")
-			fmt.Println()
-			fmt.Printf("Found workspace **%s** on server for this directory.\n", ws.Name)
-			fmt.Println("Restoring local configuration...")
-			fmt.Println()
-
-			// Save .arc.json
-			if err := saveProjectConfig(ws.ID, ws.Name); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: could not save .arc.json: %v\n", err)
-			} else {
-				fmt.Println("✓ Created .arc.json")
-			}
-			fmt.Println()
-
-			wsID = ws.ID
-		}
+		wsID = tryRecoverWorkspace(c)
 	}
 
 	// Step 3: If still no workspace, suggest initialization
@@ -172,13 +190,13 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get ready work (use default hybrid sort)
-	readyIssues, err := c.GetReadyWork(wsID, 5, "")
+	readyIssues, err := c.GetReadyWork(wsID, onboardLimit, "")
 	if err != nil {
 		return fmt.Errorf("get ready work: %w", err)
 	}
 
 	// Get blocked issues
-	blockedIssues, err := c.GetBlockedIssues(wsID, 5)
+	blockedIssues, err := c.GetBlockedIssues(wsID, onboardLimit)
 	if err != nil {
 		return fmt.Errorf("get blocked issues: %w", err)
 	}
@@ -186,17 +204,17 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 	// Get in-progress issues
 	inProgressIssues, err := c.ListIssues(wsID, client.ListIssuesOptions{
 		Status: "in_progress",
-		Limit:  5,
+		Limit:  onboardLimit,
 	})
 	if err != nil {
 		return fmt.Errorf("get in-progress issues: %w", err)
 	}
 
 	// Output onboarding information
-	fmt.Println("# Workspace Onboarding")
-	fmt.Println()
-	fmt.Printf("**Workspace:** %s (%s)\n", ws.Name, ws.ID)
-	fmt.Printf("**Prefix:** %s\n", ws.Prefix)
+	_, _ = fmt.Println("# Workspace Onboarding")
+	_, _ = fmt.Println()
+	_, _ = fmt.Printf("**Workspace:** %s (%s)\n", ws.Name, ws.ID)
+	_, _ = fmt.Printf("**Prefix:** %s\n", ws.Prefix)
 	if ws.Description != "" {
 		fmt.Printf("**Description:** %s\n", ws.Description)
 	}

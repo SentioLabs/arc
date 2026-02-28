@@ -1,11 +1,15 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
+
+// defaultEventLimit is the default number of events to return.
+const defaultEventLimit = 50
 
 // addCommentRequest is the request body for adding a comment.
 type addCommentRequest struct {
@@ -23,7 +27,7 @@ func (s *Server) getComments(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -44,7 +48,7 @@ func (s *Server) addComment(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -74,7 +78,7 @@ func (s *Server) updateComment(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -103,7 +107,7 @@ func (s *Server) deleteComment(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -119,11 +123,11 @@ func (s *Server) deleteComment(c echo.Context) error {
 // getEvents returns the event history for an issue.
 func (s *Server) getEvents(c echo.Context) error {
 	id := c.Param("id")
-	limit := queryInt(c, "limit", 50)
+	limit := queryInt(c, "limit", defaultEventLimit)
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())

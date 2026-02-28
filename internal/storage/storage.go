@@ -7,7 +7,7 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// Storage defines the interface for issue storage backends.
+//nolint:interfacebloat // Storage interface intentionally covers all operations as a single contract
 type Storage interface {
 	// Workspaces
 	CreateWorkspace(ctx context.Context, workspace *types.Workspace) error
@@ -23,7 +23,7 @@ type Storage interface {
 	GetIssue(ctx context.Context, id string) (*types.Issue, error)
 	GetIssueByExternalRef(ctx context.Context, externalRef string) (*types.Issue, error)
 	ListIssues(ctx context.Context, filter types.IssueFilter) ([]*types.Issue, error)
-	UpdateIssue(ctx context.Context, id string, updates map[string]interface{}, actor string) error
+	UpdateIssue(ctx context.Context, id string, updates map[string]any, actor string) error
 	CloseIssue(ctx context.Context, id string, reason string, actor string) error
 	ReopenIssue(ctx context.Context, id string, actor string) error
 	DeleteIssue(ctx context.Context, id string) error

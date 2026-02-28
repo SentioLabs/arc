@@ -11,8 +11,21 @@ import (
 	"time"
 )
 
-// base36Chars defines the character set for base36 encoding.
-const base36Chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+// Naming and encoding constants.
+const (
+	// base36Chars defines the character set for base36 encoding.
+	base36Chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+	// base36Base is the numeric base for base36 encoding.
+	base36Base = 36
+	// hashIDSuffixLen is the length of the base36 hash suffix for issue/plan IDs.
+	hashIDSuffixLen = 6
+	// prefixBaseMaxLen is the maximum length of the basename portion of a prefix.
+	prefixBaseMaxLen = 5
+	// prefixSuffixLen is the length of the base36 hash suffix for prefixes.
+	prefixSuffixLen = 4
+	// maxSanitizedNameLen is the maximum length for a sanitized workspace basename.
+	maxSanitizedNameLen = 20
+)
 
 // Base36Encode converts bytes to a base36 string.
 func Base36Encode(data []byte) string {
@@ -21,7 +34,7 @@ func Base36Encode(data []byte) string {
 		return "0"
 	}
 
-	base := big.NewInt(36)
+	base := big.NewInt(base36Base)
 	var result []byte
 	mod := new(big.Int)
 
@@ -61,13 +74,13 @@ func generateHashID(prefix, content, separator string) string {
 	// Use first 3 bytes for ~5-6 base36 characters
 	encoded := Base36Encode(h[:3])
 
-	// Pad to exactly 6 chars
-	for len(encoded) < 6 {
+	// Pad to exactly hashIDSuffixLen chars
+	for len(encoded) < hashIDSuffixLen {
 		encoded = "0" + encoded
 	}
 	// Trim if longer (shouldn't happen with 3 bytes, but be safe)
-	if len(encoded) > 6 {
-		encoded = encoded[:6]
+	if len(encoded) > hashIDSuffixLen {
+		encoded = encoded[:hashIDSuffixLen]
 	}
 
 	return prefix + separator + encoded
@@ -123,22 +136,22 @@ func GeneratePrefix(dirPath string) (string, error) {
 	normalized := filepath.ToSlash(evalPath)
 
 	// Get alphanumeric-only basename, truncated for prefix use
-	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
+	// Max prefixBaseMaxLen chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	basename := normalizeForPrefix(filepath.Base(evalPath))
-	if len(basename) > 5 {
-		basename = basename[:5]
+	if len(basename) > prefixBaseMaxLen {
+		basename = basename[:prefixBaseMaxLen]
 	}
 
 	// Generate deterministic hash from full path using base36
 	hash := sha256.Sum256([]byte(normalized))
 	suffix := Base36Encode(hash[:2]) // 2 bytes -> ~3-4 base36 chars
 
-	// Ensure exactly 4 chars for the suffix
-	for len(suffix) < 4 {
+	// Ensure exactly prefixSuffixLen chars for the suffix
+	for len(suffix) < prefixSuffixLen {
 		suffix = "0" + suffix
 	}
-	if len(suffix) > 4 {
-		suffix = suffix[:4]
+	if len(suffix) > prefixSuffixLen {
+		suffix = suffix[:prefixSuffixLen]
 	}
 
 	return basename + "-" + suffix, nil
@@ -150,22 +163,22 @@ func GeneratePrefix(dirPath string) (string, error) {
 // Includes timestamp for uniqueness when same name is used multiple times.
 func GeneratePrefixFromName(name string) string {
 	// Normalize to alphanumeric only and truncate
-	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
+	// Max prefixBaseMaxLen chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	normalized := normalizeForPrefix(name)
-	if len(normalized) > 5 {
-		normalized = normalized[:5]
+	if len(normalized) > prefixBaseMaxLen {
+		normalized = normalized[:prefixBaseMaxLen]
 	}
 
 	// Generate hash from name + timestamp for uniqueness
 	hash := sha256.Sum256([]byte(name + time.Now().String()))
 	suffix := Base36Encode(hash[:2])
 
-	// Ensure exactly 4 chars for the suffix
-	for len(suffix) < 4 {
+	// Ensure exactly prefixSuffixLen chars for the suffix
+	for len(suffix) < prefixSuffixLen {
 		suffix = "0" + suffix
 	}
-	if len(suffix) > 4 {
-		suffix = suffix[:4]
+	if len(suffix) > prefixSuffixLen {
+		suffix = suffix[:prefixSuffixLen]
 	}
 
 	return normalized + "-" + suffix
@@ -211,8 +224,8 @@ func SanitizeBasename(name string) string {
 	name = strings.Trim(name, "-")
 
 	// Truncate if too long (keep room for -xxxxxx hash suffix)
-	if len(name) > 20 {
-		name = name[:20]
+	if len(name) > maxSanitizedNameLen {
+		name = name[:maxSanitizedNameLen]
 	}
 
 	// Fallback for empty result

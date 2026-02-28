@@ -2,18 +2,27 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"time"
+)
+
+// Validation limits for data fields.
+const (
+	maxWorkspaceNameLength = 100 // maximum characters for workspace name
+	maxPrefixLength        = 10  // maximum characters for workspace prefix
+	maxTitleLength         = 500 // maximum characters for issue title
+	maxPlanTitleLength     = 200 // maximum characters for plan title
 )
 
 // Workspace represents a project or workspace that contains issues.
 // Replaces the per-repo concept from beads with explicit workspace management.
 type Workspace struct {
-	ID          string    `json:"id"`          // Short hash ID (e.g., "ws-a1b2")
-	Name        string    `json:"name"`        // Display name
+	ID          string    `json:"id"`             // Short hash ID (e.g., "ws-a1b2")
+	Name        string    `json:"name"`           // Display name
 	Path        string    `json:"path,omitempty"` // Optional: associated directory path
 	Description string    `json:"description,omitempty"`
-	Prefix      string    `json:"prefix"`      // Issue ID prefix (e.g., "bd")
+	Prefix      string    `json:"prefix"` // Issue ID prefix (e.g., "bd")
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -21,16 +30,16 @@ type Workspace struct {
 // Validate checks if the workspace has valid field values.
 func (w *Workspace) Validate() error {
 	if w.Name == "" {
-		return fmt.Errorf("workspace name is required")
+		return errors.New("workspace name is required")
 	}
-	if len(w.Name) > 100 {
-		return fmt.Errorf("workspace name must be 100 characters or less")
+	if len(w.Name) > maxWorkspaceNameLength {
+		return fmt.Errorf("workspace name must be %d characters or less", maxWorkspaceNameLength)
 	}
 	if w.Prefix == "" {
-		return fmt.Errorf("workspace prefix is required")
+		return errors.New("workspace prefix is required")
 	}
-	if len(w.Prefix) > 10 {
-		return fmt.Errorf("workspace prefix must be 10 characters or less")
+	if len(w.Prefix) > maxPrefixLength {
+		return fmt.Errorf("workspace prefix must be %d characters or less", maxPrefixLength)
 	}
 	return nil
 }
@@ -73,13 +82,13 @@ type Issue struct {
 // Validate checks if the issue has valid field values.
 func (i *Issue) Validate() error {
 	if i.Title == "" {
-		return fmt.Errorf("title is required")
+		return errors.New("title is required")
 	}
-	if len(i.Title) > 500 {
-		return fmt.Errorf("title must be 500 characters or less (got %d)", len(i.Title))
+	if len(i.Title) > maxTitleLength {
+		return fmt.Errorf("title must be %d characters or less (got %d)", maxTitleLength, len(i.Title))
 	}
 	if i.WorkspaceID == "" {
-		return fmt.Errorf("workspace_id is required")
+		return errors.New("workspace_id is required")
 	}
 	if i.Priority < 0 || i.Priority > 4 {
 		return fmt.Errorf("priority must be between 0 and 4 (got %d)", i.Priority)
@@ -92,10 +101,10 @@ func (i *Issue) Validate() error {
 	}
 	// Enforce closed_at invariant
 	if i.Status == StatusClosed && i.ClosedAt == nil {
-		return fmt.Errorf("closed issues must have closed_at timestamp")
+		return errors.New("closed issues must have closed_at timestamp")
 	}
 	if i.Status != StatusClosed && i.ClosedAt != nil {
-		return fmt.Errorf("non-closed issues cannot have closed_at timestamp")
+		return errors.New("non-closed issues cannot have closed_at timestamp")
 	}
 	return nil
 }
@@ -205,9 +214,9 @@ type Dependency struct {
 type DependencyType string
 
 const (
-	DepBlocks        DependencyType = "blocks"
-	DepParentChild   DependencyType = "parent-child"
-	DepRelated       DependencyType = "related"
+	DepBlocks         DependencyType = "blocks"
+	DepParentChild    DependencyType = "parent-child"
+	DepRelated        DependencyType = "related"
 	DepDiscoveredFrom DependencyType = "discovered-from"
 )
 
@@ -263,19 +272,19 @@ type Comment struct {
 	Text        string      `json:"text"`
 	CommentType CommentType `json:"comment_type"`
 	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at,omitempty"`
+	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
 // Event represents an audit trail entry.
 type Event struct {
-	ID        int64      `json:"id"`
-	IssueID   string     `json:"issue_id"`
-	EventType EventType  `json:"event_type"`
-	Actor     string     `json:"actor"`
-	OldValue  *string    `json:"old_value,omitempty"`
-	NewValue  *string    `json:"new_value,omitempty"`
-	Comment   *string    `json:"comment,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
+	ID        int64     `json:"id"`
+	IssueID   string    `json:"issue_id"`
+	EventType EventType `json:"event_type"`
+	Actor     string    `json:"actor"`
+	OldValue  *string   `json:"old_value,omitempty"`
+	NewValue  *string   `json:"new_value,omitempty"`
+	Comment   *string   `json:"comment,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // EventType categorizes audit trail events.
@@ -366,13 +375,13 @@ type Plan struct {
 // Validate checks if the plan has valid field values.
 func (p *Plan) Validate() error {
 	if p.Title == "" {
-		return fmt.Errorf("plan title is required")
+		return errors.New("plan title is required")
 	}
-	if len(p.Title) > 200 {
-		return fmt.Errorf("plan title must be 200 characters or less")
+	if len(p.Title) > maxPlanTitleLength {
+		return fmt.Errorf("plan title must be %d characters or less", maxPlanTitleLength)
 	}
 	if p.WorkspaceID == "" {
-		return fmt.Errorf("workspace_id is required")
+		return errors.New("workspace_id is required")
 	}
 	return nil
 }

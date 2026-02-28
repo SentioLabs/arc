@@ -2,10 +2,18 @@ package project
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+)
+
+const (
+	// dirPermissions is the file mode for directories created by arc.
+	dirPermissions = 0o755
+	// filePermissions is the file mode for config files written by arc.
+	filePermissions = 0o600
 )
 
 // Config holds the per-project workspace binding.
@@ -30,7 +38,7 @@ func configPath(arcHome, absProjectPath string) string {
 func WriteConfig(arcHome, absProjectPath string, cfg *Config) error {
 	path := configPath(arcHome, absProjectPath)
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), dirPermissions); err != nil {
 		return fmt.Errorf("create project dir: %w", err)
 	}
 
@@ -39,7 +47,7 @@ func WriteConfig(arcHome, absProjectPath string, cfg *Config) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	return os.WriteFile(path, append(data, '\n'), filePermissions)
 }
 
 // LoadConfig reads a project config from ~/.arc/projects/<path>/config.json.
@@ -106,7 +114,7 @@ func findGitRoot(dir string) (string, error) {
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", fmt.Errorf("no .git found")
+			return "", errors.New("no .git found")
 		}
 		current = parent
 	}
@@ -127,7 +135,7 @@ func findByPrefixWalk(dir string, arcHome string) (string, error) {
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", fmt.Errorf("no registered project found")
+			return "", errors.New("no registered project found")
 		}
 		current = parent
 	}

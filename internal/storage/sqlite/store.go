@@ -15,6 +15,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// dirPermissions is the file mode for directories created by the store.
+const dirPermissions = 0o755
+
 // Store implements the storage.Storage interface using SQLite.
 type Store struct {
 	db      *sql.DB
@@ -35,7 +38,7 @@ func New(path string) (*Store, error) {
 
 	// Create directory if needed
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, dirPermissions); err != nil {
 		return nil, fmt.Errorf("create directory: %w", err)
 	}
 
@@ -58,7 +61,7 @@ func New(path string) (*Store, error) {
 
 	// Initialize schema
 	if err := store.initSchema(context.Background()); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -25,7 +26,8 @@ type addLabelToIssueRequest struct {
 	Label string `json:"label"`
 }
 
-// listLabels returns all labels for a workspace.
+// listLabels returns all labels defined in the specified workspace.
+// Labels are used to categorize and filter issues.
 func (s *Server) listLabels(c echo.Context) error {
 	wsID := workspaceID(c)
 
@@ -37,7 +39,8 @@ func (s *Server) listLabels(c echo.Context) error {
 	return successJSON(c, labels)
 }
 
-// createLabel creates a new label.
+// createLabel creates a new label in the specified workspace.
+// Each label has a unique name within the workspace, and optional color and description.
 func (s *Server) createLabel(c echo.Context) error {
 	wsID := workspaceID(c)
 
@@ -60,7 +63,7 @@ func (s *Server) createLabel(c echo.Context) error {
 	return createdJSON(c, label)
 }
 
-// updateLabel updates a label.
+// updateLabel updates an existing label's color or description.
 func (s *Server) updateLabel(c echo.Context) error {
 	wsID := workspaceID(c)
 	name := c.Param("name")
@@ -101,14 +104,15 @@ func (s *Server) deleteLabel(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// addLabelToIssue adds a label to an issue.
+// addLabelToIssue associates a label with an issue for categorization.
+// The issue must belong to the current workspace.
 func (s *Server) addLabelToIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -126,7 +130,8 @@ func (s *Server) addLabelToIssue(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// removeLabelFromIssue removes a label from an issue.
+// removeLabelFromIssue removes a label association from an issue.
+// The issue must belong to the current workspace.
 func (s *Server) removeLabelFromIssue(c echo.Context) error {
 	id := c.Param("id")
 	label := c.Param("label")
@@ -134,7 +139,7 @@ func (s *Server) removeLabelFromIssue(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())

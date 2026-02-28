@@ -1,9 +1,13 @@
 // Package api provides the REST API server for arc.
 package api
 
+//go:generate go tool oapi-codegen --config=../../api/oapi-codegen.yaml ../../api/openapi.yaml
+
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -38,7 +42,16 @@ func New(cfg Config) *Server {
 	e.HidePort = true
 
 	// Middleware
-	e.Use(middleware.Logger())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus:  true,
+		LogURI:     true,
+		LogMethod:  true,
+		LogLatency: true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			log.Printf("%s %s %d %v\n", v.Method, v.URI, v.Status, v.Latency)
+			return nil
+		},
+	}))
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
@@ -183,12 +196,12 @@ func errorJSON(c echo.Context, status int, message string) error {
 }
 
 // Success response helper
-func successJSON(c echo.Context, data interface{}) error {
+func successJSON(c echo.Context, data any) error {
 	return c.JSON(http.StatusOK, data)
 }
 
 // Created response helper
-func createdJSON(c echo.Context, data interface{}) error {
+func createdJSON(c echo.Context, data any) error {
 	return c.JSON(http.StatusCreated, data)
 }
 
@@ -209,13 +222,13 @@ func workspaceID(c echo.Context) string {
 
 // Paginated response wrapper
 type paginatedResponse struct {
-	Data   interface{} `json:"data"`
-	Total  int         `json:"total,omitempty"`
-	Limit  int         `json:"limit,omitempty"`
-	Offset int         `json:"offset,omitempty"`
+	Data   any `json:"data"`
+	Total  int `json:"total,omitempty"`
+	Limit  int `json:"limit,omitempty"`
+	Offset int `json:"offset,omitempty"`
 }
 
-func paginatedJSON(c echo.Context, data interface{}, total, limit, offset int) error {
+func paginatedJSON(c echo.Context, data any, total, limit, offset int) error {
 	return c.JSON(http.StatusOK, paginatedResponse{
 		Data:   data,
 		Total:  total,
@@ -230,13 +243,15 @@ func queryInt(c echo.Context, name string, defaultVal int) int {
 	if val == "" {
 		return defaultVal
 	}
-	var i int
-	fmt.Sscanf(val, "%d", &i)
+	i, err := strconv.Atoi(val)
+	if err != nil {
+		return defaultVal
+	}
 	return i
 }
 
 // errWorkspaceMismatch is returned when an issue doesn't belong to the requested workspace.
-var errWorkspaceMismatch = fmt.Errorf("issue does not belong to this workspace")
+var errWorkspaceMismatch = errors.New("issue does not belong to this workspace")
 
 // validateIssueWorkspace fetches an issue and validates it belongs to the specified workspace.
 // Returns nil if valid, or an error suitable for HTTP response.

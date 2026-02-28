@@ -1,8 +1,9 @@
+// Package sqlite implements the storage interface using SQLite.
+// This file handles ready work queries, blocked issue detection, and workspace statistics.
 package sqlite
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -10,18 +11,18 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-func nullFloat64ToInt(nf sql.NullFloat64) int {
-	if nf.Valid {
-		return int(nf.Float64)
-	}
-	return 0
-}
+// defaultWorkLimit is the default maximum number of issues returned by work queries.
+const defaultWorkLimit = 100
 
 // GetReadyWork returns issues that are ready to work on (not blocked).
+// Results are sorted according to the filter's SortPolicy (hybrid, priority, or oldest).
+// Additional filters for issue type, priority, assignee, and status are applied in-memory.
+//
+//nolint:revive // cognitive-complexity: filter application is straightforward sequential checks
 func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*types.Issue, error) {
 	limit := filter.Limit
 	if limit <= 0 {
-		limit = 100
+		limit = defaultWorkLimit
 	}
 
 	// Default to hybrid sort policy if not specified
@@ -33,6 +34,7 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 	var rows []*db.Issue
 	var err error
 
+	// Fetch issues using the appropriate sort query
 	switch sortPolicy {
 	case types.SortPolicyPriority:
 		rows, err = s.queries.GetReadyIssuesPriority(ctx, db.GetReadyIssuesPriorityParams{
@@ -55,11 +57,11 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 		return nil, fmt.Errorf("get ready work: %w", err)
 	}
 
+	// Apply additional in-memory filters
 	issues := make([]*types.Issue, 0, len(rows))
 	for _, row := range rows {
 		issue := dbIssueToType(row)
 
-		// Apply additional filters
 		if filter.IssueType != nil && issue.IssueType != *filter.IssueType {
 			continue
 		}
@@ -83,10 +85,11 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 }
 
 // GetBlockedIssues returns issues that are blocked by other issues.
+// For each blocked issue, it also fetches the IDs of the issues blocking it.
 func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) ([]*types.BlockedIssue, error) {
 	limit := filter.Limit
 	if limit <= 0 {
-		limit = 100
+		limit = defaultWorkLimit
 	}
 
 	rows, err := s.queries.GetBlockedIssuesInWorkspace(ctx, db.GetBlockedIssuesInWorkspaceParams{
@@ -99,7 +102,7 @@ func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) (
 
 	issues := make([]*types.BlockedIssue, 0, len(rows))
 	for _, row := range rows {
-		// Get blocking issue IDs
+		// Get blocking issue IDs for this blocked issue
 		blockingIDs := []string{}
 		blockingIssues, _ := s.queries.GetBlockingIssues(ctx, row.ID)
 		for _, bi := range blockingIssues {
@@ -132,6 +135,7 @@ func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) (
 }
 
 // IsBlocked checks if an issue is blocked by any open issues.
+// Returns true and the list of blocking issue IDs if blocked, false otherwise.
 func (s *Store) IsBlocked(ctx context.Context, issueID string) (bool, []string, error) {
 	blockingIssues, err := s.queries.GetBlockingIssues(ctx, issueID)
 	if err != nil {
@@ -151,6 +155,7 @@ func (s *Store) IsBlocked(ctx context.Context, issueID string) (bool, []string, 
 }
 
 // GetStatistics returns aggregate statistics for a workspace.
+// Includes counts by status, ready issue count, and average lead time.
 func (s *Store) GetStatistics(ctx context.Context, workspaceID string) (*types.Statistics, error) {
 	stats, err := s.queries.GetWorkspaceStats(ctx, workspaceID)
 	if err != nil {

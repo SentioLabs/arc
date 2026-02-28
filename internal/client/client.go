@@ -8,30 +8,39 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// Client is the API client for arc.
+// defaultHTTPTimeoutSeconds is the default timeout for HTTP requests.
+const defaultHTTPTimeoutSeconds = 30
+
+// Client is the HTTP API client for the arc issue tracking server.
+// It provides methods for all CRUD operations on workspaces, issues,
+// dependencies, labels, plans, and comments.
 type Client struct {
-	baseURL    string
+	// baseURL is the arc server URL (e.g., "http://localhost:8080").
+	baseURL string
+	// httpClient is the underlying HTTP client with timeout configuration.
 	httpClient *http.Client
-	actor      string
+	// actor identifies the user making requests via the X-Actor header.
+	actor string
 }
 
-// New creates a new API client.
+// New creates a new API client configured to connect to the given base URL.
 func New(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: defaultHTTPTimeoutSeconds * time.Second,
 		},
 		actor: "cli",
 	}
 }
 
-// SetActor sets the actor for API requests.
+// SetActor sets the actor identity sent via the X-Actor header on all requests.
 func (c *Client) SetActor(actor string) {
 	c.actor = actor
 }
@@ -50,7 +59,7 @@ func (c *Client) Health() error {
 	return nil
 }
 
-// Workspace methods
+// Workspace methods provide CRUD operations for arc workspaces.
 
 // ListWorkspaces returns all workspaces.
 func (c *Client) ListWorkspaces() ([]*types.Workspace, error) {
@@ -114,7 +123,7 @@ func (c *Client) DeleteWorkspace(id string) error {
 	return nil
 }
 
-// Issue methods
+// Issue methods provide CRUD operations for issues within a workspace.
 
 // ListIssues returns issues for a workspace.
 func (c *Client) ListIssues(wsID string, opts ListIssuesOptions) ([]*types.Issue, error) {
@@ -134,7 +143,7 @@ func (c *Client) ListIssues(wsID string, opts ListIssuesOptions) ([]*types.Issue
 		query.Set("q", opts.Query)
 	}
 	if opts.Limit > 0 {
-		query.Set("limit", fmt.Sprintf("%d", opts.Limit))
+		query.Set("limit", strconv.Itoa(opts.Limit))
 	}
 
 	if len(query) > 0 {
@@ -157,12 +166,13 @@ func (c *Client) ListIssues(wsID string, opts ListIssuesOptions) ([]*types.Issue
 }
 
 // ListIssuesOptions configures issue listing.
+// All fields are optional; zero values are omitted from the query.
 type ListIssuesOptions struct {
-	Status   string
-	Type     string
-	Assignee string
-	Query    string
-	Limit    int
+	Status   string // Filter by status (e.g., "open", "closed")
+	Type     string // Filter by issue type (e.g., "bug", "feature")
+	Assignee string // Filter by assignee name
+	Query    string // Full-text search in title/description
+	Limit    int    // Maximum number of results
 }
 
 // CreateIssue creates a new issue.
@@ -227,7 +237,7 @@ func (c *Client) GetIssueDetails(wsID, id string) (*types.IssueDetails, error) {
 }
 
 // UpdateIssue updates an issue.
-func (c *Client) UpdateIssue(wsID, id string, updates map[string]interface{}) (*types.Issue, error) {
+func (c *Client) UpdateIssue(wsID, id string, updates map[string]any) (*types.Issue, error) {
 	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s", wsID, id)
 
 	resp, err := c.put(path, updates)
@@ -273,7 +283,7 @@ func (c *Client) DeleteIssue(wsID, id string) error {
 	return nil
 }
 
-// Ready work methods
+// Ready work methods return issues based on their dependency resolution status.
 
 // GetReadyWork returns issues ready to work on.
 // sortPolicy can be: "hybrid" (default), "priority", or "oldest".
@@ -282,7 +292,7 @@ func (c *Client) GetReadyWork(wsID string, limit int, sortPolicy string) ([]*typ
 
 	query := url.Values{}
 	if limit > 0 {
-		query.Set("limit", fmt.Sprintf("%d", limit))
+		query.Set("limit", strconv.Itoa(limit))
 	}
 	if sortPolicy != "" {
 		query.Set("sort", sortPolicy)
@@ -324,9 +334,10 @@ func (c *Client) GetBlockedIssues(wsID string, limit int) ([]*types.BlockedIssue
 	return issues, nil
 }
 
-// Dependency methods
+// Dependency methods manage relationships between issues (blocks, parent-child, related).
 
-// AddDependency adds a dependency.
+// AddDependency adds a dependency between two issues.
+// depType should be one of: "blocks", "parent-child", "related", "discovered-from".
 func (c *Client) AddDependency(wsID, issueID, dependsOnID, depType string) error {
 	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/deps", wsID, issueID)
 
@@ -343,7 +354,7 @@ func (c *Client) AddDependency(wsID, issueID, dependsOnID, depType string) error
 	return nil
 }
 
-// RemoveDependency removes a dependency.
+// RemoveDependency removes a dependency between two issues.
 func (c *Client) RemoveDependency(wsID, issueID, dependsOnID string) error {
 	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/deps/%s", wsID, issueID, dependsOnID)
 
@@ -355,7 +366,7 @@ func (c *Client) RemoveDependency(wsID, issueID, dependsOnID string) error {
 	return nil
 }
 
-// Statistics
+// Statistics methods provide aggregated metrics for a workspace.
 
 // GetStatistics returns workspace statistics.
 func (c *Client) GetStatistics(wsID string) (*types.Statistics, error) {
@@ -535,8 +546,10 @@ func (c *Client) UnlinkIssueFromPlan(wsID, planID, issueID string) error {
 	return nil
 }
 
-// HTTP helpers
+// HTTP helpers - low-level methods for making requests to the arc server.
+// All methods set the X-Actor header and check for error responses.
 
+// get performs an HTTP GET request to the given path.
 func (c *Client) get(path string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", c.baseURL+path, nil)
 	if err != nil {
@@ -544,27 +557,30 @@ func (c *Client) get(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if err := c.checkError(resp); err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, err
 	}
 
 	return resp, nil
 }
 
-func (c *Client) post(path string, body interface{}) (*http.Response, error) {
+// post performs an HTTP POST request with a JSON body.
+func (c *Client) post(path string, body any) (*http.Response, error) {
 	return c.doJSON("POST", path, body)
 }
 
-func (c *Client) put(path string, body interface{}) (*http.Response, error) {
+// put performs an HTTP PUT request with a JSON body.
+func (c *Client) put(path string, body any) (*http.Response, error) {
 	return c.doJSON("PUT", path, body)
 }
 
+// delete performs an HTTP DELETE request to the given path.
 func (c *Client) delete(path string) (*http.Response, error) {
 	req, err := http.NewRequest("DELETE", c.baseURL+path, nil)
 	if err != nil {
@@ -572,20 +588,21 @@ func (c *Client) delete(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if err := c.checkError(resp); err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, err
 	}
 
 	return resp, nil
 }
 
-func (c *Client) doJSON(method, path string, body interface{}) (*http.Response, error) {
+// doJSON performs an HTTP request with the given method and a JSON-encoded body.
+func (c *Client) doJSON(method, path string, body any) (*http.Response, error) {
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("marshal body: %w", err)
@@ -598,19 +615,21 @@ func (c *Client) doJSON(method, path string, body interface{}) (*http.Response, 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if err := c.checkError(resp); err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, err
 	}
 
 	return resp, nil
 }
 
+// checkError inspects the HTTP response status and returns an error for non-2xx codes.
+// It attempts to parse the error message from the JSON response body.
 func (c *Client) checkError(resp *http.Response) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil

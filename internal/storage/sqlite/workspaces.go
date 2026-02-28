@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -46,7 +47,7 @@ func (s *Store) CreateWorkspace(ctx context.Context, ws *types.Workspace) error 
 func (s *Store) GetWorkspace(ctx context.Context, id string) (*types.Workspace, error) {
 	row, err := s.queries.GetWorkspace(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("workspace not found: %s", id)
 		}
 		return nil, fmt.Errorf("get workspace: %w", err)
@@ -59,7 +60,7 @@ func (s *Store) GetWorkspace(ctx context.Context, id string) (*types.Workspace, 
 func (s *Store) GetWorkspaceByName(ctx context.Context, name string) (*types.Workspace, error) {
 	row, err := s.queries.GetWorkspaceByName(ctx, name)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("workspace not found: %s", name)
 		}
 		return nil, fmt.Errorf("get workspace by name: %w", err)
@@ -72,7 +73,7 @@ func (s *Store) GetWorkspaceByName(ctx context.Context, name string) (*types.Wor
 func (s *Store) GetWorkspaceByPath(ctx context.Context, path string) (*types.Workspace, error) {
 	row, err := s.queries.GetWorkspaceByPath(ctx, toNullString(path))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("workspace not found for path: %s", path)
 		}
 		return nil, fmt.Errorf("get workspace by path: %w", err)

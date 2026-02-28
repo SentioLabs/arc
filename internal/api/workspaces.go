@@ -24,7 +24,8 @@ type updateWorkspaceRequest struct {
 	Description string `json:"description,omitempty"`
 }
 
-// listWorkspaces returns all workspaces.
+// listWorkspaces returns all workspaces registered in the system.
+// Workspaces are the top-level containers for organizing issues.
 func (s *Server) listWorkspaces(c echo.Context) error {
 	workspaces, err := s.store.ListWorkspaces(c.Request().Context())
 	if err != nil {
@@ -34,7 +35,8 @@ func (s *Server) listWorkspaces(c echo.Context) error {
 	return successJSON(c, workspaces)
 }
 
-// createWorkspace creates a new workspace.
+// createWorkspace creates a new workspace with the specified name and prefix.
+// The prefix is used to generate issue IDs within the workspace.
 func (s *Server) createWorkspace(c echo.Context) error {
 	var req createWorkspaceRequest
 	if err := c.Bind(&req); err != nil {
@@ -67,7 +69,8 @@ func (s *Server) getWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// updateWorkspace updates a workspace.
+// updateWorkspace updates a workspace's name, path, or description.
+// Only non-empty fields in the request body are applied.
 func (s *Server) updateWorkspace(c echo.Context) error {
 	id := c.Param("id")
 
@@ -98,7 +101,8 @@ func (s *Server) updateWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// deleteWorkspace deletes a workspace and cleans up any project configs referencing it.
+// deleteWorkspace deletes a workspace and performs best-effort cleanup
+// of any project configs that reference the deleted workspace.
 func (s *Server) deleteWorkspace(c echo.Context) error {
 	id := c.Param("id")
 

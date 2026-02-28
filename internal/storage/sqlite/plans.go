@@ -3,12 +3,16 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
 )
+
+// ErrNoPlan is returned when no inline plan exists for an issue.
+var ErrNoPlan = errors.New("no inline plan exists")
 
 // CreatePlan creates a new shared plan.
 func (s *Store) CreatePlan(ctx context.Context, plan *types.Plan) error {
@@ -33,7 +37,7 @@ func (s *Store) CreatePlan(ctx context.Context, plan *types.Plan) error {
 func (s *Store) GetPlan(ctx context.Context, id string) (*types.Plan, error) {
 	row, err := s.queries.GetPlan(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("plan not found: %s", id)
 		}
 		return nil, fmt.Errorf("get plan: %w", err)
@@ -160,8 +164,8 @@ func (s *Store) SetInlinePlan(ctx context.Context, issueID, author, text string)
 func (s *Store) GetInlinePlan(ctx context.Context, issueID string) (*types.Comment, error) {
 	row, err := s.queries.GetLatestPlanComment(ctx, issueID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil // No plan exists
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoPlan
 		}
 		return nil, fmt.Errorf("get inline plan: %w", err)
 	}
@@ -191,10 +195,12 @@ func (s *Store) GetPlanContext(ctx context.Context, issueID string) (*types.Plan
 
 	// 1. Get inline plan
 	inlinePlan, err := s.GetInlinePlan(ctx, issueID)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNoPlan) {
 		return nil, fmt.Errorf("get inline plan: %w", err)
 	}
-	pc.InlinePlan = inlinePlan
+	if err == nil {
+		pc.InlinePlan = inlinePlan
+	}
 
 	// 2. Check for parent plan via parent-child dependency
 	deps, err := s.GetDependencies(ctx, issueID)
@@ -206,10 +212,10 @@ func (s *Store) GetPlanContext(ctx context.Context, issueID string) (*types.Plan
 		if dep.Type == types.DepParentChild {
 			// This issue depends on a parent - check if parent has a plan
 			parentPlan, err := s.GetInlinePlan(ctx, dep.DependsOnID)
-			if err != nil {
+			if err != nil && !errors.Is(err, ErrNoPlan) {
 				return nil, fmt.Errorf("get parent plan: %w", err)
 			}
-			if parentPlan != nil {
+			if err == nil && parentPlan != nil {
 				pc.ParentPlan = parentPlan
 				pc.ParentIssueID = dep.DependsOnID
 				break // Only use first parent's plan

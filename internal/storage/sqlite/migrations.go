@@ -1,3 +1,5 @@
+// Package sqlite implements the storage interface using SQLite.
+// This file handles database schema migrations using goose.
 package sqlite
 
 import (
@@ -7,9 +9,12 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// migrations embeds all SQL migration files from the migrations directory.
+//
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+// init configures goose to use the embedded filesystem for migration files.
 func init() {
 	goose.SetBaseFS(migrations)
 }

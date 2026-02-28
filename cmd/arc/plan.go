@@ -1,6 +1,11 @@
+// Package main provides the plan management commands for the arc CLI.
+// Plans come in three flavours: inline plans attached to a single issue,
+// parent-epic plans inherited through parent-child dependencies, and
+// shared plans that can be linked to multiple issues.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +13,13 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+// planSetMinArgs is the minimum number of arguments for the plan set command.
+const planSetMinArgs = 2
+
+// linkArgCount is the minimum number of arguments for plan link/unlink commands
+// (plan ID + at least one issue ID).
+const linkArgCount = 2
 
 // planCmd is the parent command for plan management.
 var planCmd = &cobra.Command{
@@ -28,6 +40,7 @@ var planCmd = &cobra.Command{
    arc plan link <plan-id> <issue-1> <issue-2>`,
 }
 
+// init registers all plan subcommands under the root planCmd.
 func init() {
 	rootCmd.AddCommand(planCmd)
 
@@ -46,14 +59,16 @@ func init() {
 }
 
 // ============ Inline Plan Commands ============
+// These commands manage plans embedded directly on individual issues.
 
+// planSetCmd sets or updates an inline plan on an issue.
 var planSetCmd = &cobra.Command{
 	Use:   "set <issue-id> [plan text]",
 	Short: "Set or update an inline plan on an issue",
 	Long: `Set or update an inline plan directly on an issue.
 If plan text is provided, sets it directly.
 If --editor is used, opens $EDITOR to compose the plan.`,
-	Args: cobra.RangeArgs(1, 2),
+	Args: cobra.RangeArgs(1, planSetMinArgs),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -82,14 +97,14 @@ If --editor is used, opens $EDITOR to compose the plan.`,
 				return fmt.Errorf("editor: %w", err)
 			}
 			text = editedText
-		} else if len(args) == 2 {
+		} else if len(args) == planSetMinArgs {
 			text = args[1]
 		} else {
-			return fmt.Errorf("provide plan text or use --editor")
+			return errors.New("provide plan text or use --editor")
 		}
 
 		if text == "" {
-			return fmt.Errorf("plan text cannot be empty")
+			return errors.New("plan text cannot be empty")
 		}
 
 		comment, err := c.SetInlinePlan(wsID, issueID, text)
@@ -102,15 +117,18 @@ If --editor is used, opens $EDITOR to compose the plan.`,
 			return nil
 		}
 
-		fmt.Printf("Plan set on %s\n", issueID)
+		_, _ = fmt.Printf("Plan set on %s\n", issueID)
 		return nil
 	},
 }
 
+// init adds the --editor flag to the planSetCmd.
 func init() {
 	planSetCmd.Flags().BoolP("editor", "e", false, "Open $EDITOR to compose plan")
 }
 
+// planShowCmd displays all plan context for an issue, including inline plans,
+// parent-inherited plans, and linked shared plans.
 var planShowCmd = &cobra.Command{
 	Use:   "show <issue-id>",
 	Short: "Show all plans for an issue",
@@ -144,49 +162,51 @@ var planShowCmd = &cobra.Command{
 
 		if pc.InlinePlan != nil {
 			hasPlan = true
-			fmt.Printf("== Inline Plan ==\n")
-			fmt.Printf("Author: %s\n", pc.InlinePlan.Author)
-			fmt.Printf("Updated: %s\n", pc.InlinePlan.CreatedAt.Format("2006-01-02 15:04"))
-			fmt.Printf("\n%s\n", pc.InlinePlan.Text)
+			_, _ = fmt.Printf("== Inline Plan ==\n")
+			_, _ = fmt.Printf("Author: %s\n", pc.InlinePlan.Author)
+			_, _ = fmt.Printf("Updated: %s\n", pc.InlinePlan.CreatedAt.Format("2006-01-02 15:04"))
+			_, _ = fmt.Printf("\n%s\n", pc.InlinePlan.Text)
 		}
 
 		if pc.ParentPlan != nil {
 			if hasPlan {
-				fmt.Println()
+				_, _ = fmt.Println()
 			}
 			hasPlan = true
-			fmt.Printf("== Parent Plan (from %s) ==\n", pc.ParentIssueID)
-			fmt.Printf("Author: %s\n", pc.ParentPlan.Author)
-			fmt.Printf("Updated: %s\n", pc.ParentPlan.CreatedAt.Format("2006-01-02 15:04"))
-			fmt.Printf("\n%s\n", pc.ParentPlan.Text)
+			_, _ = fmt.Printf("== Parent Plan (from %s) ==\n", pc.ParentIssueID)
+			_, _ = fmt.Printf("Author: %s\n", pc.ParentPlan.Author)
+			_, _ = fmt.Printf("Updated: %s\n", pc.ParentPlan.CreatedAt.Format("2006-01-02 15:04"))
+			_, _ = fmt.Printf("\n%s\n", pc.ParentPlan.Text)
 		}
 
 		if len(pc.SharedPlans) > 0 {
 			if hasPlan {
-				fmt.Println()
+				_, _ = fmt.Println()
 			}
 			hasPlan = true
-			fmt.Printf("== Shared Plans ==\n")
+			_, _ = fmt.Printf("== Shared Plans ==\n")
 			for i, plan := range pc.SharedPlans {
 				if i > 0 {
-					fmt.Println()
+					_, _ = fmt.Println()
 				}
-				fmt.Printf("[%s] %s\n", plan.ID, plan.Title)
-				fmt.Printf("Updated: %s\n", plan.UpdatedAt.Format("2006-01-02 15:04"))
+				_, _ = fmt.Printf("[%s] %s\n", plan.ID, plan.Title)
+				_, _ = fmt.Printf("Updated: %s\n", plan.UpdatedAt.Format("2006-01-02 15:04"))
 				if plan.Content != "" {
-					fmt.Printf("\n%s\n", plan.Content)
+					_, _ = fmt.Printf("\n%s\n", plan.Content)
 				}
 			}
 		}
 
 		if !hasPlan {
-			fmt.Println("No plans found for this issue")
+			_, _ = fmt.Println("No plans found for this issue")
 		}
 
 		return nil
 	},
 }
 
+// planHistoryCmd shows the version history of inline plans for an issue.
+// Each version is displayed with its timestamp, author, and content.
 var planHistoryCmd = &cobra.Command{
 	Use:   "history <issue-id>",
 	Short: "Show plan version history for an issue",
@@ -213,17 +233,17 @@ var planHistoryCmd = &cobra.Command{
 		}
 
 		if len(history) == 0 {
-			fmt.Println("No plan history for this issue")
+			_, _ = fmt.Println("No plan history for this issue")
 			return nil
 		}
 
 		for i, comment := range history {
 			if i > 0 {
-				fmt.Println("\n---")
+				_, _ = fmt.Println("\n---")
 			}
-			fmt.Printf("Version %d (%s by %s):\n",
+			_, _ = fmt.Printf("Version %d (%s by %s):\n",
 				len(history)-i, comment.CreatedAt.Format("2006-01-02 15:04"), comment.Author)
-			fmt.Println(comment.Text)
+			_, _ = fmt.Println(comment.Text)
 		}
 
 		return nil
@@ -231,7 +251,10 @@ var planHistoryCmd = &cobra.Command{
 }
 
 // ============ Shared Plan Commands ============
+// Shared plans are standalone plan objects linkable to multiple issues.
 
+// planCreateCmd creates a new shared plan that can be linked to multiple issues.
+// Optionally opens $EDITOR for composing the plan content.
 var planCreateCmd = &cobra.Command{
 	Use:   "create <title>",
 	Short: "Create a new shared plan",
@@ -274,10 +297,13 @@ var planCreateCmd = &cobra.Command{
 	},
 }
 
+// init adds the --editor flag to the planCreateCmd.
 func init() {
 	planCreateCmd.Flags().BoolP("editor", "e", false, "Open $EDITOR to compose content")
 }
 
+// planEditCmd opens a shared plan in $EDITOR for editing.
+// It fetches the current plan content, opens it in the editor, and persists changes.
 var planEditCmd = &cobra.Command{
 	Use:   "edit <plan-id>",
 	Short: "Edit a shared plan in $EDITOR",
@@ -323,6 +349,7 @@ var planEditCmd = &cobra.Command{
 	},
 }
 
+// planListCmd lists all shared plans in the workspace with their linked issue counts.
 var planListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all shared plans in the workspace",
@@ -348,7 +375,7 @@ var planListCmd = &cobra.Command{
 		}
 
 		if len(plans) == 0 {
-			fmt.Println("No shared plans found")
+			_, _ = fmt.Println("No shared plans found")
 			return nil
 		}
 
@@ -361,6 +388,7 @@ var planListCmd = &cobra.Command{
 	},
 }
 
+// planDeleteCmd removes a shared plan and all its issue linkages.
 var planDeleteCmd = &cobra.Command{
 	Use:   "delete <plan-id>",
 	Short: "Delete a shared plan",
@@ -385,10 +413,11 @@ var planDeleteCmd = &cobra.Command{
 	},
 }
 
+// planLinkCmd links a shared plan to one or more issues.
 var planLinkCmd = &cobra.Command{
 	Use:   "link <plan-id> <issue>...",
 	Short: "Link a plan to one or more issues",
-	Args:  cobra.MinimumNArgs(2),
+	Args:  cobra.MinimumNArgs(linkArgCount),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -412,10 +441,11 @@ var planLinkCmd = &cobra.Command{
 	},
 }
 
+// planUnlinkCmd removes the link between a shared plan and one or more issues.
 var planUnlinkCmd = &cobra.Command{
 	Use:   "unlink <plan-id> <issue>...",
 	Short: "Unlink a plan from one or more issues",
-	Args:  cobra.MinimumNArgs(2),
+	Args:  cobra.MinimumNArgs(linkArgCount),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -432,7 +462,7 @@ var planUnlinkCmd = &cobra.Command{
 
 		for _, issueID := range issueIDs {
 			if err := c.UnlinkIssueFromPlan(wsID, planID, issueID); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to unlink %s: %v\n", issueID, err)
+				_, _ = fmt.Fprintf(os.Stderr, "Failed to unlink %s: %v\n", issueID, err)
 				continue
 			}
 		}
@@ -445,6 +475,8 @@ var planUnlinkCmd = &cobra.Command{
 // ============ Editor Helper ============
 
 // editInEditor opens the user's $EDITOR with the given content and returns the edited result.
+// It creates a temporary file, writes the initial content, launches the editor, and reads
+// back the result. Falls back to $VISUAL and then "vi" if $EDITOR is not set.
 func editInEditor(content string) (string, error) {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
@@ -463,12 +495,13 @@ func editInEditor(content string) (string, error) {
 
 	// Write initial content
 	if _, err := tmpFile.WriteString(content); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return "", err
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Open editor
+	//nolint:gosec // editor is from user's $EDITOR/$VISUAL env; this is intentional
 	cmd := exec.Command(editor, tmpFile.Name())
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -478,6 +511,7 @@ func editInEditor(content string) (string, error) {
 	}
 
 	// Read result
+	//nolint:gosec // tmpFile is self-created via os.CreateTemp, not user-controlled path
 	result, err := os.ReadFile(tmpFile.Name())
 	if err != nil {
 		return "", err

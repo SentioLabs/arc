@@ -1,10 +1,11 @@
 module github.com/sentiolabs/arc
 
-go 1.25.5
+go 1.26.0
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
+	github.com/blevesearch/bleve/v2 v2.5.7
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/oapi-codegen/runtime v1.1.2
@@ -18,7 +19,6 @@ require (
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bits-and-blooms/bitset v1.22.0 // indirect
-	github.com/blevesearch/bleve/v2 v2.5.7 // indirect
 	github.com/blevesearch/bleve_index_api v1.2.11 // indirect
 	github.com/blevesearch/geo v0.2.4 // indirect
 	github.com/blevesearch/go-faiss v1.0.26 // indirect

@@ -1,8 +1,10 @@
-package workspace
+package workspace_test
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/workspace"
 )
 
 func TestSanitizeBasename(t *testing.T) {
@@ -28,9 +30,9 @@ func TestSanitizeBasename(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := SanitizeBasename(tc.input)
+			result := workspace.SanitizeBasename(tc.input)
 			if result != tc.expected {
-				t.Errorf("SanitizeBasename(%q) = %q, want %q", tc.input, result, tc.expected)
+				t.Errorf("workspace.SanitizeBasename(%q) = %q, want %q", tc.input, result, tc.expected)
 			}
 		})
 	}
@@ -38,12 +40,12 @@ func TestSanitizeBasename(t *testing.T) {
 
 func TestGenerateName(t *testing.T) {
 	// Test that the same path produces the same hash (deterministic)
-	name1, err := GenerateName("/tmp/test-project")
+	name1, err := workspace.GenerateName("/tmp/test-project")
 	if err != nil {
 		t.Fatalf("GenerateName failed: %v", err)
 	}
 
-	name2, err := GenerateName("/tmp/test-project")
+	name2, err := workspace.GenerateName("/tmp/test-project")
 	if err != nil {
 		t.Fatalf("GenerateName failed: %v", err)
 	}
@@ -58,7 +60,7 @@ func TestGenerateName(t *testing.T) {
 	}
 
 	// Test that different paths produce different hashes
-	name3, err := GenerateName("/tmp/other-project")
+	name3, err := workspace.GenerateName("/tmp/other-project")
 	if err != nil {
 		t.Fatalf("GenerateName failed: %v", err)
 	}
@@ -78,16 +80,16 @@ func TestBase36Encode(t *testing.T) {
 		expected string
 	}{
 		{"zero", []byte{0}, "0"},
-		{"single byte", []byte{36}, "10"},     // 36 in base36 is "10"
-		{"two bytes", []byte{0, 255}, "73"},   // 255 in base36
+		{"single byte", []byte{36}, "10"},        // 36 in base36 is "10"
+		{"two bytes", []byte{0, 255}, "73"},      // 255 in base36
 		{"three bytes", []byte{1, 0, 0}, "1ekg"}, // 65536 in base36
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := Base36Encode(tc.input)
+			result := workspace.Base36Encode(tc.input)
 			if result != tc.expected {
-				t.Errorf("Base36Encode(%v) = %q, want %q", tc.input, result, tc.expected)
+				t.Errorf("workspace.Base36Encode(%v) = %q, want %q", tc.input, result, tc.expected)
 			}
 		})
 	}
@@ -95,7 +97,7 @@ func TestBase36Encode(t *testing.T) {
 
 func TestGenerateIssueID(t *testing.T) {
 	// Test that IDs follow the format prefix.xxxxxx (6 base36 chars)
-	id1 := GenerateIssueID("arc", "Test issue")
+	id1 := workspace.GenerateIssueID("arc", "Test issue")
 
 	if len(id1) < 10 || id1[3] != '.' {
 		t.Errorf("GenerateIssueID should produce format 'arc.xxxxxx', got %q", id1)
@@ -114,7 +116,7 @@ func TestGenerateIssueID(t *testing.T) {
 
 	// Verify the suffix contains only base36 chars
 	for _, c := range suffix {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 		}
 	}
@@ -122,12 +124,12 @@ func TestGenerateIssueID(t *testing.T) {
 
 func TestGenerateNameSameBaseDifferentPath(t *testing.T) {
 	// Two directories with the same basename but different paths
-	name1, err := GenerateName("/home/user/projects/my-app")
+	name1, err := workspace.GenerateName("/home/user/projects/my-app")
 	if err != nil {
 		t.Fatalf("GenerateName failed: %v", err)
 	}
 
-	name2, err := GenerateName("/home/user/work/my-app")
+	name2, err := workspace.GenerateName("/home/user/work/my-app")
 	if err != nil {
 		t.Fatalf("GenerateName failed: %v", err)
 	}
@@ -148,12 +150,12 @@ func TestGenerateNameSameBaseDifferentPath(t *testing.T) {
 
 func TestGeneratePrefix(t *testing.T) {
 	// Test determinism: same path produces same prefix
-	prefix1, err := GeneratePrefix("/tmp/test-project")
+	prefix1, err := workspace.GeneratePrefix("/tmp/test-project")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
 	}
 
-	prefix2, err := GeneratePrefix("/tmp/test-project")
+	prefix2, err := workspace.GeneratePrefix("/tmp/test-project")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
 	}
@@ -180,7 +182,7 @@ func TestGeneratePrefix(t *testing.T) {
 		}
 		// Verify suffix contains only base36 chars
 		for _, c := range suffix {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 				t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 			}
 		}
@@ -189,12 +191,12 @@ func TestGeneratePrefix(t *testing.T) {
 
 func TestGeneratePrefixUniqueness(t *testing.T) {
 	// Different paths should produce different prefixes
-	prefix1, err := GeneratePrefix("/home/user/projects/api")
+	prefix1, err := workspace.GeneratePrefix("/home/user/projects/api")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
 	}
 
-	prefix2, err := GeneratePrefix("/home/user/work/api")
+	prefix2, err := workspace.GeneratePrefix("/home/user/work/api")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
 	}
@@ -216,7 +218,7 @@ func TestGeneratePrefixUniqueness(t *testing.T) {
 func TestGeneratePrefixTruncation(t *testing.T) {
 	// Long basename should be truncated to 5 alphanumeric chars before hash
 	// "my-very-long-project-name" -> "myverylongprojectname" -> "myver"
-	prefix, err := GeneratePrefix("/tmp/my-very-long-project-name")
+	prefix, err := workspace.GeneratePrefix("/tmp/my-very-long-project-name")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
 	}
@@ -248,7 +250,7 @@ func TestGeneratePrefixNormalization(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			prefix, err := GeneratePrefix(tc.path)
+			prefix, err := workspace.GeneratePrefix(tc.path)
 			if err != nil {
 				t.Fatalf("GeneratePrefix failed: %v", err)
 			}
@@ -274,7 +276,7 @@ func TestGeneratePrefixNormalization(t *testing.T) {
 
 func TestGeneratePlanID(t *testing.T) {
 	// Test that IDs follow the format plan.xxxxxx (6 base36 chars)
-	id1 := GeneratePlanID("Test plan")
+	id1 := workspace.GeneratePlanID("Test plan")
 
 	if len(id1) < 11 || id1[4] != '.' {
 		t.Errorf("GeneratePlanID should produce format 'plan.xxxxxx', got %q", id1)
@@ -293,13 +295,13 @@ func TestGeneratePlanID(t *testing.T) {
 
 	// Verify the suffix contains only base36 chars
 	for _, c := range suffix {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 		}
 	}
 
 	// Each call should produce a different ID (contains timestamp)
-	id2 := GeneratePlanID("Test plan")
+	id2 := workspace.GeneratePlanID("Test plan")
 	if id1 == id2 {
 		t.Errorf("GeneratePlanID should produce unique IDs, but got same: %q", id1)
 	}
@@ -307,7 +309,7 @@ func TestGeneratePlanID(t *testing.T) {
 
 func TestGeneratePrefixFromName(t *testing.T) {
 	// "my-project" normalizes to "myproject", truncates to "mypro"
-	prefix := GeneratePrefixFromName("my-project")
+	prefix := workspace.GeneratePrefixFromName("my-project")
 
 	// Test format: should be basename-xxxx (4-char base36 hash)
 	lastHyphen := -1
@@ -326,7 +328,7 @@ func TestGeneratePrefixFromName(t *testing.T) {
 		}
 		// Verify suffix contains only base36 chars
 		for _, c := range suffix {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 				t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 			}
 		}

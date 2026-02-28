@@ -1,41 +1,36 @@
-package sqlite
+package sqlite_test
 
 import (
 	"context"
-	"os"
+	"errors"
 	"path/filepath"
 	"testing"
 
+	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
 // setupTestStore creates a temporary store for testing.
-func setupTestStore(t *testing.T) (*Store, func()) {
+func setupTestStore(t *testing.T) (*sqlite.Store, func()) {
 	t.Helper()
 
-	// Create a temp directory for the test database
-	tmpDir, err := os.MkdirTemp("", "arc-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
+	tmpDir := t.TempDir()
 
 	dbPath := filepath.Join(tmpDir, "test.db")
-	store, err := New(dbPath)
+	store, err := sqlite.New(dbPath)
 	if err != nil {
-		os.RemoveAll(tmpDir)
 		t.Fatalf("failed to create store: %v", err)
 	}
 
 	cleanup := func() {
-		store.Close()
-		os.RemoveAll(tmpDir)
+		_ = store.Close()
 	}
 
 	return store, cleanup
 }
 
 // setupTestWorkspace creates a workspace for testing.
-func setupTestWorkspace(t *testing.T, store *Store) *types.Workspace {
+func setupTestWorkspace(t *testing.T, store *sqlite.Store) *types.Workspace {
 	t.Helper()
 	ctx := context.Background()
 
@@ -50,7 +45,7 @@ func setupTestWorkspace(t *testing.T, store *Store) *types.Workspace {
 }
 
 // setupTestIssue creates an issue for testing.
-func setupTestIssue(t *testing.T, store *Store, ws *types.Workspace, title string) *types.Issue {
+func setupTestIssue(t *testing.T, store *sqlite.Store, ws *types.Workspace, title string) *types.Issue {
 	t.Helper()
 	ctx := context.Background()
 
@@ -300,13 +295,10 @@ func TestSetAndGetInlinePlan(t *testing.T) {
 	ws := setupTestWorkspace(t, store)
 	issue := setupTestIssue(t, store, ws, "Issue with Plan")
 
-	// Initially no plan
-	plan, err := store.GetInlinePlan(ctx, issue.ID)
-	if err != nil {
-		t.Fatalf("GetInlinePlan failed: %v", err)
-	}
-	if plan != nil {
-		t.Error("Expected nil plan for new issue")
+	// Initially no plan - should return ErrNoPlan
+	_, err := store.GetInlinePlan(ctx, issue.ID)
+	if !errors.Is(err, sqlite.ErrNoPlan) {
+		t.Fatalf("GetInlinePlan should return ErrNoPlan for new issue, got: %v", err)
 	}
 
 	// Set inline plan
