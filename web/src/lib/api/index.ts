@@ -194,7 +194,8 @@ export async function createLabel(
 		body: { name, color, description }
 	});
 	if (error) handleError(error);
-	return data!;
+	if (!data) throw new Error('Failed to create label');
+	return data;
 }
 
 export async function updateLabel(
@@ -207,7 +208,8 @@ export async function updateLabel(
 		body: { color, description }
 	});
 	if (error) handleError(error);
-	return data!;
+	if (!data) throw new Error('Failed to update label');
+	return data;
 }
 
 export async function deleteLabel(name: string): Promise<void> {

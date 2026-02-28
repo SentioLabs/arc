@@ -52,7 +52,7 @@ function createFilterStore() {
 			filters = {
 				status: (params.get('status') as Status) || undefined,
 				issueType: (params.get('type') as IssueType) || undefined,
-				priority: params.has('priority') ? parseInt(params.get('priority')!) : undefined,
+				priority: params.has('priority') ? parseInt(params.get('priority') ?? '0', 10) : undefined,
 				assignee: params.get('assignee') || undefined,
 				q: params.get('q') || undefined
 			};
