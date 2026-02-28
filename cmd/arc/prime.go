@@ -11,6 +11,7 @@ import (
 var (
 	primeFullMode bool
 	primeMCPMode  bool
+	primeRole     string
 )
 
 var primeCmd = &cobra.Command{
@@ -24,6 +25,12 @@ in Codex CLI to prevent agents from forgetting arc workflow after compaction.
 Modes:
 - Default: Full CLI reference (~1-2k tokens)
 - --mcp: Minimal output for MCP users (~50 tokens)
+- --role=lead: Team lead context with sync protocol
+- --role=<name>: Teammate context filtered by role
+
+Role detection (in priority order):
+1. --role flag
+2. ARC_TEAMMATE_ROLE environment variable
 
 Install hooks:
   arc setup claude          # Install SessionStart and PreCompact hooks
@@ -46,6 +53,25 @@ Workflow customization:
 			return
 		}
 
+		// Detect role from flag or env var
+		role := primeRole
+		if role == "" {
+			role = os.Getenv("ARC_TEAMMATE_ROLE")
+		}
+
+		// Role-based output takes precedence over mode flags
+		if role == "lead" {
+			if err := outputTeamLeadContext(os.Stdout); err != nil {
+				os.Exit(0)
+			}
+			return
+		} else if role != "" {
+			if err := outputTeammateContext(os.Stdout, role); err != nil {
+				os.Exit(0)
+			}
+			return
+		}
+
 		// Determine output mode
 		mcpMode := primeMCPMode
 		if primeFullMode {
@@ -62,6 +88,7 @@ Workflow customization:
 func init() {
 	primeCmd.Flags().BoolVar(&primeFullMode, "full", false, "Force full CLI output")
 	primeCmd.Flags().BoolVar(&primeMCPMode, "mcp", false, "Force MCP mode (minimal output)")
+	primeCmd.Flags().StringVar(&primeRole, "role", "", "Teammate role (lead, frontend, backend, etc.)")
 	rootCmd.AddCommand(primeCmd)
 }
 
@@ -87,6 +114,59 @@ Before saying "done": git status → git add → git commit → git push
 - When in doubt, prefer arc—persistence you don't need beats lost context
 
 Start: Check ` + "`arc ready`" + ` for available work.
+`
+	_, _ = fmt.Fprint(w, context)
+	return nil
+}
+
+// outputTeamLeadContext outputs context for the team lead role.
+// Includes the full CLI reference plus team sync protocol.
+func outputTeamLeadContext(w io.Writer) error {
+	if err := outputCLIContext(w); err != nil {
+		return err
+	}
+
+	teamContext := `
+## Team Lead Protocol
+
+You are the **team lead**. You coordinate teammates and verify their work.
+
+### Sync Protocol
+1. Use ` + "`arc team context <epic-id> --json`" + ` to check progress
+2. After a teammate completes work, verify before closing arc issues
+3. Close verified issues: ` + "`arc close <id> --reason \"completed by <teammate>\"`" + `
+
+### Spawning Teammates
+- Set ` + "`ARC_TEAMMATE_ROLE=<role>`" + ` env var when spawning each teammate
+- Each teammate gets role-filtered context via ` + "`arc prime`" + `
+- Teammates focus on issues labeled ` + "`teammate:<role>`" + `
+`
+	_, _ = fmt.Fprint(w, teamContext)
+	return nil
+}
+
+// outputTeammateContext outputs context for a specific teammate role.
+// Concise — no full CLI reference, just role guidance and session protocol.
+func outputTeammateContext(w io.Writer, role string) error {
+	context := `# Arc Teammate Context
+
+You are the **` + role + `** teammate.
+
+## Your Focus
+- Work on issues labeled ` + "`teammate:" + role + "`" + `
+- Use TaskList for real-time task coordination with the team
+- Report completion to the team lead when done
+
+## Session Close Protocol
+
+**CRITICAL**: Before saying "done", you MUST:
+
+` + "```" + `
+[ ] 1. git status              (check what changed)
+[ ] 2. git add <files>         (stage code changes)
+[ ] 3. git commit -m "..."     (commit changes)
+[ ] 4. git push                (push to remote)
+` + "```" + `
 `
 	_, _ = fmt.Fprint(w, context)
 	return nil
