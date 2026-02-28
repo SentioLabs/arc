@@ -344,7 +344,6 @@ Arc uses three configuration layers (highest priority wins):
 3. **Legacy** (`.arc.json` in project root) — auto-migrated to project config
 
 ```json
-// ~/.arc/cli-config.json
 {
   "server_url": "http://localhost:7432",
   "default_workspace": "ws-abc123"
