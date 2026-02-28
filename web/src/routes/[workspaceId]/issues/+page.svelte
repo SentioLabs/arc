@@ -4,7 +4,14 @@
 	import { goto } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { listIssues, listLabels, type Workspace, type Issue, type Label, type IssueFilters } from '$lib/api';
+	import {
+		listIssues,
+		listLabels,
+		type Workspace,
+		type Issue,
+		type Label,
+		type IssueFilters
+	} from '$lib/api';
 
 	// Get workspace from context
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
@@ -43,8 +50,10 @@
 	async function loadLabelMap() {
 		try {
 			const labels = await listLabels();
-			labelMap = new Map(labels.map(l => [l.name, l]));
-		} catch { /* labels are optional for display */ }
+			labelMap = new Map(labels.map((l) => [l.name, l]));
+		} catch {
+			/* labels are optional for display */
+		}
 	}
 
 	async function loadIssues() {

@@ -1,9 +1,21 @@
 <script lang="ts">
 	const palette = [
-		'#ef4444', '#f97316', '#f59e0b', '#eab308',
-		'#84cc16', '#22c55e', '#14b8a6', '#06b6d4',
-		'#3b82f6', '#6366f1', '#8b5cf6', '#a855f7',
-		'#d946ef', '#ec4899', '#f43f5e', '#6b7280',
+		'#ef4444',
+		'#f97316',
+		'#f59e0b',
+		'#eab308',
+		'#84cc16',
+		'#22c55e',
+		'#14b8a6',
+		'#06b6d4',
+		'#3b82f6',
+		'#6366f1',
+		'#8b5cf6',
+		'#a855f7',
+		'#d946ef',
+		'#ec4899',
+		'#f43f5e',
+		'#6b7280'
 	];
 
 	interface Props {
@@ -40,13 +52,19 @@
 			<button
 				type="button"
 				class="w-7 h-7 rounded-md border-2 transition-all flex items-center justify-center
-					{value === color ? 'border-white scale-110' : 'border-transparent hover:border-border-focus/50 hover:scale-105'}"
+					{value === color
+					? 'border-white scale-110'
+					: 'border-transparent hover:border-border-focus/50 hover:scale-105'}"
 				style="background-color: {color}"
 				onclick={() => selectColor(color)}
 				title={color}
 			>
 				{#if value === color}
-					<svg class="w-3.5 h-3.5 text-white drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor">
+					<svg
+						class="w-3.5 h-3.5 text-white drop-shadow-sm"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
 						<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
 					</svg>
 				{/if}

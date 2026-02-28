@@ -139,7 +139,9 @@
 
 		<!-- Search box (hidden in edit mode) -->
 		{#if $workspaces.length > 0 && !editMode}
-			<div class="mt-6 relative transition-all duration-200 {searchFocused ? 'max-w-md' : 'max-w-sm'}">
+			<div
+				class="mt-6 relative transition-all duration-200 {searchFocused ? 'max-w-md' : 'max-w-sm'}"
+			>
 				<svg
 					class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted"
 					viewBox="0 0 24 24"
@@ -243,9 +245,7 @@
 			</div>
 			<h2 class="text-xl font-semibold text-text-primary mb-2">No matching workspaces</h2>
 			<p class="text-text-secondary mb-4">No workspaces match "{searchQuery}"</p>
-			<button type="button" class="btn btn-primary" onclick={clearSearch}>
-				Clear search
-			</button>
+			<button type="button" class="btn btn-primary" onclick={clearSearch}> Clear search </button>
 		</div>
 	{:else}
 		<div class="grid gap-4 sm:grid-cols-2">

@@ -2,4 +2,9 @@
 build/
 dist/
 node_modules/
-src/lib/api/v1.d.ts
+src/lib/api/types.ts
+*.ts
+*.js
+*.mjs
+*.cjs
+*.d.ts

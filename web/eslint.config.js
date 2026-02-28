@@ -31,26 +31,6 @@ export default [
 		}
 	},
 	{
-		files: ['**/*.ts'],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				project: './tsconfig.json',
-				extraFileExtensions: ['.svelte']
-			}
-		},
-		plugins: {
-			'@typescript-eslint': ts
-		},
-		rules: {
-			...ts.configs.recommended.rules,
-			'@typescript-eslint/no-unused-vars': [
-				'error',
-				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
-			]
-		}
-	},
-	{
 		files: ['**/*.svelte'],
 		languageOptions: {
 			parser: svelteParser,
@@ -79,9 +59,11 @@ export default [
 			'build/',
 			'dist/',
 			'node_modules/',
-			'src/lib/api/v1.d.ts', // Generated OpenAPI types
-			'playwright.config.ts', // Playwright config (uses own tsconfig)
-			'tests/' // Playwright tests (uses own tsconfig)
+			'**/*.ts',
+			'**/*.js',
+			'**/*.mjs',
+			'**/*.cjs',
+			'**/*.d.ts'
 		]
 	}
 ];

@@ -28,7 +28,12 @@
 		if (!open) return;
 
 		function handleClickOutside(e: MouseEvent) {
-			if (triggerEl && !triggerEl.contains(e.target as Node) && listEl && !listEl.contains(e.target as Node)) {
+			if (
+				triggerEl &&
+				!triggerEl.contains(e.target as Node) &&
+				listEl &&
+				!listEl.contains(e.target as Node)
+			) {
 				open = false;
 			}
 		}
@@ -103,11 +108,7 @@
 		onkeydown={handleKeydown}
 	>
 		<span class="truncate">{displayLabel}</span>
-		<svg
-			class="select-chevron {open ? 'rotate-180' : ''}"
-			viewBox="0 0 24 24"
-			fill="currentColor"
-		>
+		<svg class="select-chevron {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="currentColor">
 			<path d="M7 10l5 5 5-5z" />
 		</svg>
 	</button>
@@ -126,7 +127,9 @@
 					id="option-{i}"
 					role="option"
 					aria-selected={option.value === value}
-					class="select-option {i === highlightedIndex ? 'highlighted' : ''} {option.value === value ? 'selected' : ''}"
+					class="select-option {i === highlightedIndex ? 'highlighted' : ''} {option.value === value
+						? 'selected'
+						: ''}"
 					onclick={() => select(option)}
 					onmouseenter={() => (highlightedIndex = i)}
 				>

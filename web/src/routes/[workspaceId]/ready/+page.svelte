@@ -24,8 +24,10 @@
 	async function loadLabelMap() {
 		try {
 			const labels = await listLabels();
-			labelMap = new Map(labels.map(l => [l.name, l]));
-		} catch { /* labels are optional for display */ }
+			labelMap = new Map(labels.map((l) => [l.name, l]));
+		} catch {
+			/* labels are optional for display */
+		}
 	}
 
 	async function loadIssues() {

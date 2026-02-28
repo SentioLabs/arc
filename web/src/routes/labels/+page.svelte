@@ -93,7 +93,9 @@
 	<header class="mb-6 flex items-center justify-between">
 		<div>
 			<h1 class="text-2xl font-bold text-text-primary mb-1">Labels</h1>
-			<p class="text-text-secondary">{labels.length} global label{labels.length !== 1 ? 's' : ''}</p>
+			<p class="text-text-secondary">
+				{labels.length} global label{labels.length !== 1 ? 's' : ''}
+			</p>
 		</div>
 		{#if !showForm}
 			<button class="btn btn-primary" onclick={openCreate}>
@@ -111,9 +113,17 @@
 			<h2 class="text-lg font-semibold text-text-primary mb-4">
 				{editingLabel ? 'Edit Label' : 'Create Label'}
 			</h2>
-			<form onsubmit={(e) => { e.preventDefault(); handleSave(); }} class="space-y-4">
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSave();
+				}}
+				class="space-y-4"
+			>
 				<div>
-					<label for="label-name" class="block text-sm font-medium text-text-secondary mb-1">Name</label>
+					<label for="label-name" class="block text-sm font-medium text-text-secondary mb-1"
+						>Name</label
+					>
 					<input
 						id="label-name"
 						type="text"
@@ -126,12 +136,16 @@
 				</div>
 
 				<div>
-					<label for="label-color" class="block text-sm font-medium text-text-secondary mb-1">Color</label>
-					<ColorPicker value={formColor} onchange={(c) => formColor = c} />
+					<label for="label-color" class="block text-sm font-medium text-text-secondary mb-1"
+						>Color</label
+					>
+					<ColorPicker value={formColor} onchange={(c) => (formColor = c)} />
 				</div>
 
 				<div>
-					<label for="label-desc" class="block text-sm font-medium text-text-secondary mb-1">Description</label>
+					<label for="label-desc" class="block text-sm font-medium text-text-secondary mb-1"
+						>Description</label
+					>
 					<textarea
 						id="label-desc"
 						bind:value={formDescription}
@@ -168,9 +182,13 @@
 		</div>
 	{:else if labels.length === 0 && !showForm}
 		<div class="card p-12 text-center">
-			<div class="w-16 h-16 bg-surface-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+			<div
+				class="w-16 h-16 bg-surface-700 rounded-2xl flex items-center justify-center mx-auto mb-4"
+			>
 				<svg class="w-8 h-8 text-text-muted" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z" />
+					<path
+						d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"
+					/>
 				</svg>
 			</div>
 			<h2 class="text-xl font-semibold text-text-primary mb-2">No labels yet</h2>
@@ -194,7 +212,9 @@
 							></div>
 							<h3 class="font-medium text-text-primary">{label.name}</h3>
 						</div>
-						<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+						<div
+							class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+						>
 							<button
 								type="button"
 								class="p-1 rounded hover:bg-surface-600 text-text-muted hover:text-text-primary transition-colors"
@@ -202,17 +222,21 @@
 								title="Edit"
 							>
 								<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-									<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+									<path
+										d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+									/>
 								</svg>
 							</button>
 							<button
 								type="button"
 								class="p-1 rounded hover:bg-surface-600 text-text-muted hover:text-status-blocked transition-colors"
-								onclick={() => deletingLabel = label}
+								onclick={() => (deletingLabel = label)}
 								title="Delete"
 							>
 								<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-									<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+									<path
+										d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+									/>
 								</svg>
 							</button>
 						</div>
@@ -239,5 +263,5 @@
 	confirmLabel="Delete"
 	loading={deleteLoading}
 	onconfirm={handleDelete}
-	oncancel={() => deletingLabel = null}
+	oncancel={() => (deletingLabel = null)}
 />

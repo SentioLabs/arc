@@ -1,13 +1,13 @@
 /* Import distinctive fonts - must come before @import "tailwindcss" */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap");
 
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* Custom theme - Refined Terminal aesthetic */
 @theme {
 	/* Typography */
-	--font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
-	--font-mono: 'JetBrains Mono', ui-monospace, monospace;
+	--font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, monospace;
 
 	/* Surface colors - deep, rich darks */
 	--color-surface-900: oklch(0.13 0.01 250);
@@ -315,7 +315,7 @@
 	}
 
 	.checkbox:checked::before {
-		content: '';
+		content: "";
 		width: 0.625rem;
 		height: 0.625rem;
 		background: white;

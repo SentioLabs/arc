@@ -101,7 +101,9 @@ test.describe('Workspace Deletion', () => {
 		await expect(page.getByText('1 selected')).toBeVisible();
 
 		// Should show batch delete button (target the button element with exact text)
-		await expect(page.locator('button.btn-danger').filter({ hasText: 'Delete workspace' })).toBeVisible();
+		await expect(
+			page.locator('button.btn-danger').filter({ hasText: 'Delete workspace' })
+		).toBeVisible();
 	});
 
 	test('selects multiple workspaces', async ({ page }) => {
@@ -208,9 +210,7 @@ test.describe('Workspace Deletion', () => {
 		await dialog.getByRole('button', { name: 'Delete Workspaces' }).click();
 
 		// Wait for dialog to close
-		await expect(
-			page.getByRole('heading', { name: 'Delete 2 workspaces?' })
-		).not.toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Delete 2 workspaces?' })).not.toBeVisible();
 
 		// Deleted workspaces should be removed (check headings specifically)
 		await expect(page.getByRole('heading', { name: 'Test Workspace 1' })).not.toBeVisible();
