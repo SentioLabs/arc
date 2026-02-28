@@ -1,21 +1,13 @@
 <script lang="ts">
 	const palette = [
-		'#ef4444',
-		'#f97316',
-		'#f59e0b',
-		'#eab308',
-		'#84cc16',
-		'#22c55e',
-		'#14b8a6',
-		'#06b6d4',
-		'#3b82f6',
-		'#6366f1',
-		'#8b5cf6',
-		'#a855f7',
-		'#d946ef',
-		'#ec4899',
-		'#f43f5e',
-		'#6b7280'
+		'#ef4444', // red
+		'#f97316', // orange
+		'#eab308', // yellow
+		'#22c55e', // green
+		'#06b6d4', // cyan
+		'#3b82f6', // blue
+		'#8b5cf6', // purple
+		'#6b7280' // gray
 	];
 
 	interface Props {
@@ -26,6 +18,7 @@
 	let { value, onchange }: Props = $props();
 
 	let hexInput = $state('');
+	let colorInputEl: HTMLInputElement | undefined = $state();
 
 	// Keep hexInput in sync when value changes externally
 	$effect(() => {
@@ -43,15 +36,26 @@
 			onchange(cleaned);
 		}
 	}
+
+	function openCustomPicker() {
+		colorInputEl?.click();
+	}
+
+	function handleCustomColor(e: Event) {
+		const target = e.target as HTMLInputElement;
+		selectColor(target.value);
+	}
+
+	const isCustomColor = $derived(value && !palette.includes(value));
 </script>
 
 <div class="space-y-3">
-	<!-- Palette grid -->
-	<div class="grid grid-cols-8 gap-1.5">
+	<!-- Presets + custom color trigger -->
+	<div class="flex flex-wrap items-center gap-2">
 		{#each palette as color (color)}
 			<button
 				type="button"
-				class="w-7 h-7 rounded-md border-2 transition-all flex items-center justify-center
+				class="h-7 w-7 rounded-md border-2 transition-all flex items-center justify-center
 					{value === color
 					? 'border-white scale-110'
 					: 'border-transparent hover:border-border-focus/50 hover:scale-105'}"
@@ -70,6 +74,35 @@
 				{/if}
 			</button>
 		{/each}
+
+		<!-- Custom color button -->
+		<button
+			type="button"
+			class="h-7 w-7 rounded-md border-2 transition-all flex items-center justify-center
+				{isCustomColor
+				? 'border-white scale-110'
+				: 'border-transparent hover:border-border-focus/50 hover:scale-105'}"
+			style={isCustomColor
+				? `background-color: ${value}`
+				: 'background: conic-gradient(#ef4444, #f97316, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ef4444)'}
+			onclick={openCustomPicker}
+			title="Custom color"
+		>
+			{#if isCustomColor}
+				<svg class="w-3.5 h-3.5 text-white drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor">
+					<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+				</svg>
+			{/if}
+		</button>
+
+		<input
+			type="color"
+			bind:this={colorInputEl}
+			value={value || '#3b82f6'}
+			onchange={handleCustomColor}
+			class="sr-only"
+			tabindex={-1}
+		/>
 	</div>
 
 	<!-- Hex input -->
