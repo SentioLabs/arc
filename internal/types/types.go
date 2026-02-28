@@ -29,8 +29,8 @@ func (w *Workspace) Validate() error {
 	if w.Prefix == "" {
 		return fmt.Errorf("workspace prefix is required")
 	}
-	if len(w.Prefix) > 10 {
-		return fmt.Errorf("workspace prefix must be 10 characters or less")
+	if len(w.Prefix) > 15 {
+		return fmt.Errorf("workspace prefix must be 15 characters or less")
 	}
 	return nil
 }
