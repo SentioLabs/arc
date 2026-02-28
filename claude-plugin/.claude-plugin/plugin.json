@@ -1,7 +1,7 @@
 {
   "name": "arc",
   "description": "Central issue tracker for AI-assisted coding workflows. Manage tasks, track work, and maintain context with simple CLI commands.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": {
     "name": "Sentio Labs",
     "url": "https://github.com/sentiolabs"
