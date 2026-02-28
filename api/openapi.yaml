@@ -529,16 +529,13 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ====================
-  # Labels
+  # Labels (global)
   # ====================
-  /workspaces/{workspaceId}/labels:
-    parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
-
+  /labels:
     get:
       operationId: listLabels
       tags: [labels]
-      summary: List labels in workspace
+      summary: List all global labels
       responses:
         "200":
           description: List of labels
@@ -573,9 +570,8 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/labels/{labelName}:
+  /labels/{labelName}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
       - name: labelName
         in: path
         required: true
@@ -619,6 +615,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  # ====================
+  # Issue-Label Associations (workspace-scoped)
+  # ====================
   /workspaces/{workspaceId}/issues/{issueId}/labels:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -1217,11 +1216,8 @@ components:
     Label:
       type: object
       required:
-        - workspace_id
         - name
       properties:
-        workspace_id:
-          type: string
         name:
           type: string
         color:
