@@ -13,7 +13,7 @@
 
 	let { value, onchange }: Props = $props();
 
-	let hexInput = $state(value || '');
+	let hexInput = $state('');
 
 	// Keep hexInput in sync when value changes externally
 	$effect(() => {

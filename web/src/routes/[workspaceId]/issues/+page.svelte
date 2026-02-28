@@ -16,6 +16,7 @@
 	let total = $state(0);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let labelMap = $state(new Map<string, Label>());
 
 	// Get filters from URL
 	const filters = $derived<IssueFilters>({
@@ -35,6 +36,7 @@
 	$effect(() => {
 		if (workspaceId) {
 			loadIssues();
+			loadLabelMap();
 		}
 	});
 

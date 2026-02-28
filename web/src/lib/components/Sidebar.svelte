@@ -16,7 +16,7 @@
 	let searchQuery = $state('');
 
 	// Filter workspaces based on search
-	const filteredWorkspaces = $derived(() => {
+	const filteredWorkspaces = $derived.by(() => {
 		if (!searchQuery.trim()) return workspaces;
 		const q = searchQuery.toLowerCase().trim();
 		return workspaces.filter(
@@ -113,7 +113,7 @@
 			</div>
 			<!-- Workspace list -->
 			<div class="max-h-40 overflow-y-auto space-y-0.5">
-				{#each filteredWorkspaces() as ws (ws.id)}
+				{#each filteredWorkspaces as ws (ws.id)}
 					{@const isCurrent = ws.id === currentWorkspace?.id}
 					<button
 						type="button"
@@ -223,7 +223,7 @@
 				</div>
 				<!-- Workspace list -->
 				<div class="flex-1 overflow-y-auto space-y-1">
-					{#each filteredWorkspaces() as ws (ws.id)}
+					{#each filteredWorkspaces as ws (ws.id)}
 						<a href="/{ws.id}" class="nav-link">
 							<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
 								<path d={icons.workspace} />
