@@ -7,6 +7,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -67,7 +68,8 @@ var planSetCmd = &cobra.Command{
 	Short: "Set or update an inline plan on an issue",
 	Long: `Set or update an inline plan directly on an issue.
 If plan text is provided, sets it directly.
-If --editor is used, opens $EDITOR to compose the plan.`,
+If --editor is used, opens $EDITOR to compose the plan.
+If --stdin is used, reads plan content from stdin.`,
 	Args: cobra.RangeArgs(1, planSetMinArgs),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -83,8 +85,17 @@ If --editor is used, opens $EDITOR to compose the plan.`,
 		issueID := args[0]
 		var text string
 
+		useStdin, _ := cmd.Flags().GetBool("stdin")
+		if useStdin {
+			content, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("reading stdin: %w", err)
+			}
+			text = strings.TrimSpace(string(content))
+		}
+
 		useEditor, _ := cmd.Flags().GetBool("editor")
-		if useEditor {
+		if !useStdin && useEditor {
 			// Get existing plan as starting content
 			existing, _ := c.GetPlanContext(wsID, issueID)
 			initialContent := ""
@@ -97,10 +108,10 @@ If --editor is used, opens $EDITOR to compose the plan.`,
 				return fmt.Errorf("editor: %w", err)
 			}
 			text = editedText
-		} else if len(args) == planSetMinArgs {
+		} else if !useStdin && len(args) == planSetMinArgs {
 			text = args[1]
-		} else {
-			return errors.New("provide plan text or use --editor")
+		} else if !useStdin {
+			return errors.New("provide plan text, use --editor, or use --stdin")
 		}
 
 		if text == "" {
@@ -122,9 +133,10 @@ If --editor is used, opens $EDITOR to compose the plan.`,
 	},
 }
 
-// init adds the --editor flag to the planSetCmd.
+// init adds the --editor and --stdin flags to the planSetCmd.
 func init() {
 	planSetCmd.Flags().BoolP("editor", "e", false, "Open $EDITOR to compose plan")
+	planSetCmd.Flags().Bool("stdin", false, "Read plan content from stdin")
 }
 
 // planShowCmd displays all plan context for an issue, including inline plans,
