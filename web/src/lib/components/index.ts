@@ -6,6 +6,10 @@ export { default as TypeBadge } from './TypeBadge.svelte';
 // Issue components
 export { default as IssueCard } from './IssueCard.svelte';
 
+// Team components
+export { default as TeamIssueCard } from './TeamIssueCard.svelte';
+export { default as RoleLane } from './RoleLane.svelte';
+
 // Layout components
 export { default as Sidebar } from './Sidebar.svelte';
 export { default as Header } from './Header.svelte';
