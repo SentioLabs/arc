@@ -19,13 +19,20 @@ const (
 	base36Base = 36
 	// hashIDSuffixLen is the length of the base36 hash suffix for issue/plan IDs.
 	hashIDSuffixLen = 6
-	// prefixBaseMaxLen is the maximum length of the basename portion of a prefix.
-	prefixBaseMaxLen = 5
 	// prefixSuffixLen is the length of the base36 hash suffix for prefixes.
 	prefixSuffixLen = 4
 	// maxSanitizedNameLen is the maximum length for a sanitized workspace basename.
 	maxSanitizedNameLen = 20
 )
+
+// MaxBasenameTruncation is the max number of alphanumeric chars kept from the basename.
+const MaxBasenameTruncation = 10
+
+// PrefixHashSuffixLength is the number of base36 hash characters in the suffix.
+const PrefixHashSuffixLength = 4
+
+// MaxPrefixLength is the maximum total prefix length: basename + hyphen + hash suffix.
+const MaxPrefixLength = MaxBasenameTruncation + 1 + PrefixHashSuffixLength
 
 // Base36Encode converts bytes to a base36 string.
 func Base36Encode(data []byte) string {
@@ -136,10 +143,9 @@ func GeneratePrefix(dirPath string) (string, error) {
 	normalized := filepath.ToSlash(evalPath)
 
 	// Get alphanumeric-only basename, truncated for prefix use
-	// Max prefixBaseMaxLen chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	basename := normalizeForPrefix(filepath.Base(evalPath))
-	if len(basename) > prefixBaseMaxLen {
-		basename = basename[:prefixBaseMaxLen]
+	if len(basename) > MaxBasenameTruncation {
+		basename = basename[:MaxBasenameTruncation]
 	}
 
 	// Generate deterministic hash from full path using base36
@@ -157,16 +163,52 @@ func GeneratePrefix(dirPath string) (string, error) {
 	return basename + "-" + suffix, nil
 }
 
+// GeneratePrefixWithCustomName creates an issue prefix using a user-provided basename
+// combined with a path-derived hash suffix for uniqueness.
+// The custom name is normalized (lowercased, non-alphanumeric stripped) and truncated to MaxBasenameTruncation chars.
+// Format: {normalized-custom-name}-{4-char-base36-hash}
+func GeneratePrefixWithCustomName(dirPath, customName string) (string, error) {
+	absPath, err := filepath.Abs(dirPath)
+	if err != nil {
+		return "", err
+	}
+
+	evalPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		evalPath = absPath
+	}
+
+	normalized := filepath.ToSlash(evalPath)
+
+	// Normalize and truncate custom name
+	basename := normalizeForPrefix(customName)
+	if len(basename) > MaxBasenameTruncation {
+		basename = basename[:MaxBasenameTruncation]
+	}
+
+	// Generate deterministic hash from full path using base36
+	hash := sha256.Sum256([]byte(normalized))
+	suffix := Base36Encode(hash[:2])
+
+	for len(suffix) < PrefixHashSuffixLength {
+		suffix = "0" + suffix
+	}
+	if len(suffix) > PrefixHashSuffixLength {
+		suffix = suffix[:PrefixHashSuffixLength]
+	}
+
+	return basename + "-" + suffix, nil
+}
+
 // GeneratePrefixFromName creates an issue prefix from a workspace name (without path).
 // Format: {alphanumeric-name-truncated}-{4-char-base36-hash}
 // Used when creating a workspace without an associated directory path.
 // Includes timestamp for uniqueness when same name is used multiple times.
 func GeneratePrefixFromName(name string) string {
 	// Normalize to alphanumeric only and truncate
-	// Max prefixBaseMaxLen chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	normalized := normalizeForPrefix(name)
-	if len(normalized) > prefixBaseMaxLen {
-		normalized = normalized[:prefixBaseMaxLen]
+	if len(normalized) > MaxBasenameTruncation {
+		normalized = normalized[:MaxBasenameTruncation]
 	}
 
 	// Generate hash from name + timestamp for uniqueness

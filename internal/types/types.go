@@ -10,10 +10,13 @@ import (
 // Validation limits for data fields.
 const (
 	maxWorkspaceNameLength = 100 // maximum characters for workspace name
-	maxPrefixLength        = 10  // maximum characters for workspace prefix
 	maxTitleLength         = 500 // maximum characters for issue title
 	maxPlanTitleLength     = 200 // maximum characters for plan title
 )
+
+// MaxPrefixLength is the maximum allowed workspace prefix length.
+// Must match workspace.MaxPrefixLength (kept separate to avoid circular imports).
+const MaxPrefixLength = 15
 
 // Workspace represents a project or workspace that contains issues.
 // Replaces the per-repo concept from beads with explicit workspace management.
@@ -38,8 +41,8 @@ func (w *Workspace) Validate() error {
 	if w.Prefix == "" {
 		return errors.New("workspace prefix is required")
 	}
-	if len(w.Prefix) > maxPrefixLength {
-		return fmt.Errorf("workspace prefix must be %d characters or less", maxPrefixLength)
+	if len(w.Prefix) > MaxPrefixLength {
+		return fmt.Errorf("workspace prefix must be %d characters or less", MaxPrefixLength)
 	}
 	return nil
 }
