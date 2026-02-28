@@ -26,12 +26,9 @@ type addLabelToIssueRequest struct {
 	Label string `json:"label"`
 }
 
-// listLabels returns all labels defined in the specified workspace.
-// Labels are used to categorize and filter issues.
+// listLabels returns all global labels.
 func (s *Server) listLabels(c echo.Context) error {
-	wsID := workspaceID(c)
-
-	labels, err := s.store.ListLabels(c.Request().Context(), wsID)
+	labels, err := s.store.ListLabels(c.Request().Context())
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
@@ -39,18 +36,14 @@ func (s *Server) listLabels(c echo.Context) error {
 	return successJSON(c, labels)
 }
 
-// createLabel creates a new label in the specified workspace.
-// Each label has a unique name within the workspace, and optional color and description.
+// createLabel creates a new global label.
 func (s *Server) createLabel(c echo.Context) error {
-	wsID := workspaceID(c)
-
 	var req createLabelRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
 	label := &types.Label{
-		WorkspaceID: wsID,
 		Name:        req.Name,
 		Color:       req.Color,
 		Description: req.Description,
@@ -65,7 +58,6 @@ func (s *Server) createLabel(c echo.Context) error {
 
 // updateLabel updates an existing label's color or description.
 func (s *Server) updateLabel(c echo.Context) error {
-	wsID := workspaceID(c)
 	name := c.Param("name")
 
 	var req updateLabelRequest
@@ -73,7 +65,7 @@ func (s *Server) updateLabel(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	label, err := s.store.GetLabel(c.Request().Context(), wsID, name)
+	label, err := s.store.GetLabel(c.Request().Context(), name)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
@@ -94,10 +86,9 @@ func (s *Server) updateLabel(c echo.Context) error {
 
 // deleteLabel deletes a label.
 func (s *Server) deleteLabel(c echo.Context) error {
-	wsID := workspaceID(c)
 	name := c.Param("name")
 
-	if err := s.store.DeleteLabel(c.Request().Context(), wsID, name); err != nil {
+	if err := s.store.DeleteLabel(c.Request().Context(), name); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 

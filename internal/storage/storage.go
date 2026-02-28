@@ -40,12 +40,12 @@ type Storage interface {
 	GetDependencies(ctx context.Context, issueID string) ([]*types.Dependency, error)
 	GetDependents(ctx context.Context, issueID string) ([]*types.Dependency, error)
 
-	// Labels
+	// Labels (global)
 	CreateLabel(ctx context.Context, label *types.Label) error
-	GetLabel(ctx context.Context, workspaceID, name string) (*types.Label, error)
-	ListLabels(ctx context.Context, workspaceID string) ([]*types.Label, error)
+	GetLabel(ctx context.Context, name string) (*types.Label, error)
+	ListLabels(ctx context.Context) ([]*types.Label, error)
 	UpdateLabel(ctx context.Context, label *types.Label) error
-	DeleteLabel(ctx context.Context, workspaceID, name string) error
+	DeleteLabel(ctx context.Context, name string) error
 	AddLabelToIssue(ctx context.Context, issueID, label, actor string) error
 	RemoveLabelFromIssue(ctx context.Context, issueID, label, actor string) error
 	GetIssueLabels(ctx context.Context, issueID string) ([]string, error)

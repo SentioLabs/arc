@@ -13,3 +13,4 @@ export { default as Header } from './Header.svelte';
 // Utility components
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as Select } from './Select.svelte';
+export { default as ColorPicker } from './ColorPicker.svelte';

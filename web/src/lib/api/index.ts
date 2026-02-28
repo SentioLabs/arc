@@ -178,13 +178,43 @@ export async function getBlockedIssues(workspaceId: string, limit = 50): Promise
 	return data ?? [];
 }
 
-// Label APIs
-export async function listLabels(workspaceId: string): Promise<Label[]> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/labels', {
-		params: { path: { workspaceId } }
-	});
+// Label APIs (global)
+export async function listLabels(): Promise<Label[]> {
+	const { data, error } = await api.GET('/labels');
 	if (error) handleError(error);
 	return data ?? [];
+}
+
+export async function createLabel(
+	name: string,
+	color?: string,
+	description?: string
+): Promise<Label> {
+	const { data, error } = await api.POST('/labels', {
+		body: { name, color, description }
+	});
+	if (error) handleError(error);
+	return data!;
+}
+
+export async function updateLabel(
+	name: string,
+	color?: string,
+	description?: string
+): Promise<Label> {
+	const { data, error } = await api.PUT('/labels/{labelName}', {
+		params: { path: { labelName: name } },
+		body: { color, description }
+	});
+	if (error) handleError(error);
+	return data!;
+}
+
+export async function deleteLabel(name: string): Promise<void> {
+	const { error } = await api.DELETE('/labels/{labelName}', {
+		params: { path: { labelName: name } }
+	});
+	if (error) handleError(error);
 }
 
 // Comment APIs

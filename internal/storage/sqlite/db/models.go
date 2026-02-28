@@ -90,7 +90,6 @@ type IssuePlan struct {
 }
 
 type Label struct {
-	WorkspaceID string         `json:"workspace_id"`
 	Name        string         `json:"name"`
 	Color       sql.NullString `json:"color"`
 	Description sql.NullString `json:"description"`

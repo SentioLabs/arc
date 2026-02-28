@@ -273,7 +273,6 @@ type Label struct {
 	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
-	WorkspaceID string  `json:"workspace_id"`
 }
 
 // PaginatedIssues defines model for PaginatedIssues.
@@ -496,6 +495,12 @@ type GetReadyWorkParams struct {
 // GetReadyWorkParamsSort defines parameters for GetReadyWork.
 type GetReadyWorkParamsSort string
 
+// CreateLabelJSONRequestBody defines body for CreateLabel for application/json ContentType.
+type CreateLabelJSONRequestBody = CreateLabelRequest
+
+// UpdateLabelJSONRequestBody defines body for UpdateLabel for application/json ContentType.
+type UpdateLabelJSONRequestBody = UpdateLabelRequest
+
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
 
@@ -523,14 +528,20 @@ type AddDependencyJSONRequestBody = AddDependencyRequest
 // AddLabelToIssueJSONRequestBody defines body for AddLabelToIssue for application/json ContentType.
 type AddLabelToIssueJSONRequestBody = AddLabelToIssueRequest
 
-// CreateLabelJSONRequestBody defines body for CreateLabel for application/json ContentType.
-type CreateLabelJSONRequestBody = CreateLabelRequest
-
-// UpdateLabelJSONRequestBody defines body for UpdateLabel for application/json ContentType.
-type UpdateLabelJSONRequestBody = UpdateLabelRequest
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List all global labels
+	// (GET /labels)
+	ListLabels(ctx echo.Context) error
+	// Create a new label
+	// (POST /labels)
+	CreateLabel(ctx echo.Context) error
+	// Delete a label
+	// (DELETE /labels/{labelName})
+	DeleteLabel(ctx echo.Context, labelName string) error
+	// Update a label
+	// (PUT /labels/{labelName})
+	UpdateLabel(ctx echo.Context, labelName string) error
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(ctx echo.Context) error
@@ -600,18 +611,6 @@ type ServerInterface interface {
 	// Reopen a closed issue
 	// (POST /workspaces/{workspaceId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx echo.Context, workspaceID WorkspaceID, issueID IssueID, params ReopenIssueParams) error
-	// List labels in workspace
-	// (GET /workspaces/{workspaceId}/labels)
-	ListLabels(ctx echo.Context, workspaceID WorkspaceID) error
-	// Create a new label
-	// (POST /workspaces/{workspaceId}/labels)
-	CreateLabel(ctx echo.Context, workspaceID WorkspaceID) error
-	// Delete a label
-	// (DELETE /workspaces/{workspaceId}/labels/{labelName})
-	DeleteLabel(ctx echo.Context, workspaceID WorkspaceID, labelName string) error
-	// Update a label
-	// (PUT /workspaces/{workspaceId}/labels/{labelName})
-	UpdateLabel(ctx echo.Context, workspaceID WorkspaceID, labelName string) error
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /workspaces/{workspaceId}/ready)
 	GetReadyWork(ctx echo.Context, workspaceID WorkspaceID, params GetReadyWorkParams) error
@@ -623,6 +622,56 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// ListLabels converts echo context to params.
+func (w *ServerInterfaceWrapper) ListLabels(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListLabels(ctx)
+	return err
+}
+
+// CreateLabel converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateLabel(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateLabel(ctx)
+	return err
+}
+
+// DeleteLabel converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteLabel(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "labelName" -------------
+	var labelName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "labelName", ctx.Param("labelName"), &labelName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter labelName: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteLabel(ctx, labelName)
+	return err
+}
+
+// UpdateLabel converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateLabel(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "labelName" -------------
+	var labelName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "labelName", ctx.Param("labelName"), &labelName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter labelName: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateLabel(ctx, labelName)
+	return err
 }
 
 // ListWorkspaces converts echo context to params.
@@ -1389,86 +1438,6 @@ func (w *ServerInterfaceWrapper) ReopenIssue(ctx echo.Context) error {
 	return err
 }
 
-// ListLabels converts echo context to params.
-func (w *ServerInterfaceWrapper) ListLabels(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.ListLabels(ctx, workspaceID)
-	return err
-}
-
-// CreateLabel converts echo context to params.
-func (w *ServerInterfaceWrapper) CreateLabel(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.CreateLabel(ctx, workspaceID)
-	return err
-}
-
-// DeleteLabel converts echo context to params.
-func (w *ServerInterfaceWrapper) DeleteLabel(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// ------------- Path parameter "labelName" -------------
-	var labelName string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "labelName", ctx.Param("labelName"), &labelName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter labelName: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.DeleteLabel(ctx, workspaceID, labelName)
-	return err
-}
-
-// UpdateLabel converts echo context to params.
-func (w *ServerInterfaceWrapper) UpdateLabel(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// ------------- Path parameter "labelName" -------------
-	var labelName string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "labelName", ctx.Param("labelName"), &labelName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter labelName: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.UpdateLabel(ctx, workspaceID, labelName)
-	return err
-}
-
 // GetReadyWork converts echo context to params.
 func (w *ServerInterfaceWrapper) GetReadyWork(ctx echo.Context) error {
 	var err error
@@ -1573,6 +1542,10 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/labels", wrapper.ListLabels)
+	router.POST(baseURL+"/labels", wrapper.CreateLabel)
+	router.DELETE(baseURL+"/labels/:labelName", wrapper.DeleteLabel)
+	router.PUT(baseURL+"/labels/:labelName", wrapper.UpdateLabel)
 	router.GET(baseURL+"/workspaces", wrapper.ListWorkspaces)
 	router.POST(baseURL+"/workspaces", wrapper.CreateWorkspace)
 	router.DELETE(baseURL+"/workspaces/:workspaceId", wrapper.DeleteWorkspace)
@@ -1596,10 +1569,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/workspaces/:workspaceId/issues/:issueId/labels", wrapper.AddLabelToIssue)
 	router.DELETE(baseURL+"/workspaces/:workspaceId/issues/:issueId/labels/:labelName", wrapper.RemoveLabelFromIssue)
 	router.POST(baseURL+"/workspaces/:workspaceId/issues/:issueId/reopen", wrapper.ReopenIssue)
-	router.GET(baseURL+"/workspaces/:workspaceId/labels", wrapper.ListLabels)
-	router.POST(baseURL+"/workspaces/:workspaceId/labels", wrapper.CreateLabel)
-	router.DELETE(baseURL+"/workspaces/:workspaceId/labels/:labelName", wrapper.DeleteLabel)
-	router.PUT(baseURL+"/workspaces/:workspaceId/labels/:labelName", wrapper.UpdateLabel)
 	router.GET(baseURL+"/workspaces/:workspaceId/ready", wrapper.GetReadyWork)
 	router.GET(baseURL+"/workspaces/:workspaceId/stats", wrapper.GetWorkspaceStats)
 
@@ -1610,6 +1579,145 @@ type BadRequestJSONResponse Error
 type InternalErrorJSONResponse Error
 
 type NotFoundJSONResponse Error
+
+type ListLabelsRequestObject struct {
+}
+
+type ListLabelsResponseObject interface {
+	VisitListLabelsResponse(w http.ResponseWriter) error
+}
+
+type ListLabels200JSONResponse []Label
+
+func (response ListLabels200JSONResponse) VisitListLabelsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListLabels500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListLabels500JSONResponse) VisitListLabelsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateLabelRequestObject struct {
+	Body *CreateLabelJSONRequestBody
+}
+
+type CreateLabelResponseObject interface {
+	VisitCreateLabelResponse(w http.ResponseWriter) error
+}
+
+type CreateLabel201JSONResponse Label
+
+func (response CreateLabel201JSONResponse) VisitCreateLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateLabel400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateLabel400JSONResponse) VisitCreateLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateLabel500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateLabel500JSONResponse) VisitCreateLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteLabelRequestObject struct {
+	LabelName string `json:"labelName"`
+}
+
+type DeleteLabelResponseObject interface {
+	VisitDeleteLabelResponse(w http.ResponseWriter) error
+}
+
+type DeleteLabel204Response struct {
+}
+
+func (response DeleteLabel204Response) VisitDeleteLabelResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteLabel404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteLabel404JSONResponse) VisitDeleteLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteLabel500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteLabel500JSONResponse) VisitDeleteLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateLabelRequestObject struct {
+	LabelName string `json:"labelName"`
+	Body      *UpdateLabelJSONRequestBody
+}
+
+type UpdateLabelResponseObject interface {
+	VisitUpdateLabelResponse(w http.ResponseWriter) error
+}
+
+type UpdateLabel200JSONResponse Label
+
+func (response UpdateLabel200JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateLabel400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateLabel400JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateLabel404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateLabel404JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateLabel500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateLabel500JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
 
 type ListWorkspacesRequestObject struct {
 }
@@ -2495,149 +2603,6 @@ func (response ReopenIssue500JSONResponse) VisitReopenIssueResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListLabelsRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-}
-
-type ListLabelsResponseObject interface {
-	VisitListLabelsResponse(w http.ResponseWriter) error
-}
-
-type ListLabels200JSONResponse []Label
-
-func (response ListLabels200JSONResponse) VisitListLabelsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListLabels500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ListLabels500JSONResponse) VisitListLabelsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateLabelRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-	Body        *CreateLabelJSONRequestBody
-}
-
-type CreateLabelResponseObject interface {
-	VisitCreateLabelResponse(w http.ResponseWriter) error
-}
-
-type CreateLabel201JSONResponse Label
-
-func (response CreateLabel201JSONResponse) VisitCreateLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateLabel400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response CreateLabel400JSONResponse) VisitCreateLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateLabel500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response CreateLabel500JSONResponse) VisitCreateLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeleteLabelRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-	LabelName   string      `json:"labelName"`
-}
-
-type DeleteLabelResponseObject interface {
-	VisitDeleteLabelResponse(w http.ResponseWriter) error
-}
-
-type DeleteLabel204Response struct {
-}
-
-func (response DeleteLabel204Response) VisitDeleteLabelResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeleteLabel404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeleteLabel404JSONResponse) VisitDeleteLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeleteLabel500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response DeleteLabel500JSONResponse) VisitDeleteLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateLabelRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-	LabelName   string      `json:"labelName"`
-	Body        *UpdateLabelJSONRequestBody
-}
-
-type UpdateLabelResponseObject interface {
-	VisitUpdateLabelResponse(w http.ResponseWriter) error
-}
-
-type UpdateLabel200JSONResponse Label
-
-func (response UpdateLabel200JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateLabel400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response UpdateLabel400JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateLabel404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response UpdateLabel404JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateLabel500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response UpdateLabel500JSONResponse) VisitUpdateLabelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type GetReadyWorkRequestObject struct {
 	WorkspaceID WorkspaceID `json:"workspaceId"`
 	Params      GetReadyWorkParams
@@ -2702,6 +2667,18 @@ func (response GetWorkspaceStats500JSONResponse) VisitGetWorkspaceStatsResponse(
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List all global labels
+	// (GET /labels)
+	ListLabels(ctx context.Context, request ListLabelsRequestObject) (ListLabelsResponseObject, error)
+	// Create a new label
+	// (POST /labels)
+	CreateLabel(ctx context.Context, request CreateLabelRequestObject) (CreateLabelResponseObject, error)
+	// Delete a label
+	// (DELETE /labels/{labelName})
+	DeleteLabel(ctx context.Context, request DeleteLabelRequestObject) (DeleteLabelResponseObject, error)
+	// Update a label
+	// (PUT /labels/{labelName})
+	UpdateLabel(ctx context.Context, request UpdateLabelRequestObject) (UpdateLabelResponseObject, error)
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(ctx context.Context, request ListWorkspacesRequestObject) (ListWorkspacesResponseObject, error)
@@ -2771,18 +2748,6 @@ type StrictServerInterface interface {
 	// Reopen a closed issue
 	// (POST /workspaces/{workspaceId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx context.Context, request ReopenIssueRequestObject) (ReopenIssueResponseObject, error)
-	// List labels in workspace
-	// (GET /workspaces/{workspaceId}/labels)
-	ListLabels(ctx context.Context, request ListLabelsRequestObject) (ListLabelsResponseObject, error)
-	// Create a new label
-	// (POST /workspaces/{workspaceId}/labels)
-	CreateLabel(ctx context.Context, request CreateLabelRequestObject) (CreateLabelResponseObject, error)
-	// Delete a label
-	// (DELETE /workspaces/{workspaceId}/labels/{labelName})
-	DeleteLabel(ctx context.Context, request DeleteLabelRequestObject) (DeleteLabelResponseObject, error)
-	// Update a label
-	// (PUT /workspaces/{workspaceId}/labels/{labelName})
-	UpdateLabel(ctx context.Context, request UpdateLabelRequestObject) (UpdateLabelResponseObject, error)
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /workspaces/{workspaceId}/ready)
 	GetReadyWork(ctx context.Context, request GetReadyWorkRequestObject) (GetReadyWorkResponseObject, error)
@@ -2801,6 +2766,114 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// ListLabels operation middleware
+func (sh *strictHandler) ListLabels(ctx echo.Context) error {
+	var request ListLabelsRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListLabels(ctx.Request().Context(), request.(ListLabelsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListLabels")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListLabelsResponseObject); ok {
+		return validResponse.VisitListLabelsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateLabel operation middleware
+func (sh *strictHandler) CreateLabel(ctx echo.Context) error {
+	var request CreateLabelRequestObject
+
+	var body CreateLabelJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateLabel(ctx.Request().Context(), request.(CreateLabelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateLabel")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateLabelResponseObject); ok {
+		return validResponse.VisitCreateLabelResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteLabel operation middleware
+func (sh *strictHandler) DeleteLabel(ctx echo.Context, labelName string) error {
+	var request DeleteLabelRequestObject
+
+	request.LabelName = labelName
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteLabel(ctx.Request().Context(), request.(DeleteLabelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteLabel")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteLabelResponseObject); ok {
+		return validResponse.VisitDeleteLabelResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateLabel operation middleware
+func (sh *strictHandler) UpdateLabel(ctx echo.Context, labelName string) error {
+	var request UpdateLabelRequestObject
+
+	request.LabelName = labelName
+
+	var body UpdateLabelJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateLabel(ctx.Request().Context(), request.(UpdateLabelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateLabel")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateLabelResponseObject); ok {
+		return validResponse.VisitUpdateLabelResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // ListWorkspaces operation middleware
@@ -3460,120 +3533,6 @@ func (sh *strictHandler) ReopenIssue(ctx echo.Context, workspaceID WorkspaceID, 
 	return nil
 }
 
-// ListLabels operation middleware
-func (sh *strictHandler) ListLabels(ctx echo.Context, workspaceID WorkspaceID) error {
-	var request ListLabelsRequestObject
-
-	request.WorkspaceID = workspaceID
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.ListLabels(ctx.Request().Context(), request.(ListLabelsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListLabels")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(ListLabelsResponseObject); ok {
-		return validResponse.VisitListLabelsResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateLabel operation middleware
-func (sh *strictHandler) CreateLabel(ctx echo.Context, workspaceID WorkspaceID) error {
-	var request CreateLabelRequestObject
-
-	request.WorkspaceID = workspaceID
-
-	var body CreateLabelJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
-	}
-	request.Body = &body
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateLabel(ctx.Request().Context(), request.(CreateLabelRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateLabel")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(CreateLabelResponseObject); ok {
-		return validResponse.VisitCreateLabelResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeleteLabel operation middleware
-func (sh *strictHandler) DeleteLabel(ctx echo.Context, workspaceID WorkspaceID, labelName string) error {
-	var request DeleteLabelRequestObject
-
-	request.WorkspaceID = workspaceID
-	request.LabelName = labelName
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteLabel(ctx.Request().Context(), request.(DeleteLabelRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteLabel")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(DeleteLabelResponseObject); ok {
-		return validResponse.VisitDeleteLabelResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// UpdateLabel operation middleware
-func (sh *strictHandler) UpdateLabel(ctx echo.Context, workspaceID WorkspaceID, labelName string) error {
-	var request UpdateLabelRequestObject
-
-	request.WorkspaceID = workspaceID
-	request.LabelName = labelName
-
-	var body UpdateLabelJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
-	}
-	request.Body = &body
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateLabel(ctx.Request().Context(), request.(UpdateLabelRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateLabel")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(UpdateLabelResponseObject); ok {
-		return validResponse.VisitUpdateLabelResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // GetReadyWork operation middleware
 func (sh *strictHandler) GetReadyWork(ctx echo.Context, workspaceID WorkspaceID, params GetReadyWorkParams) error {
 	var request GetReadyWorkRequestObject
@@ -3629,63 +3588,63 @@ func (sh *strictHandler) GetWorkspaceStats(ctx echo.Context, workspaceID Workspa
 var swaggerSpec = []string{
 
 	"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",
-	"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",
-	"W4b0XjcBxTFNvZXFdLr/LwAA///JU78eJWMAAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

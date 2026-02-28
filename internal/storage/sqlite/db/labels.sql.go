@@ -28,27 +28,21 @@ func (q *Queries) AddLabelToIssue(ctx context.Context, arg AddLabelToIssueParams
 }
 
 const createLabel = `-- name: CreateLabel :exec
-INSERT INTO labels (workspace_id, name, color, description)
-VALUES (?, ?, ?, ?)
-ON CONFLICT(workspace_id, name) DO UPDATE SET
+INSERT INTO labels (name, color, description)
+VALUES (?, ?, ?)
+ON CONFLICT(name) DO UPDATE SET
     color = excluded.color,
     description = excluded.description
 `
 
 type CreateLabelParams struct {
-	WorkspaceID string         `json:"workspace_id"`
 	Name        string         `json:"name"`
 	Color       sql.NullString `json:"color"`
 	Description sql.NullString `json:"description"`
 }
 
 func (q *Queries) CreateLabel(ctx context.Context, arg CreateLabelParams) error {
-	_, err := q.db.ExecContext(ctx, createLabel,
-		arg.WorkspaceID,
-		arg.Name,
-		arg.Color,
-		arg.Description,
-	)
+	_, err := q.db.ExecContext(ctx, createLabel, arg.Name, arg.Color, arg.Description)
 	return err
 }
 
@@ -62,16 +56,11 @@ func (q *Queries) DeleteIssueLabels(ctx context.Context, issueID string) error {
 }
 
 const deleteLabel = `-- name: DeleteLabel :exec
-DELETE FROM labels WHERE workspace_id = ? AND name = ?
+DELETE FROM labels WHERE name = ?
 `
 
-type DeleteLabelParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	Name        string `json:"name"`
-}
-
-func (q *Queries) DeleteLabel(ctx context.Context, arg DeleteLabelParams) error {
-	_, err := q.db.ExecContext(ctx, deleteLabel, arg.WorkspaceID, arg.Name)
+func (q *Queries) DeleteLabel(ctx context.Context, name string) error {
+	_, err := q.db.ExecContext(ctx, deleteLabel, name)
 	return err
 }
 
@@ -148,23 +137,13 @@ func (q *Queries) GetIssuesByLabel(ctx context.Context, label string) ([]*Issue,
 }
 
 const getLabel = `-- name: GetLabel :one
-SELECT workspace_id, name, color, description FROM labels WHERE workspace_id = ? AND name = ?
+SELECT name, color, description FROM labels WHERE name = ?
 `
 
-type GetLabelParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	Name        string `json:"name"`
-}
-
-func (q *Queries) GetLabel(ctx context.Context, arg GetLabelParams) (*Label, error) {
-	row := q.db.QueryRowContext(ctx, getLabel, arg.WorkspaceID, arg.Name)
+func (q *Queries) GetLabel(ctx context.Context, name string) (*Label, error) {
+	row := q.db.QueryRowContext(ctx, getLabel, name)
 	var i Label
-	err := row.Scan(
-		&i.WorkspaceID,
-		&i.Name,
-		&i.Color,
-		&i.Description,
-	)
+	err := row.Scan(&i.Name, &i.Color, &i.Description)
 	return &i, err
 }
 
@@ -208,11 +187,11 @@ func (q *Queries) GetLabelsForIssues(ctx context.Context, issueIds []string) ([]
 }
 
 const listLabels = `-- name: ListLabels :many
-SELECT workspace_id, name, color, description FROM labels WHERE workspace_id = ? ORDER BY name
+SELECT name, color, description FROM labels ORDER BY name
 `
 
-func (q *Queries) ListLabels(ctx context.Context, workspaceID string) ([]*Label, error) {
-	rows, err := q.db.QueryContext(ctx, listLabels, workspaceID)
+func (q *Queries) ListLabels(ctx context.Context) ([]*Label, error) {
+	rows, err := q.db.QueryContext(ctx, listLabels)
 	if err != nil {
 		return nil, err
 	}
@@ -220,12 +199,7 @@ func (q *Queries) ListLabels(ctx context.Context, workspaceID string) ([]*Label,
 	items := []*Label{}
 	for rows.Next() {
 		var i Label
-		if err := rows.Scan(
-			&i.WorkspaceID,
-			&i.Name,
-			&i.Color,
-			&i.Description,
-		); err != nil {
+		if err := rows.Scan(&i.Name, &i.Color, &i.Description); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -255,22 +229,16 @@ func (q *Queries) RemoveLabelFromIssue(ctx context.Context, arg RemoveLabelFromI
 
 const updateLabel = `-- name: UpdateLabel :exec
 UPDATE labels SET color = ?, description = ?
-WHERE workspace_id = ? AND name = ?
+WHERE name = ?
 `
 
 type UpdateLabelParams struct {
 	Color       sql.NullString `json:"color"`
 	Description sql.NullString `json:"description"`
-	WorkspaceID string         `json:"workspace_id"`
 	Name        string         `json:"name"`
 }
 
 func (q *Queries) UpdateLabel(ctx context.Context, arg UpdateLabelParams) error {
-	_, err := q.db.ExecContext(ctx, updateLabel,
-		arg.Color,
-		arg.Description,
-		arg.WorkspaceID,
-		arg.Name,
-	)
+	_, err := q.db.ExecContext(ctx, updateLabel, arg.Color, arg.Description, arg.Name)
 	return err
 }

@@ -16,7 +16,7 @@
 	let searchQuery = $state('');
 
 	// Filter workspaces based on search
-	const filteredWorkspaces = $derived(() => {
+	const filteredWorkspaces = $derived.by(() => {
 		if (!searchQuery.trim()) return workspaces;
 		const q = searchQuery.toLowerCase().trim();
 		return workspaces.filter(
@@ -36,8 +36,7 @@
 	const navItems = [
 		{ label: 'Issues', href: 'issues', icon: 'issues' },
 		{ label: 'Ready', href: 'ready', icon: 'ready' },
-		{ label: 'Blocked', href: 'blocked', icon: 'blocked' },
-		{ label: 'Labels', href: 'labels', icon: 'labels' }
+		{ label: 'Blocked', href: 'blocked', icon: 'blocked' }
 	];
 
 	// Icons as SVG paths
@@ -114,7 +113,7 @@
 			</div>
 			<!-- Workspace list -->
 			<div class="max-h-40 overflow-y-auto space-y-0.5">
-				{#each filteredWorkspaces() as ws (ws.id)}
+				{#each filteredWorkspaces as ws (ws.id)}
 					{@const isCurrent = ws.id === currentWorkspace?.id}
 					<button
 						type="button"
@@ -160,6 +159,19 @@
 					{item.label}
 				</a>
 			{/each}
+
+			<!-- Global section -->
+			<div class="pt-3 mt-3 border-t border-border">
+				<div class="text-xs font-medium text-text-muted uppercase tracking-wider px-2 mb-2">
+					Global
+				</div>
+				<a href="/labels" class="nav-link {$page.url.pathname === '/labels' ? 'active' : ''}">
+					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+						<path d={icons.labels} />
+					</svg>
+					Labels
+				</a>
+			</div>
 
 			<!-- Create Issue button -->
 			<div class="pt-4 mt-4 border-t border-border">
@@ -211,7 +223,7 @@
 				</div>
 				<!-- Workspace list -->
 				<div class="flex-1 overflow-y-auto space-y-1">
-					{#each filteredWorkspaces() as ws (ws.id)}
+					{#each filteredWorkspaces as ws (ws.id)}
 						<a href="/{ws.id}" class="nav-link">
 							<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
 								<path d={icons.workspace} />
@@ -225,6 +237,16 @@
 			{:else}
 				<p class="text-sm text-text-muted px-2">No workspaces yet</p>
 			{/if}
+
+			<!-- Global section -->
+			<div class="pt-3 mt-3 border-t border-border">
+				<a href="/labels" class="nav-link">
+					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+						<path d={icons.labels} />
+					</svg>
+					Labels
+				</a>
+			</div>
 		</nav>
 	{/if}
 

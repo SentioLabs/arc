@@ -121,11 +121,13 @@ func (s *Server) registerRoutes() {
 	ws.POST("/issues/:id/deps", s.addDependency)
 	ws.DELETE("/issues/:id/deps/:dep", s.removeDependency)
 
-	// Labels
-	ws.GET("/labels", s.listLabels)
-	ws.POST("/labels", s.createLabel)
-	ws.PUT("/labels/:name", s.updateLabel)
-	ws.DELETE("/labels/:name", s.deleteLabel)
+	// Labels (global)
+	v1.GET("/labels", s.listLabels)
+	v1.POST("/labels", s.createLabel)
+	v1.PUT("/labels/:name", s.updateLabel)
+	v1.DELETE("/labels/:name", s.deleteLabel)
+
+	// Issue-label associations (workspace-scoped)
 	ws.POST("/issues/:id/labels", s.addLabelToIssue)
 	ws.DELETE("/issues/:id/labels/:label", s.removeLabelFromIssue)
 
