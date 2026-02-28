@@ -26,5 +26,8 @@ build/
 coverage.out
 coverage.html
 
+# Worktrees
+.worktrees/
+
 # Config (contains user-specific settings)
 # Note: ~/.arc/cli-config.json is user config

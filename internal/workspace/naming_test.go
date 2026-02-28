@@ -214,21 +214,21 @@ func TestGeneratePrefixUniqueness(t *testing.T) {
 }
 
 func TestGeneratePrefixTruncation(t *testing.T) {
-	// Long basename should be truncated to 5 alphanumeric chars before hash
-	// "my-very-long-project-name" -> "myverylongprojectname" -> "myver"
+	// Long basename should be truncated to 10 alphanumeric chars before hash
+	// "my-very-long-project-name" -> "myverylongprojectname" -> "myverylong"
 	prefix, err := GeneratePrefix("/tmp/my-very-long-project-name")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
 	}
 
-	// Format: xxxxx-yyyy (5 basename + 1 dash + 4 hash = 10 chars max)
-	if len(prefix) > 10 {
-		t.Errorf("Prefix should be max 10 chars, got %q (len %d)", prefix, len(prefix))
+	// Format: xxxxxxxxxx-yyyy (10 basename + 1 dash + 4 hash = 15 chars max)
+	if len(prefix) > MaxPrefixLength {
+		t.Errorf("Prefix should be max %d chars, got %q (len %d)", MaxPrefixLength, prefix, len(prefix))
 	}
 
-	// Should start with truncated alphanumeric basename "myver-"
-	if prefix[:6] != "myver-" {
-		t.Errorf("Expected prefix to start with 'myver-', got %q", prefix)
+	// Should start with truncated alphanumeric basename "myverylong-"
+	if prefix[:11] != "myverylong-" {
+		t.Errorf("Expected prefix to start with 'myverylong-', got %q", prefix)
 	}
 }
 
@@ -238,10 +238,10 @@ func TestGeneratePrefixNormalization(t *testing.T) {
 		path           string
 		expectedPrefix string // Just the basename part before the hash
 	}{
-		{"hyphens removed", "/tmp/test-id-format", "testi"},
-		{"underscores removed", "/tmp/my_cool_project", "mycoo"},
-		{"spaces removed", "/tmp/my project", "mypro"},
-		{"special chars removed", "/tmp/I was_here#yesterday!", "iwash"},
+		{"hyphens removed", "/tmp/test-id-format", "testidform"},
+		{"underscores removed", "/tmp/my_cool_project", "mycoolproj"},
+		{"spaces removed", "/tmp/my project", "myproject"},
+		{"special chars removed", "/tmp/I was_here#yesterday!", "iwashereye"},
 		{"already clean", "/tmp/myapi", "myapi"},
 		{"short name", "/tmp/api", "api"},
 	}
@@ -306,40 +306,95 @@ func TestGeneratePlanID(t *testing.T) {
 }
 
 func TestGeneratePrefixFromName(t *testing.T) {
-	// "my-project" normalizes to "myproject", truncates to "mypro"
+	// "my-project" normalizes to "myproject", no truncation needed (9 chars < 10)
 	prefix := GeneratePrefixFromName("my-project")
 
 	// Test format: should be basename-xxxx (4-char base36 hash)
-	lastHyphen := -1
-	for i := len(prefix) - 1; i >= 0; i-- {
-		if prefix[i] == '-' {
-			lastHyphen = i
-			break
-		}
-	}
+	lastHyphen := strings.LastIndex(prefix, "-")
 	if lastHyphen == -1 {
-		t.Errorf("GeneratePrefixFromName should contain a hyphen, got %q", prefix)
-	} else {
-		suffix := prefix[lastHyphen+1:]
-		if len(suffix) != 4 {
-			t.Errorf("Expected 4-char hash suffix, got %q (len %d)", suffix, len(suffix))
-		}
-		// Verify suffix contains only base36 chars
-		for _, c := range suffix {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
-				t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
-			}
+		t.Fatalf("GeneratePrefixFromName should contain a hyphen, got %q", prefix)
+	}
+
+	suffix := prefix[lastHyphen+1:]
+	if len(suffix) != 4 {
+		t.Errorf("Expected 4-char hash suffix, got %q (len %d)", suffix, len(suffix))
+	}
+	// Verify suffix contains only base36 chars
+	for _, c := range suffix {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 		}
 	}
 
-	// Test that basename portion is correct (alphanumeric only, truncated to 5 chars)
+	// Test that basename portion is correct
 	basename := prefix[:lastHyphen]
-	if basename != "mypro" {
-		t.Errorf("Expected basename 'mypro', got %q", basename)
+	if basename != "myproject" {
+		t.Errorf("Expected basename 'myproject', got %q", basename)
 	}
 
-	// Test max length: 5 basename + 1 dash + 4 hash = 10 chars
-	if len(prefix) > 10 {
-		t.Errorf("Prefix should be max 10 chars, got %q (len %d)", prefix, len(prefix))
+	// Test max length: 10 basename + 1 dash + 4 hash = 15 chars
+	if len(prefix) > MaxPrefixLength {
+		t.Errorf("Prefix should be max %d chars, got %q (len %d)", MaxPrefixLength, prefix, len(prefix))
+	}
+}
+
+func TestGeneratePrefixWithCustomName(t *testing.T) {
+	// Custom name should be normalized and used as basename
+	prefix, err := GeneratePrefixWithCustomName("/tmp/cortex-shell", "cxsh")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+
+	// Should start with custom basename
+	lastHyphen := strings.LastIndex(prefix, "-")
+	if lastHyphen == -1 {
+		t.Fatalf("Prefix should contain a hyphen, got %q", prefix)
+	}
+	basename := prefix[:lastHyphen]
+	if basename != "cxsh" {
+		t.Errorf("Expected basename 'cxsh', got %q (full prefix: %q)", basename, prefix)
+	}
+
+	// Hash suffix should be 4 chars
+	suffix := prefix[lastHyphen+1:]
+	if len(suffix) != PrefixHashSuffixLength {
+		t.Errorf("Expected %d-char hash suffix, got %q (len %d)", PrefixHashSuffixLength, suffix, len(suffix))
+	}
+
+	// Should be deterministic (same path = same hash)
+	prefix2, err := GeneratePrefixWithCustomName("/tmp/cortex-shell", "cxsh")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	if prefix != prefix2 {
+		t.Errorf("Should be deterministic: %q != %q", prefix, prefix2)
+	}
+
+	// Different paths with same custom name should produce different prefixes
+	prefix3, err := GeneratePrefixWithCustomName("/tmp/other-project", "cxsh")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	if prefix == prefix3 {
+		t.Errorf("Different paths should produce different prefixes: %q == %q", prefix, prefix3)
+	}
+
+	// Custom name should be normalized (special chars stripped)
+	prefix4, err := GeneratePrefixWithCustomName("/tmp/test", "cx-sh!")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	basename4 := prefix4[:strings.LastIndex(prefix4, "-")]
+	if basename4 != "cxsh" {
+		t.Errorf("Expected normalized basename 'cxsh', got %q", basename4)
+	}
+
+	// Long custom name should be truncated to MaxBasenameTruncation
+	prefix5, err := GeneratePrefixWithCustomName("/tmp/test", "verylongcustomname")
+	if err != nil {
+		t.Fatalf("GeneratePrefixWithCustomName failed: %v", err)
+	}
+	if len(prefix5) > MaxPrefixLength {
+		t.Errorf("Prefix should be max %d chars, got %q (len %d)", MaxPrefixLength, prefix5, len(prefix5))
 	}
 }
