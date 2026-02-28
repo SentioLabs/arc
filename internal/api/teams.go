@@ -8,46 +8,15 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// TeamContextResponse holds issues grouped by teammate role.
-type TeamContextResponse struct {
-	Workspace  string                          `json:"workspace"`
-	Epic       *TeamContextEpic                `json:"epic,omitempty"`
-	Roles      map[string]*TeamContextRole     `json:"roles"`
-	Unassigned []TeamContextIssue              `json:"unassigned"`
-}
-
-// TeamContextEpic describes the parent epic.
-type TeamContextEpic struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Plan  string `json:"plan,omitempty"`
-}
-
-// TeamContextRole groups issues assigned to a specific teammate role.
-type TeamContextRole struct {
-	Issues []TeamContextIssue `json:"issues"`
-}
-
-// TeamContextIssue is a compact issue representation for team context.
-type TeamContextIssue struct {
-	ID       string   `json:"id"`
-	Title    string   `json:"title"`
-	Priority int      `json:"priority"`
-	Status   string   `json:"status"`
-	Type     string   `json:"type"`
-	Plan     string   `json:"plan,omitempty"`
-	Deps     []string `json:"deps,omitempty"`
-}
-
 // getTeamContext returns issues grouped by their teammate:* labels.
 func (s *Server) getTeamContext(c echo.Context) error {
 	wsID := workspaceID(c)
 	epicID := c.QueryParam("epic_id")
 	ctx := c.Request().Context()
 
-	resp := TeamContextResponse{
+	resp := TeamContext{
 		Workspace:  wsID,
-		Roles:      make(map[string]*TeamContextRole),
+		Roles:      make(map[string]TeamContextRole),
 		Unassigned: []TeamContextIssue{},
 	}
 
@@ -71,7 +40,7 @@ func (s *Server) getTeamContext(c echo.Context) error {
 		// Get epic's inline plan
 		pc, err := s.store.GetPlanContext(ctx, epicID)
 		if err == nil && pc.InlinePlan != nil {
-			resp.Epic.Plan = pc.InlinePlan.Text
+			resp.Epic.Plan = &pc.InlinePlan.Text
 		}
 
 		// Find children via dependents (issues that have parent-child dep on this epic)
@@ -140,15 +109,17 @@ func (s *Server) getTeamContext(c echo.Context) error {
 		// Get inline plan for this issue
 		pc, err := s.store.GetPlanContext(ctx, issue.ID)
 		if err == nil && pc.InlinePlan != nil {
-			tci.Plan = pc.InlinePlan.Text
+			tci.Plan = &pc.InlinePlan.Text
 		}
 
 		// Get dependencies
 		deps, err := s.store.GetDependencies(ctx, issue.ID)
 		if err == nil && len(deps) > 0 {
+			depIDs := make([]string, 0, len(deps))
 			for _, dep := range deps {
-				tci.Deps = append(tci.Deps, dep.DependsOnID)
+				depIDs = append(depIDs, dep.DependsOnID)
 			}
+			tci.Deps = &depIDs
 		}
 
 		// Extract teammate role from labels
@@ -169,10 +140,9 @@ func (s *Server) getTeamContext(c echo.Context) error {
 			continue
 		}
 
-		if resp.Roles[role] == nil {
-			resp.Roles[role] = &TeamContextRole{}
-		}
-		resp.Roles[role].Issues = append(resp.Roles[role].Issues, tci)
+		r := resp.Roles[role]
+		r.Issues = append(r.Issues, tci)
+		resp.Roles[role] = r
 	}
 
 	return successJSON(c, resp)

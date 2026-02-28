@@ -117,7 +117,7 @@ func TestGetTeamContext(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var ctx TeamContextResponse
+	var ctx TeamContext
 	if err := json.Unmarshal(rec.Body.Bytes(), &ctx); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestGetTeamContextNoEpic(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var ctx TeamContextResponse
+	var ctx TeamContext
 	if err := json.Unmarshal(rec.Body.Bytes(), &ctx); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestGetTeamContextEmpty(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var ctx TeamContextResponse
+	var ctx TeamContext
 	if err := json.Unmarshal(rec.Body.Bytes(), &ctx); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}

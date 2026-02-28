@@ -193,6 +193,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/team-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get issues grouped by teammate role labels
+         * @description Returns issues grouped by their `teammate:*` labels. When an epic_id is
+         *     provided, only children of that epic (via parent-child dependency) are
+         *     included. Without epic_id, all non-closed issues with teammate labels
+         *     in the workspace are returned.
+         */
+        get: operations["getTeamContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/issues/{issueId}/deps": {
         parameters: {
             query?: never;
@@ -495,6 +521,37 @@ export interface components {
             total?: number;
             limit?: number;
             offset?: number;
+        };
+        TeamContext: {
+            /** @description Workspace ID */
+            workspace: string;
+            epic?: components["schemas"]["TeamContextEpic"];
+            /** @description Issues grouped by teammate role name */
+            roles: {
+                [key: string]: components["schemas"]["TeamContextRole"];
+            };
+            /** @description Issues without a teammate label (only present with epic filter) */
+            unassigned: components["schemas"]["TeamContextIssue"][];
+        };
+        TeamContextEpic: {
+            id: string;
+            title: string;
+            /** @description Epic's inline plan text */
+            plan?: string;
+        };
+        TeamContextRole: {
+            issues: components["schemas"]["TeamContextIssue"][];
+        };
+        TeamContextIssue: {
+            id: string;
+            title: string;
+            priority: number;
+            status: string;
+            type: string;
+            /** @description Issue's inline plan text */
+            plan?: string;
+            /** @description IDs of issues this depends on */
+            deps?: string[];
         };
         CreateIssueRequest: {
             title: string;
@@ -1070,6 +1127,34 @@ export interface operations {
                     "application/json": components["schemas"]["BlockedIssue"][];
                 };
             };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTeamContext: {
+        parameters: {
+            query?: {
+                /** @description Optional epic ID to scope to children of a specific epic */
+                epic_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Team context with issues grouped by role */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamContext"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };

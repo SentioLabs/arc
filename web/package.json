@@ -15,7 +15,8 @@
 		"format": "biome format --write . && prettier --write '**/*.svelte'",
 		"format:check": "biome format . && prettier --check '**/*.svelte'",
 		"test": "playwright test",
-		"test:ui": "playwright test --ui"
+		"test:ui": "playwright test --ui",
+		"generate": "openapi-typescript ../api/openapi.yaml -o src/lib/api/types.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
