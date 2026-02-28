@@ -1,3 +1,11 @@
+// Package main provides the config management commands for the arc CLI,
+// allowing users to view and modify CLI configuration values such as the
+// server URL.
+//
+// The config subcommands (list, get, set, path) read and write
+// the JSON configuration stored at ~/.arc/cli-config.json. The only
+// recognised key today is "server_url" which points at the arc server
+// that the CLI talks to.
 package main
 
 import (
@@ -7,9 +15,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Valid config keys
+// configSetArgCount is the number of arguments required for the config set command.
+const configSetArgCount = 2
+
+// validConfigKeys lists the allowed configuration keys.
 var validConfigKeys = []string{"server_url"}
 
+// configCmd is the parent command for CLI configuration management.
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage CLI configuration",
@@ -18,6 +30,7 @@ var configCmd = &cobra.Command{
 Configuration is stored in ~/.arc/cli-config.json`,
 }
 
+// configListCmd prints every config key and its current value.
 var configListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configuration values",
@@ -32,12 +45,13 @@ var configListCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("server_url = %s\n", cfg.ServerURL)
-		fmt.Printf("\nConfig file: %s\n", defaultConfigPath())
+		_, _ = fmt.Printf("server_url = %s\n", cfg.ServerURL)
+		_, _ = fmt.Printf("\nConfig file: %s\n", defaultConfigPath())
 		return nil
 	},
 }
 
+// configGetCmd retrieves a single configuration value by key.
 var configGetCmd = &cobra.Command{
 	Use:   "get <key>",
 	Short: "Get a configuration value",
@@ -71,6 +85,7 @@ Valid keys: server_url`,
 	},
 }
 
+// configSetCmd persists a new value for a configuration key.
 var configSetCmd = &cobra.Command{
 	Use:   "set <key> <value>",
 	Short: "Set a configuration value",
@@ -81,7 +96,7 @@ Valid keys: server_url
 Examples:
   arc config set server_url http://localhost:7432
   arc config set server_url http://remote-server:7432`,
-	Args: cobra.ExactArgs(2),
+	Args: cobra.ExactArgs(configSetArgCount),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := strings.ToLower(args[0])
 		value := args[1]
@@ -102,11 +117,12 @@ Examples:
 			return fmt.Errorf("save config: %w", err)
 		}
 
-		fmt.Printf("Set %s = %s\n", key, value)
+		_, _ = fmt.Printf("Set %s = %s\n", key, value)
 		return nil
 	},
 }
 
+// configPathCmd displays the filesystem path to the active config file.
 var configPathCmd = &cobra.Command{
 	Use:   "path",
 	Short: "Show the config file path",

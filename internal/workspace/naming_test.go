@@ -1,4 +1,4 @@
-package workspace
+package workspace //nolint:testpackage // tests verify internal normalization helpers
 
 import (
 	"strings"
@@ -78,8 +78,8 @@ func TestBase36Encode(t *testing.T) {
 		expected string
 	}{
 		{"zero", []byte{0}, "0"},
-		{"single byte", []byte{36}, "10"},     // 36 in base36 is "10"
-		{"two bytes", []byte{0, 255}, "73"},   // 255 in base36
+		{"single byte", []byte{36}, "10"},        // 36 in base36 is "10"
+		{"two bytes", []byte{0, 255}, "73"},      // 255 in base36
 		{"three bytes", []byte{1, 0, 0}, "1ekg"}, // 65536 in base36
 	}
 
@@ -114,7 +114,7 @@ func TestGenerateIssueID(t *testing.T) {
 
 	// Verify the suffix contains only base36 chars
 	for _, c := range suffix {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 		}
 	}
@@ -180,7 +180,7 @@ func TestGeneratePrefix(t *testing.T) {
 		}
 		// Verify suffix contains only base36 chars
 		for _, c := range suffix {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 				t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 			}
 		}
@@ -293,7 +293,7 @@ func TestGeneratePlanID(t *testing.T) {
 
 	// Verify the suffix contains only base36 chars
 	for _, c := range suffix {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 		}
 	}
@@ -321,7 +321,7 @@ func TestGeneratePrefixFromName(t *testing.T) {
 	}
 	// Verify suffix contains only base36 chars
 	for _, c := range suffix {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
 		}
 	}

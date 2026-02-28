@@ -1,12 +1,15 @@
-// Command arc is the CLI for arc.
+// Command arc is the CLI for arc, a central issue tracking server for
+// AI-assisted coding workflows. This package wires together all CLI
+// commands using Cobra, handles workspace resolution, and provides
+// human-readable and JSON output for every operation.
 package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -17,12 +20,45 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// CLI constants for default values and formatting.
+const (
+	// defaultDirPerm is the default permission for created directories.
+	defaultDirPerm = 0o755
+
+	// defaultFilePerm is the default permission for sensitive config files (owner read/write only).
+	defaultFilePerm = 0o600
+
+	// tabwriterPadding is the minimum padding between columns in tabwriter output.
+	tabwriterPadding = 2
+
+	// defaultListLimit is the default maximum number of issues returned by the list command.
+	defaultListLimit = 50
+
+	// defaultPriority is the default priority for new issues (medium).
+	defaultPriority = 2
+
+	// defaultReadyLimit is the default maximum number of issues shown by the ready command.
+	defaultReadyLimit = 10
+
+	// defaultBlockedLimit is the default maximum number of issues shown by the blocked command.
+	defaultBlockedLimit = 10
+
+	// depPairArgCount is the number of arguments for commands that take a pair of issue IDs.
+	depPairArgCount = 2
+
+	// statusIconOpen is the icon displayed for open issues.
+	statusIconOpen = "\u25cb" // ○
+
+	// statusIconClosed is the icon displayed for closed issues.
+	statusIconClosed = "\u25cf" // ●
+)
+
+// Global CLI flags shared across all commands.
 var (
-	serverURL     string
-	workspaceID   string
-	workspaceName string
-	outputJSON    bool
-	configPath    string
+	serverURL   string // --server flag override
+	workspaceID string // --workspace flag override
+	outputJSON  bool   // --json flag for machine-readable output
+	configPath  string // --config flag for alternate config file
 )
 
 func main() {
@@ -41,8 +77,8 @@ type WorkspaceSource int
 
 const (
 	WorkspaceSourceFlag    WorkspaceSource = iota
-	WorkspaceSourceProject                         // ~/.arc/projects/<path>/config.json
-	WorkspaceSourceLegacy                          // .arc.json (migrated)
+	WorkspaceSourceProject                 // ~/.arc/projects/<path>/config.json
+	WorkspaceSourceLegacy                  // .arc.json (migrated)
 )
 
 func (s WorkspaceSource) String() string {
@@ -64,6 +100,7 @@ func defaultConfigPath() string {
 	return filepath.Join(home, ".arc", "cli-config.json")
 }
 
+// loadConfig reads CLI configuration from disk, creating a default on first use.
 func loadConfig() (*Config, error) {
 	if configPath == "" {
 		configPath = defaultConfigPath()
@@ -95,6 +132,7 @@ func loadConfig() (*Config, error) {
 	return &cfg, nil
 }
 
+// saveConfig persists the CLI configuration to disk.
 func saveConfig(cfg *Config) error {
 	path := configPath
 	if path == "" {
@@ -103,7 +141,7 @@ func saveConfig(cfg *Config) error {
 
 	// Create directory
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, defaultDirPerm); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 
@@ -112,9 +150,10 @@ func saveConfig(cfg *Config) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, defaultFilePerm)
 }
 
+// getClient returns an HTTP client configured for the current server URL.
 func getClient() (*client.Client, error) {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -162,55 +201,95 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 	arcHome := project.DefaultArcHome()
 
 	// Priority 2: Find project root and load config from ~/.arc/projects/
-	projectRoot, rootErr := project.FindProjectRootWithArcHome(cwd, arcHome)
-	if rootErr == nil {
-		cfg, cfgErr := project.LoadConfig(arcHome, projectRoot)
-		if cfgErr == nil && cfg.WorkspaceID != "" {
-			// Validate workspace exists on server
-			c, clientErr := getClient()
-			if clientErr == nil {
-				_, wsErr := c.GetWorkspace(cfg.WorkspaceID)
-				if wsErr != nil {
-					return "", 0, "", fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
-						cfg.WorkspaceName, cfg.WorkspaceID)
-				}
-			}
-			return cfg.WorkspaceID, WorkspaceSourceProject, "", nil
-		}
+	wsID, source, warning, resolveErr := resolveFromProjectConfig(cwd, arcHome)
+	if resolveErr != nil {
+		return "", 0, "", resolveErr
+	}
+	if wsID != "" {
+		return wsID, source, warning, nil
 	}
 
 	// Priority 3: Legacy .arc.json fallback with migration
-	legacyPath, legacyErr := project.FindLegacyConfig(cwd)
-	if legacyErr == nil {
-		legacyRoot := filepath.Dir(legacyPath)
-		cfg, migrateErr := project.MigrateLegacyConfig(legacyRoot, arcHome)
-		if migrateErr == nil && cfg.WorkspaceID != "" {
-			fmt.Fprintf(os.Stderr, "Migrated .arc.json → ~/.arc/projects/%s/config.json\n",
-				project.PathToProjectDir(legacyRoot))
-
-			// Validate workspace exists on server
-			c, clientErr := getClient()
-			if clientErr == nil {
-				_, wsErr := c.GetWorkspace(cfg.WorkspaceID)
-				if wsErr != nil {
-					return "", 0, "", fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
-						cfg.WorkspaceName, cfg.WorkspaceID)
-				}
-			}
-			return cfg.WorkspaceID, WorkspaceSourceLegacy, "", nil
-		}
+	wsID, source, warning, resolveErr = resolveFromLegacyConfig(cwd, arcHome)
+	if resolveErr != nil {
+		return "", 0, "", resolveErr
+	}
+	if wsID != "" {
+		return wsID, source, warning, nil
 	}
 
-	return "", 0, "", fmt.Errorf("no workspace configured for this directory\n  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
+	return "", 0, "", errors.New(
+		"no workspace configured for this directory\n" +
+			"  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
 }
 
-func outputResult(data interface{}) {
+// resolveFromProjectConfig attempts to resolve workspace from ~/.arc/projects/ config.
+// Returns empty wsID if no config is found (without error).
+func resolveFromProjectConfig(cwd, arcHome string) (wsID string, source WorkspaceSource, warning string, err error) {
+	projectRoot, rootErr := project.FindProjectRootWithArcHome(cwd, arcHome)
+	if rootErr != nil {
+		return "", 0, "", nil //nolint:nilerr // no project root means no config; fall through to next resolver
+	}
+
+	cfg, cfgErr := project.LoadConfig(arcHome, projectRoot)
+	if cfgErr != nil || cfg.WorkspaceID == "" {
+		return "", 0, "", nil //nolint:nilerr // missing or empty config; fall through to next resolver
+	}
+
+	if err := validateWorkspaceOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
+		return "", 0, "", err
+	}
+
+	return cfg.WorkspaceID, WorkspaceSourceProject, "", nil
+}
+
+// resolveFromLegacyConfig attempts to resolve workspace from legacy .arc.json with auto-migration.
+// Returns empty wsID if no legacy config is found (without error).
+func resolveFromLegacyConfig(cwd, arcHome string) (wsID string, source WorkspaceSource, warning string, err error) {
+	legacyPath, legacyErr := project.FindLegacyConfig(cwd)
+	if legacyErr != nil {
+		return "", 0, "", nil //nolint:nilerr // no legacy config found; fall through
+	}
+
+	legacyRoot := filepath.Dir(legacyPath)
+	cfg, migrateErr := project.MigrateLegacyConfig(legacyRoot, arcHome)
+	if migrateErr != nil || cfg.WorkspaceID == "" {
+		return "", 0, "", nil //nolint:nilerr // migration failed or empty; fall through
+	}
+
+	_, _ = fmt.Fprintf(os.Stderr, "Migrated .arc.json \u2192 ~/.arc/projects/%s/config.json\n",
+		project.PathToProjectDir(legacyRoot))
+
+	if err := validateWorkspaceOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
+		return "", 0, "", err
+	}
+
+	return cfg.WorkspaceID, WorkspaceSourceLegacy, "", nil
+}
+
+// validateWorkspaceOnServer checks that the workspace exists on the server.
+func validateWorkspaceOnServer(wsID, wsName string) error {
+	c, clientErr := getClient()
+	if clientErr != nil {
+		return nil //nolint:nilerr // server unreachable; skip validation, work offline
+	}
+
+	if _, wsErr := c.GetWorkspace(wsID); wsErr != nil {
+		return fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
+			wsName, wsID)
+	}
+
+	return nil
+}
+
+// outputResult writes data as indented JSON to stdout when --json is set.
+func outputResult(data any) {
 	if outputJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(data)
+		_ = enc.Encode(data)
 	} else {
-		fmt.Println(data)
+		_, _ = fmt.Println(data)
 	}
 }
 
@@ -230,6 +309,7 @@ func isSubdirectory(parent, child string) bool {
 	return strings.HasPrefix(child, parent+string(filepath.Separator))
 }
 
+// rootCmd is the top-level Cobra command for the arc CLI.
 var rootCmd = &cobra.Command{
 	Use:     "arc",
 	Short:   "arc CLI - central issue tracking",
@@ -260,6 +340,7 @@ func init() {
 
 // ============ Workspace Commands ============
 
+// workspaceCmd is the parent command for workspace management.
 var workspaceCmd = &cobra.Command{
 	Use:   "workspace",
 	Short: "Manage workspaces",
@@ -271,6 +352,7 @@ func init() {
 	workspaceCmd.AddCommand(workspaceDeleteCmd)
 }
 
+// whichCmd shows the active workspace and how it was resolved.
 var whichCmd = &cobra.Command{
 	Use:   "which",
 	Short: "Show which workspace is active and how it was resolved",
@@ -328,8 +410,8 @@ This helps debug workspace resolution issues by showing:
 		}
 
 		if warning != "" {
-			fmt.Fprintln(os.Stderr)
-			fmt.Fprintln(os.Stderr, warning)
+			_, _ = fmt.Fprintln(os.Stderr)
+			_, _ = fmt.Fprintln(os.Stderr, warning)
 		}
 
 		return nil
@@ -340,6 +422,7 @@ func init() {
 	rootCmd.AddCommand(whichCmd)
 }
 
+// workspaceListCmd lists all workspaces on the server.
 var workspaceListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all workspaces",
@@ -360,7 +443,7 @@ var workspaceListCmd = &cobra.Command{
 		}
 
 		if len(workspaces) == 0 {
-			fmt.Println("No workspaces found. Create one with: arc workspace create <name>")
+			_, _ = fmt.Println("No workspaces found. Create one with: arc workspace create <name>")
 			return nil
 		}
 
@@ -368,9 +451,9 @@ var workspaceListCmd = &cobra.Command{
 		cwd, _ := os.Getwd()
 
 		// Create a tabwriter for aligned columns
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION\tPATH")
-		fmt.Fprintln(w, "  \t────\t──────\t──\t───────────\t────")
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, tabwriterPadding, ' ', 0)
+		_, _ = fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION\tPATH")
+		_, _ = fmt.Fprintln(w, "  \t────\t──────\t──\t───────────\t────")
 
 		for _, ws := range workspaces {
 			marker := " "
@@ -386,13 +469,14 @@ var workspaceListCmd = &cobra.Command{
 			if desc == "" {
 				desc = "-"
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc, path)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc, path)
 		}
-		w.Flush()
+		_ = w.Flush()
 		return nil
 	},
 }
 
+// workspaceCreateCmd creates a new workspace on the server.
 var workspaceCreateCmd = &cobra.Command{
 	Use:   "create <name>",
 	Short: "Create a new workspace",
@@ -438,6 +522,7 @@ func init() {
 	workspaceCreateCmd.Flags().StringP("description", "d", "", "Workspace description")
 }
 
+// workspaceDeleteCmd deletes a workspace from the server.
 var workspaceDeleteCmd = &cobra.Command{
 	Use:   "delete <id>",
 	Short: "Delete a workspace",
@@ -459,6 +544,7 @@ var workspaceDeleteCmd = &cobra.Command{
 
 // ============ Issue Commands ============
 
+// listCmd lists issues in the active workspace with optional filters.
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List issues",
@@ -508,9 +594,10 @@ func init() {
 	listCmd.Flags().String("type", "", "Filter by type")
 	listCmd.Flags().String("assignee", "", "Filter by assignee")
 	listCmd.Flags().StringP("query", "q", "", "Search query")
-	listCmd.Flags().IntP("limit", "l", 50, "Max results")
+	listCmd.Flags().IntP("limit", "l", defaultListLimit, "Max results")
 }
 
+// createCmd creates a new issue in the active workspace.
 var createCmd = &cobra.Command{
 	Use:   "create <title>",
 	Short: "Create a new issue",
@@ -555,13 +642,14 @@ var createCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.Flags().IntP("priority", "p", 2, "Priority (0-4)")
+	createCmd.Flags().IntP("priority", "p", defaultPriority, "Priority (0-4)")
 	createCmd.Flags().StringP("type", "t", "task", "Issue type")
 	createCmd.Flags().StringP("assignee", "a", "", "Assignee")
 	createCmd.Flags().StringP("description", "d", "", "Description")
 	createCmd.Flags().String("parent", "", "Parent issue ID (creates child with .N suffix)")
 }
 
+// showCmd displays full details for a single issue.
 var showCmd = &cobra.Command{
 	Use:   "show <id>",
 	Short: "Show issue details",
@@ -630,14 +718,14 @@ var showCmd = &cobra.Command{
 			if pc.InlinePlan != nil {
 				fmt.Printf("Plan:\n")
 				// Indent the plan text
-				for _, line := range strings.Split(pc.InlinePlan.Text, "\n") {
+				for line := range strings.SplitSeq(pc.InlinePlan.Text, "\n") {
 					fmt.Printf("  %s\n", line)
 				}
 			}
 
 			if pc.ParentPlan != nil {
 				fmt.Printf("Plan (from %s):\n", pc.ParentIssueID)
-				for _, line := range strings.Split(pc.ParentPlan.Text, "\n") {
+				for line := range strings.SplitSeq(pc.ParentPlan.Text, "\n") {
 					fmt.Printf("  %s\n", line)
 				}
 			}
@@ -654,6 +742,7 @@ var showCmd = &cobra.Command{
 	},
 }
 
+// updateCmd modifies fields on an existing issue.
 var updateCmd = &cobra.Command{
 	Use:   "update <id>",
 	Short: "Update an issue",
@@ -669,7 +758,7 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 
-		updates := make(map[string]interface{})
+		updates := make(map[string]any)
 
 		if val, _ := cmd.Flags().GetString("status"); val != "" {
 			updates["status"] = val
@@ -692,7 +781,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		if len(updates) == 0 {
-			return fmt.Errorf("no updates specified")
+			return errors.New("no updates specified")
 		}
 
 		issue, err := c.UpdateIssue(wsID, args[0], updates)
@@ -719,6 +808,7 @@ func init() {
 	updateCmd.Flags().StringP("description", "d", "", "New description")
 }
 
+// closeCmd marks one or more issues as closed.
 var closeCmd = &cobra.Command{
 	Use:   "close <id> [ids...]",
 	Short: "Close one or more issues",
@@ -739,7 +829,7 @@ var closeCmd = &cobra.Command{
 		for _, id := range args {
 			issue, err := c.CloseIssue(wsID, id, reason)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to close %s: %v\n", id, err)
+				_, _ = fmt.Fprintf(os.Stderr, "Failed to close %s: %v\n", id, err)
 				continue
 			}
 			fmt.Printf("Closed: %s\n", issue.ID)
@@ -753,6 +843,7 @@ func init() {
 	closeCmd.Flags().StringP("reason", "r", "", "Close reason")
 }
 
+// readyCmd shows issues that are unblocked and available to work on.
 var readyCmd = &cobra.Command{
 	Use:   "ready",
 	Short: "Show issues ready to work on",
@@ -794,10 +885,13 @@ var readyCmd = &cobra.Command{
 }
 
 func init() {
-	readyCmd.Flags().IntP("limit", "l", 10, "Max results")
-	readyCmd.Flags().String("sort", "hybrid", "Sort policy: hybrid (recent by priority, old by age), priority (always by priority), oldest (oldest first)")
+	readyCmd.Flags().IntP("limit", "l", defaultReadyLimit, "Max results")
+	readyCmd.Flags().String("sort", "hybrid",
+		"Sort policy: hybrid (recent by priority, old by age), "+
+			"priority (always by priority), oldest (oldest first)")
 }
 
+// blockedCmd shows issues that are waiting on unresolved dependencies.
 var blockedCmd = &cobra.Command{
 	Use:   "blocked",
 	Short: "Show blocked issues",
@@ -838,11 +932,12 @@ var blockedCmd = &cobra.Command{
 }
 
 func init() {
-	blockedCmd.Flags().IntP("limit", "l", 10, "Max results")
+	blockedCmd.Flags().IntP("limit", "l", defaultBlockedLimit, "Max results")
 }
 
 // ============ Dependency Commands ============
 
+// depCmd is the parent command for dependency management.
 var depCmd = &cobra.Command{
 	Use:   "dep",
 	Short: "Manage dependencies",
@@ -853,10 +948,11 @@ func init() {
 	depCmd.AddCommand(depRemoveCmd)
 }
 
+// depAddCmd creates a dependency between two issues.
 var depAddCmd = &cobra.Command{
 	Use:   "add <issue> <depends-on>",
 	Short: "Add dependency (issue depends on depends-on)",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(depPairArgCount),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -886,10 +982,11 @@ func init() {
 	depAddCmd.Flags().StringP("type", "t", "blocks", "Dependency type (blocks, parent-child, related, discovered-from)")
 }
 
+// depRemoveCmd removes a dependency between two issues.
 var depRemoveCmd = &cobra.Command{
 	Use:   "remove <issue> <depends-on>",
 	Short: "Remove dependency",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(depPairArgCount),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -912,6 +1009,7 @@ var depRemoveCmd = &cobra.Command{
 
 // ============ Stats Command ============
 
+// statsCmd displays aggregate statistics for the active workspace.
 var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show workspace statistics",
@@ -951,31 +1049,27 @@ var statsCmd = &cobra.Command{
 	},
 }
 
-// Helper to parse priority (handles "P0", "P1", "0", "1", etc.)
-func parsePriority(s string) (int, error) {
-	s = strings.TrimPrefix(strings.ToUpper(s), "P")
-	return strconv.Atoi(s)
-}
-
-// formatIssue returns a beads-style formatted issue line
+// formatIssue returns a beads-style formatted issue line.
+//
+//nolint:revive // argument-limit: all fields needed for single-line formatting
 func formatIssue(id, status, issueType string, priority int, title string, labels []string) string {
 	// Status icon
-	icon := "○" // open
+	icon := statusIconOpen
 	switch status {
 	case "in_progress":
-		icon = "◐"
+		icon = "\u25d0" // ◐
 	case "blocked":
-		icon = "◌"
+		icon = "\u25cc" // ◌
 	case "closed":
-		icon = "●"
+		icon = statusIconClosed
 	case "deferred":
-		icon = "◇"
+		icon = "\u25c7" // ◇
 	}
 
 	// Priority badge - filled for high priority (P0-P1), empty for lower
-	priorityIcon := "○"
+	priorityIcon := statusIconOpen
 	if priority <= 1 {
-		priorityIcon = "●"
+		priorityIcon = statusIconClosed
 	}
 
 	// Labels as space-separated in brackets
@@ -988,15 +1082,17 @@ func formatIssue(id, status, issueType string, priority int, title string, label
 		icon, id, priorityIcon, priority, issueType, labelStr, title)
 }
 
-// formatBlockedIssue returns a beads-style formatted blocked issue line
+// formatBlockedIssue returns a beads-style formatted blocked issue line.
+//
+//nolint:revive // argument-limit: all fields needed for single-line formatting
 func formatBlockedIssue(id, issueType string, priority int, title string, labels []string, blockedByCount int) string {
 	// Blocked issues always use blocked icon
-	icon := "◌"
+	icon := "\u25cc" // ◌
 
 	// Priority badge
-	priorityIcon := "○"
+	priorityIcon := statusIconOpen
 	if priority <= 1 {
-		priorityIcon = "●"
+		priorityIcon = statusIconClosed
 	}
 
 	// Labels

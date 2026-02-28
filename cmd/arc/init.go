@@ -12,6 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// filePermissions is the permission mode for project config files that need to be
+// readable by other tools (AGENTS.md, CLAUDE.md, .arc.json).
+const filePermissions = 0o644
+
 var initCmd = &cobra.Command{
 	Use:   "init [name]",
 	Short: "Initialize arc in the current directory",
@@ -45,6 +49,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
+//nolint:revive,gocognit // cognitive-complexity: init orchestrates multiple setup steps
 func runInit(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	description, _ := cmd.Flags().GetString("description")
@@ -160,21 +165,21 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	if err := project.WriteConfig(arcHome, cwd, projectCfg); err != nil {
 		if !quiet {
-			fmt.Fprintf(os.Stderr, "Warning: failed to create project config: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to create project config: %v\n", err)
 		}
 	}
 
 	// Add "landing the plane" instructions to AGENTS.md
 	if err := addLandingThePlaneInstructions(!quiet); err != nil {
 		if !quiet {
-			fmt.Fprintf(os.Stderr, "Warning: failed to update AGENTS.md: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to update AGENTS.md: %v\n", err)
 		}
 	}
 
 	// Update CLAUDE.md to reference AGENTS.md for session completion (if it exists)
 	if err := updateClaudeMdReference(!quiet); err != nil {
 		if !quiet {
-			fmt.Fprintf(os.Stderr, "Warning: failed to update CLAUDE.md: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to update CLAUDE.md: %v\n", err)
 		}
 	}
 
@@ -183,7 +188,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Workspace: %s\n", ws.Name)
 		fmt.Printf("  ID: %s\n", ws.ID)
 		fmt.Printf("  Prefix: %s\n", ws.Prefix)
-		fmt.Printf("  Issues will be named: %s.<hash> (e.g., %s.a3f2dd)\n\n", ws.Prefix, ws.Prefix)
+		fmt.Printf("  Issues will be named: %s.<hash> (e.g., %s.a3f2dd)\n\n",
+			ws.Prefix, ws.Prefix)
 		fmt.Printf("Run %s to get started.\n", "arc quickstart")
 	}
 
@@ -203,11 +209,11 @@ func addLandingThePlaneInstructions(verbose bool) error {
 	content, err := os.ReadFile(filename)
 	if os.IsNotExist(err) {
 		// Create new file from template
-		if err := os.WriteFile(filename, []byte(agentsMdContent), 0644); err != nil {
+		if err := os.WriteFile(filename, []byte(agentsMdContent), filePermissions); err != nil {
 			return fmt.Errorf("failed to create %s: %w", filename, err)
 		}
 		if verbose {
-			fmt.Printf("✓ Created %s with landing-the-plane instructions\n", filename)
+			_, _ = fmt.Printf("✓ Created %s with landing-the-plane instructions\n", filename)
 		}
 		return nil
 	} else if err != nil {
@@ -217,7 +223,7 @@ func addLandingThePlaneInstructions(verbose bool) error {
 	// File exists - check if it already has landing the plane section
 	if strings.Contains(string(content), "Landing the Plane") {
 		if verbose {
-			fmt.Printf("  %s already has landing-the-plane instructions\n", filename)
+			_, _ = fmt.Printf("  %s already has landing-the-plane instructions\n", filename)
 		}
 		return nil
 	}
@@ -230,11 +236,11 @@ func addLandingThePlaneInstructions(verbose bool) error {
 	}
 	newContent += landingSection
 
-	if err := os.WriteFile(filename, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
 	if verbose {
-		fmt.Printf("✓ Added landing-the-plane instructions to %s\n", filename)
+		_, _ = fmt.Printf("✓ Added landing-the-plane instructions to %s\n", filename)
 	}
 	return nil
 }
@@ -250,7 +256,9 @@ func extractLandingThePlaneSection(content string) string {
 
 // sessionCompletionPattern matches a "Session Completion" section with git commands
 // This indicates the section is duplicating content that should be in AGENTS.md
-var sessionCompletionPattern = regexp.MustCompile(`(?s)## Session Completion.*?` + "```" + `(?:bash)?\s*\ngit .*?` + "```")
+var sessionCompletionPattern = regexp.MustCompile(
+	`(?s)## Session Completion.*?` + "```" + `(?:bash)?\s*\ngit .*?` + "```",
+)
 
 // updateClaudeMdReference updates CLAUDE.md to reference AGENTS.md for session completion.
 // If CLAUDE.md doesn't exist, creates a minimal one with just the reference.
@@ -271,7 +279,7 @@ func updateClaudeMdReference(verbose bool) error {
 	if os.IsNotExist(err) {
 		// No CLAUDE.md - create minimal one with just the reference
 		// Claude Code's /init will fill in the rest
-		if err := os.WriteFile(filename, []byte(reference), 0644); err != nil {
+		if err := os.WriteFile(filename, []byte(reference), filePermissions); err != nil {
 			return fmt.Errorf("failed to create %s: %w", filename, err)
 		}
 		if verbose {
@@ -310,11 +318,11 @@ func updateClaudeMdReference(verbose bool) error {
 		newContent += "\n" + reference
 	}
 
-	if err := os.WriteFile(filename, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
 	if verbose {
-		fmt.Printf("✓ Updated %s to reference AGENTS.md for session completion\n", filename)
+		_, _ = fmt.Printf("✓ Updated %s to reference AGENTS.md for session completion\n", filename)
 	}
 	return nil
 }

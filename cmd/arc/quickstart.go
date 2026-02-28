@@ -1,3 +1,6 @@
+// Package main provides the quickstart command that displays a getting-started
+// guide for new arc users, covering core concepts, plugin installation, and
+// common workflows.
 package main
 
 import (
@@ -18,7 +21,7 @@ func init() {
 }
 
 func runQuickstart(cmd *cobra.Command, args []string) {
-	fmt.Print(`# Arc Quick Start
+	_, _ = fmt.Print(`# Arc Quick Start
 
 ## What is arc?
 

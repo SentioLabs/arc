@@ -1,11 +1,15 @@
+// Package main provides the setup commands for integrating arc with AI
+// editors such as Claude Code and Codex CLI. The setup subcommands install,
+// check, and remove lifecycle hooks and repo-scoped skill bundles so that
+// the AI assistant receives arc workflow context automatically.
 package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/sentiolabs/arc/internal/templates"
 	"github.com/spf13/cobra"
@@ -17,6 +21,7 @@ var (
 	setupRemove  bool
 )
 
+// setupCmd is the parent command for editor integration recipes.
 var setupCmd = &cobra.Command{
 	Use:          "setup <recipe>",
 	Short:        "Setup integration with AI editors (claude, codex)",
@@ -39,6 +44,7 @@ Examples:
 	RunE: runSetup,
 }
 
+// init registers setup flags and adds the command to root.
 func init() {
 	setupCmd.Flags().BoolVar(&setupCheck, "check", false, "Check if integration is installed")
 	setupCmd.Flags().BoolVar(&setupRemove, "remove", false, "Remove the integration")
@@ -46,6 +52,7 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 }
 
+// runSetup dispatches to the appropriate recipe handler.
 func runSetup(cmd *cobra.Command, args []string) error {
 	recipe := args[0]
 
@@ -71,9 +78,10 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	}
 }
 
+// validateSetupArgs ensures exactly one recipe argument is provided.
 func validateSetupArgs(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf(`missing recipe
+		return errors.New(`missing recipe
 
 Supported recipes:
   claude  - Claude Code hooks (SessionStart, PreCompact)
@@ -86,7 +94,9 @@ Examples:
 	return nil
 }
 
-// installClaudeHooks installs Claude Code hooks for arc prime
+// installClaudeHooks installs Claude Code hooks for arc prime.
+//
+//nolint:revive // cognitive-complexity: hook installation has inherent branching
 func installClaudeHooks(verbose bool) error {
 	var settingsPath string
 	if setupProject {
@@ -107,12 +117,12 @@ func installClaudeHooks(verbose bool) error {
 	}
 
 	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(settingsPath), defaultDirPerm); err != nil {
 		return fmt.Errorf("create directory: %w", err)
 	}
 
 	// Load existing settings
-	settings := make(map[string]interface{})
+	settings := make(map[string]any)
 	if data, err := os.ReadFile(settingsPath); err == nil {
 		if err := json.Unmarshal(data, &settings); err != nil {
 			return fmt.Errorf("parse settings: %w", err)
@@ -120,9 +130,9 @@ func installClaudeHooks(verbose bool) error {
 	}
 
 	// Get or create hooks section
-	hooks, ok := settings["hooks"].(map[string]interface{})
+	hooks, ok := settings["hooks"].(map[string]any)
 	if !ok {
-		hooks = make(map[string]interface{})
+		hooks = make(map[string]any)
 		settings["hooks"] = hooks
 	}
 
@@ -133,17 +143,18 @@ func installClaudeHooks(verbose bool) error {
 		}
 	}
 
+	// arc prime generates workflow context for AI assistants
 	command := "arc prime"
 
 	// Add hooks
 	if addHookCommand(hooks, "SessionStart", command, verbose) {
 		if verbose {
-			fmt.Println("✓ Registered SessionStart hook")
+			_, _ = fmt.Println("✓ Registered SessionStart hook")
 		}
 	}
 	if addHookCommand(hooks, "PreCompact", command, verbose) {
 		if verbose {
-			fmt.Println("✓ Registered PreCompact hook")
+			_, _ = fmt.Println("✓ Registered PreCompact hook")
 		}
 	}
 
@@ -153,20 +164,21 @@ func installClaudeHooks(verbose bool) error {
 		return fmt.Errorf("marshal settings: %w", err)
 	}
 
-	if err := os.WriteFile(settingsPath, data, 0o644); err != nil {
+	if err := os.WriteFile(settingsPath, data, defaultFilePerm); err != nil {
 		return fmt.Errorf("write settings: %w", err)
 	}
 
 	if verbose {
-		fmt.Println("\n✓ Claude Code integration installed")
-		fmt.Printf("  Settings: %s\n", settingsPath)
-		fmt.Println("\nRestart Claude Code for changes to take effect.")
+		_, _ = fmt.Printf("\n✓ Claude Code integration installed\n  Settings: %s\n", settingsPath)
+		_, _ = fmt.Println("\nRestart Claude Code for changes to take effect.")
 	}
 
 	return nil
 }
 
-// checkClaudeHooks checks if Claude hooks are installed
+// checkClaudeHooks checks if Claude hooks are installed.
+// It looks in both the global (~/.claude/settings.json) and project-level
+// (.claude/settings.local.json) settings files for arc prime hooks.
 func checkClaudeHooks() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -188,10 +200,12 @@ func checkClaudeHooks() error {
 
 	fmt.Println("✗ No hooks installed")
 	fmt.Println("  Run: arc setup claude")
-	return fmt.Errorf("hooks not installed")
+	return errors.New("hooks not installed")
 }
 
-// removeClaudeHooks removes Claude Code hooks
+// removeClaudeHooks removes Claude Code hooks from either the global or
+// project-level settings file. It strips "arc prime" from SessionStart and
+// PreCompact events and persists the updated settings back to disk.
 func removeClaudeHooks(project bool) error {
 	var settingsPath string
 	if project {
@@ -209,16 +223,19 @@ func removeClaudeHooks(project bool) error {
 
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
-		fmt.Println("No settings file found")
-		return nil
+		if os.IsNotExist(err) {
+			fmt.Println("No settings file found")
+			return nil
+		}
+		return fmt.Errorf("read settings: %w", err)
 	}
 
-	var settings map[string]interface{}
+	var settings map[string]any
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return fmt.Errorf("parse settings: %w", err)
 	}
 
-	hooks, ok := settings["hooks"].(map[string]interface{})
+	hooks, ok := settings["hooks"].(map[string]any)
 	if !ok {
 		fmt.Println("No hooks found")
 		return nil
@@ -232,7 +249,7 @@ func removeClaudeHooks(project bool) error {
 		return fmt.Errorf("marshal settings: %w", err)
 	}
 
-	if err := os.WriteFile(settingsPath, data, 0o644); err != nil {
+	if err := os.WriteFile(settingsPath, data, defaultFilePerm); err != nil {
 		return fmt.Errorf("write settings: %w", err)
 	}
 
@@ -240,25 +257,27 @@ func removeClaudeHooks(project bool) error {
 	return nil
 }
 
-// addHookCommand adds a hook command to an event if not already present
-func addHookCommand(hooks map[string]interface{}, event, command string, verbose bool) bool {
-	eventHooks, ok := hooks[event].([]interface{})
+// addHookCommand adds a hook command to an event if not already present.
+// It walks the nested hooks structure in settings.json to check for duplicates.
+// Returns true if the hook was added, false if it was already registered.
+func addHookCommand(hooks map[string]any, event, command string, verbose bool) bool {
+	eventHooks, ok := hooks[event].([]any)
 	if !ok {
-		eventHooks = []interface{}{}
+		eventHooks = []any{}
 	}
 
 	// Check if hook already registered
 	for _, hook := range eventHooks {
-		hookMap, ok := hook.(map[string]interface{})
+		hookMap, ok := hook.(map[string]any)
 		if !ok {
 			continue
 		}
-		commands, ok := hookMap["hooks"].([]interface{})
+		commands, ok := hookMap["hooks"].([]any)
 		if !ok {
 			continue
 		}
 		for _, cmd := range commands {
-			cmdMap, ok := cmd.(map[string]interface{})
+			cmdMap, ok := cmd.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -271,11 +290,11 @@ func addHookCommand(hooks map[string]interface{}, event, command string, verbose
 		}
 	}
 
-	// Add new hook
-	newHook := map[string]interface{}{
+	// Add new hook entry with matcher and command configuration
+	newHook := map[string]any{
 		"matcher": "",
-		"hooks": []interface{}{
-			map[string]interface{}{
+		"hooks": []any{
+			map[string]any{
 				"type":    "command",
 				"command": command,
 			},
@@ -287,22 +306,24 @@ func addHookCommand(hooks map[string]interface{}, event, command string, verbose
 	return true
 }
 
-// removeHookCommand removes a hook command from an event
-func removeHookCommand(hooks map[string]interface{}, event, command string) {
-	eventHooks, ok := hooks[event].([]interface{})
+// removeHookCommand removes a hook command from an event.
+// It filters out hooks whose "command" field matches the given command
+// and deletes the event key entirely when no hooks remain.
+func removeHookCommand(hooks map[string]any, event, command string) {
+	eventHooks, ok := hooks[event].([]any)
 	if !ok {
 		return
 	}
 
-	filtered := make([]interface{}, 0, len(eventHooks))
+	filtered := make([]any, 0, len(eventHooks))
 	for _, hook := range eventHooks {
-		hookMap, ok := hook.(map[string]interface{})
+		hookMap, ok := hook.(map[string]any)
 		if !ok {
 			filtered = append(filtered, hook)
 			continue
 		}
 
-		commands, ok := hookMap["hooks"].([]interface{})
+		commands, ok := hookMap["hooks"].([]any)
 		if !ok {
 			filtered = append(filtered, hook)
 			continue
@@ -310,7 +331,7 @@ func removeHookCommand(hooks map[string]interface{}, event, command string) {
 
 		keepHook := true
 		for _, cmd := range commands {
-			cmdMap, ok := cmd.(map[string]interface{})
+			cmdMap, ok := cmd.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -326,6 +347,7 @@ func removeHookCommand(hooks map[string]interface{}, event, command string) {
 		}
 	}
 
+	// Remove empty event keys to keep settings clean
 	if len(filtered) == 0 {
 		delete(hooks, event)
 	} else {
@@ -333,40 +355,44 @@ func removeHookCommand(hooks map[string]interface{}, event, command string) {
 	}
 }
 
-// hasArcHooks checks if a settings file has arc prime hooks
+// hasArcHooks checks if a settings file has arc prime hooks.
+// It reads and parses the JSON settings file, then searches the hooks
+// map for SessionStart or PreCompact events that contain an "arc prime" command.
+//
+//nolint:revive // cognitive-complexity: nested JSON structure traversal
 func hasArcHooks(settingsPath string) bool {
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
 		return false
 	}
 
-	var settings map[string]interface{}
+	var settings map[string]any
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return false
 	}
 
-	hooks, ok := settings["hooks"].(map[string]interface{})
+	hooks, ok := settings["hooks"].(map[string]any)
 	if !ok {
 		return false
 	}
 
 	for _, event := range []string{"SessionStart", "PreCompact"} {
-		eventHooks, ok := hooks[event].([]interface{})
+		eventHooks, ok := hooks[event].([]any)
 		if !ok {
 			continue
 		}
 
 		for _, hook := range eventHooks {
-			hookMap, ok := hook.(map[string]interface{})
+			hookMap, ok := hook.(map[string]any)
 			if !ok {
 				continue
 			}
-			commands, ok := hookMap["hooks"].([]interface{})
+			commands, ok := hookMap["hooks"].([]any)
 			if !ok {
 				continue
 			}
 			for _, cmd := range commands {
-				cmdMap, ok := cmd.(map[string]interface{})
+				cmdMap, ok := cmd.(map[string]any)
 				if !ok {
 					continue
 				}
@@ -380,71 +406,7 @@ func hasArcHooks(settingsPath string) bool {
 	return false
 }
 
-// configureClaudePrompt adds arc-specific prompt instructions to Claude settings
-func configureClaudePrompt(projectLevel bool, verbose bool) error {
-	var settingsPath string
-	if projectLevel {
-		cwd, _ := os.Getwd()
-		settingsPath = filepath.Join(cwd, ".claude", "settings.local.json")
-	} else {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("get home directory: %w", err)
-		}
-		settingsPath = filepath.Join(home, ".claude", "settings.json")
-	}
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
-		return fmt.Errorf("create directory: %w", err)
-	}
-
-	// Load existing settings
-	settings := make(map[string]interface{})
-	if data, err := os.ReadFile(settingsPath); err == nil {
-		if err := json.Unmarshal(data, &settings); err != nil {
-			return fmt.Errorf("parse settings: %w", err)
-		}
-	}
-
-	// The prompt instruction we want to add
-	arcPromptInstruction := "Before starting work, run 'arc onboard' to understand the current project state and available issues."
-
-	// Get existing prompt or empty string
-	existingPrompt, _ := settings["prompt"].(string)
-
-	// Check if instruction already exists
-	if strings.Contains(existingPrompt, "arc onboard") {
-		if verbose {
-			fmt.Println("✓ Claude prompt already configured for arc")
-		}
-		return nil
-	}
-
-	// Add our instruction to the prompt
-	if existingPrompt != "" {
-		settings["prompt"] = existingPrompt + "\n\n" + arcPromptInstruction
-	} else {
-		settings["prompt"] = arcPromptInstruction
-	}
-
-	// Write settings
-	data, err := json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal settings: %w", err)
-	}
-
-	if err := os.WriteFile(settingsPath, data, 0o644); err != nil {
-		return fmt.Errorf("write settings: %w", err)
-	}
-
-	if verbose {
-		fmt.Println("✓ Configured Claude prompt with 'arc onboard' instruction")
-	}
-
-	return nil
-}
-
+// installCodexSkill writes the arc skill bundle into .codex/skills/arc.
 func installCodexSkill() error {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
@@ -452,7 +414,7 @@ func installCodexSkill() error {
 	}
 
 	dstDir := filepath.Join(repoRoot, ".codex", "skills", "arc")
-	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+	if err := os.MkdirAll(dstDir, defaultDirPerm); err != nil {
 		return fmt.Errorf("create codex skill directory: %w", err)
 	}
 
@@ -466,6 +428,9 @@ func installCodexSkill() error {
 	return nil
 }
 
+// writeCodexSkillFiles renders or copies skill.toml and SKILL.md into dstDir.
+// It first tries to copy from a local codex-plugin source directory, and
+// falls back to rendering from embedded Go templates if the source is unavailable.
 func writeCodexSkillFiles(repoRoot, dstDir string) error {
 	srcDir := filepath.Join(repoRoot, "codex-plugin", "skills", "arc")
 	if exists(srcDir) {
@@ -483,16 +448,18 @@ func writeCodexSkillFiles(repoRoot, dstDir string) error {
 		return fmt.Errorf("render codex SKILL.md: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dstDir, "skill.toml"), []byte(skillToml), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dstDir, "skill.toml"), []byte(skillToml), defaultFilePerm); err != nil {
 		return fmt.Errorf("write %s: %w", filepath.Join(dstDir, "skill.toml"), err)
 	}
-	if err := os.WriteFile(filepath.Join(dstDir, "SKILL.md"), []byte(skillMd), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dstDir, "SKILL.md"), []byte(skillMd), defaultFilePerm); err != nil {
 		return fmt.Errorf("write %s: %w", filepath.Join(dstDir, "SKILL.md"), err)
 	}
 
 	return nil
 }
 
+// copyCodexSkillFromSource copies skill files from a local source directory.
+// It iterates over the known skill file names and copies each one.
 func copyCodexSkillFromSource(srcDir, dstDir string) error {
 	for _, name := range []string{"skill.toml", "SKILL.md"} {
 		srcPath := filepath.Join(srcDir, name)
@@ -504,6 +471,9 @@ func copyCodexSkillFromSource(srcDir, dstDir string) error {
 	return nil
 }
 
+// checkCodexSkill verifies that the Codex skill bundle is installed.
+// It checks for the presence of skill.toml and SKILL.md in the expected
+// .codex/skills/arc directory under the repository root.
 func checkCodexSkill() error {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
@@ -522,13 +492,15 @@ func checkCodexSkill() error {
 	if missing {
 		fmt.Println("✗ Codex skill bundle not installed")
 		fmt.Println("  Run: arc setup codex")
-		return fmt.Errorf("codex skill bundle not installed")
+		return errors.New("codex skill bundle not installed")
 	}
 
 	fmt.Printf("✓ Codex skill bundle installed: %s\n", skillDir)
 	return nil
 }
 
+// removeCodexSkill deletes the Codex skill bundle directory.
+// It removes the entire .codex/skills/arc directory tree.
 func removeCodexSkill() error {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
@@ -544,15 +516,22 @@ func removeCodexSkill() error {
 	return nil
 }
 
+// findRepoRoot walks up from cwd looking for .codex, .arc.json, or .git markers.
+// It returns the first ancestor directory that contains any of these marker files,
+// or falls back to cwd if the filesystem root is reached without finding one.
 func findRepoRoot() (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("get current directory: %w", err)
 	}
 
+	// Walk upward from cwd to filesystem root looking for project markers
 	dir := cwd
 	for {
-		if exists(filepath.Join(dir, ".codex")) || exists(filepath.Join(dir, ".arc.json")) || exists(filepath.Join(dir, ".git")) {
+		hasCodex := exists(filepath.Join(dir, ".codex"))
+		hasArc := exists(filepath.Join(dir, ".arc.json"))
+		hasGit := exists(filepath.Join(dir, ".git"))
+		if hasCodex || hasArc || hasGit {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)
@@ -563,17 +542,21 @@ func findRepoRoot() (string, error) {
 	}
 }
 
+// exists returns true if the given path exists on disk.
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
 
+// copyFile reads srcPath and writes its contents to dstPath.
+// It uses filePermissions (0o644) since copied skill files need
+// to be world-readable by other tools.
 func copyFile(srcPath, dstPath string) error {
 	data, err := os.ReadFile(srcPath)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", srcPath, err)
 	}
-	if err := os.WriteFile(dstPath, data, 0o644); err != nil {
+	if err := os.WriteFile(dstPath, data, filePermissions); err != nil {
 		return fmt.Errorf("write %s: %w", dstPath, err)
 	}
 	return nil

@@ -7,6 +7,12 @@ import (
 	"github.com/sentiolabs/arc/internal/docs"
 )
 
+// Preview length constants for makePreview.
+const (
+	maxPreviewLength      = 200 // maximum content length for preview
+	wordBoundaryThreshold = 100 // minimum index for word boundary truncation
+)
+
 // DocChunk represents a searchable section of documentation.
 type DocChunk struct {
 	ID      string // e.g., "workflows/session-start"
@@ -27,7 +33,7 @@ var topicDocs = map[string]string{
 
 // ChunkAllDocs splits all embedded documentation into searchable chunks.
 func ChunkAllDocs() []DocChunk {
-	var chunks []DocChunk
+	chunks := make([]DocChunk, 0, len(topicDocs)+1)
 
 	// Add overview as a single chunk
 	chunks = append(chunks, DocChunk{
@@ -109,10 +115,10 @@ func makePreview(content string) string {
 	content = regexp.MustCompile(`\s+`).ReplaceAllString(content, " ")
 	content = strings.TrimSpace(content)
 
-	if len(content) > 200 {
+	if len(content) > maxPreviewLength {
 		// Find a good break point
-		content = content[:200]
-		if idx := strings.LastIndex(content, " "); idx > 100 {
+		content = content[:maxPreviewLength]
+		if idx := strings.LastIndex(content, " "); idx > wordBoundaryThreshold {
 			content = content[:idx]
 		}
 		content += "..."

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -19,7 +20,7 @@ func (s *Server) getDependencies(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -35,7 +36,7 @@ func (s *Server) getDependencies(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, map[string]interface{}{
+	return successJSON(c, map[string]any{
 		"dependencies": deps,
 		"dependents":   dependents,
 	})
@@ -48,7 +49,7 @@ func (s *Server) addDependency(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -80,7 +81,7 @@ func (s *Server) removeDependency(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())

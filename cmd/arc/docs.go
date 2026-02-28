@@ -1,3 +1,6 @@
+// Package main provides the docs commands for the arc CLI, allowing users to
+// browse and search embedded documentation about arc workflows, dependencies,
+// boundaries, resumability, and plugin configuration.
 package main
 
 import (
@@ -10,9 +13,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// defaultSearchLimit is the default maximum number of documentation search results.
+const defaultSearchLimit = 5
+
+// validDocTopics lists the available documentation topic names.
 var validDocTopics = []string{"workflows", "dependencies", "boundaries", "resumability", "plugin"}
 
-// Search flags
+// searchLimit controls the maximum number of search results to display.
+// searchExact disables fuzzy matching when true.
+// searchVerbose shows relevance scores when true.
 var (
 	searchLimit   int
 	searchExact   bool
@@ -56,7 +65,7 @@ func init() {
 	docsCmd.AddCommand(docsSearchCmd)
 
 	// Search command flags
-	docsSearchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "Maximum number of results")
+	docsSearchCmd.Flags().IntVarP(&searchLimit, "limit", "n", defaultSearchLimit, "Maximum number of results")
 	docsSearchCmd.Flags().BoolVar(&searchExact, "exact", false, "Disable fuzzy matching")
 	docsSearchCmd.Flags().BoolVarP(&searchVerbose, "verbose", "v", false, "Show relevance scores")
 }
@@ -86,7 +95,7 @@ func runDocs(cmd *cobra.Command, args []string) error {
 			topic, strings.Join(validDocTopics, ", "))
 	}
 
-	fmt.Fprint(os.Stdout, content)
+	fmt.Fprint(os.Stdout, content) //nolint:revive // stdout write errors are not actionable in CLI
 	return nil
 }
 
@@ -115,10 +124,10 @@ func runDocsSearch(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Fprintf(os.Stderr, "No results found for %q\n", query)
-		fmt.Fprintf(os.Stderr, "\nTry:\n")
-		fmt.Fprintf(os.Stderr, "  - Different keywords\n")
-		fmt.Fprintf(os.Stderr, "  - arc docs <topic> to browse topics\n")
+		_, _ = fmt.Fprintf(os.Stderr, "No results found for %q\n", query)
+		_, _ = fmt.Fprintf(os.Stderr, "\nTry:\n")
+		_, _ = fmt.Fprintf(os.Stderr, "  - Different keywords\n")
+		_, _ = fmt.Fprintf(os.Stderr, "  - arc docs <topic> to browse topics\n")
 		return nil
 	}
 

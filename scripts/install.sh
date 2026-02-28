@@ -415,7 +415,7 @@ main() {
     echo "  1. Download from https://github.com/${REPO}/releases/latest"
     echo "     Extract and move 'arc' to your PATH"
     echo ""
-    echo "  2. Build from source (requires Go 1.23+):"
+    echo "  2. Build from source (requires Go 1.26+):"
     echo "     git clone https://github.com/${REPO}.git"
     echo "     cd arc && make build"
     echo ""

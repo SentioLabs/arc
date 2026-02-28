@@ -1,8 +1,11 @@
+// Package sqlite implements the storage interface using SQLite.
+// This file handles label operations including label definitions and issue-label associations.
 package sqlite
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,7 +13,7 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// CreateLabel creates a new label definition.
+// CreateLabel creates a new label definition within a workspace.
 func (s *Store) CreateLabel(ctx context.Context, label *types.Label) error {
 	err := s.queries.CreateLabel(ctx, db.CreateLabelParams{
 		WorkspaceID: label.WorkspaceID,
@@ -32,7 +35,7 @@ func (s *Store) GetLabel(ctx context.Context, workspaceID, name string) (*types.
 		Name:        name,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("label not found: %s", name)
 		}
 		return nil, fmt.Errorf("get label: %w", err)
@@ -150,6 +153,7 @@ func (s *Store) GetLabelsForIssues(ctx context.Context, issueIDs []string) (map[
 		marks[i] = "?"
 	}
 
+	//nolint:gosec // G202: placeholders are parameterized; IN clause built from integer indices
 	query := `SELECT issue_id, label FROM issue_labels WHERE issue_id IN (` +
 		strings.Join(marks, ",") + `) ORDER BY issue_id, label`
 

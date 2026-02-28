@@ -1,8 +1,11 @@
+// Package sqlite implements the storage interface using SQLite.
+// This file handles comment and event operations.
 package sqlite
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,7 +13,7 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// AddComment adds a comment to an issue.
+// AddComment adds a comment to an issue and records a corresponding event.
 func (s *Store) AddComment(ctx context.Context, issueID, author, text string) (*types.Comment, error) {
 	now := time.Now()
 	result, err := s.queries.CreateComment(ctx, db.CreateCommentParams{
@@ -76,7 +79,8 @@ func (s *Store) DeleteComment(ctx context.Context, commentID int64) error {
 	return nil
 }
 
-// GetEvents returns the event history for an issue.
+// GetEvents returns the event history for an issue, ordered by creation time.
+// Defaults to a limit of 50 events if limit is zero or negative.
 func (s *Store) GetEvents(ctx context.Context, issueID string, limit int) ([]*types.Event, error) {
 	if limit <= 0 {
 		limit = 50
@@ -87,7 +91,7 @@ func (s *Store) GetEvents(ctx context.Context, issueID string, limit int) ([]*ty
 		Limit:   int64(limit),
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []*types.Event{}, nil
 		}
 		return nil, fmt.Errorf("get events: %w", err)
@@ -110,6 +114,8 @@ func (s *Store) GetEvents(ctx context.Context, issueID string, limit int) ([]*ty
 	return events, nil
 }
 
+// nullStringToPtr converts a sql.NullString to a *string pointer.
+// Returns nil if the NullString is not valid.
 func nullStringToPtr(ns sql.NullString) *string {
 	if ns.Valid {
 		return &ns.String

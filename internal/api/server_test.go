@@ -1,4 +1,4 @@
-package api
+package api //nolint:testpackage // tests use internal helpers that access unexported fields
 
 import (
 	"encoding/json"

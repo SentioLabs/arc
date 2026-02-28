@@ -1,4 +1,4 @@
-package types
+package types //nolint:testpackage // tests use internal validation functions
 
 import (
 	"fmt"
@@ -88,9 +88,9 @@ func TestPlanValidate(t *testing.T) {
 
 func TestPlanContextHasPlan(t *testing.T) {
 	tests := []struct {
-		name    string
-		pc      *PlanContext
-		want    bool
+		name string
+		pc   *PlanContext
+		want bool
 	}{
 		{
 			name: "nil context",

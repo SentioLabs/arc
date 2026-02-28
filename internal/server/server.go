@@ -15,6 +15,12 @@ import (
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 )
 
+// Server lifecycle constants.
+const (
+	shutdownTimeout = 10 // seconds to wait for graceful shutdown
+	restartDelay    = 5  // seconds to wait before restarting after crash
+)
+
 // Config holds server configuration.
 type Config struct {
 	Address string // Server address (e.g., ":7432")
@@ -86,7 +92,7 @@ func Run(cfg Config) error {
 
 	// Graceful shutdown
 	log.Println("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
@@ -102,8 +108,8 @@ func RunWithRestart(cfg Config) {
 	for {
 		err := Run(cfg)
 		if err != nil {
-			log.Printf("Server crashed: %v, restarting in 5s...", err)
-			time.Sleep(5 * time.Second)
+			log.Printf("Server crashed: %v, restarting in %ds...", err, restartDelay)
+			time.Sleep(restartDelay * time.Second)
 			continue
 		}
 		// Clean shutdown (SIGTERM)

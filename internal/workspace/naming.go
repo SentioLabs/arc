@@ -11,8 +11,19 @@ import (
 	"time"
 )
 
-// base36Chars defines the character set for base36 encoding.
-const base36Chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+// Naming and encoding constants.
+const (
+	// base36Chars defines the character set for base36 encoding.
+	base36Chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+	// base36Base is the numeric base for base36 encoding.
+	base36Base = 36
+	// hashIDSuffixLen is the length of the base36 hash suffix for issue/plan IDs.
+	hashIDSuffixLen = 6
+	// prefixSuffixLen is the length of the base36 hash suffix for prefixes.
+	prefixSuffixLen = 4
+	// maxSanitizedNameLen is the maximum length for a sanitized workspace basename.
+	maxSanitizedNameLen = 20
+)
 
 // MaxBasenameTruncation is the max number of alphanumeric chars kept from the basename.
 const MaxBasenameTruncation = 10
@@ -30,7 +41,7 @@ func Base36Encode(data []byte) string {
 		return "0"
 	}
 
-	base := big.NewInt(36)
+	base := big.NewInt(base36Base)
 	var result []byte
 	mod := new(big.Int)
 
@@ -70,13 +81,13 @@ func generateHashID(prefix, content, separator string) string {
 	// Use first 3 bytes for ~5-6 base36 characters
 	encoded := Base36Encode(h[:3])
 
-	// Pad to exactly 6 chars
-	for len(encoded) < 6 {
+	// Pad to exactly hashIDSuffixLen chars
+	for len(encoded) < hashIDSuffixLen {
 		encoded = "0" + encoded
 	}
 	// Trim if longer (shouldn't happen with 3 bytes, but be safe)
-	if len(encoded) > 6 {
-		encoded = encoded[:6]
+	if len(encoded) > hashIDSuffixLen {
+		encoded = encoded[:hashIDSuffixLen]
 	}
 
 	return prefix + separator + encoded
@@ -141,12 +152,12 @@ func GeneratePrefix(dirPath string) (string, error) {
 	hash := sha256.Sum256([]byte(normalized))
 	suffix := Base36Encode(hash[:2]) // 2 bytes -> ~3-4 base36 chars
 
-	// Ensure exactly 4 chars for the suffix
-	for len(suffix) < 4 {
+	// Ensure exactly prefixSuffixLen chars for the suffix
+	for len(suffix) < prefixSuffixLen {
 		suffix = "0" + suffix
 	}
-	if len(suffix) > 4 {
-		suffix = suffix[:4]
+	if len(suffix) > prefixSuffixLen {
+		suffix = suffix[:prefixSuffixLen]
 	}
 
 	return basename + "-" + suffix, nil
@@ -204,12 +215,12 @@ func GeneratePrefixFromName(name string) string {
 	hash := sha256.Sum256([]byte(name + time.Now().String()))
 	suffix := Base36Encode(hash[:2])
 
-	// Ensure exactly 4 chars for the suffix
-	for len(suffix) < 4 {
+	// Ensure exactly prefixSuffixLen chars for the suffix
+	for len(suffix) < prefixSuffixLen {
 		suffix = "0" + suffix
 	}
-	if len(suffix) > 4 {
-		suffix = suffix[:4]
+	if len(suffix) > prefixSuffixLen {
+		suffix = suffix[:prefixSuffixLen]
 	}
 
 	return normalized + "-" + suffix
@@ -255,8 +266,8 @@ func SanitizeBasename(name string) string {
 	name = strings.Trim(name, "-")
 
 	// Truncate if too long (keep room for -xxxxxx hash suffix)
-	if len(name) > 20 {
-		name = name[:20]
+	if len(name) > maxSanitizedNameLen {
+		name = name[:maxSanitizedNameLen]
 	}
 
 	// Fallback for empty result

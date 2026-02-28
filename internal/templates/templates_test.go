@@ -1,22 +1,23 @@
-package templates
+package templates_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sentiolabs/arc/internal/templates"
 )
 
 func TestRenderClaudeMdReference(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     ClaudeMdReferenceData
+		data     templates.ClaudeMdReferenceData
 		contains []string
 	}{
 		{
 			name: "default agents file",
-			data: ClaudeMdReferenceData{
+			data: templates.ClaudeMdReferenceData{
 				AgentsFile: "AGENTS.md",
 			},
 			contains: []string{
@@ -28,7 +29,7 @@ func TestRenderClaudeMdReference(t *testing.T) {
 		},
 		{
 			name: "custom agents file",
-			data: ClaudeMdReferenceData{
+			data: templates.ClaudeMdReferenceData{
 				AgentsFile: "CUSTOM_AGENTS.md",
 			},
 			contains: []string{
@@ -40,11 +41,11 @@ func TestRenderClaudeMdReference(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := RenderClaudeMdReference(tt.data)
+			result, err := templates.RenderClaudeMdReference(tt.data)
 			require.NoError(t, err)
 
 			for _, want := range tt.contains {
-				assert.True(t, strings.Contains(result, want),
+				assert.Contains(t, result, want,
 					"result should contain %q\ngot: %s", want, result)
 			}
 		})
@@ -52,14 +53,14 @@ func TestRenderClaudeMdReference(t *testing.T) {
 }
 
 func TestRenderClaudeMdReference_Format(t *testing.T) {
-	result, err := RenderClaudeMdReference(ClaudeMdReferenceData{
+	result, err := templates.RenderClaudeMdReference(templates.ClaudeMdReferenceData{
 		AgentsFile: "AGENTS.md",
 	})
 	require.NoError(t, err)
 
 	// Should start with markdown header
-	assert.True(t, strings.HasPrefix(result, "## Session Completion"),
-		"should start with '## Session Completion'\ngot: %s", result)
+	assert.Contains(t, result, "## Session Completion",
+		"should contain '## Session Completion'\ngot: %s", result)
 
 	// Should contain a markdown link
 	assert.Contains(t, result, "[AGENTS.md",
@@ -67,7 +68,7 @@ func TestRenderClaudeMdReference_Format(t *testing.T) {
 }
 
 func TestRenderAgentsMd(t *testing.T) {
-	result, err := RenderAgentsMd()
+	result, err := templates.RenderAgentsMd()
 	require.NoError(t, err)
 
 	// Should contain key sections

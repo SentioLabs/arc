@@ -1,11 +1,10 @@
-package api
+package api //nolint:testpackage // tests use internal helpers
 
 import (
 	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -18,15 +17,11 @@ import (
 func testServer(t *testing.T) (*Server, func()) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "arc-api-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
+	tmpDir := t.TempDir()
 
 	dbPath := filepath.Join(tmpDir, "test.db")
 	store, err := sqlite.New(dbPath)
 	if err != nil {
-		os.RemoveAll(tmpDir)
 		t.Fatalf("failed to create store: %v", err)
 	}
 
@@ -37,7 +32,6 @@ func testServer(t *testing.T) (*Server, func()) {
 
 	cleanup := func() {
 		store.Close()
-		os.RemoveAll(tmpDir)
 	}
 
 	return server, cleanup
@@ -99,7 +93,8 @@ func TestSetAndGetIssuePlan(t *testing.T) {
 	planText := "This is the plan: Step one then Step two"
 	reqBody := map[string]string{"text": planText}
 	bodyBytes, _ := json.Marshal(reqBody)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/issues/"+issueID+"/plan", bytes.NewBuffer(bodyBytes))
+	planURL := "/api/v1/workspaces/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBuffer(bodyBytes))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("X-Actor", "test-user")
 	rec := httptest.NewRecorder()
@@ -140,7 +135,8 @@ func TestSetIssuePlanEmptyText(t *testing.T) {
 	issueID := createTestIssue(t, e, wsID, "Issue")
 
 	body := `{"text": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/issues/"+issueID+"/plan", bytes.NewBufferString(body))
+	planURL := "/api/v1/workspaces/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -160,9 +156,10 @@ func TestGetIssuePlanHistory(t *testing.T) {
 
 	// Create multiple plan versions
 	versions := []string{"Version 1", "Version 2", "Version 3"}
+	planURL := "/api/v1/workspaces/" + wsID + "/issues/" + issueID + "/plan"
 	for _, v := range versions {
 		body := `{"text": "` + v + `"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/issues/"+issueID+"/plan", bytes.NewBufferString(body))
+		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
@@ -265,7 +262,7 @@ func TestListPlans(t *testing.T) {
 	wsID := createTestWorkspace(t, e)
 
 	// Create multiple plans
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		body := `{"title": "Plan ` + string(rune('A'+i)) + `", "content": "Content"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -310,7 +307,9 @@ func TestUpdatePlan(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var plan types.Plan
-	json.Unmarshal(rec.Body.Bytes(), &plan)
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
 
 	// Update plan
 	body = `{"title": "Updated", "content": "Updated content"}`
@@ -351,7 +350,9 @@ func TestDeletePlan(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var plan types.Plan
-	json.Unmarshal(rec.Body.Bytes(), &plan)
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
 
 	// Delete plan
 	req = httptest.NewRequest(http.MethodDelete, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID, nil)
@@ -388,11 +389,14 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var plan types.Plan
-	json.Unmarshal(rec.Body.Bytes(), &plan)
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
 
 	// Link issue to plan
+	linkURL := "/api/v1/workspaces/" + wsID + "/plans/" + plan.ID + "/link"
 	body = `{"issue_ids": ["` + issueID + `"]}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID+"/link", bytes.NewBufferString(body))
+	req = httptest.NewRequest(http.MethodPost, linkURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -407,7 +411,9 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var retrieved types.Plan
-	json.Unmarshal(rec.Body.Bytes(), &retrieved)
+	if err := json.Unmarshal(rec.Body.Bytes(), &retrieved); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
 
 	if len(retrieved.LinkedIssues) != 1 {
 		t.Errorf("LinkedIssues length = %d, want 1", len(retrieved.LinkedIssues))
@@ -431,7 +437,9 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var afterUnlink types.Plan
-	json.Unmarshal(rec.Body.Bytes(), &afterUnlink)
+	if err := json.Unmarshal(rec.Body.Bytes(), &afterUnlink); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
 
 	if len(afterUnlink.LinkedIssues) != 0 {
 		t.Errorf("LinkedIssues after unlink length = %d, want 0", len(afterUnlink.LinkedIssues))
@@ -453,11 +461,14 @@ func TestLinkIssuesToPlanEmptyList(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var plan types.Plan
-	json.Unmarshal(rec.Body.Bytes(), &plan)
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
 
 	// Try to link empty list
+	linkURL := "/api/v1/workspaces/" + wsID + "/plans/" + plan.ID + "/link"
 	body = `{"issue_ids": []}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID+"/link", bytes.NewBufferString(body))
+	req = httptest.NewRequest(http.MethodPost, linkURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -481,7 +492,9 @@ func TestPlanWorkspaceIsolation(t *testing.T) {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	var ws2 types.Workspace
-	json.Unmarshal(rec.Body.Bytes(), &ws2)
+	if err := json.Unmarshal(rec.Body.Bytes(), &ws2); err != nil {
+		t.Fatalf("failed to parse workspace: %v", err)
+	}
 	wsID2 := ws2.ID
 
 	// Create plan in workspace 1
@@ -492,7 +505,9 @@ func TestPlanWorkspaceIsolation(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	var plan types.Plan
-	json.Unmarshal(rec.Body.Bytes(), &plan)
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
 
 	// Try to access plan from workspace 2 - should fail
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID2+"/plans/"+plan.ID, nil)

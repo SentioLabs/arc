@@ -1,27 +1,29 @@
-package project
+package project_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/project"
 )
 
 func TestWriteAndLoadConfig(t *testing.T) {
 	// Use a temp dir as the arc home
 	tmpDir := t.TempDir()
 
-	cfg := &Config{
+	cfg := &project.Config{
 		WorkspaceID:   "ws-abc123",
 		WorkspaceName: "my-project",
 		ProjectRoot:   "/home/user/my-project",
 	}
 
-	err := WriteConfig(tmpDir, "/home/user/my-project", cfg)
+	err := project.WriteConfig(tmpDir, "/home/user/my-project", cfg)
 	if err != nil {
 		t.Fatalf("WriteConfig failed: %v", err)
 	}
 
-	loaded, err := LoadConfig(tmpDir, "/home/user/my-project")
+	loaded, err := project.LoadConfig(tmpDir, "/home/user/my-project")
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
@@ -40,7 +42,7 @@ func TestWriteAndLoadConfig(t *testing.T) {
 func TestLoadConfigNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	_, err := LoadConfig(tmpDir, "/nonexistent/path")
+	_, err := project.LoadConfig(tmpDir, "/nonexistent/path")
 	if err == nil {
 		t.Fatal("LoadConfig should fail for nonexistent project")
 	}
@@ -60,7 +62,7 @@ func TestPathToProjectDir(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := PathToProjectDir(tc.path)
+			result := project.PathToProjectDir(tc.path)
 			if result != tc.expected {
 				t.Errorf("PathToProjectDir(%q) = %q, want %q", tc.path, result, tc.expected)
 			}
@@ -82,7 +84,7 @@ func TestFindProjectRootViaGit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	root, err := FindProjectRoot(nested)
+	root, err := project.FindProjectRoot(nested)
 	if err != nil {
 		t.Fatalf("FindProjectRoot failed: %v", err)
 	}
@@ -98,12 +100,12 @@ func TestFindProjectRootViaPrefixWalk(t *testing.T) {
 	arcHome := t.TempDir()
 
 	// Register a project at tmpDir
-	cfg := &Config{
+	cfg := &project.Config{
 		WorkspaceID:   "ws-test",
 		WorkspaceName: "test",
 		ProjectRoot:   tmpDir,
 	}
-	if err := WriteConfig(arcHome, tmpDir, cfg); err != nil {
+	if err := project.WriteConfig(arcHome, tmpDir, cfg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,7 +115,7 @@ func TestFindProjectRootViaPrefixWalk(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	root, err := FindProjectRootWithArcHome(nested, arcHome)
+	root, err := project.FindProjectRootWithArcHome(nested, arcHome)
 	if err != nil {
 		t.Fatalf("FindProjectRootWithArcHome failed: %v", err)
 	}
@@ -127,7 +129,7 @@ func TestFindProjectRootNoMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	arcHome := t.TempDir()
 
-	_, err := FindProjectRootWithArcHome(tmpDir, arcHome)
+	_, err := project.FindProjectRootWithArcHome(tmpDir, arcHome)
 	if err == nil {
 		t.Fatal("FindProjectRootWithArcHome should fail when no project found")
 	}
@@ -140,11 +142,11 @@ func TestMigrateLegacyConfig(t *testing.T) {
 	// Create a legacy .arc.json
 	legacyContent := `{"workspace_id": "ws-old123", "workspace_name": "legacy-project"}`
 	legacyPath := filepath.Join(tmpDir, ".arc.json")
-	if err := os.WriteFile(legacyPath, []byte(legacyContent), 0o644); err != nil {
+	if err := os.WriteFile(legacyPath, []byte(legacyContent), 0o644); err != nil { //nolint:gosec // test file
 		t.Fatal(err)
 	}
 
-	cfg, err := MigrateLegacyConfig(tmpDir, arcHome)
+	cfg, err := project.MigrateLegacyConfig(tmpDir, arcHome)
 	if err != nil {
 		t.Fatalf("MigrateLegacyConfig failed: %v", err)
 	}
@@ -157,7 +159,7 @@ func TestMigrateLegacyConfig(t *testing.T) {
 	}
 
 	// Verify the new config was written
-	loaded, err := LoadConfig(arcHome, tmpDir)
+	loaded, err := project.LoadConfig(arcHome, tmpDir)
 	if err != nil {
 		t.Fatalf("LoadConfig after migration failed: %v", err)
 	}
@@ -171,7 +173,8 @@ func TestFindLegacyConfigWalksUp(t *testing.T) {
 
 	// Create .arc.json in the root
 	legacyContent := `{"workspace_id": "ws-walk", "workspace_name": "walk-test"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, ".arc.json"), []byte(legacyContent), 0o644); err != nil {
+	legacyPath := filepath.Join(tmpDir, ".arc.json")
+	if err := os.WriteFile(legacyPath, []byte(legacyContent), 0o644); err != nil { //nolint:gosec // test file
 		t.Fatal(err)
 	}
 
@@ -181,7 +184,7 @@ func TestFindLegacyConfigWalksUp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	path, err := FindLegacyConfig(nested)
+	path, err := project.FindLegacyConfig(nested)
 	if err != nil {
 		t.Fatalf("FindLegacyConfig failed: %v", err)
 	}
@@ -196,22 +199,22 @@ func TestCleanupWorkspaceConfigs(t *testing.T) {
 	arcHome := t.TempDir()
 
 	// Create three project configs: two for workspace "ws-target", one for "ws-other"
-	cfg1 := &Config{WorkspaceID: "ws-target", WorkspaceName: "proj-a", ProjectRoot: "/home/user/proj-a"}
-	cfg2 := &Config{WorkspaceID: "ws-target", WorkspaceName: "proj-b", ProjectRoot: "/home/user/proj-b"}
-	cfg3 := &Config{WorkspaceID: "ws-other", WorkspaceName: "proj-c", ProjectRoot: "/home/user/proj-c"}
+	cfg1 := &project.Config{WorkspaceID: "ws-target", WorkspaceName: "proj-a", ProjectRoot: "/home/user/proj-a"}
+	cfg2 := &project.Config{WorkspaceID: "ws-target", WorkspaceName: "proj-b", ProjectRoot: "/home/user/proj-b"}
+	cfg3 := &project.Config{WorkspaceID: "ws-other", WorkspaceName: "proj-c", ProjectRoot: "/home/user/proj-c"}
 
-	if err := WriteConfig(arcHome, "/home/user/proj-a", cfg1); err != nil {
+	if err := project.WriteConfig(arcHome, "/home/user/proj-a", cfg1); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteConfig(arcHome, "/home/user/proj-b", cfg2); err != nil {
+	if err := project.WriteConfig(arcHome, "/home/user/proj-b", cfg2); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteConfig(arcHome, "/home/user/proj-c", cfg3); err != nil {
+	if err := project.WriteConfig(arcHome, "/home/user/proj-c", cfg3); err != nil {
 		t.Fatal(err)
 	}
 
 	// Clean up configs for ws-target
-	removed, err := CleanupWorkspaceConfigs(arcHome, "ws-target")
+	removed, err := project.CleanupWorkspaceConfigs(arcHome, "ws-target")
 	if err != nil {
 		t.Fatalf("CleanupWorkspaceConfigs failed: %v", err)
 	}
@@ -221,15 +224,15 @@ func TestCleanupWorkspaceConfigs(t *testing.T) {
 	}
 
 	// ws-target configs should be gone
-	if _, err := LoadConfig(arcHome, "/home/user/proj-a"); err == nil {
+	if _, err := project.LoadConfig(arcHome, "/home/user/proj-a"); err == nil {
 		t.Error("proj-a config should have been removed")
 	}
-	if _, err := LoadConfig(arcHome, "/home/user/proj-b"); err == nil {
+	if _, err := project.LoadConfig(arcHome, "/home/user/proj-b"); err == nil {
 		t.Error("proj-b config should have been removed")
 	}
 
 	// ws-other config should still exist
-	loaded, err := LoadConfig(arcHome, "/home/user/proj-c")
+	loaded, err := project.LoadConfig(arcHome, "/home/user/proj-c")
 	if err != nil {
 		t.Fatalf("proj-c config should still exist: %v", err)
 	}
@@ -242,12 +245,12 @@ func TestCleanupWorkspaceConfigsNoMatch(t *testing.T) {
 	arcHome := t.TempDir()
 
 	// Create a config for a different workspace
-	cfg := &Config{WorkspaceID: "ws-keep", WorkspaceName: "keep", ProjectRoot: "/home/user/keep"}
-	if err := WriteConfig(arcHome, "/home/user/keep", cfg); err != nil {
+	cfg := &project.Config{WorkspaceID: "ws-keep", WorkspaceName: "keep", ProjectRoot: "/home/user/keep"}
+	if err := project.WriteConfig(arcHome, "/home/user/keep", cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	removed, err := CleanupWorkspaceConfigs(arcHome, "ws-nonexistent")
+	removed, err := project.CleanupWorkspaceConfigs(arcHome, "ws-nonexistent")
 	if err != nil {
 		t.Fatalf("CleanupWorkspaceConfigs failed: %v", err)
 	}
@@ -257,7 +260,7 @@ func TestCleanupWorkspaceConfigsNoMatch(t *testing.T) {
 	}
 
 	// Original config should still exist
-	if _, err := LoadConfig(arcHome, "/home/user/keep"); err != nil {
+	if _, err := project.LoadConfig(arcHome, "/home/user/keep"); err != nil {
 		t.Fatalf("config should still exist: %v", err)
 	}
 }

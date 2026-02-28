@@ -1,3 +1,5 @@
+// Package main provides the self-management commands for the arc CLI,
+// including self-update functionality to fetch the latest version from GitHub.
 package main
 
 import (
@@ -6,16 +8,18 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/sentiolabs/arc/internal/version"
 	"github.com/spf13/cobra"
 )
 
-var (
-	selfForce bool
-	selfCheck bool
-)
+// selfForce forces update even if already up-to-date.
+var selfForce bool
+
+// selfCheck enables check-only mode without installing.
+var selfCheck bool
 
 var selfCmd = &cobra.Command{
 	Use:   "self",
@@ -56,13 +60,14 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 
 	// Check-only mode
 	if selfCheck {
-		if currentNorm == latestNorm {
-			fmt.Printf("arc %s is the latest version\n", current)
-		} else if isNewer(latestNorm, currentNorm) {
-			fmt.Printf("arc %s installed\n", current)
-			fmt.Printf("arc %s available\n", latest)
-			fmt.Println("\nRun 'arc self update' to upgrade")
-		} else {
+		switch {
+		case currentNorm == latestNorm:
+			_, _ = fmt.Printf("arc %s is the latest version\n", current)
+		case isNewer(latestNorm, currentNorm):
+			_, _ = fmt.Printf("arc %s installed\n", current)
+			_, _ = fmt.Printf("arc %s available\n", latest)
+			_, _ = fmt.Println("\nRun 'arc self update' to upgrade")
+		default:
 			fmt.Printf("arc %s installed (newer than latest release %s)\n", current, latest)
 		}
 		return nil
@@ -130,18 +135,21 @@ func normalizeVersion(v string) string {
 	return v
 }
 
-// isNewer returns true if a is newer than b (semver comparison)
+// semverPartCount is the number of parts in a semantic version string (major.minor.patch).
+const semverPartCount = 3
+
+// isNewer returns true if a is newer than b (semver comparison).
 func isNewer(a, b string) bool {
 	aParts := strings.Split(a, ".")
 	bParts := strings.Split(b, ".")
 
-	for i := 0; i < 3; i++ {
+	for i := range semverPartCount {
 		var aNum, bNum int
 		if i < len(aParts) {
-			fmt.Sscanf(aParts[i], "%d", &aNum)
+			aNum, _ = strconv.Atoi(aParts[i])
 		}
 		if i < len(bParts) {
-			fmt.Sscanf(bParts[i], "%d", &bNum)
+			bNum, _ = strconv.Atoi(bParts[i])
 		}
 		if aNum > bNum {
 			return true

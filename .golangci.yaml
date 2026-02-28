@@ -2,6 +2,10 @@
 # See full documentation at: https://golangci-lint.run/usage/configuration/
 version: "2"
 
+# Language settings - inform linters about target Go version
+language:
+  version: "1.26" # Match go.mod version
+
 # Linters configuration section - controls which linters are enabled/disabled
 # See full documentation at: https://golangci-lint.run/usage/linters/
 linters:
@@ -157,12 +161,27 @@ linters:
           - forbidigo # Pattern-prohibiting linter
         path: _test\.go # Allow fmt.Print and other normally forbidden functions in test files
       - linters:
+          - forbidigo # CLI commands produce user-facing output via fmt.Print
+        path: cmd/
+      - linters:
+          - revive # CLI output to stdout; errors are unrecoverable
+        path: cmd/
+        text: "unhandled-error: Unhandled error in call to function fmt\\.Print"
+      - linters:
           - dupl # Duplicate code detection
         path: _test\.go # Test files often have similar structures for readability
       - linters:
           - testifylint # Testify linter
         path: _test\.go
         text: "suite-dont-use-pkg" # Allow assert.X(s.T(),...) style in test suites
+      - linters:
+          - revive # "api" is a clear, descriptive package name
+        path: internal/api/
+        text: "var-naming: avoid meaningless package names"
+      - linters:
+          - revive # "types" is the established package for core data structures
+        path: internal/types/
+        text: "var-naming: avoid meaningless package names"
 
     # Directories/file patterns to exclude entirely
     paths:

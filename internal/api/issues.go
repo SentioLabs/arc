@@ -1,10 +1,18 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/types"
+)
+
+const (
+	// defaultListLimit is the default number of items returned in list queries.
+	defaultListLimit = 100
+	// defaultPriority is the default priority for issues when parsing query parameters.
+	defaultPriority = 2
 )
 
 // createIssueRequest is the request body for creating an issue.
@@ -35,18 +43,20 @@ type closeIssueRequest struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// listIssues returns issues for a workspace.
+// listIssues returns issues for a workspace with optional filtering and pagination.
+// Supports filtering by status, type, assignee, priority, and free-text query.
+// Results include batch-fetched labels for each issue.
 func (s *Server) listIssues(c echo.Context) error {
 	wsID := workspaceID(c)
 
 	filter := types.IssueFilter{
 		WorkspaceID: wsID,
-		Limit:       queryInt(c, "limit", 100),
+		Limit:       queryInt(c, "limit", defaultListLimit),
 		Offset:      queryInt(c, "offset", 0),
 		Query:       c.QueryParam("q"),
 	}
 
-	// Parse optional filters
+	// Parse optional filters from query parameters
 	if status := c.QueryParam("status"); status != "" {
 		s := types.Status(status)
 		filter.Status = &s
@@ -59,7 +69,7 @@ func (s *Server) listIssues(c echo.Context) error {
 		filter.Assignee = &assignee
 	}
 	if priority := c.QueryParam("priority"); priority != "" {
-		p := queryInt(c, "priority", 2)
+		p := queryInt(c, "priority", defaultPriority)
 		filter.Priority = &p
 	}
 
@@ -86,7 +96,8 @@ func (s *Server) listIssues(c echo.Context) error {
 	return paginatedJSON(c, issues, len(issues), filter.Limit, filter.Offset)
 }
 
-// createIssue creates a new issue.
+// createIssue creates a new issue in the specified workspace.
+// The issue type, priority, and other fields are set from the request body.
 func (s *Server) createIssue(c echo.Context) error {
 	wsID := workspaceID(c)
 	actor := getActor(c)
@@ -115,14 +126,15 @@ func (s *Server) createIssue(c echo.Context) error {
 	return createdJSON(c, issue)
 }
 
-// getIssue retrieves an issue by ID.
+// getIssue retrieves an issue by ID, with optional detailed view including
+// dependencies, labels, and comments when details=true is specified.
 func (s *Server) getIssue(c echo.Context) error {
 	id := c.Param("id")
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	issue, err := s.getIssueInWorkspace(c, id)
 	if err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -140,14 +152,15 @@ func (s *Server) getIssue(c echo.Context) error {
 	return successJSON(c, issue)
 }
 
-// updateIssue updates an issue.
+// updateIssue applies partial updates to an issue.
+// Only provided fields are updated; omitted fields remain unchanged.
 func (s *Server) updateIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -159,7 +172,7 @@ func (s *Server) updateIssue(c echo.Context) error {
 	}
 
 	// Build updates map
-	updates := make(map[string]interface{})
+	updates := make(map[string]any)
 	if req.Title != nil {
 		updates["title"] = *req.Title
 	}
@@ -205,7 +218,7 @@ func (s *Server) deleteIssue(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -225,7 +238,7 @@ func (s *Server) closeIssue(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -256,7 +269,7 @@ func (s *Server) reopenIssue(c echo.Context) error {
 
 	// Validate issue belongs to workspace (security: prevents cross-workspace access)
 	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if err == errWorkspaceMismatch {
+		if errors.Is(err, errWorkspaceMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -275,13 +288,14 @@ func (s *Server) reopenIssue(c echo.Context) error {
 	return successJSON(c, issue)
 }
 
-// getReadyWork returns issues that are ready to work on.
+// getReadyWork returns issues that are ready to work on (no unresolved blockers).
+// Supports filtering by type, assignee, and priority.
 func (s *Server) getReadyWork(c echo.Context) error {
 	wsID := workspaceID(c)
 
 	filter := types.WorkFilter{
 		WorkspaceID: wsID,
-		Limit:       queryInt(c, "limit", 100),
+		Limit:       queryInt(c, "limit", defaultListLimit),
 	}
 
 	// Parse optional filters
@@ -296,7 +310,7 @@ func (s *Server) getReadyWork(c echo.Context) error {
 		filter.Unassigned = true
 	}
 	if priority := c.QueryParam("priority"); priority != "" {
-		p := queryInt(c, "priority", 2)
+		p := queryInt(c, "priority", defaultPriority)
 		filter.Priority = &p
 	}
 
@@ -323,13 +337,13 @@ func (s *Server) getReadyWork(c echo.Context) error {
 	return successJSON(c, issues)
 }
 
-// getBlockedIssues returns issues that are blocked.
+// getBlockedIssues returns issues that are blocked by unresolved dependencies.
 func (s *Server) getBlockedIssues(c echo.Context) error {
 	wsID := workspaceID(c)
 
 	filter := types.WorkFilter{
 		WorkspaceID: wsID,
-		Limit:       queryInt(c, "limit", 100),
+		Limit:       queryInt(c, "limit", defaultListLimit),
 	}
 
 	issues, err := s.store.GetBlockedIssues(c.Request().Context(), filter)

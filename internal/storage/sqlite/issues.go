@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -138,10 +139,8 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 			CreatedAt:   now,
 			CreatedBy:   actor,
 		}
-		if err := s.AddDependency(ctx, dep, actor); err != nil {
-			// Log but don't fail - the issue was created successfully
-			// The dependency creation failure shouldn't rollback the issue
-		}
+		// Best-effort: dependency creation failure shouldn't rollback the issue
+		_ = s.AddDependency(ctx, dep, actor)
 	}
 
 	return nil
@@ -151,7 +150,7 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 func (s *Store) GetIssue(ctx context.Context, id string) (*types.Issue, error) {
 	row, err := s.queries.GetIssue(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("issue not found: %s", id)
 		}
 		return nil, fmt.Errorf("get issue: %w", err)
@@ -164,7 +163,7 @@ func (s *Store) GetIssue(ctx context.Context, id string) (*types.Issue, error) {
 func (s *Store) GetIssueByExternalRef(ctx context.Context, externalRef string) (*types.Issue, error) {
 	row, err := s.queries.GetIssueByExternalRef(ctx, toNullString(externalRef))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("issue not found with external ref: %s", externalRef)
 		}
 		return nil, fmt.Errorf("get issue by external ref: %w", err)
@@ -179,10 +178,7 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 	if limit <= 0 {
 		limit = 100
 	}
-	offset := filter.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(filter.Offset, 0)
 
 	var rows []*db.Issue
 	var err error
@@ -239,7 +235,7 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 }
 
 // UpdateIssue updates an issue with the given updates.
-func (s *Store) UpdateIssue(ctx context.Context, id string, updates map[string]interface{}, actor string) error {
+func (s *Store) UpdateIssue(ctx context.Context, id string, updates map[string]any, actor string) error {
 	now := time.Now()
 
 	for field, value := range updates {
@@ -428,8 +424,12 @@ func dbIssueToType(row *db.Issue) *types.Issue {
 }
 
 // recordEvent records an event in the audit trail.
+// Errors are intentionally ignored because event recording is best-effort
+// and should not fail the parent operation.
+//
+//nolint:revive,lll // argument-limit: event recording requires all these parameters
 func (s *Store) recordEvent(ctx context.Context, issueID string, eventType types.EventType, actor string, oldValue, newValue *string) {
-	s.queries.CreateEvent(ctx, db.CreateEventParams{
+	_ = s.queries.CreateEvent(ctx, db.CreateEventParams{
 		IssueID:   issueID,
 		EventType: string(eventType),
 		Actor:     actor,
