@@ -1,22 +1,22 @@
 -- name: CreateLabel :exec
-INSERT INTO labels (workspace_id, name, color, description)
-VALUES (?, ?, ?, ?)
-ON CONFLICT(workspace_id, name) DO UPDATE SET
+INSERT INTO labels (name, color, description)
+VALUES (?, ?, ?)
+ON CONFLICT(name) DO UPDATE SET
     color = excluded.color,
     description = excluded.description;
 
 -- name: GetLabel :one
-SELECT * FROM labels WHERE workspace_id = ? AND name = ?;
+SELECT * FROM labels WHERE name = ?;
 
 -- name: ListLabels :many
-SELECT * FROM labels WHERE workspace_id = ? ORDER BY name;
+SELECT * FROM labels ORDER BY name;
 
 -- name: UpdateLabel :exec
 UPDATE labels SET color = ?, description = ?
-WHERE workspace_id = ? AND name = ?;
+WHERE name = ?;
 
 -- name: DeleteLabel :exec
-DELETE FROM labels WHERE workspace_id = ? AND name = ?;
+DELETE FROM labels WHERE name = ?;
 
 -- name: AddLabelToIssue :exec
 INSERT INTO issue_labels (issue_id, label)
