@@ -57,14 +57,11 @@ CREATE TABLE dependencies (
 CREATE INDEX idx_dependencies_issue ON dependencies(issue_id);
 CREATE INDEX idx_dependencies_depends_on ON dependencies(depends_on_id);
 
--- Labels definition table (workspace-scoped)
+-- Labels definition table (global)
 CREATE TABLE labels (
-    workspace_id TEXT NOT NULL,
-    name TEXT NOT NULL,
+    name TEXT PRIMARY KEY,
     color TEXT,
-    description TEXT,
-    PRIMARY KEY (workspace_id, name),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    description TEXT
 );
 
 -- Issue-label associations
