@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -497,7 +498,7 @@ func TestWorkspaceValidate(t *testing.T) {
 				Prefix: "thisprefixtoolong",
 			},
 			wantErr: true,
-			errMsg:  "workspace prefix must be 15 characters or less",
+			errMsg:  fmt.Sprintf("workspace prefix must be %d characters or less", MaxPrefixLength),
 		},
 	}
 

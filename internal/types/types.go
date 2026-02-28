@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+// MaxPrefixLength is the maximum allowed workspace prefix length.
+// Must match workspace.MaxPrefixLength (kept separate to avoid circular imports).
+const MaxPrefixLength = 15
+
 // Workspace represents a project or workspace that contains issues.
 // Replaces the per-repo concept from beads with explicit workspace management.
 type Workspace struct {
@@ -29,8 +33,8 @@ func (w *Workspace) Validate() error {
 	if w.Prefix == "" {
 		return fmt.Errorf("workspace prefix is required")
 	}
-	if len(w.Prefix) > 15 {
-		return fmt.Errorf("workspace prefix must be 15 characters or less")
+	if len(w.Prefix) > MaxPrefixLength {
+		return fmt.Errorf("workspace prefix must be %d characters or less", MaxPrefixLength)
 	}
 	return nil
 }

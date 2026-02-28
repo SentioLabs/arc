@@ -14,6 +14,15 @@ import (
 // base36Chars defines the character set for base36 encoding.
 const base36Chars = "0123456789abcdefghijklmnopqrstuvwxyz"
 
+// MaxBasenameTruncation is the max number of alphanumeric chars kept from the basename.
+const MaxBasenameTruncation = 10
+
+// PrefixHashSuffixLength is the number of base36 hash characters in the suffix.
+const PrefixHashSuffixLength = 4
+
+// MaxPrefixLength is the maximum total prefix length: basename + hyphen + hash suffix.
+const MaxPrefixLength = MaxBasenameTruncation + 1 + PrefixHashSuffixLength
+
 // Base36Encode converts bytes to a base36 string.
 func Base36Encode(data []byte) string {
 	n := new(big.Int).SetBytes(data)
@@ -123,10 +132,9 @@ func GeneratePrefix(dirPath string) (string, error) {
 	normalized := filepath.ToSlash(evalPath)
 
 	// Get alphanumeric-only basename, truncated for prefix use
-	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	basename := normalizeForPrefix(filepath.Base(evalPath))
-	if len(basename) > 5 {
-		basename = basename[:5]
+	if len(basename) > MaxBasenameTruncation {
+		basename = basename[:MaxBasenameTruncation]
 	}
 
 	// Generate deterministic hash from full path using base36
@@ -150,10 +158,9 @@ func GeneratePrefix(dirPath string) (string, error) {
 // Includes timestamp for uniqueness when same name is used multiple times.
 func GeneratePrefixFromName(name string) string {
 	// Normalize to alphanumeric only and truncate
-	// Max 5 chars to fit in 10-char limit: 5 basename + 1 hyphen + 4 suffix = 10
 	normalized := normalizeForPrefix(name)
-	if len(normalized) > 5 {
-		normalized = normalized[:5]
+	if len(normalized) > MaxBasenameTruncation {
+		normalized = normalized[:MaxBasenameTruncation]
 	}
 
 	// Generate hash from name + timestamp for uniqueness
