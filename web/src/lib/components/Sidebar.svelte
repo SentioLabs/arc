@@ -36,8 +36,7 @@
 	const navItems = [
 		{ label: 'Issues', href: 'issues', icon: 'issues' },
 		{ label: 'Ready', href: 'ready', icon: 'ready' },
-		{ label: 'Blocked', href: 'blocked', icon: 'blocked' },
-		{ label: 'Labels', href: 'labels', icon: 'labels' }
+		{ label: 'Blocked', href: 'blocked', icon: 'blocked' }
 	];
 
 	// Icons as SVG paths
@@ -161,6 +160,19 @@
 				</a>
 			{/each}
 
+			<!-- Global section -->
+			<div class="pt-3 mt-3 border-t border-border">
+				<div class="text-xs font-medium text-text-muted uppercase tracking-wider px-2 mb-2">
+					Global
+				</div>
+				<a href="/labels" class="nav-link {\$page.url.pathname === '/labels' ? 'active' : ''}">
+					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+						<path d={icons.labels} />
+					</svg>
+					Labels
+				</a>
+			</div>
+
 			<!-- Create Issue button -->
 			<div class="pt-4 mt-4 border-t border-border">
 				<a href="/{currentWorkspace.id}/issues/new" class="btn btn-primary w-full justify-center">
@@ -225,6 +237,16 @@
 			{:else}
 				<p class="text-sm text-text-muted px-2">No workspaces yet</p>
 			{/if}
+
+			<!-- Global section -->
+			<div class="pt-3 mt-3 border-t border-border">
+				<a href="/labels" class="nav-link">
+					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+						<path d={icons.labels} />
+					</svg>
+					Labels
+				</a>
+			</div>
 		</nav>
 	{/if}
 
