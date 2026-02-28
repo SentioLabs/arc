@@ -13,10 +13,9 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// CreateLabel creates a new label definition within a workspace.
+// CreateLabel creates a new global label definition.
 func (s *Store) CreateLabel(ctx context.Context, label *types.Label) error {
 	err := s.queries.CreateLabel(ctx, db.CreateLabelParams{
-		WorkspaceID: label.WorkspaceID,
 		Name:        label.Name,
 		Color:       toNullString(label.Color),
 		Description: toNullString(label.Description),
@@ -28,12 +27,9 @@ func (s *Store) CreateLabel(ctx context.Context, label *types.Label) error {
 	return nil
 }
 
-// GetLabel retrieves a label by workspace and name.
-func (s *Store) GetLabel(ctx context.Context, workspaceID, name string) (*types.Label, error) {
-	row, err := s.queries.GetLabel(ctx, db.GetLabelParams{
-		WorkspaceID: workspaceID,
-		Name:        name,
-	})
+// GetLabel retrieves a label by name.
+func (s *Store) GetLabel(ctx context.Context, name string) (*types.Label, error) {
+	row, err := s.queries.GetLabel(ctx, name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("label not found: %s", name)
@@ -42,16 +38,15 @@ func (s *Store) GetLabel(ctx context.Context, workspaceID, name string) (*types.
 	}
 
 	return &types.Label{
-		WorkspaceID: row.WorkspaceID,
 		Name:        row.Name,
 		Color:       fromNullString(row.Color),
 		Description: fromNullString(row.Description),
 	}, nil
 }
 
-// ListLabels returns all labels for a workspace.
-func (s *Store) ListLabels(ctx context.Context, workspaceID string) ([]*types.Label, error) {
-	rows, err := s.queries.ListLabels(ctx, workspaceID)
+// ListLabels returns all global labels.
+func (s *Store) ListLabels(ctx context.Context) ([]*types.Label, error) {
+	rows, err := s.queries.ListLabels(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list labels: %w", err)
 	}
@@ -59,7 +54,6 @@ func (s *Store) ListLabels(ctx context.Context, workspaceID string) ([]*types.La
 	labels := make([]*types.Label, len(rows))
 	for i, row := range rows {
 		labels[i] = &types.Label{
-			WorkspaceID: row.WorkspaceID,
 			Name:        row.Name,
 			Color:       fromNullString(row.Color),
 			Description: fromNullString(row.Description),
@@ -74,7 +68,6 @@ func (s *Store) UpdateLabel(ctx context.Context, label *types.Label) error {
 	err := s.queries.UpdateLabel(ctx, db.UpdateLabelParams{
 		Color:       toNullString(label.Color),
 		Description: toNullString(label.Description),
-		WorkspaceID: label.WorkspaceID,
 		Name:        label.Name,
 	})
 	if err != nil {
@@ -85,11 +78,8 @@ func (s *Store) UpdateLabel(ctx context.Context, label *types.Label) error {
 }
 
 // DeleteLabel deletes a label.
-func (s *Store) DeleteLabel(ctx context.Context, workspaceID, name string) error {
-	err := s.queries.DeleteLabel(ctx, db.DeleteLabelParams{
-		WorkspaceID: workspaceID,
-		Name:        name,
-	})
+func (s *Store) DeleteLabel(ctx context.Context, name string) error {
+	err := s.queries.DeleteLabel(ctx, name)
 	if err != nil {
 		return fmt.Errorf("delete label: %w", err)
 	}
