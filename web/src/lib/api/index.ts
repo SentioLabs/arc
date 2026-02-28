@@ -15,6 +15,10 @@ export type Label = components['schemas']['Label'];
 export type Comment = components['schemas']['Comment'];
 export type Event = components['schemas']['Event'];
 export type DependencyGraph = components['schemas']['DependencyGraph'];
+export type TeamContext = components['schemas']['TeamContext'];
+export type TeamContextIssue = components['schemas']['TeamContextIssue'];
+export type TeamContextRole = components['schemas']['TeamContextRole'];
+export type TeamContextEpic = components['schemas']['TeamContextEpic'];
 
 // Error helper - extracts message from API error response { error: "message" }
 function handleError(error: unknown): never {
@@ -254,4 +258,19 @@ export async function getDependencies(
 	});
 	if (error) handleError(error);
 	return data ?? { dependencies: [], dependents: [] };
+}
+
+// Team Context APIs
+export async function getTeamContext(
+	workspaceId: string,
+	epicId?: string
+): Promise<TeamContext> {
+	const { data, error } = await api.GET('/workspaces/{workspaceId}/team-context', {
+		params: {
+			path: { workspaceId },
+			query: { epic_id: epicId }
+		}
+	});
+	if (error) handleError(error);
+	return data ?? { workspace: workspaceId, roles: {}, unassigned: [] };
 }

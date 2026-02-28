@@ -116,6 +116,9 @@ func (s *Server) registerRoutes() {
 	ws.GET("/ready", s.getReadyWork)
 	ws.GET("/blocked", s.getBlockedIssues)
 
+	// Team context
+	ws.GET("/team-context", s.getTeamContext)
+
 	// Dependencies
 	ws.GET("/issues/:id/deps", s.getDependencies)
 	ws.POST("/issues/:id/deps", s.addDependency)

@@ -27,6 +27,8 @@ tags:
     description: Label management
   - name: comments
     description: Comments and audit events
+  - name: teams
+    description: Agent team context and role grouping
 
 paths:
   # ====================
@@ -450,6 +452,40 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/BlockedIssue"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Team Context
+  # ====================
+  /workspaces/{workspaceId}/team-context:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: getTeamContext
+      tags: [teams]
+      summary: Get issues grouped by teammate role labels
+      description: |
+        Returns issues grouped by their `teammate:*` labels. When an epic_id is
+        provided, only children of that epic (via parent-child dependency) are
+        included. Without epic_id, all non-closed issues with teammate labels
+        in the workspace are returned.
+      parameters:
+        - name: epic_id
+          in: query
+          description: Optional epic ID to scope to children of a specific epic
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team context with issues grouped by role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamContext"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1107,6 +1143,86 @@ components:
           type: integer
         offset:
           type: integer
+
+    # ====================
+    # Team Context Schemas
+    # ====================
+    TeamContext:
+      type: object
+      required:
+        - workspace
+        - roles
+        - unassigned
+      properties:
+        workspace:
+          type: string
+          description: Workspace ID
+        epic:
+          $ref: "#/components/schemas/TeamContextEpic"
+        roles:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/TeamContextRole"
+          description: Issues grouped by teammate role name
+        unassigned:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamContextIssue"
+          description: Issues without a teammate label (only present with epic filter)
+
+    TeamContextEpic:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        plan:
+          type: string
+          description: Epic's inline plan text
+
+    TeamContextRole:
+      type: object
+      required:
+        - issues
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamContextIssue"
+
+    TeamContextIssue:
+      type: object
+      required:
+        - id
+        - title
+        - priority
+        - status
+        - type
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 4
+        status:
+          type: string
+        type:
+          type: string
+        plan:
+          type: string
+          description: Issue's inline plan text
+        deps:
+          type: array
+          items:
+            type: string
+          description: IDs of issues this depends on
 
     CreateIssueRequest:
       type: object
