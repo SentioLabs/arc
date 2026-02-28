@@ -165,7 +165,7 @@
 				<div class="text-xs font-medium text-text-muted uppercase tracking-wider px-2 mb-2">
 					Global
 				</div>
-				<a href="/labels" class="nav-link {\$page.url.pathname === '/labels' ? 'active' : ''}">
+				<a href="/labels" class="nav-link {$page.url.pathname === '/labels' ? 'active' : ''}">
 					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
 						<path d={icons.labels} />
 					</svg>
