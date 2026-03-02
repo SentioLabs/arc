@@ -99,3 +99,4 @@ arc close <id> -m "reason" -w <workspace>            # Close completed task
 - Never skip the review step after implementation
 - Never close a task without checking that tests pass
 - If in doubt about the result, re-dispatch rather than fixing manually
+- Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

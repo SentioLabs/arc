@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Header, StatusBadge, PriorityBadge, TypeBadge } from '$lib/components';
+	import { Header, StatusBadge, PriorityBadge, TypeBadge, Markdown } from '$lib/components';
 	import { formatDateTime, formatRelativeTime, dependencyTypeLabels } from '$lib/utils';
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
@@ -109,41 +109,11 @@
 								<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">
 									Description
 								</h2>
-								<div
-									class="prose prose-invert prose-sm max-w-none text-text-secondary whitespace-pre-wrap"
-								>
-									{issue.description}
-								</div>
+								<Markdown content={issue.description} />
 							</section>
 						{/if}
 
-						<!-- Acceptance Criteria -->
-						{#if issue.acceptance_criteria}
-							<section class="card p-6">
-								<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">
-									Acceptance Criteria
-								</h2>
-								<div
-									class="prose prose-invert prose-sm max-w-none text-text-secondary whitespace-pre-wrap"
-								>
-									{issue.acceptance_criteria}
-								</div>
-							</section>
-						{/if}
 
-						<!-- Notes -->
-						{#if issue.notes}
-							<section class="card p-6">
-								<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">
-									Notes
-								</h2>
-								<div
-									class="prose prose-invert prose-sm max-w-none text-text-secondary whitespace-pre-wrap"
-								>
-									{issue.notes}
-								</div>
-							</section>
-						{/if}
 
 						<!-- Comments -->
 						<section class="card p-6">
@@ -166,7 +136,7 @@
 													{formatRelativeTime(comment.created_at)}
 												</span>
 											</div>
-											<p class="text-sm text-text-secondary whitespace-pre-wrap">{comment.text}</p>
+											<Markdown content={comment.text} />
 										</div>
 									{/each}
 								</div>
@@ -318,7 +288,7 @@
 								</h3>
 								<p class="text-sm text-text-secondary">{formatDateTime(issue.closed_at)}</p>
 								{#if issue.close_reason}
-									<p class="text-sm text-text-muted mt-2">{issue.close_reason}</p>
+									<div class="mt-2"><Markdown content={issue.close_reason} /></div>
 								{/if}
 							</section>
 						{/if}

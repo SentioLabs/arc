@@ -80,3 +80,4 @@ If verification **fails**, do NOT close the issue. Instead:
 - Never claim completion without running the proof command
 - Never trust cached or remembered results — run it fresh
 - After verification, proceed to `finish` (session end) or back to `implement` (next task)
+- Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

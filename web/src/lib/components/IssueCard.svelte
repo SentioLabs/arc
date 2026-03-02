@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import { formatRelativeTime } from '$lib/utils';
+	import { stripMarkdown } from '$lib/markdown';
 	import StatusBadge from './StatusBadge.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
 	import TypeBadge from './TypeBadge.svelte';
@@ -61,7 +62,7 @@
 		<!-- Description preview (if not compact and exists) -->
 		{#if !compact && issue.description}
 			<p class="text-sm text-text-secondary line-clamp-2 leading-relaxed">
-				{issue.description}
+				{stripMarkdown(issue.description)}
 			</p>
 		{/if}
 

@@ -83,3 +83,4 @@ This skill works in both execution models:
 - Re-review after fixes — don't assume fixes are correct
 - The reviewer reports; you decide what to do with the findings
 - Never make code changes in the review skill — dispatch the implementer for fixes
+- Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

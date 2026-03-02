@@ -14,6 +14,9 @@ export { default as RoleLane } from './RoleLane.svelte';
 export { default as Sidebar } from './Sidebar.svelte';
 export { default as Header } from './Header.svelte';
 
+// Content components
+export { default as Markdown } from './Markdown.svelte';
+
 // Utility components
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as Select } from './Select.svelte';

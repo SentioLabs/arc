@@ -89,3 +89,4 @@ arc create "Task Name" --type=task -w <workspace>
 - Never create `docs/plans/` markdown files — arc plan is the sole artifact
 - Arc issues track persistent work; TodoWrite tracks your brainstorming checklist steps
 - YAGNI: if the user didn't ask for it, don't design it
+- Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

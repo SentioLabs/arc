@@ -100,3 +100,4 @@ go test ./path/to/...
 - Task descriptions must include actual code guidance, not vague instructions
 - Team preparation (teammate labels) is optional — only if user chooses team execution
 - The plan skill creates tasks; it does not implement them
+- Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

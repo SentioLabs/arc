@@ -26,6 +26,7 @@
 		"@sveltejs/kit": "^2.49.1",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tailwindcss/vite": "^4.1.18",
+		"@types/dompurify": "^3.2.0",
 		"@typescript-eslint/eslint-plugin": "^8.53.1",
 		"@typescript-eslint/parser": "^8.53.1",
 		"eslint": "^9.39.2",
@@ -41,5 +42,11 @@
 		"tailwindcss": "^4.0.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.2.6"
+	},
+	"dependencies": {
+		"isomorphic-dompurify": "^3.0.0",
+		"marked": "^17.0.3",
+		"marked-shiki": "^1.2.1",
+		"shiki": "^4.0.0"
 	}
 }

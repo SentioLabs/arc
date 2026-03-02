@@ -112,3 +112,4 @@ Create a TodoWrite checklist with all steps and work through them:
 - Never leave unpushed commits
 - Never close arc issues without completing the work
 - Always run `arc prime` at the end for next-session context
+- Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

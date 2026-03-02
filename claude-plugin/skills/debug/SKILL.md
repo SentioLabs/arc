@@ -88,3 +88,4 @@ You're doing it wrong if you:
 - Always run the full test suite after fixing
 - Revert failed fix attempts cleanly — don't leave debris
 - After debugging, return to wherever you were (implement, verify, etc.)
+- Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

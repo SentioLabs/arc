@@ -14,7 +14,7 @@
 	} from '$lib/api';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
+	const workspaceId = $derived($page.params.workspaceId ?? '');
 	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
 
 	// Epic selection via URL param
@@ -64,6 +64,7 @@
 	});
 
 	async function loadEpics() {
+		if (!workspaceId) return;
 		try {
 			const result = await listIssues(workspaceId, { type: 'epic', status: 'open', limit: 100 });
 			epics = result.data ?? [];
@@ -73,11 +74,12 @@
 	}
 
 	async function loadTeamContext() {
+		if (!workspaceId) return;
 		loading = true;
 		error = null;
 		try {
 			teamContext = await getTeamContext(workspaceId, epicId || undefined);
-		} catch (err) {
+		} catch (err: unknown) {
 			error = err instanceof Error ? err.message : 'Failed to load team context';
 		} finally {
 			loading = false;
