@@ -74,3 +74,4 @@ This is non-negotiable. Every feature, every function, every behavior gets a tes
 - Never interact with the user — report results back to the dispatching agent
 - Never manage arc issues — the dispatcher handles arc state
 - Never review your own work — a separate reviewer handles that
+- Never assume you are on a specific branch — commit to whatever branch you find yourself on

@@ -78,14 +78,51 @@ Create a TodoWrite checklist with all steps and work through them:
     git status    # Must show "up to date with origin"
     ```
 15. If push fails → resolve the issue → retry → succeed. Do not leave unpushed commits.
+16. Clean up worktrees:
+    ```bash
+    git worktree list
+    ```
+    If only the main working tree is listed, skip ahead. Otherwise, for each extra worktree:
+
+    **a. Check for uncommitted work:**
+    ```bash
+    git -C <worktree-path> status
+    git -C <worktree-path> stash list
+    ```
+    If there are uncommitted changes or stashes → do NOT remove. Create an arc issue to track the unmerged work:
+    ```bash
+    arc create "Recover unmerged worktree work: <branch>" --type=task -w <workspace>
+    ```
+
+    **b. Check if the branch was merged:**
+    ```bash
+    git branch --merged | grep <worktree-branch>
+    ```
+    If merged (or if the worktree is clean with no unique commits), safe to remove:
+    ```bash
+    git worktree remove <worktree-path>
+    git branch -d <worktree-branch>    # Delete the merged branch
+    ```
+
+    **c. If the branch has unmerged commits but no uncommitted changes:**
+    Check whether the commits exist on a remote:
+    ```bash
+    git log origin/<worktree-branch> 2>/dev/null
+    ```
+    If pushed → safe to remove locally. If not pushed → do NOT remove; create an arc issue.
+
+    **d. Prune stale worktree references:**
+    ```bash
+    git worktree prune
+    ```
 
 ### Phase 5: Verify and Hand Off
 
-16. Confirm the commit:
+17. Confirm the commit:
     ```bash
     git log -1    # Verify latest commit is visible
     ```
-17. Output context for next session:
+18. Output context for next session:
     ```bash
     arc prime -w <workspace>
     ```
@@ -101,7 +138,7 @@ Create a TodoWrite checklist with all steps and work through them:
 ## What's NOT in This Protocol
 
 - `git stash clear`, `git remote prune origin` — housekeeping, not gates
-- Worktree cleanup — orthogonal, use separate tools if needed
+- Worktree directory `.gitignore` verification — assumed to be configured at project setup
 - Merge/PR/keep/discard choice — arc workflow always commits and pushes
 - Performative session summaries — `arc prime` handles handoff context
 

@@ -172,3 +172,23 @@ Fuzzy matching handles typos - "dependncy" finds "dependency" docs.
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+
+## Worktree Safety
+
+Git worktrees (`isolation: "worktree"`) branch from HEAD at creation time. If sequential agents have committed work that moves HEAD, worktrees created afterward start from the updated HEAD — but worktrees created *before* those commits have a stale baseline. This means parallel worktree agents can miss prior sequential work entirely.
+
+**Prevention:**
+- Always commit and push all sequential work before creating worktrees
+- Record `PARALLEL_BASE=$(git rev-parse HEAD)` before dispatching parallel agents
+- Dispatch all parallel worktree agents in the same orchestrator turn (same message)
+- After parallel agents merge back, verify sequential commits are still in `git log`
+- Run the full test suite after any worktree merge
+
+**Recovery** (if commits are missing after merge):
+```bash
+git reflog                            # Find the pre-merge state
+git log --oneline <reflog-ref>        # Verify it has the missing commits
+git cherry-pick <missing-commits>     # Restore them — or reset and re-merge
+```
+
+See `claude-plugin/skills/implement/SKILL.md` for the full Parallel Dispatch Protocol.
