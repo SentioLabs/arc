@@ -35,6 +35,34 @@ The plugin is the single source of truth for Claude integration. It provides:
 
 **Deep dive**: Run `arc docs boundaries` for detailed decision criteria.
 
+## Workflow Skills
+
+Arc includes workflow skills that guide you through the development lifecycle with built-in process discipline.
+
+| Skill | Purpose | Invoke when |
+|-------|---------|-------------|
+| `brainstorm` | Design discovery through Socratic dialogue | Starting new features or significant work |
+| `plan` | Break design into implementation tasks | After brainstorm approves a design |
+| `implement` | TDD execution via fresh subagents per task | Ready to implement planned tasks |
+| `debug` | 4-phase root cause investigation | Encountering bugs or test failures |
+| `verify` | Evidence-based completion gates | Before claiming any work is done |
+| `review` | Code review dispatch and triage | After implementing a task |
+| `finish` | Session completion protocol | Ending a work session |
+
+### Pipeline
+
+```
+brainstorm → plan → implement (per task) → review → finish
+                        ↕          ↕
+                      debug      verify
+```
+
+### Execution Paths
+
+After `plan`, choose:
+- **Single-agent + subagents**: Invoke `implement`. Main agent orchestrates, subagents do TDD. Best for sequential tasks.
+- **Agentic team**: Add `teammate:*` labels, invoke `arc team-deploy`. Best for parallel multi-role work.
+
 ## Quick Start
 
 Run `arc onboard` at session start to get workspace context and available issues.
@@ -126,11 +154,7 @@ arc onboard  # Get context, recover workspace if needed
 ```
 
 **Before ending any session:**
-Follow the **Landing the Plane** protocol in `AGENTS.md`. This includes:
-- Filing issues for remaining work
-- Running quality gates (tests, linters)
-- Committing and pushing (work is NOT done until `git push` succeeds)
-- Handing off context for the next session
+Invoke the `finish` skill — it handles capturing remaining work, quality gates, arc updates, commit, and push. Work is NOT done until `git push` succeeds.
 
 **Writing notes for resumability:**
 ```bash
