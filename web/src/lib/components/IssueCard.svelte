@@ -80,8 +80,8 @@
 		<div class="flex items-center justify-between gap-3 pt-1">
 			<div class="flex items-center gap-2 flex-wrap">
 				{#if onStatusChange}
-					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<div onclick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<div role="presentation" onclick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
 						<InlineSelect
 							value={issue.status}
 							options={statusOptions}

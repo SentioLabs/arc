@@ -19,6 +19,7 @@
 	let triggerEl: HTMLButtonElement;
 	// svelte-ignore non_reactive_update
 	let dropdownEl: HTMLDivElement;
+	// svelte-ignore non_reactive_update
 	let searchEl: HTMLInputElement;
 
 	const availableLabels = $derived(

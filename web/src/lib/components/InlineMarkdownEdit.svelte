@@ -10,8 +10,10 @@
 	let { value, onSave, placeholder = 'Click to edit' }: Props = $props();
 
 	let editing = $state(false);
+	// svelte-ignore state_referenced_locally
 	let editValue = $state(value);
 	let saving = $state(false);
+	// svelte-ignore non_reactive_update
 	let textareaEl: HTMLTextAreaElement;
 
 	// Sync editValue when value prop changes externally
