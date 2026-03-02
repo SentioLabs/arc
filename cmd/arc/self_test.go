@@ -94,10 +94,12 @@ func TestSelfChannelInvalid(t *testing.T) {
 }
 
 // mockReleases creates test data for GitHub API mocking.
+// Uses real-world tag formats: rc3 (no dot) and nightly.20260302 (with dot).
 func mockReleases() []githubRelease {
 	return []githubRelease{
-		{TagName: "v0.11.0-rc.2", Prerelease: true},
-		{TagName: "v0.11.0-rc.1", Prerelease: true},
+		{TagName: "v0.11.0-rc3", Prerelease: true},
+		{TagName: "v0.11.0-rc2", Prerelease: true},
+		{TagName: "v0.11.0-rc.1", Prerelease: true}, // also accept dotted format
 		{TagName: "v0.10.0", Prerelease: false},
 		{TagName: "v0.10.0-nightly.20260302", Prerelease: true},
 		{TagName: "v0.10.0-nightly.20260301", Prerelease: true},
@@ -134,7 +136,7 @@ func TestResolveChannelVersion_RC(t *testing.T) {
 
 	tag, err := resolveChannelVersion("rc")
 	require.NoError(t, err)
-	assert.Equal(t, "v0.11.0-rc.2", tag)
+	assert.Equal(t, "v0.11.0-rc3", tag)
 }
 
 func TestResolveChannelVersion_Nightly(t *testing.T) {

@@ -30,8 +30,9 @@ var selfCmd = &cobra.Command{
 }
 
 var selfUpdateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update arc to the latest version",
+	Use:          "update",
+	Short:        "Update arc to the latest version",
+	SilenceUsage: true,
 	Long: `Update arc to the latest version from GitHub releases.
 
 The update channel determines which releases are considered:
@@ -86,7 +87,7 @@ type githubRelease struct {
 
 // channelTagPattern maps channel names to their tag matching patterns.
 var channelTagPattern = map[string]*regexp.Regexp{
-	"rc":      regexp.MustCompile(`^v\d+\.\d+\.\d+-rc\.\d+$`),
+	"rc":      regexp.MustCompile(`^v\d+\.\d+\.\d+-rc\.?\d+$`),
 	"nightly": regexp.MustCompile(`^v\d+\.\d+\.\d+-nightly\.\d{8}$`),
 }
 
