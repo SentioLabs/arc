@@ -1,3 +1,8 @@
+---
+name: arc
+description: General arc CLI reference and workflow context. Use when the user asks about arc commands, issue tracking workflows, when to use arc vs TodoWrite, or needs help with arc setup and configuration.
+---
+
 # Arc Issue Tracker
 
 Track complex, multi-session work with a central issue tracking system.

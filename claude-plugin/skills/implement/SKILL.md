@@ -71,7 +71,7 @@ If the result looks clean, invoke the `review` skill to dispatch the `arc-review
 ### 8. Close Task
 
 ```bash
-arc close <task-id> -m "Implemented: <summary>" -w <workspace>
+arc close <task-id> -r "Implemented: <summary>" -w <workspace>
 ```
 
 ### 9. Repeat
@@ -90,7 +90,7 @@ Go to step 1 for the next task. Continue until all tasks in the epic are closed.
 arc ready -w <workspace>                           # Find next task
 arc update <id> --status in_progress -w <workspace>  # Claim task
 arc show <id> -w <workspace>                        # Get task description for subagent
-arc close <id> -m "reason" -w <workspace>            # Close completed task
+arc close <id> -r "reason" -w <workspace>            # Close completed task
 ```
 
 ## Rules

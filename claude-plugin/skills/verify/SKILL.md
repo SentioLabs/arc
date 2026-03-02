@@ -67,7 +67,7 @@ You are skipping verification if you:
 
 ```bash
 # ONLY after verification passes:
-arc close <id> -m "Verified: <evidence summary>" -w <workspace>
+arc close <id> -r "Verified: <evidence summary>" -w <workspace>
 ```
 
 If verification **fails**, do NOT close the issue. Instead:

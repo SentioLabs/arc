@@ -1,3 +1,8 @@
+---
+name: arc-team-deploy
+description: Deploy an agent team from arc's issue graph. Use when the user wants to parallelize work across multiple agents, says "deploy team", "spawn teammates", or wants to distribute arc epic tasks by role using teammate labels.
+---
+
 # Arc Team Deploy
 
 Deploy an agent team from arc's issue graph. Translates `teammate:*` labels, plans, and dependencies into a Claude Code team with tasks and role-filtered context.

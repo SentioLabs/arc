@@ -51,7 +51,7 @@ Create a TodoWrite checklist with all steps and work through them:
 
 8. Close completed issues:
    ```bash
-   arc close <id> -m "Done: <summary of what was completed>" -w <workspace>
+   arc close <id> -r "Done: <summary of what was completed>" -w <workspace>
    ```
 9. Update in-progress issues with progress notes:
    ```bash
