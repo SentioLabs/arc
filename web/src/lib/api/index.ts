@@ -19,6 +19,8 @@ export type TeamContext = components['schemas']['TeamContext'];
 export type TeamContextIssue = components['schemas']['TeamContextIssue'];
 export type TeamContextRole = components['schemas']['TeamContextRole'];
 export type TeamContextEpic = components['schemas']['TeamContextEpic'];
+export type AddCommentRequest = components['schemas']['AddCommentRequest'];
+export type AddLabelToIssueRequest = components['schemas']['AddLabelToIssueRequest'];
 
 // Error helper - extracts message from API error response { error: "message" }
 function handleError(error: unknown): never {
@@ -223,6 +225,33 @@ export async function deleteLabel(name: string): Promise<void> {
 	if (error) handleError(error);
 }
 
+// Issue Label APIs
+export async function addLabelToIssue(
+	workspaceId: string,
+	issueId: string,
+	label: string
+): Promise<void> {
+	const { error } = await api.POST('/workspaces/{workspaceId}/issues/{issueId}/labels', {
+		params: { path: { workspaceId, issueId } },
+		body: { label }
+	});
+	if (error) handleError(error);
+}
+
+export async function removeLabelFromIssue(
+	workspaceId: string,
+	issueId: string,
+	labelName: string
+): Promise<void> {
+	const { error } = await api.DELETE(
+		'/workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}',
+		{
+			params: { path: { workspaceId, issueId, labelName } }
+		}
+	);
+	if (error) handleError(error);
+}
+
 // Comment APIs
 export async function getComments(workspaceId: string, issueId: string): Promise<Comment[]> {
 	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues/{issueId}/comments', {
@@ -230,6 +259,23 @@ export async function getComments(workspaceId: string, issueId: string): Promise
 	});
 	if (error) handleError(error);
 	return data ?? [];
+}
+
+export async function createComment(
+	workspaceId: string,
+	issueId: string,
+	text: string
+): Promise<Comment> {
+	const { data, error } = await api.POST(
+		'/workspaces/{workspaceId}/issues/{issueId}/comments',
+		{
+			params: { path: { workspaceId, issueId } },
+			body: { text }
+		}
+	);
+	if (error) handleError(error);
+	if (!data) throw new Error('Failed to create comment');
+	return data;
 }
 
 // Event APIs

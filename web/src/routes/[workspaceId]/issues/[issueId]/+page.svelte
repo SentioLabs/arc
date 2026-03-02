@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Header, StatusBadge, PriorityBadge, TypeBadge, Markdown } from '$lib/components';
+	import { Header, StatusBadge, PriorityBadge, TypeBadge, Markdown, InlineTextEdit, InlineSelect, InlineMarkdownEdit, CommentForm, LabelPicker } from '$lib/components';
 	import { formatDateTime, formatRelativeTime, dependencyTypeLabels } from '$lib/utils';
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
@@ -9,11 +9,17 @@
 		getComments,
 		getEvents,
 		getDependencies,
+		updateIssue,
+		createComment,
+		addLabelToIssue,
+		removeLabelFromIssue,
+		listLabels,
 		type Workspace,
 		type Issue,
 		type Comment,
 		type Event,
-		type DependencyGraph
+		type DependencyGraph,
+		type Label
 	} from '$lib/api';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
@@ -27,6 +33,7 @@
 	let dependencies = $state<DependencyGraph>({ dependencies: [], dependents: [] });
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let allLabels = $state<Label[]>([]);
 
 	$effect(() => {
 		if (workspaceId && issueId) loadData();
@@ -37,21 +44,47 @@
 		loading = true;
 		error = null;
 		try {
-			const [issueData, commentsData, eventsData, depsData] = await Promise.all([
+			const [issueData, commentsData, eventsData, depsData, labelsData] = await Promise.all([
 				getIssue(workspaceId, issueId, true),
 				getComments(workspaceId, issueId),
 				getEvents(workspaceId, issueId, 50),
-				getDependencies(workspaceId, issueId)
+				getDependencies(workspaceId, issueId),
+				listLabels()
 			]);
 			issue = issueData;
 			comments = commentsData;
 			events = eventsData;
 			dependencies = depsData;
+			allLabels = labelsData;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load issue';
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function handleUpdateField(field: string, value: string | number) {
+		if (!workspaceId || !issueId) return;
+		const updated = await updateIssue(workspaceId, issueId, { [field]: value });
+		issue = updated;
+	}
+
+	async function handleAddLabel(labelName: string) {
+		if (!workspaceId || !issueId) return;
+		await addLabelToIssue(workspaceId, issueId, labelName);
+		await loadData();
+	}
+
+	async function handleRemoveLabel(labelName: string) {
+		if (!workspaceId || !issueId) return;
+		await removeLabelFromIssue(workspaceId, issueId, labelName);
+		await loadData();
+	}
+
+	async function handleAddComment(text: string) {
+		if (!workspaceId || !issueId) return;
+		await createComment(workspaceId, issueId, text);
+		await loadData();
 	}
 </script>
 
@@ -82,19 +115,63 @@
 				<header class="mb-8">
 					<div class="flex items-center gap-3 mb-4">
 						<span class="font-mono text-sm text-text-muted">{issue.id}</span>
-						<TypeBadge type={issue.issue_type} />
-						<StatusBadge status={issue.status} />
-						<PriorityBadge priority={issue.priority} />
+						<InlineSelect
+							value={issue.issue_type}
+							options={[
+								{ value: 'bug', label: 'Bug' },
+								{ value: 'feature', label: 'Feature' },
+								{ value: 'task', label: 'Task' },
+								{ value: 'epic', label: 'Epic' },
+								{ value: 'chore', label: 'Chore' }
+							]}
+							onSave={(v) => handleUpdateField('issue_type', v)}
+						>
+							<TypeBadge type={issue.issue_type} />
+						</InlineSelect>
+						<InlineSelect
+							value={issue.status}
+							options={[
+								{ value: 'open', label: 'Open' },
+								{ value: 'in_progress', label: 'In Progress' },
+								{ value: 'blocked', label: 'Blocked' },
+								{ value: 'deferred', label: 'Deferred' },
+								{ value: 'closed', label: 'Closed' }
+							]}
+							onSave={(v) => handleUpdateField('status', v)}
+						>
+							<StatusBadge status={issue.status} />
+						</InlineSelect>
+						<InlineSelect
+							value={issue.priority.toString()}
+							options={[
+								{ value: '0', label: 'Critical (P0)' },
+								{ value: '1', label: 'High (P1)' },
+								{ value: '2', label: 'Medium (P2)' },
+								{ value: '3', label: 'Low (P3)' },
+								{ value: '4', label: 'Backlog (P4)' }
+							]}
+							onSave={(v) => handleUpdateField('priority', parseInt(v))}
+						>
+							<PriorityBadge priority={issue.priority} />
+						</InlineSelect>
 					</div>
 
-					<h1 class="text-2xl font-bold text-text-primary mb-4">{issue.title}</h1>
+					<InlineTextEdit
+						value={issue.title}
+						onSave={(v) => handleUpdateField('title', v)}
+						class="text-2xl font-bold text-text-primary mb-4"
+					/>
 
 					<div class="flex items-center gap-4 text-sm text-text-muted">
-						{#if issue.assignee}
-							<span>Assigned to <strong class="text-text-secondary">{issue.assignee}</strong></span>
-						{:else}
-							<span>Unassigned</span>
-						{/if}
+						<span class="flex items-center gap-1">
+							Assigned to
+							<InlineTextEdit
+								value={issue.assignee ?? ''}
+								onSave={(v) => handleUpdateField('assignee', v)}
+								placeholder="Unassigned"
+								class="font-semibold text-text-secondary"
+							/>
+						</span>
 						<span>Created {formatRelativeTime(issue.created_at)}</span>
 						<span>Updated {formatRelativeTime(issue.updated_at)}</span>
 					</div>
@@ -104,16 +181,14 @@
 					<!-- Main content -->
 					<div class="lg:col-span-2 space-y-6">
 						<!-- Description -->
-						{#if issue.description}
-							<section class="card p-6">
-								<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">
-									Description
-								</h2>
-								<Markdown content={issue.description} />
-							</section>
-						{/if}
-
-
+						<section class="card p-6">
+							<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">Description</h2>
+							<InlineMarkdownEdit
+								value={issue.description ?? ''}
+								onSave={(v) => handleUpdateField('description', v)}
+								placeholder="Add a description..."
+							/>
+						</section>
 
 						<!-- Comments -->
 						<section class="card p-6">
@@ -141,6 +216,9 @@
 									{/each}
 								</div>
 							{/if}
+							<div class="mt-4 pt-4 border-t border-border">
+								<CommentForm onSubmit={handleAddComment} />
+							</div>
 						</section>
 
 						<!-- Activity -->
@@ -200,22 +278,13 @@
 					<div class="space-y-6">
 						<!-- Labels -->
 						<section class="card p-4">
-							<h3 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
-								Labels
-							</h3>
-							{#if issue.labels && issue.labels.length > 0}
-								<div class="flex flex-wrap gap-2">
-									{#each issue.labels as label (label)}
-										<span
-											class="px-2 py-1 text-xs font-medium bg-surface-600 text-text-secondary rounded"
-										>
-											{label}
-										</span>
-									{/each}
-								</div>
-							{:else}
-								<p class="text-sm text-text-muted">No labels</p>
-							{/if}
+							<h3 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Labels</h3>
+							<LabelPicker
+								currentLabels={issue.labels ?? []}
+								{allLabels}
+								onAdd={handleAddLabel}
+								onRemove={handleRemoveLabel}
+							/>
 						</section>
 
 						<!-- Dependencies -->

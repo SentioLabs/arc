@@ -21,3 +21,10 @@ export { default as Markdown } from './Markdown.svelte';
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as Select } from './Select.svelte';
 export { default as ColorPicker } from './ColorPicker.svelte';
+
+// Inline edit components
+export { default as InlineTextEdit } from './InlineTextEdit.svelte';
+export { default as InlineSelect } from './InlineSelect.svelte';
+export { default as InlineMarkdownEdit } from './InlineMarkdownEdit.svelte';
+export { default as CommentForm } from './CommentForm.svelte';
+export { default as LabelPicker } from './LabelPicker.svelte';
