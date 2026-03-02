@@ -145,6 +145,9 @@ func (c *Client) ListIssues(wsID string, opts ListIssuesOptions) ([]*types.Issue
 	if opts.Limit > 0 {
 		query.Set("limit", strconv.Itoa(opts.Limit))
 	}
+	if opts.Parent != "" {
+		query.Set("parent_id", opts.Parent)
+	}
 
 	if len(query) > 0 {
 		path += "?" + query.Encode()
@@ -173,6 +176,7 @@ type ListIssuesOptions struct {
 	Assignee string // Filter by assignee name
 	Query    string // Full-text search in title/description
 	Limit    int    // Maximum number of results
+	Parent   string // Filter by parent issue ID
 }
 
 // CreateIssue creates a new issue.

@@ -564,6 +564,7 @@ var listCmd = &cobra.Command{
 		assignee, _ := cmd.Flags().GetString("assignee")
 		query, _ := cmd.Flags().GetString("query")
 		limit, _ := cmd.Flags().GetInt("limit")
+		parentID, _ := cmd.Flags().GetString("parent")
 
 		issues, err := c.ListIssues(wsID, client.ListIssuesOptions{
 			Status:   status,
@@ -571,6 +572,7 @@ var listCmd = &cobra.Command{
 			Assignee: assignee,
 			Query:    query,
 			Limit:    limit,
+			Parent:   parentID,
 		})
 		if err != nil {
 			return err
@@ -595,6 +597,7 @@ func init() {
 	listCmd.Flags().String("assignee", "", "Filter by assignee")
 	listCmd.Flags().StringP("query", "q", "", "Search query")
 	listCmd.Flags().IntP("limit", "l", defaultListLimit, "Max results")
+	listCmd.Flags().String("parent", "", "Filter by parent issue ID")
 }
 
 // createCmd creates a new issue in the active workspace.

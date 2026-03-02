@@ -313,3 +313,68 @@ func TestClientSetActor(t *testing.T) {
 	c := client.New("http://localhost:8080")
 	c.SetActor("test-user") // should not panic
 }
+
+// TestClientListIssuesParentFilter verifies that the Parent option on
+// ListIssuesOptions causes the client to send the parent_id query parameter,
+// filtering results to only children of the specified parent issue.
+func TestClientListIssuesParentFilter(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	ws := createTestWorkspaceClient(t, c)
+
+	// Create an epic (parent)
+	epic, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+		Title:     "Epic parent",
+		IssueType: "epic",
+		Priority:  1,
+	})
+	if err != nil {
+		t.Fatalf("create epic: %v", err)
+	}
+
+	// Create a child under the epic
+	child, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+		Title:     "Child task",
+		IssueType: "task",
+		Priority:  2,
+		ParentID:  epic.ID,
+	})
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+
+	// Create an unrelated issue (no parent)
+	_, err = c.CreateIssue(ws.ID, client.CreateIssueRequest{
+		Title:     "Unrelated task",
+		IssueType: "task",
+		Priority:  2,
+	})
+	if err != nil {
+		t.Fatalf("create unrelated: %v", err)
+	}
+
+	// List with Parent filter should only return children of the epic
+	issues, err := c.ListIssues(ws.ID, client.ListIssuesOptions{
+		Parent: epic.ID,
+	})
+	if err != nil {
+		t.Fatalf("ListIssues with Parent: %v", err)
+	}
+
+	if len(issues) != 1 {
+		t.Fatalf("expected 1 child issue, got %d", len(issues))
+	}
+	if issues[0].ID != child.ID {
+		t.Errorf("expected child ID %q, got %q", child.ID, issues[0].ID)
+	}
+
+	// List without Parent filter should return all issues
+	allIssues, err := c.ListIssues(ws.ID, client.ListIssuesOptions{})
+	if err != nil {
+		t.Fatalf("ListIssues without Parent: %v", err)
+	}
+	if len(allIssues) < 2 {
+		t.Errorf("expected at least 2 issues without parent filter, got %d", len(allIssues))
+	}
+}
