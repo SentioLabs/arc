@@ -602,9 +602,9 @@ func init() {
 
 // createCmd creates a new issue in the active workspace.
 var createCmd = &cobra.Command{
-	Use:   "create <title>",
+	Use:   "create [title]",
 	Short: "Create a new issue",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -621,9 +621,18 @@ var createCmd = &cobra.Command{
 		assignee, _ := cmd.Flags().GetString("assignee")
 		description, _ := cmd.Flags().GetString("description")
 		parentID, _ := cmd.Flags().GetString("parent")
+		titleFlag, _ := cmd.Flags().GetString("title")
+
+		title := titleFlag
+		if len(args) > 0 {
+			title = args[0]
+		}
+		if title == "" {
+			return fmt.Errorf("title is required (positional arg or --title flag)")
+		}
 
 		issue, err := c.CreateIssue(wsID, client.CreateIssueRequest{
-			Title:       args[0],
+			Title:       title,
 			Description: description,
 			Priority:    priority,
 			IssueType:   issueType,
@@ -645,6 +654,7 @@ var createCmd = &cobra.Command{
 }
 
 func init() {
+	createCmd.Flags().String("title", "", "Issue title (alternative to positional arg)")
 	createCmd.Flags().IntP("priority", "p", defaultPriority, "Priority (0-4)")
 	createCmd.Flags().StringP("type", "t", "task", "Issue type")
 	createCmd.Flags().StringP("assignee", "a", "", "Assignee")
