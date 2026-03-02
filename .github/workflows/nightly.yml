@@ -1,0 +1,93 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new commits
+        id: check
+        run: |
+          LATEST_NIGHTLY=$(git tag -l 'v*-nightly.*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST_NIGHTLY" ]; then
+            echo "No previous nightly tag found, proceeding"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            COMMITS_SINCE=$(git rev-list "${LATEST_NIGHTLY}..HEAD" --count)
+            if [ "$COMMITS_SINCE" -gt 0 ]; then
+              echo "Found $COMMITS_SINCE new commits since $LATEST_NIGHTLY"
+              echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No new commits since $LATEST_NIGHTLY, skipping"
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Read version from manifest
+        if: steps.check.outputs.has_changes == 'true'
+        id: version
+        run: |
+          VERSION=$(jq -r '.["."]' .release-please-manifest.json)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create nightly tag
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          DATE=$(date -u +%Y%m%d)
+          TAG="v${{ steps.version.outputs.version }}-nightly.${DATE}"
+          echo "Creating tag: $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Nightly build $DATE"
+          git push origin "$TAG"
+
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old nightly releases
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 7);
+
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+
+            for (const release of releases.data) {
+              if (!release.tag_name.includes('-nightly.')) continue;
+              if (new Date(release.created_at) >= cutoff) continue;
+
+              console.log(`Deleting old nightly release: ${release.tag_name}`);
+
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+              });
+
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `tags/${release.tag_name}`,
+                });
+              } catch (e) {
+                console.log(`Tag ${release.tag_name} already deleted or not found`);
+              }
+            }

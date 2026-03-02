@@ -6,6 +6,7 @@ on:
       - 'v*-rc*'
       - 'v*-beta*'
       - 'v*-alpha*'
+      - 'v*-nightly*'
 
 permissions:
   contents: write
