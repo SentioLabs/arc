@@ -140,7 +140,7 @@ arc prime
 
 **In a new session**, you should see `arc prime` output automatically if:
 1. The plugin is installed
-2. You're in a directory with `.arc.json` (arc-enabled project)
+2. You're in an arc-enabled project (project config exists in `~/.arc/projects/`)
 
 ## Validation Checklist
 
@@ -207,7 +207,7 @@ This ensures Claude proactively uses arc in enabled projects.
 
 ### Hooks not firing
 
-1. Verify you're in an arc-enabled project (`.arc.json` exists)
+1. Verify you're in an arc-enabled project (project config exists in `~/.arc/projects/`)
 2. Check arc CLI is in PATH:
    ```bash
    which arc

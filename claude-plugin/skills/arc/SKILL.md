@@ -12,7 +12,7 @@ Track complex, multi-session work with a central issue tracking system.
 **For Claude Code users** (recommended):
 1. Install the arc plugin (provides hooks, skills, agents)
 2. Run `arc onboard` in any project - it will:
-   - Detect existing workspace from project config (`~/.arc/projects/`) or legacy `.arc.json`
+   - Detect existing workspace from project config (`~/.arc/projects/`)
    - Or recover workspace from server if local config is missing
    - Or prompt you to run `arc init` for new projects
 
@@ -72,7 +72,7 @@ After `plan`, choose:
 
 Run `arc onboard` at session start to get workspace context and available issues.
 
-**Workspace Recovery**: If `.arc.json` is missing but the workspace exists on the server (by directory path), `arc onboard` will automatically restore the local configuration. The server is the source of truth.
+**Workspace Recovery**: If project config is missing but the workspace exists on the server (by directory path), `arc onboard` will automatically restore the local configuration. The server is the source of truth.
 
 ## CLI Reference
 

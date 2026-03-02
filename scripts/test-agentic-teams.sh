@@ -278,12 +278,17 @@ fi
 echo ""
 echo "── Step 8: Verify prime --role output ─────"
 
-# prime requires .arc.json in cwd; create a temp dir to simulate
+# prime requires project config in ~/.arc/projects/; create a temp dir to simulate
 TMPDIR_PRIME=$(mktemp -d)
-echo '{}' > "${TMPDIR_PRIME}/.arc.json"
+ARC_PROJECT_DIR=$(echo "$TMPDIR_PRIME" | sed 's|/|-|g')
+mkdir -p "${HOME}/.arc/projects/${ARC_PROJECT_DIR}"
+echo "{\"workspace_id\":\"${WS_ID}\",\"workspace_name\":\"test\",\"project_root\":\"${TMPDIR_PRIME}\"}" > "${HOME}/.arc/projects/${ARC_PROJECT_DIR}/config.json"
+# Also need .git so FindProjectRoot can find the root
+mkdir -p "${TMPDIR_PRIME}/.git"
 
 PRIME_OUT=$(cd "$TMPDIR_PRIME" && ARC_TEAMMATE_ROLE=backend arc prime -w "$WS_ID" 2>&1)
 rm -rf "$TMPDIR_PRIME"
+rm -rf "${HOME}/.arc/projects/${ARC_PROJECT_DIR}"
 
 if echo "$PRIME_OUT" | grep -qi "backend"; then
   pass "prime with role=backend mentions backend"

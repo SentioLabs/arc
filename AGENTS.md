@@ -82,7 +82,7 @@ make docker-up
 ### CLI Layer
 - Cobra for command parsing
 - Config stored in `~/.config/arc/config.json`
-- Project-local config in `.arc.json`
+- Project config in `~/.arc/projects/<path>/config.json`
 
 ## Testing
 

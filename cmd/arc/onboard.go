@@ -5,14 +5,13 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
 )
@@ -46,52 +45,33 @@ func init() {
 	rootCmd.AddCommand(onboardCmd)
 }
 
-// projectConfig represents the .arc.json file structure
-type projectConfig struct {
-	WorkspaceID   string `json:"workspace_id"`
-	WorkspaceName string `json:"workspace_name"`
-}
-
-// loadProjectConfig attempts to load .arc.json from the current directory
-func loadProjectConfig() (*projectConfig, error) {
+// loadOnboardConfig attempts to load workspace config from ~/.arc/projects/
+func loadOnboardConfig() (*project.Config, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	configPath := filepath.Join(cwd, ".arc.json")
-
-	data, err := os.ReadFile(configPath)
+	arcHome := project.DefaultArcHome()
+	projectRoot, err := project.FindProjectRootWithArcHome(cwd, arcHome)
 	if err != nil {
 		return nil, err
 	}
-
-	var cfg projectConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
+	return project.LoadConfig(arcHome, projectRoot)
 }
 
-// saveProjectConfig saves workspace info to .arc.json
-func saveProjectConfig(workspaceID, workspaceName string) error {
+// saveOnboardConfig saves workspace info to ~/.arc/projects/
+func saveOnboardConfig(workspaceID, workspaceName string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	configPath := filepath.Join(cwd, ".arc.json")
-
-	cfg := projectConfig{
+	arcHome := project.DefaultArcHome()
+	cfg := &project.Config{
 		WorkspaceID:   workspaceID,
 		WorkspaceName: workspaceName,
+		ProjectRoot:   cwd,
 	}
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(configPath, data, defaultFilePerm)
+	return project.WriteConfig(arcHome, cwd, cfg)
 }
 
 // findWorkspaceByPath queries the server for a workspace matching the current directory
@@ -131,11 +111,11 @@ func tryRecoverWorkspace(c *client.Client) string {
 	_, _ = fmt.Println("Restoring local configuration...")
 	_, _ = fmt.Println()
 
-	// Save .arc.json
-	if err := saveProjectConfig(ws.ID, ws.Name); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Warning: could not save .arc.json: %v\n", err)
+	// Save project config to ~/.arc/projects/
+	if err := saveOnboardConfig(ws.ID, ws.Name); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: could not save project config: %v\n", err)
 	} else {
-		_, _ = fmt.Println("\u2713 Created .arc.json")
+		_, _ = fmt.Println("\u2713 Created project config")
 	}
 	_, _ = fmt.Println()
 
@@ -151,8 +131,8 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 
 	var wsID string
 
-	// Step 1: Try to get workspace ID from .arc.json
-	projCfg, err := loadProjectConfig()
+	// Step 1: Try to get workspace ID from project config
+	projCfg, err := loadOnboardConfig()
 	if err == nil && projCfg.WorkspaceID != "" {
 		wsID = projCfg.WorkspaceID
 	}

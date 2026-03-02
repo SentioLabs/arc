@@ -516,7 +516,7 @@ func removeCodexSkill() error {
 	return nil
 }
 
-// findRepoRoot walks up from cwd looking for .codex, .arc.json, or .git markers.
+// findRepoRoot walks up from cwd looking for .codex or .git markers.
 // It returns the first ancestor directory that contains any of these marker files,
 // or falls back to cwd if the filesystem root is reached without finding one.
 func findRepoRoot() (string, error) {
@@ -529,9 +529,8 @@ func findRepoRoot() (string, error) {
 	dir := cwd
 	for {
 		hasCodex := exists(filepath.Join(dir, ".codex"))
-		hasArc := exists(filepath.Join(dir, ".arc.json"))
 		hasGit := exists(filepath.Join(dir, ".git"))
-		if hasCodex || hasArc || hasGit {
+		if hasCodex || hasGit {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)

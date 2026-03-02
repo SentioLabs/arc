@@ -78,8 +78,7 @@ type WorkspaceSource int
 
 const (
 	WorkspaceSourceFlag    WorkspaceSource = iota
-	WorkspaceSourceProject                 // ~/.arc/projects/<path>/config.json
-	WorkspaceSourceLegacy                  // .arc.json (migrated)
+	WorkspaceSourceProject // ~/.arc/projects/<path>/config.json
 )
 
 func (s WorkspaceSource) String() string {
@@ -88,8 +87,6 @@ func (s WorkspaceSource) String() string {
 		return "command line flag (-w)"
 	case WorkspaceSourceProject:
 		return "~/.arc/projects/ (local)"
-	case WorkspaceSourceLegacy:
-		return ".arc.json (legacy, migrated)"
 	default:
 		return "unknown"
 	}
@@ -172,7 +169,6 @@ func getClient() (*client.Client, error) {
 // getWorkspaceID resolves the workspace ID using the following priority:
 // 1. CLI flag (-w/--workspace) - explicit override
 // 2. Project config (~/.arc/projects/<path>/config.json)
-// 3. Legacy .arc.json (auto-migrated)
 //
 // If none is available, an error is returned. There is no global fallback.
 func getWorkspaceID() (string, error) {
@@ -184,7 +180,6 @@ func getWorkspaceID() (string, error) {
 // Resolution priority:
 //  1. CLI flag (-w/--workspace) - explicit override always works
 //  2. Project config (~/.arc/projects/<path>/config.json)
-//  3. Legacy .arc.json - auto-migrated to project config
 //
 // If none is available, an error is returned. There is no global fallback
 // to prevent accidentally operating in the wrong workspace.
@@ -203,15 +198,6 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 
 	// Priority 2: Find project root and load config from ~/.arc/projects/
 	wsID, source, warning, resolveErr := resolveFromProjectConfig(cwd, arcHome)
-	if resolveErr != nil {
-		return "", 0, "", resolveErr
-	}
-	if wsID != "" {
-		return wsID, source, warning, nil
-	}
-
-	// Priority 3: Legacy .arc.json fallback with migration
-	wsID, source, warning, resolveErr = resolveFromLegacyConfig(cwd, arcHome)
 	if resolveErr != nil {
 		return "", 0, "", resolveErr
 	}
@@ -242,30 +228,6 @@ func resolveFromProjectConfig(cwd, arcHome string) (wsID string, source Workspac
 	}
 
 	return cfg.WorkspaceID, WorkspaceSourceProject, "", nil
-}
-
-// resolveFromLegacyConfig attempts to resolve workspace from legacy .arc.json with auto-migration.
-// Returns empty wsID if no legacy config is found (without error).
-func resolveFromLegacyConfig(cwd, arcHome string) (wsID string, source WorkspaceSource, warning string, err error) {
-	legacyPath, legacyErr := project.FindLegacyConfig(cwd)
-	if legacyErr != nil {
-		return "", 0, "", nil //nolint:nilerr // no legacy config found; fall through
-	}
-
-	legacyRoot := filepath.Dir(legacyPath)
-	cfg, migrateErr := project.MigrateLegacyConfig(legacyRoot, arcHome)
-	if migrateErr != nil || cfg.WorkspaceID == "" {
-		return "", 0, "", nil //nolint:nilerr // migration failed or empty; fall through
-	}
-
-	_, _ = fmt.Fprintf(os.Stderr, "Migrated .arc.json \u2192 ~/.arc/projects/%s/config.json\n",
-		project.PathToProjectDir(legacyRoot))
-
-	if err := validateWorkspaceOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
-		return "", 0, "", err
-	}
-
-	return cfg.WorkspaceID, WorkspaceSourceLegacy, "", nil
 }
 
 // validateWorkspaceOnServer checks that the workspace exists on the server.
@@ -361,7 +323,7 @@ var whichCmd = &cobra.Command{
 
 This helps debug workspace resolution issues by showing:
 - The active workspace ID and name
-- Where the workspace was resolved from (flag, project config, or legacy .arc.json)
+- Where the workspace was resolved from (flag or project config)
 - The project config file path
 - Any warnings about the configuration`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -402,7 +364,7 @@ This helps debug workspace resolution issues by showing:
 		}
 		fmt.Printf("Source: %s\n", source)
 
-		if source == WorkspaceSourceProject || source == WorkspaceSourceLegacy {
+		if source == WorkspaceSourceProject {
 			cwd, _ := os.Getwd()
 			arcHome := project.DefaultArcHome()
 			if root, err := project.FindProjectRootWithArcHome(cwd, arcHome); err == nil {

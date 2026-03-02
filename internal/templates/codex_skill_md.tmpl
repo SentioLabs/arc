@@ -50,4 +50,4 @@ Follow the **Landing the Plane** protocol in `AGENTS.md` before ending a session
 ## Notes
 
 - Repo-scoped skill source lives under `.codex/skills/arc/`.
-- If `.arc.json` is missing but the workspace exists on the server, `arc onboard` will recover it.
+- If project config is missing but the workspace exists on the server, `arc onboard` will recover it.

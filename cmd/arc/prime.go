@@ -5,6 +5,7 @@ import (
 	"os"
 	"text/template"
 
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/spf13/cobra"
 )
 
@@ -39,9 +40,18 @@ Install hooks:
 Workflow customization:
 - Place a .arc/PRIME.md file to override the default output entirely.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Check if this project has arc configured
-		if _, err := os.Stat(".arc.json"); os.IsNotExist(err) {
-			// Not in a arc project - silent exit with success
+		// Check if this project has arc configured via ~/.arc/projects/
+		cwd, err := os.Getwd()
+		if err != nil {
+			os.Exit(0)
+		}
+		arcHome := project.DefaultArcHome()
+		projectRoot, err := project.FindProjectRootWithArcHome(cwd, arcHome)
+		if err != nil {
+			os.Exit(0)
+		}
+		if _, err := project.LoadConfig(arcHome, projectRoot); err != nil {
+			// Not in an arc project - silent exit with success
 			// This enables cross-platform hook integration
 			os.Exit(0)
 		}
@@ -172,7 +182,7 @@ You are the **{{.Role}}** teammate.
 var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 
 > **Context Recovery**: Run ` + "`arc prime`" + ` after compaction, clear, or new session
-> Hooks auto-call this in Claude Code when .arc.json detected
+> Hooks auto-call this in Claude Code when project config detected
 
 # 🚨 SESSION CLOSE PROTOCOL 🚨
 

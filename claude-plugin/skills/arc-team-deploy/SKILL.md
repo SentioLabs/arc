@@ -15,7 +15,7 @@ Deploy an agent team from arc's issue graph. Translates `teammate:*` labels, pla
 
 ## Prerequisites
 
-- An arc workspace is active (`.arc.json` exists)
+- An arc workspace is active (project config exists in `~/.arc/projects/`)
 - An epic exists with child issues labeled `teammate:<role>` (e.g., `teammate:frontend`, `teammate:backend`)
 - The arc server is running (`arc server status`)
 

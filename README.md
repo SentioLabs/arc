@@ -380,7 +380,6 @@ Arc uses three configuration layers (highest priority wins):
 
 1. **CLI config** (`~/.arc/cli-config.json`) — server URL, default workspace
 2. **Project config** (`~/.arc/projects/<path>/config.json`) — per-project workspace binding
-3. **Legacy** (`.arc.json` in project root) — auto-migrated to project config
 
 ```json
 {
@@ -389,7 +388,7 @@ Arc uses three configuration layers (highest priority wins):
 }
 ```
 
-Resolution priority: CLI flag > project config > legacy `.arc.json` > CLI config defaults.
+Resolution priority: CLI flag > project config > CLI config defaults.
 
 ## Development
 

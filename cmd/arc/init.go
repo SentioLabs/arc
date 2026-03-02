@@ -13,7 +13,7 @@ import (
 )
 
 // filePermissions is the permission mode for project config files that need to be
-// readable by other tools (AGENTS.md, CLAUDE.md, .arc.json).
+// readable by other tools (AGENTS.md, CLAUDE.md).
 const filePermissions = 0o644
 
 var initCmd = &cobra.Command{
@@ -23,9 +23,8 @@ var initCmd = &cobra.Command{
 
 This command:
 1. Creates a workspace on the server (or connects to existing)
-2. Sets the workspace as default for this directory
-3. Creates .arc.json with workspace configuration
-4. Creates AGENTS.md with session completion instructions
+2. Saves project config to ~/.arc/projects/
+3. Creates AGENTS.md with session completion instructions
 
 For Claude Code users: Install the arc plugin for full integration
 (hooks, skills, agents). The plugin's onboard skill will handle
