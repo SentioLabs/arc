@@ -13,12 +13,13 @@ Key Differences:
 ## Features
 
 - **Central Server**: Single server managing multiple workspaces
-- **Web UI**: Svelete client app embedded in go server
+- **Web UI**: Svelte client app embedded in Go server
 - **REST API**: Clean JSON API for all operations
 - **Workspaces**: First-class workspace management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
 - **Plans**: Inline plans on issues, shared plans linkable to multiple issues
 - **Ready Work**: Find issues with no blockers
+- **Agent Teams**: Coordinate multi-agent workflows with `teammate:*` labels and team context
 - **Statistics**: Aggregate metrics per workspace
 
 ## Installation
@@ -100,6 +101,7 @@ arc create "Fix bug Y" -p 0 -t bug
 arc show mp-abc123
 arc list                        # All issues
 arc list --status open --type bug
+arc list --parent mp-abc123     # List children of an epic
 arc update mp-abc123 --status in_progress
 arc update mp-abc123 --assignee alice
 
@@ -129,6 +131,21 @@ arc dep add side-quest origin --type discovered-from
 arc create "Auth overhaul" -t epic
 arc create "JWT tokens" -t task --parent mp-abc123
 arc create "OAuth provider" -t task --parent mp-abc123
+```
+
+#### Agent Teams
+
+```bash
+# Label tasks for team members
+arc label add mp-def456 teammate:backend
+arc label add mp-ghi789 teammate:frontend
+
+# View team context (issues grouped by role)
+arc team context mp-abc123      # For a specific epic
+arc team context                # All teammate-labeled issues
+
+# Prime context for a specific role
+arc prime --role backend        # Filtered context for backend agent
 ```
 
 #### Plans
@@ -201,8 +218,30 @@ arc setup claude --check    # Verify installation
 | SessionStart Hook | Auto-runs `arc prime` on session start |
 | PreCompact Hook   | Preserves context before compaction    |
 | Prompt Config     | Reminds Claude to run `arc onboard`    |
-| Skills            | Detailed guides for arc workflows      |
-| Agent             | Bulk operations via Task tool          |
+| Skills (9)        | Guided workflows (see below)           |
+| Agents (2)        | Issue tracker + code reviewer          |
+
+**Planning Workflow (Skills):**
+
+The plugin includes 9 skills that guide Claude through a structured development lifecycle:
+
+```
+brainstorm → plan → implement → review → finish
+                        ↓           ↓
+                      debug       verify
+```
+
+| Skill       | Purpose                                                       |
+| ----------- | ------------------------------------------------------------- |
+| `brainstorm`| Socratic design discovery — explores requirements, proposes approaches, saves design to arc |
+| `plan`      | Breaks approved designs into self-contained implementation tasks with exact file paths |
+| `implement` | Dispatches `arc-implementer` subagents per task (TDD: red → green → refactor) |
+| `review`    | Dispatches `arc-reviewer` subagent to review code changes against task spec |
+| `debug`     | Root cause analysis when tests fail or implementations get stuck |
+| `verify`    | Fresh verification before claiming work is complete |
+| `finish`    | Session completion — updates arc issues, commits, pushes |
+| `arc`       | General arc CLI reference and workflow context |
+| `arc-team-deploy` | Multi-agent team deployment with `teammate:*` label routing |
 
 **Typical Setup:**
 
@@ -397,6 +436,11 @@ make docker-up
 
 - `GET /api/v1/workspaces/:ws/ready` - Ready issues
 - `GET /api/v1/workspaces/:ws/blocked` - Blocked issues
+
+### Team Context
+
+- `GET /api/v1/workspaces/:ws/team-context` - Issues grouped by `teammate:*` labels
+- `GET /api/v1/workspaces/:ws/team-context?epic_id=ID` - Scoped to epic children
 
 ### Dependencies
 
