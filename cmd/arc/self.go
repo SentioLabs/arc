@@ -21,6 +21,9 @@ var selfForce bool
 // selfCheck enables check-only mode without installing.
 var selfCheck bool
 
+// selfYes skips confirmation prompts.
+var selfYes bool
+
 var selfCmd = &cobra.Command{
 	Use:   "self",
 	Short: "Manage the arc CLI itself",
@@ -38,11 +41,31 @@ Examples:
 	RunE: runSelfUpdate,
 }
 
+var selfChannelCmd = &cobra.Command{
+	Use:   "channel [stable|rc|nightly]",
+	Short: "View or switch the update channel",
+	Long: `View or switch the update channel for arc self update.
+
+Channels:
+  stable   Official releases (default)
+  rc       Release candidates
+  nightly  Daily builds from main branch
+
+Examples:
+  arc self channel              Show current channel
+  arc self channel nightly      Switch to nightly (prompts for confirmation)
+  arc self channel nightly -y   Switch without prompting`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runSelfChannel,
+}
+
 func init() {
 	selfCmd.AddCommand(selfUpdateCmd)
+	selfCmd.AddCommand(selfChannelCmd)
 
 	selfUpdateCmd.Flags().BoolVarP(&selfForce, "force", "f", false, "Force update even if already up-to-date")
 	selfUpdateCmd.Flags().BoolVarP(&selfCheck, "check", "c", false, "Check for updates without installing")
+	selfChannelCmd.Flags().BoolVarP(&selfYes, "yes", "y", false, "Skip confirmation prompt")
 }
 
 func runSelfUpdate(cmd *cobra.Command, args []string) error {
@@ -137,6 +160,68 @@ func normalizeVersion(v string) string {
 
 // semverPartCount is the number of parts in a semantic version string (major.minor.patch).
 const semverPartCount = 3
+
+func runSelfChannel(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	// Show current channel if no args
+	if len(args) == 0 {
+		channel := cfg.Channel
+		if channel == "" {
+			channel = "stable"
+		}
+		fmt.Printf("Current update channel: %s\n", channel)
+		return nil
+	}
+
+	newChannel := args[0]
+
+	// Warn and confirm for non-stable channels
+	if newChannel != "stable" && !selfYes {
+		var warning string
+		switch newChannel {
+		case "rc":
+			warning = "Release candidates may contain bugs that haven't been fully tested."
+		case "nightly":
+			warning = "Nightly builds are built from the latest main branch and may be unstable."
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "\n\u26a0  %s\n\n", warning)
+		_, _ = fmt.Fprintf(os.Stderr, "Switch to %s channel? [y/N] ", newChannel)
+
+		var response string
+		fmt.Scanln(&response)
+		if response != "y" && response != "Y" {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+	}
+
+	return setSelfChannel(cfg, newChannel)
+}
+
+// setSelfChannel validates and persists the update channel.
+func setSelfChannel(cfg *Config, channel string) error {
+	switch channel {
+	case "stable", "rc", "nightly":
+		// valid
+	default:
+		return fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", channel)
+	}
+
+	cfg.Channel = channel
+	if err := saveConfig(cfg); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+
+	_, _ = fmt.Printf("\n\u2713 Switched to %s channel\n", channel)
+	if channel != "stable" {
+		_, _ = fmt.Printf("  Run 'arc self update' to get the latest %s build\n", channel)
+	}
+	return nil
+}
 
 // isNewer returns true if a is newer than b (semver comparison).
 func isNewer(a, b string) bool {
