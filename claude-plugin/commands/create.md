@@ -22,6 +22,16 @@ arc create "Fix login bug" --type bug --priority 1
 arc create "Add dark mode" --type feature
 ```
 
+**Create with multi-line description (stdin auto-detected):**
+```bash
+arc create "Fix login bug" --type bug --priority 1 <<'EOF'
+Multi-line description here.
+Steps to reproduce, context, etc.
+EOF
+```
+
+If `--description` is also provided, it takes precedence over stdin.
+
 **Create an epic with children:**
 ```bash
 # Create the epic first

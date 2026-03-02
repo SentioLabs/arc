@@ -163,7 +163,9 @@ Invoke the `finish` skill — it handles capturing remaining work, quality gates
 
 **Writing notes for resumability:**
 ```bash
-arc update <id> --description "COMPLETED: X. IN PROGRESS: Y. NEXT: Z"
+arc update <id> <<'EOF'
+COMPLETED: X. IN PROGRESS: Y. NEXT: Z
+EOF
 ```
 
 **Deep dive**: Run `arc docs resumability` for templates.
@@ -184,6 +186,11 @@ arc create "Title" -t task          # Create task
 arc create "Epic title" -t epic     # Create epic
 arc create "Subtask" --parent <epic-id>  # Create child issue
 arc dep add child-id parent-id --type parent-child  # Or link existing issue to epic
+
+# With multi-line description (stdin auto-detected):
+arc create "Title" -t task <<'EOF'
+Description with context, acceptance criteria, etc.
+EOF
 ```
 
 ### Completing Work

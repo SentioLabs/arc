@@ -31,6 +31,12 @@ arc create "Title" --type=task --priority=2       # New task (P2 medium)
 arc create "Bug title" --type=bug --priority=1    # High priority bug
 arc create "Feature" --type=feature --priority=2  # New feature
 arc create "Epic" --type=epic --priority=2        # Epic for grouping
+
+# With multi-line description (stdin auto-detected):
+arc create "Title" --type=task <<'EOF'
+Multi-line description here.
+Context, acceptance criteria, etc.
+EOF
 ```
 
 Priority levels: 0=Critical, 1=High, 2=Medium, 3=Low, 4=Backlog
@@ -43,6 +49,11 @@ arc update <id> --status=blocked        # Mark as blocked
 arc update <id> --assignee=<name>       # Assign to someone
 arc update <id> --priority=1            # Change priority
 arc update <id> --title="New title"     # Update title
+
+# Update description via stdin (auto-detected):
+arc update <id> <<'EOF'
+COMPLETED: X. IN PROGRESS: Y. NEXT: Z
+EOF
 ```
 
 ### Closing Issues

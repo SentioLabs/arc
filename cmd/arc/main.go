@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -620,6 +621,16 @@ var createCmd = &cobra.Command{
 		issueType, _ := cmd.Flags().GetString("type")
 		assignee, _ := cmd.Flags().GetString("assignee")
 		description, _ := cmd.Flags().GetString("description")
+		if description == "" {
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				content, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				description = strings.TrimSpace(string(content))
+			}
+		}
 		parentID, _ := cmd.Flags().GetString("parent")
 		titleFlag, _ := cmd.Flags().GetString("title")
 
@@ -789,8 +800,19 @@ var updateCmd = &cobra.Command{
 		if val, _ := cmd.Flags().GetString("type"); val != "" {
 			updates["issue_type"] = val
 		}
-		if val, _ := cmd.Flags().GetString("description"); val != "" {
-			updates["description"] = val
+		description, _ := cmd.Flags().GetString("description")
+		if description == "" {
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				content, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				description = strings.TrimSpace(string(content))
+			}
+		}
+		if description != "" {
+			updates["description"] = description
 		}
 
 		if len(updates) == 0 {

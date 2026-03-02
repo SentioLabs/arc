@@ -20,4 +20,13 @@ arc update <id> --priority 1           # Raise priority
 arc update <id> --assignee alice       # Assign to alice
 ```
 
+**Update description via stdin (auto-detected):**
+```bash
+arc update <id> <<'EOF'
+COMPLETED: X. IN PROGRESS: Y. NEXT: Z
+EOF
+```
+
+If `--description` is also provided, it takes precedence over stdin.
+
 If the issue ID is missing, ask for it or suggest `arc list` to find issues.

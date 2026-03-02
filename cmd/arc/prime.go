@@ -212,9 +212,14 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 ### Creating & Updating
 - ` + "`arc create \"title\" --type=task|bug|feature|epic|chore --priority=2`" + ` - New issue
   - Priority: 0-4 (0=critical, 2=medium, 4=backlog)
+  - Stdin is auto-detected for descriptions (use heredoc for multi-line):
+    ` + "`arc create \"title\" --type=task <<'EOF'`" + `
+    ` + "`description here`" + `
+    ` + "`EOF`" + `
 - ` + "`arc update <id> --status=in_progress`" + ` - Claim work
 - ` + "`arc update <id> --assignee=username`" + ` - Assign to someone
 - ` + "`arc update <id> --title=\"new title\"`" + ` - Update fields
+- ` + "`arc update <id> <<'EOF'`" + ` - Update description via stdin heredoc
 - ` + "`arc close <id>`" + ` - Mark complete
 - ` + "`arc close <id1> <id2> ...`" + ` - Close multiple issues at once
 
