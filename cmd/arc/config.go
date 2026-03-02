@@ -19,7 +19,7 @@ import (
 const configSetArgCount = 2
 
 // validConfigKeys lists the allowed configuration keys.
-var validConfigKeys = []string{"server_url"}
+var validConfigKeys = []string{"server_url", "channel"}
 
 // configCmd is the parent command for CLI configuration management.
 var configCmd = &cobra.Command{
@@ -46,6 +46,11 @@ var configListCmd = &cobra.Command{
 		}
 
 		_, _ = fmt.Printf("server_url = %s\n", cfg.ServerURL)
+		channel := cfg.Channel
+		if channel == "" {
+			channel = "stable"
+		}
+		_, _ = fmt.Printf("channel    = %s\n", channel)
 		_, _ = fmt.Printf("\nConfig file: %s\n", defaultConfigPath())
 		return nil
 	},
@@ -57,7 +62,7 @@ var configGetCmd = &cobra.Command{
 	Short: "Get a configuration value",
 	Long: `Get a configuration value.
 
-Valid keys: server_url`,
+Valid keys: server_url, channel`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := strings.ToLower(args[0])
@@ -71,6 +76,11 @@ Valid keys: server_url`,
 		switch key {
 		case "server_url", "server-url", "serverurl":
 			value = cfg.ServerURL
+		case "channel":
+			value = cfg.Channel
+			if value == "" {
+				value = "stable"
+			}
 		default:
 			return fmt.Errorf("unknown config key: %s\nValid keys: %s", key, strings.Join(validConfigKeys, ", "))
 		}
@@ -91,11 +101,11 @@ var configSetCmd = &cobra.Command{
 	Short: "Set a configuration value",
 	Long: `Set a configuration value.
 
-Valid keys: server_url
+Valid keys: server_url, channel
 
 Examples:
   arc config set server_url http://localhost:7432
-  arc config set server_url http://remote-server:7432`,
+  arc config set channel nightly`,
 	Args: cobra.ExactArgs(configSetArgCount),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := strings.ToLower(args[0])
@@ -109,6 +119,13 @@ Examples:
 		switch key {
 		case "server_url", "server-url", "serverurl":
 			cfg.ServerURL = value
+		case "channel":
+			switch value {
+			case "stable", "rc", "nightly":
+				cfg.Channel = value
+			default:
+				return fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", value)
+			}
 		default:
 			return fmt.Errorf("unknown config key: %s\nValid keys: %s", key, strings.Join(validConfigKeys, ", "))
 		}

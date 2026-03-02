@@ -71,6 +71,7 @@ func main() {
 // Config holds CLI configuration
 type Config struct {
 	ServerURL string `json:"server_url"`
+	Channel   string `json:"channel,omitempty"`
 }
 
 // WorkspaceSource indicates how the workspace was resolved
