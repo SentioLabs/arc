@@ -5,6 +5,7 @@
 	import StatusBadge from './StatusBadge.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
 	import TypeBadge from './TypeBadge.svelte';
+	import InlineSelect from './InlineSelect.svelte';
 
 	type Issue = components['schemas']['Issue'];
 	type Label = components['schemas']['Label'];
@@ -14,9 +15,18 @@
 		href?: string;
 		compact?: boolean;
 		labelMap?: Map<string, Label>;
+		onStatusChange?: (issueId: string, newStatus: string) => Promise<void>;
 	}
 
-	let { issue, href, compact = false, labelMap }: Props = $props();
+	let { issue, href, compact = false, labelMap, onStatusChange }: Props = $props();
+
+	const statusOptions = [
+		{ value: 'open', label: 'Open' },
+		{ value: 'in_progress', label: 'In Progress' },
+		{ value: 'blocked', label: 'Blocked' },
+		{ value: 'deferred', label: 'Deferred' },
+		{ value: 'closed', label: 'Closed' }
+	];
 </script>
 
 {#if href}
@@ -69,7 +79,20 @@
 		<!-- Footer: Status, Labels, Meta -->
 		<div class="flex items-center justify-between gap-3 pt-1">
 			<div class="flex items-center gap-2 flex-wrap">
-				<StatusBadge status={issue.status} size="sm" />
+				{#if onStatusChange}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<span onclick={(e) => { e.preventDefault(); e.stopPropagation(); }} role="button" tabindex="-1">
+						<InlineSelect
+							value={issue.status}
+							options={statusOptions}
+							onSave={(v) => onStatusChange(issue.id, v)}
+						>
+							<StatusBadge status={issue.status} size="sm" />
+						</InlineSelect>
+					</span>
+				{:else}
+					<StatusBadge status={issue.status} size="sm" />
+				{/if}
 
 				<!-- Labels -->
 				{#if issue.labels && issue.labels.length > 0}

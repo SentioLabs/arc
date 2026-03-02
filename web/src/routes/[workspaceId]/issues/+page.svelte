@@ -7,6 +7,7 @@
 	import {
 		listIssues,
 		listLabels,
+		updateIssue,
 		type Workspace,
 		type Issue,
 		type Label,
@@ -116,6 +117,12 @@
 		goto(`/${workspaceId}/issues`);
 	}
 
+	async function handleStatusChange(issueId: string, newStatus: string) {
+		if (!workspaceId) return;
+		await updateIssue(workspaceId, issueId, { status: newStatus as any });
+		await loadIssues();
+	}
+
 	const hasActiveFilters = $derived(
 		filters.status || filters.type || filters.priority !== undefined || filters.q
 	);
@@ -191,7 +198,7 @@
 		{:else}
 			<div class="space-y-3">
 				{#each issues as issue (issue.id)}
-					<IssueCard {issue} {labelMap} href="/{workspaceId}/issues/{issue.id}" />
+					<IssueCard {issue} {labelMap} href="/{workspaceId}/issues/{issue.id}" onStatusChange={handleStatusChange} />
 				{/each}
 			</div>
 
