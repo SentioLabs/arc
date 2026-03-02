@@ -45,14 +45,24 @@ Where task order matters:
 arc dep add <later-task-id> <earlier-task-id> --type=blocks -w <workspace>
 ```
 
-### 5. Update Epic Plan
+### 5. Label Doc-Only Tasks
+
+For each task, check whether **all** files in its `## Files` section are documentation (`.md`, `.txt`, `README`, `CHANGELOG`, or anything under `docs/`). If so, add the `docs-only` label:
+
+```bash
+arc label add <task-id> docs-only -w <workspace>
+```
+
+Doc-only tasks skip TDD — the `implement` skill routes them to `arc-doc-writer` instead of `arc-implementer`.
+
+### 6. Update Epic Plan
 
 Add the task breakdown to the epic's plan:
 ```bash
 arc plan set <epic-id> "<updated plan with task listing>" -w <workspace>
 ```
 
-### 6. Choose Execution Path
+### 7. Choose Execution Path
 
 Ask the user:
 - **Single-agent + subagents**: Invoke the `implement` skill. Main agent orchestrates, `arc-implementer` subagents do TDD per task. Best for sequential tasks.
@@ -91,6 +101,15 @@ go test ./path/to/...
 
 ## Expected Outcome
 <what should work when this task is done>
+```
+
+For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
+
+```
+## Verification
+- All internal links resolve to existing files
+- Heading hierarchy has no skipped levels
+- Code blocks have language tags
 ```
 
 ## Rules

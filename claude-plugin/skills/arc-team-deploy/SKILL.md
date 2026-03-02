@@ -92,7 +92,9 @@ Environment: ARC_TEAMMATE_ROLE=<role>
 Workflow:
 1. Check TaskList for your assigned tasks
 2. Work on tasks in ID order (lowest first)
-3. For each task: mark in_progress, implement, run tests, mark completed
+3. For each task:
+   - If labeled `docs-only`: mark in_progress, write documentation, verify formatting, commit, mark completed
+   - Otherwise: mark in_progress, implement with tests (RED → GREEN → REFACTOR), run test suite, commit, mark completed
 4. After completing a task, check TaskList for the next available one
 5. Send a message to the team lead when all your tasks are done
 

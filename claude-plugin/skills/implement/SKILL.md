@@ -29,9 +29,26 @@ arc list --parent=<epic-id> --status=open -w <workspace>
 arc update <task-id> --status in_progress -w <workspace>
 ```
 
-### 3. Dispatch Implementer
+### 3. Dispatch Agent
 
-Use the Agent tool to spawn an `arc-implementer` subagent with this prompt:
+Check whether the task has a `docs-only` label:
+
+```bash
+arc show <task-id> -w <workspace> | grep -q 'docs-only'
+```
+
+**If `docs-only`** — spawn an `arc-doc-writer` subagent:
+
+```
+Write/update the documentation described in this task.
+
+## Task
+<paste output of: arc show <task-id> -w <workspace>>
+
+Verify formatting quality and commit your work.
+```
+
+**Otherwise** — spawn an `arc-implementer` subagent:
 
 ```
 Implement this task following TDD (RED → GREEN → REFACTOR).
@@ -56,11 +73,11 @@ When the subagent reports back, check:
 
 - **Subagent reports test failures it can't resolve** → invoke the `debug` skill
 - **3+ implementation attempts fail on same issue** → invoke the `debug` skill
-- **Approach was wrong** → re-dispatch implementer with corrected guidance
+- **Approach was wrong** → re-dispatch the appropriate agent (`arc-implementer` or `arc-doc-writer`) with corrected guidance
 
 ### 6. Review Code
 
-If the result looks clean, invoke the `review` skill to dispatch the `arc-reviewer` subagent.
+If the result looks clean, invoke the `review` skill to dispatch the `arc-reviewer` subagent. For `docs-only` tasks, code review is optional — skip it unless the documentation changes are substantial or affect developer-facing API docs.
 
 ### 7. Process Review Feedback
 
