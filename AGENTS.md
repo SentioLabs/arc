@@ -123,7 +123,7 @@ arc dep add <issue> <depends-on>       # Add dependency
 
 ### Agent Mode
 
-For bulk operations (creating epics with tasks, batch updates), use the **arc-issue-tracker** agent via the Task tool. This runs arc commands in parallel without consuming main conversation context.
+For bulk operations (creating epics with tasks, batch updates), use the **arc-issue-tracker** agent via the Task tool. This runs arc commands in parallel without consuming main conversation context. The `plan` and `brainstorm` skills automatically delegate issue creation to this agent via structured manifests.
 
 Example: "Create an epic for auth system with login and logout tasks"
 → Delegate to arc-issue-tracker agent

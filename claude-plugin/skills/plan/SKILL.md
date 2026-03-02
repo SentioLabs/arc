@@ -31,38 +31,56 @@ Break the design into self-contained implementation units. Each task should:
 - Include exact file paths for all files to create or modify
 - Follow a logical dependency order
 
-### 3. Create Arc Issues
+### 3. Create Arc Issues via arc-issue-tracker
 
-For each task:
-```bash
-arc create "Task title" --type=task --parent=<epic-id> --description="<full task description>" -w <workspace>
+**Never run `arc create` directly** — always delegate to the `arc-issue-tracker` agent. This keeps bulk CLI output in a disposable subagent context.
+
+Build a task manifest and dispatch it:
+
+```
+Use the Agent tool with subagent_type="arc:arc-issue-tracker":
+
+Create the following tasks under epic <epic-id> in workspace <workspace>.
+After creation, set dependencies and labels as listed.
+Return a summary table mapping task names to arc IDs.
+
+## Tasks
+
+### T1: <title>
+Type: task
+Parent: <epic-id>
+Description:
+<full multi-line description>
+
+### T2: <title>
+Type: task
+Parent: <epic-id>
+Description:
+<full multi-line description>
+
+## Dependencies
+- T2 blocked by T1
+- T4 blocked by T3
+
+## Labels
+- T3: docs-only
+
+## Required Output
+| Task | Arc ID | Title |
+|------|--------|-------|
+| T1   | ...    | ...   |
 ```
 
-### 4. Set Dependencies
+For each task, check whether **all** files in its `## Files` section are documentation (`.md`, `.txt`, `README`, `CHANGELOG`, or anything under `docs/`). If so, include it in the `## Labels` section with `docs-only`. Doc-only tasks skip TDD — the `implement` skill routes them to `arc-doc-writer` instead of `arc-implementer`.
 
-Where task order matters:
-```bash
-arc dep add <later-task-id> <earlier-task-id> --type=blocks -w <workspace>
-```
+### 4. Update Epic Plan
 
-### 5. Label Doc-Only Tasks
-
-For each task, check whether **all** files in its `## Files` section are documentation (`.md`, `.txt`, `README`, `CHANGELOG`, or anything under `docs/`). If so, add the `docs-only` label:
-
-```bash
-arc label add <task-id> docs-only -w <workspace>
-```
-
-Doc-only tasks skip TDD — the `implement` skill routes them to `arc-doc-writer` instead of `arc-implementer`.
-
-### 6. Update Epic Plan
-
-Add the task breakdown to the epic's plan:
+Using the task IDs from the agent's returned summary table, add the task breakdown to the epic's plan:
 ```bash
 arc plan set <epic-id> "<updated plan with task listing>" -w <workspace>
 ```
 
-### 7. Choose Execution Path
+### 5. Choose Execution Path
 
 Ask the user:
 - **Single-agent + subagents**: Invoke the `implement` skill. Main agent orchestrates, `arc-implementer` subagents do TDD per task. Best for sequential tasks.
@@ -119,4 +137,5 @@ For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
 - Task descriptions must include actual code guidance, not vague instructions
 - Team preparation (teammate labels) is optional — only if user chooses team execution
 - The plan skill creates tasks; it does not implement them
+- The plan skill never runs `arc create` directly — always delegate to `arc-issue-tracker`
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

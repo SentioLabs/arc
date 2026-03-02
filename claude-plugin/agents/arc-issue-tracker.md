@@ -92,6 +92,36 @@ arc create "Task 2 description" --type=task --parent=<epic-id>
 
 The `--parent` flag automatically creates a parent-child dependency. No manual `dep add` needed.
 
+## Processing Task Manifests
+
+When receiving a structured manifest from the `plan` or `brainstorm` skills:
+
+1. **Parse tasks** from the `## Tasks` section — each `### T<n>: <title>` block defines one task
+2. **Create each task** sequentially using heredoc for multi-line descriptions:
+   ```bash
+   arc create "Task title" --type=task --parent=<epic-id> -w <workspace> <<'EOF'
+   Full multi-line description here.
+   EOF
+   ```
+3. **Track the ID mapping** — record logical name (T1, T2, P1, etc.) → arc ID from each creation
+4. **Set dependencies** from the `## Dependencies` section, substituting logical names with real IDs:
+   ```bash
+   arc dep add <real-later-id> <real-earlier-id> --type=blocks -w <workspace>
+   ```
+5. **Apply labels** from the `## Labels` section:
+   ```bash
+   arc label add <real-id> docs-only -w <workspace>
+   ```
+6. **Return a markdown summary table** matching the `## Required Output` format:
+   ```
+   | Task | Arc ID   | Title                    |
+   |------|----------|--------------------------|
+   | T1   | PROJ-5.1 | Implement storage layer  |
+   | T2   | PROJ-5.2 | Add API endpoints        |
+   ```
+
+This is the primary interface used by the `plan` and `brainstorm` skills for bulk issue creation.
+
 ## Bulk Operations
 
 For triage or bulk updates, process issues in sequence:

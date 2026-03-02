@@ -50,7 +50,42 @@ Detect scale and create appropriate structure:
 arc create "Project Name" --type=epic -w <workspace>
 # Save overall design as plan
 arc plan set <meta-epic-id> "<design content>" -w <workspace>
-# Create phase epics
+```
+
+If 3+ phases, delegate phase creation to `arc-issue-tracker`:
+```
+Use the Agent tool with subagent_type="arc:arc-issue-tracker":
+
+Create the following phase epics under meta-epic <meta-epic-id> in workspace <workspace>.
+After creation, set dependencies as listed.
+Return a summary table mapping phase names to arc IDs.
+
+## Tasks
+
+### P1: Phase 1 - ...
+Type: epic
+Parent: <meta-epic-id>
+
+### P2: Phase 2 - ...
+Type: epic
+Parent: <meta-epic-id>
+
+### P3: Phase 3 - ...
+Type: epic
+Parent: <meta-epic-id>
+
+## Dependencies
+- P2 blocked by P1
+- P3 blocked by P2
+
+## Required Output
+| Phase | Arc ID | Title |
+|-------|--------|-------|
+| P1    | ...    | ...   |
+```
+
+If 1-2 phases, create directly:
+```bash
 arc create "Phase 1: ..." --type=epic --parent=<meta-epic-id> -w <workspace>
 arc create "Phase 2: ..." --type=epic --parent=<meta-epic-id> -w <workspace>
 # Set phase dependencies
