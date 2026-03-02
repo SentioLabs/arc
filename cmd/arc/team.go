@@ -121,8 +121,11 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 			tc.Epic.Plan = pc.InlinePlan.Text
 		}
 
-		// Find children via dependencies endpoint
-		children, err := getEpicChildren(c, wsID, epicID)
+		// Find children via parent filter (returns issues with labels populated)
+		children, err := c.ListIssues(wsID, client.ListIssuesOptions{
+			Parent: epicID,
+			Limit:  200,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("fetch children: %w", err)
 		}
@@ -188,28 +191,6 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 	}
 
 	return tc, nil
-}
-
-// getEpicChildren fetches child issues of an epic via the dependencies endpoint.
-func getEpicChildren(c *client.Client, wsID, epicID string) ([]*types.Issue, error) {
-	// Get dependents (issues that depend on the epic)
-	details, err := c.GetIssueDetails(wsID, epicID)
-	if err != nil {
-		return nil, err
-	}
-
-	var children []*types.Issue
-	for _, dep := range details.Dependents {
-		if dep.Type == types.DepParentChild {
-			child, err := c.GetIssue(wsID, dep.IssueID)
-			if err != nil {
-				continue // Skip issues we can't fetch
-			}
-			children = append(children, child)
-		}
-	}
-
-	return children, nil
 }
 
 // printTeamContext outputs a human-readable team context table.
