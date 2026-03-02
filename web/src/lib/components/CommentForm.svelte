@@ -30,6 +30,7 @@
 		disabled={submitting}
 		class="input w-full min-h-[80px] text-sm"
 		placeholder="Add a comment..."
+		aria-label="Add a comment"
 	></textarea>
 	<div class="flex justify-end mt-2">
 		<button

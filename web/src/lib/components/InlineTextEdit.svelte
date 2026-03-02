@@ -15,7 +15,7 @@
 
 	// Sync editValue when value prop changes externally
 	$effect(() => {
-		editValue = value;
+		if (!editing) editValue = value;
 	});
 
 	function startEdit() {
@@ -50,7 +50,7 @@
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			save();
+			inputEl?.blur();
 		}
 		if (e.key === 'Escape') {
 			e.preventDefault();

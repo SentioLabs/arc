@@ -16,7 +16,7 @@
 
 	// Sync editValue when value prop changes externally
 	$effect(() => {
-		editValue = value;
+		if (!editing) editValue = value;
 	});
 
 	function startEdit() {

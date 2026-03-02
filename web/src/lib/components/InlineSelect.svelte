@@ -15,6 +15,7 @@
 
 	let { value, options, onSave, children }: Props = $props();
 
+	const instanceId = crypto.randomUUID().slice(0, 8);
 	let open = $state(false);
 	let saving = $state(false);
 	let highlightedIndex = $state(-1);
@@ -131,12 +132,12 @@
 			class="select-dropdown"
 			role="listbox"
 			tabindex="-1"
-			aria-activedescendant={highlightedIndex >= 0 ? `inline-option-${highlightedIndex}` : undefined}
+			aria-activedescendant={highlightedIndex >= 0 ? `select-${instanceId}-option-${highlightedIndex}` : undefined}
 		>
 			{#each options as option, i (option.value)}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<li
-					id="inline-option-{i}"
+					id="select-{instanceId}-option-{i}"
 					role="option"
 					aria-selected={option.value === value}
 					class="select-option {i === highlightedIndex ? 'highlighted' : ''} {option.value === value

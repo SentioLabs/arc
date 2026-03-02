@@ -19,7 +19,8 @@
 		type Comment,
 		type Event,
 		type DependencyGraph,
-		type Label
+		type Label,
+		type UpdateIssueRequest
 	} from '$lib/api';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
@@ -63,9 +64,9 @@
 		}
 	}
 
-	async function handleUpdateField(field: string, value: string | number) {
+	async function handleUpdateField(field: keyof UpdateIssueRequest, value: string | number) {
 		if (!workspaceId || !issueId) return;
-		const updated = await updateIssue(workspaceId, issueId, { [field]: value });
+		const updated = await updateIssue(workspaceId, issueId, { [field]: value } as UpdateIssueRequest);
 		issue = updated;
 	}
 

@@ -11,7 +11,8 @@
 		type Workspace,
 		type Issue,
 		type Label,
-		type IssueFilters
+		type IssueFilters,
+		type UpdateIssueRequest
 	} from '$lib/api';
 
 	// Get workspace from context
@@ -119,7 +120,7 @@
 
 	async function handleStatusChange(issueId: string, newStatus: string) {
 		if (!workspaceId) return;
-		await updateIssue(workspaceId, issueId, { status: newStatus as any });
+		await updateIssue(workspaceId, issueId, { status: newStatus } as UpdateIssueRequest);
 		await loadIssues();
 	}
 

@@ -81,7 +81,7 @@
 			<div class="flex items-center gap-2 flex-wrap">
 				{#if onStatusChange}
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<span onclick={(e) => { e.preventDefault(); e.stopPropagation(); }} role="button" tabindex="-1">
+					<div onclick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
 						<InlineSelect
 							value={issue.status}
 							options={statusOptions}
@@ -89,7 +89,7 @@
 						>
 							<StatusBadge status={issue.status} size="sm" />
 						</InlineSelect>
-					</span>
+					</div>
 				{:else}
 					<StatusBadge status={issue.status} size="sm" />
 				{/if}

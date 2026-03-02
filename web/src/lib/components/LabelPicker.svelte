@@ -40,8 +40,12 @@
 	}
 
 	async function addLabel(name: string) {
-		open = false;
-		await onAdd(name);
+		try {
+			await onAdd(name);
+			open = false;
+		} catch {
+			// Stay open on error
+		}
 	}
 
 	// Handle click outside to close
