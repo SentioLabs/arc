@@ -14,6 +14,7 @@ set -e
 REPO="sentiolabs/arc"
 BINARY_NAME="arc"
 FORCE="${FORCE:-false}"
+TAG="${TAG:-}"
 
 # ============ Output Formatting ============
 
@@ -202,23 +203,41 @@ install_from_release() {
 
     tmp_dir=$(mktemp -d)
 
-    # Fetch latest release
-    log_info "Checking latest release..."
-    local latest_url="https://api.github.com/repos/${REPO}/releases/latest"
+    local latest_version
     local release_json
 
-    if command -v curl &> /dev/null; then
-        release_json=$(curl -fsSL "$latest_url" 2>/dev/null)
-    elif command -v wget &> /dev/null; then
-        release_json=$(wget -qO- "$latest_url" 2>/dev/null)
-    else
-        log_error "Neither curl nor wget found"
-        rm -rf "$tmp_dir"
-        return 1
-    fi
+    if [[ -n "$TAG" ]]; then
+        # Install a specific version
+        latest_version="$TAG"
+        log_info "Installing specific version: ${latest_version}"
+        local tag_url="https://api.github.com/repos/${REPO}/releases/tags/${TAG}"
 
-    local latest_version
-    latest_version=$(echo "$release_json" | grep '"tag_name"' | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')
+        if command -v curl &> /dev/null; then
+            release_json=$(curl -fsSL "$tag_url" 2>/dev/null)
+        elif command -v wget &> /dev/null; then
+            release_json=$(wget -qO- "$tag_url" 2>/dev/null)
+        else
+            log_error "Neither curl nor wget found"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+    else
+        # Fetch latest release
+        log_info "Checking latest release..."
+        local latest_url="https://api.github.com/repos/${REPO}/releases/latest"
+
+        if command -v curl &> /dev/null; then
+            release_json=$(curl -fsSL "$latest_url" 2>/dev/null)
+        elif command -v wget &> /dev/null; then
+            release_json=$(wget -qO- "$latest_url" 2>/dev/null)
+        else
+            log_error "Neither curl nor wget found"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+
+        latest_version=$(echo "$release_json" | grep '"tag_name"' | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')
+    fi
 
     if [[ -z "$latest_version" ]]; then
         log_error "Failed to fetch latest version"
@@ -226,8 +245,8 @@ install_from_release() {
         return 1
     fi
 
-    # Version comparison
-    if [[ -n "$installed_version" ]] && [[ "$FORCE" != "true" ]]; then
+    # Version comparison (skip for specific tag installs)
+    if [[ -z "$TAG" ]] && [[ -n "$installed_version" ]] && [[ "$FORCE" != "true" ]]; then
         if compare_versions "$installed_version" "$latest_version"; then
             log_success "arc ${installed_version} is already up to date"
             rm -rf "$tmp_dir"
@@ -346,12 +365,14 @@ show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  --force    Force reinstall even if already up-to-date"
-    echo "  --help     Show this help message"
+    echo "  --force        Force reinstall even if already up-to-date"
+    echo "  --tag TAG      Install a specific version (e.g., v0.2.0-rc.1)"
+    echo "  --help         Show this help message"
     echo ""
     echo "Examples:"
     echo "  curl -fsSL https://raw.githubusercontent.com/sentiolabs/arc/main/scripts/install.sh | bash"
     echo "  curl -fsSL ... | bash -s -- --force"
+    echo "  curl -fsSL ... | bash -s -- --tag=v0.2.0-rc.1"
     echo ""
 }
 
@@ -363,6 +384,14 @@ main() {
         case "$1" in
             --force|-f)
                 FORCE="true"
+                shift
+                ;;
+            --tag)
+                TAG="$2"
+                shift 2
+                ;;
+            --tag=*)
+                TAG="${1#*=}"
                 shift
                 ;;
             --help|-h)
