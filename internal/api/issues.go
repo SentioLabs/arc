@@ -44,7 +44,7 @@ type closeIssueRequest struct {
 }
 
 // listIssues returns issues for a workspace with optional filtering and pagination.
-// Supports filtering by status, type, assignee, priority, and free-text query.
+// Supports filtering by status, type, assignee, priority, parent_id, and free-text query.
 // Results include batch-fetched labels for each issue.
 func (s *Server) listIssues(c echo.Context) error {
 	wsID := workspaceID(c)
@@ -71,6 +71,9 @@ func (s *Server) listIssues(c echo.Context) error {
 	if priority := c.QueryParam("priority"); priority != "" {
 		p := queryInt(c, "priority", defaultPriority)
 		filter.Priority = &p
+	}
+	if parentID := c.QueryParam("parent_id"); parentID != "" {
+		filter.ParentID = parentID
 	}
 
 	issues, err := s.store.ListIssues(c.Request().Context(), filter)

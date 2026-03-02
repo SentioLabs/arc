@@ -845,6 +845,8 @@ export interface operations {
                 priority?: number;
                 /** @description Filter by assignee */
                 assignee?: string;
+                /** @description Filter by parent issue ID (returns children via parent-child dependency) */
+                parent_id?: string;
                 /** @description Full-text search query */
                 q?: string;
                 /** @description Maximum results to return */

@@ -183,6 +183,12 @@ paths:
           description: Filter by assignee
           schema:
             type: string
+        - name: parent_id
+          in: query
+          required: false
+          description: Filter by parent issue ID (returns children via parent-child dependency)
+          schema:
+            type: string
         - name: q
           in: query
           description: Full-text search query
