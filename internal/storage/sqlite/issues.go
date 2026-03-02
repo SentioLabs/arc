@@ -184,6 +184,13 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 	var err error
 
 	switch {
+	case filter.ParentID != "":
+		rows, err = s.queries.ListIssuesByParent(ctx, db.ListIssuesByParentParams{
+			DependsOnID: filter.ParentID,
+			WorkspaceID: filter.WorkspaceID,
+			Limit:       int64(limit),
+			Offset:      int64(offset),
+		})
 	case filter.Query != "":
 		searchPattern := "%" + filter.Query + "%"
 		rows, err = s.queries.SearchIssues(ctx, db.SearchIssuesParams{

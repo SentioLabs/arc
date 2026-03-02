@@ -155,5 +155,15 @@ HAVING COUNT(blocker.id) = 0
 ORDER BY i.created_at ASC
 LIMIT ?;
 
+-- name: ListIssuesByParent :many
+-- Returns child issues of a parent via parent-child dependencies.
+SELECT i.* FROM issues i
+JOIN dependencies d ON d.issue_id = i.id
+WHERE d.depends_on_id = ?
+  AND d.type = 'parent-child'
+  AND i.workspace_id = ?
+ORDER BY i.priority ASC, i.created_at ASC
+LIMIT ? OFFSET ?;
+
 -- name: UpdateIssueRank :exec
 UPDATE issues SET rank = ?, updated_at = ? WHERE id = ?;

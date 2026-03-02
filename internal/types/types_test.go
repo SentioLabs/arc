@@ -579,3 +579,23 @@ func TestAllSortPolicies(t *testing.T) {
 		}
 	}
 }
+
+func TestIssueFilterParentIDField(t *testing.T) {
+	// Verify that IssueFilter has a ParentID field and it works as expected
+	filter := IssueFilter{
+		WorkspaceID: "ws-test",
+		ParentID:    "arc-abc123",
+	}
+
+	if filter.ParentID != "arc-abc123" {
+		t.Errorf("IssueFilter.ParentID = %q, want %q", filter.ParentID, "arc-abc123")
+	}
+
+	// Verify empty ParentID is the zero value
+	emptyFilter := IssueFilter{
+		WorkspaceID: "ws-test",
+	}
+	if emptyFilter.ParentID != "" {
+		t.Errorf("IssueFilter.ParentID should be empty by default, got %q", emptyFilter.ParentID)
+	}
+}
