@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Use before claiming any work is complete, any test passes, or any fix works. Requires fresh verification evidence before any completion claim. Invoke this before arc close or before telling the user something is done.
+description: Use before claiming any work is complete, any test passes, or any fix works. Requires fresh verification evidence before any completion claim. Called by the implement skill before closing tasks, and by finish before session end. Invoke this before arc close or before telling the user something is done.
 ---
 
 # Verify — Evidence-Based Completion Gates
@@ -27,7 +27,7 @@ What command proves the claim? Examples:
 
 ### 2. RUN
 
-Execute the **full** command. Not a subset. Not from memory. Not "I ran it earlier."
+Execute the **full** command. At minimum, run all tests affected by the change; running the full suite is safer. Not a subset from memory. Not "I ran it earlier."
 
 Fresh. Complete. Now.
 

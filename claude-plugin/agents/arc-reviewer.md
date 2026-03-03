@@ -57,7 +57,7 @@ If no issues are found in a category, state "No issues found" — do not omit th
 - **Technical evaluation, not performative agreement.** No "Great work!" or "Looks good!" without specific evidence. If code is clean, say "No issues found."
 - **Be specific.** "Error handling could be improved" is useless. "The `CreateUser` handler on line 45 swallows the database error and returns 200" is actionable.
 - **Check against the spec.** The task description says what should be built. If the implementation diverges, that's a Critical finding.
-- **Check against conventions.** Read the project's CLAUDE.md, existing code patterns, and test conventions. Deviations from established patterns are Important findings.
+- **Check against conventions.** Read the project's CLAUDE.md if it exists. Scan 2-3 existing files in the same directory as the changed code to identify naming, structure, and error-handling patterns. Deviations from established patterns are Important findings.
 
 ## Rules
 
@@ -65,3 +65,4 @@ If no issues are found in a category, state "No issues found" — do not omit th
 - Never close issues — the dispatcher handles arc state
 - Report only — the dispatching agent decides what to do with findings
 - If you cannot determine whether something is an issue, flag it as Minor with your reasoning
+- Format all output (findings, comments) using GFM: fenced code blocks with language tags, headings for structure, lists for organization, inline code for paths/commands

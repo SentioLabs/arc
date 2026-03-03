@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Use when starting a new feature, project, or significant piece of work that needs design exploration before implementation. Guides Socratic discovery of requirements and constraints, then saves the approved design as an arc plan.
+description: Use when starting a new feature, project, or significant piece of work that needs design exploration, architecture decisions, or design trade-offs before implementation. Guides Socratic discovery of requirements and constraints, then saves the approved design as an arc plan.
 ---
 
 # Brainstorm — Design Discovery

@@ -13,11 +13,20 @@ Create a TodoWrite checklist with these steps:
 
 ### 1. Get Git SHAs
 
-Determine the commit range for this task's changes:
+Use the `PRE_TASK_SHA` recorded by the implement skill before dispatching the implementer:
 
 ```bash
-# Number of commits for this task
-BASE_SHA=$(git rev-parse HEAD~<n>)
+BASE_SHA=$PRE_TASK_SHA
+HEAD_SHA=$(git rev-parse HEAD)
+```
+
+If `PRE_TASK_SHA` is not available (e.g., standalone review), determine the range manually:
+
+```bash
+# Check recent commits to identify where the task's work begins
+git log --oneline -10
+# Set BASE_SHA to the commit before the task's first change
+BASE_SHA=$(git rev-parse <commit-before-task>)
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
@@ -27,6 +36,8 @@ Use the Agent tool to spawn an `arc-reviewer` subagent with this prompt:
 
 ```
 Review these changes against the task spec and project conventions.
+
+Workspace: <workspace>
 
 ## Task Spec
 <paste output of: arc show <task-id> -w <workspace>>
@@ -53,6 +64,8 @@ If fixes are needed:
 1. Re-dispatch `arc-implementer` with the specific findings to address
 2. After the implementer reports back, re-review (go to step 1 with updated SHAs)
 3. Continue until the review is clean (no Critical or Important findings)
+
+**Circuit breaker**: If 3 review/fix cycles on the same task haven't resolved all findings, STOP. Escalate to the user with a summary of what keeps recurring — the reviewer and implementer may disagree on the approach, or the task spec may be ambiguous.
 
 ### 5. Proceed
 

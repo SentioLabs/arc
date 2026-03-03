@@ -120,6 +120,12 @@ When receiving a structured manifest from the `plan` or `brainstorm` skills:
    | T2   | PROJ-5.2 | Add API endpoints        |
    ```
 
+**Handling partial failures**: If a task creation fails mid-manifest:
+- Continue creating the remaining tasks — do not abort the batch
+- Report partial results clearly: "Created 4/5 tasks. T3 failed: `<error message>`"
+- Include the ID mapping for all successfully created tasks so the dispatcher can act on what exists
+- Do not attempt to clean up already-created tasks — the dispatcher will decide
+
 This is the primary interface used by the `plan` and `brainstorm` skills for bulk issue creation.
 
 ## Bulk Operations
@@ -151,3 +157,4 @@ When reporting results:
 - Confirm status changes
 - Summarize any errors encountered
 - Provide next steps if applicable
+- Format all output (descriptions, summaries, tables) using GFM: fenced code blocks with language tags, headings for structure, lists for organization, inline code for paths/commands

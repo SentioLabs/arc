@@ -1,6 +1,6 @@
 ---
 name: arc-team-deploy
-description: Deploy an agent team from arc's issue graph. Use when the user wants to parallelize work across multiple agents, says "deploy team", "spawn teammates", or wants to distribute arc epic tasks by role using teammate labels.
+description: Deploy an agent team from arc's issue graph. Use when the user wants to parallelize work across multiple agents, parallelize epic tasks, says "deploy team", "spawn teammates", or wants to distribute arc epic tasks by role using teammate labels.
 ---
 
 # Arc Team Deploy
@@ -26,8 +26,30 @@ Deploy an agent team from arc's issue graph. Translates `teammate:*` labels, pla
 Run `arc team context <epic-id> --json` to get the issue graph grouped by role.
 
 ```bash
-arc team context <epic-id> --json
+arc team context <epic-id> --json -w <workspace>
 ```
+
+The JSON output has this structure:
+
+```json
+{
+  "epic": { "id": "PROJ-5", "title": "Auth System", "status": "open" },
+  "roles": {
+    "frontend": [
+      { "id": "PROJ-5.1", "title": "Login form", "status": "open", "priority": 2, "blocked_by": [] }
+    ],
+    "backend": [
+      { "id": "PROJ-5.2", "title": "Auth API", "status": "open", "priority": 1, "blocked_by": [] },
+      { "id": "PROJ-5.3", "title": "Session middleware", "status": "open", "priority": 2, "blocked_by": ["PROJ-5.2"] }
+    ]
+  },
+  "unassigned": [
+    { "id": "PROJ-5.4", "title": "Write tests", "status": "open", "priority": 3, "blocked_by": [] }
+  ]
+}
+```
+
+Use the `roles` keys as teammate names and paste each role's issue array into the teammate's dispatch prompt.
 
 If the user hasn't specified an epic, help them find one:
 
@@ -113,23 +135,23 @@ As team lead, follow the sync protocol:
 1. **Monitor progress** via `TaskList` — teammates send messages on completion
 2. **Verify work** before closing arc issues:
    ```bash
-   arc show <issue-id>   # Review the issue
+   arc show <issue-id> -w <workspace>   # Review the issue
    # Check the code changes made by the teammate
    ```
 3. **Close verified issues**:
    ```bash
-   arc close <issue-id> --reason "completed by <role>"
+   arc close <issue-id> --reason "completed by <role>" -w <workspace>
    ```
 4. **Check for newly unblocked work**:
    ```bash
-   arc ready
+   arc ready -w <workspace>
    ```
 5. **Shutdown teammates** when all work is complete via `SendMessage` with `type: "shutdown_request"`
 
 ## Error Handling
 
 - If `arc team context` returns empty roles, the epic may not have `teammate:*` labels on children. Suggest labeling first.
-- If a teammate reports a blocker, update the arc issue status: `arc update <id> --status=blocked`
+- If a teammate reports a blocker, update the arc issue status: `arc update <id> --status=blocked -w <workspace>`
 - If a task fails, investigate before reassigning — the arc issue may need plan revision.
 
 ## Example Session

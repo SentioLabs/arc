@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Use when encountering bugs, test failures, or unexpected behavior during implementation. Requires root cause investigation before any fix attempt. Invoked standalone or from the implement skill when things break.
+description: Use when encountering bugs, test failures, or unexpected behavior during implementation. Requires root cause investigation before any fix attempt. Invoked standalone or automatically from the implement skill when subagents report failures they can't resolve.
 ---
 
 # Debug — Systematic Root Cause Investigation
@@ -87,5 +87,5 @@ You're doing it wrong if you:
 - Always write a bug-demonstrating test before the fix
 - Always run the full test suite after fixing
 - Revert failed fix attempts cleanly — don't leave debris
-- After debugging, return to wherever you were (implement, verify, etc.)
+- After debugging, return to the calling skill — typically `implement` step 4 to re-verify the subagent's result, or `verify` to re-run the gate sequence
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

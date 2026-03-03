@@ -32,7 +32,8 @@ After writing, verify each of these before committing:
 - **Code block language tags**: Every fenced code block has a language identifier
 - **Relative link validity**: Internal links point to files that exist (`ls` to confirm)
 - **No orphaned sections**: Every section has content (no empty `## Heading` followed immediately by another heading)
-- **Consistent formatting**: List style, heading capitalization, and spacing match the existing file or project conventions
+- **Consistent formatting**: Match the style of the existing file (list markers, heading capitalization, spacing). For new files, follow GFM conventions: fenced code blocks with language tags, headings for structure, bullet lists for unordered items, numbered lists for sequential steps
+- **Cross-file consistency**: If the task touches multiple files, verify they use the same terminology and link to each other correctly
 
 ## Rules
 
@@ -42,3 +43,4 @@ After writing, verify each of these before committing:
 - Never manage arc issues — the dispatcher handles arc state
 - Never review your own work — a separate reviewer handles that
 - Stay within the files listed in the task scope
+- Format all content using GFM: fenced code blocks with language tags, headings for structure, bullet/numbered lists for organization, inline code for paths/commands, tables for structured comparisons

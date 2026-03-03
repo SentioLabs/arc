@@ -53,13 +53,19 @@ arc update <task-id> --status in_progress -w <workspace>
 
 ### 3. Dispatch Agent
 
+Record the current HEAD before dispatching — the review skill needs this to determine the commit range:
+
+```bash
+PRE_TASK_SHA=$(git rev-parse HEAD)
+```
+
 Check whether the task has a `docs-only` label:
 
 ```bash
-arc show <task-id> -w <workspace> | grep -q 'docs-only'
+arc show <task-id> -w <workspace> --json | jq -e '.labels[] | select(. == "docs-only")' > /dev/null 2>&1
 ```
 
-**If `docs-only`** — spawn an `arc-doc-writer` subagent:
+**If `docs-only`** (exit code 0) — spawn an `arc-doc-writer` subagent:
 
 ```
 Write/update the documentation described in this task.
@@ -86,8 +92,8 @@ Commit your work when tests pass.
 
 ### 4. Review Result
 
-When the subagent reports back, check:
-- Did all tests pass?
+When the subagent reports back, invoke the `verify` skill to confirm tests pass and the task spec is met. Specifically check:
+- Did all tests pass? (run the proof command fresh — don't trust the subagent's report alone)
 - Was the approach correct per the task spec?
 - Were there any regressions?
 

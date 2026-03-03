@@ -65,6 +65,14 @@ This is non-negotiable. Every feature, every function, every behavior gets a tes
 7. **Commit** with a conventional commit message (e.g., `feat(module): add X`)
 8. **Report** back: what was implemented, test results, files changed
 
+## When Tests Can't Run
+
+If the project's test command fails with a **setup error** (not a test failure):
+
+1. **Infrastructure problems** (missing deps, DB not running, build tool not found) — report the setup error back to the dispatcher. Do not try to fix test infrastructure; that's outside the task scope.
+2. **No test files exist** for the module being changed — look for test patterns in adjacent modules and create a test file following the same conventions.
+3. **No test patterns exist at all** in the project — report this back to the dispatcher and let them decide how to proceed.
+
 ## Rules
 
 - Never skip the failing test step
@@ -75,3 +83,4 @@ This is non-negotiable. Every feature, every function, every behavior gets a tes
 - Never manage arc issues — the dispatcher handles arc state
 - Never review your own work — a separate reviewer handles that
 - Never assume you are on a specific branch — commit to whatever branch you find yourself on
+- Format all arc content (descriptions, comments, commit messages) using GFM: fenced code blocks with language tags, headings for structure, lists for organization, inline code for paths/commands

@@ -9,7 +9,7 @@ Break an approved design into bite-sized, self-contained tasks with exact file p
 
 ## Granularity Rule
 
-Each task step is **ONE action, 2-5 minutes**. Assume the implementer has **zero codebase context** and questionable testing discipline. If a step says "add validation" without showing the code, it's too vague.
+Each task step is **ONE action, 2-5 minutes**. Assume the implementer has **zero codebase context** and fresh context without codebase familiarity. If a step says "add validation" without showing the code, it's too vague.
 
 ## Workflow
 
@@ -73,14 +73,22 @@ Description:
 
 For each task, check whether **all** files in its `## Files` section are documentation (`.md`, `.txt`, `README`, `CHANGELOG`, or anything under `docs/`). If so, include it in the `## Labels` section with `docs-only`. Doc-only tasks skip TDD — the `implement` skill routes them to `arc-doc-writer` instead of `arc-implementer`.
 
-### 4. Update Epic Plan
+### 4. Validate Returned Results
+
+Before proceeding, verify the agent's output:
+
+1. **Count check**: The number of returned IDs must match the number of tasks in your manifest
+2. **Spot-check**: Run `arc show <id> -w <workspace>` on one returned task to confirm it exists and has the correct parent
+3. **If mismatch**: Re-dispatch the agent for missing tasks only, or create them manually
+
+### 5. Update Epic Plan
 
 Using the task IDs from the agent's returned summary table, add the task breakdown to the epic's plan:
 ```bash
 arc plan set <epic-id> "<updated plan with task listing>" -w <workspace>
 ```
 
-### 5. Choose Execution Path
+### 6. Choose Execution Path
 
 Ask the user:
 - **Single-agent + subagents**: Invoke the `implement` skill. Main agent orchestrates, `arc-implementer` subagents do TDD per task. Best for sequential tasks.
