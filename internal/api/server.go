@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -27,6 +28,7 @@ type Server struct {
 	store     storage.Storage
 	address   string
 	startTime time.Time
+	reviews   sync.Map // key: "wsID/sessionID", value: *ReviewSession
 }
 
 // Config holds server configuration.
@@ -156,6 +158,12 @@ func (s *Server) registerRoutes() {
 
 	// Events (audit trail)
 	ws.GET("/issues/:id/events", s.getEvents)
+
+	// Review sessions
+	ws.POST("/review", s.createReview)
+	ws.GET("/review/:rid/diff", s.getReviewDiff)
+	ws.GET("/review/:rid/status", s.getReviewStatus)
+	ws.POST("/review/:rid/submit", s.submitReview)
 }
 
 // HealthResponse contains health check information.
