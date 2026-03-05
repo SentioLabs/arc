@@ -47,38 +47,72 @@ Create a TodoWrite checklist with all steps and work through them:
    ```
 7. **Hard gate**: If tests fail, fix them. Do NOT skip to commit. Invoke `debug` if needed.
 
+### Phase 2.5: Human Code Review
+
+*Skip this phase if no code was changed, or if the workspace has no `path` with a `.git` directory.*
+
+8. Determine the server URL. Check if the arc server is running:
+   ```bash
+   curl -s http://localhost:7432/health | jq -r '.webui_url'
+   ```
+   If the server is not running or has no web UI, skip this phase.
+
+9. Ask the user how they want to proceed:
+   - **Review in browser** — open the web-based diff viewer
+   - **Approve without review** — skip directly to Phase 3
+
+10. If the user chose "Review in browser":
+
+    a. Create a review session:
+    ```bash
+    curl -s -X POST http://localhost:7432/api/v1/workspaces/<ws>/review \
+      -H 'Content-Type: application/json' \
+      -d '{"base": "origin/main", "head": "HEAD"}' | jq
+    ```
+    b. Print the review URL for the user:
+    ```text
+    Review your changes at: http://localhost:7432/<workspaceId>/review?base=origin/main
+    ```
+    c. Poll the review status every 3 seconds until it changes from "pending":
+    ```bash
+    curl -s http://localhost:7432/api/v1/workspaces/<ws>/review/<reviewId>/status | jq -r '.status'
+    ```
+    d. When status changes:
+    - `approved` — Print "Review approved" and continue to Phase 3
+    - `changes_requested` — Print the review feedback (comment + file comments), then **STOP the finish flow entirely**. The user or AI addresses the feedback, then re-runs `/finish`.
+
 ### Phase 3: Update Arc Issues
 
-8. Close completed issues:
-   ```bash
-   arc close <id> -r "Done: <summary of what was completed>" -w <workspace>
-   ```
-9. Update in-progress issues with progress notes:
-   ```bash
-   arc update <id> --description "PROGRESS: <what's done>. NEXT: <what remains>" -w <workspace>
-   ```
-10. Verify issue states match reality — don't leave stale statuses
+11. Close completed issues:
+    ```bash
+    arc close <id> -r "Done: <summary of what was completed>" -w <workspace>
+    ```
+12. Update in-progress issues with progress notes:
+    ```bash
+    arc update <id> --description "PROGRESS: <what's done>. NEXT: <what remains>" -w <workspace>
+    ```
+13. Verify issue states match reality — don't leave stale statuses
 
 ### Phase 4: Commit and Push
 
-11. Stage changed files (specific files, not `git add -A`):
+14. Stage changed files (specific files, not `git add -A`):
     ```bash
     git add <file1> <file2> ...
     ```
-12. Commit with conventional commit message:
+15. Commit with conventional commit message:
     ```bash
     git commit -m "feat(scope): summary of changes"
     ```
-13. Push:
+16. Push:
     ```bash
     git push
     ```
-14. Verify push succeeded:
+17. Verify push succeeded:
     ```bash
     git status    # Must show "up to date with origin"
     ```
-15. If push fails → resolve the issue → retry → succeed. Do not leave unpushed commits.
-16. Clean up worktrees:
+18. If push fails → resolve the issue → retry → succeed. Do not leave unpushed commits.
+19. Clean up worktrees:
     ```bash
     git worktree list
     ```
@@ -118,11 +152,11 @@ Create a TodoWrite checklist with all steps and work through them:
 
 ### Phase 5: Verify and Hand Off
 
-17. Confirm the commit:
+20. Confirm the commit:
     ```bash
     git log -1    # Verify latest commit is visible
     ```
-18. Output context for next session:
+21. Output context for next session:
     ```bash
     arc prime -w <workspace>
     ```
@@ -150,3 +184,5 @@ Create a TodoWrite checklist with all steps and work through them:
 - Never close arc issues without completing the work
 - Always run `arc prime` at the end for next-session context
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`
+- When the user requests changes via the review UI, stop the finish flow — do not continue to commit/push
+- The review phase is skippable (approve without review) to avoid blocking trivial sessions
