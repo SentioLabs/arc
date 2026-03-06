@@ -79,7 +79,7 @@ type WorkspaceSource int
 
 const (
 	WorkspaceSourceFlag    WorkspaceSource = iota
-	WorkspaceSourceProject // ~/.arc/projects/<path>/config.json
+	WorkspaceSourceProject                 // ~/.arc/projects/<path>/config.json
 )
 
 func (s WorkspaceSource) String() string {
@@ -602,7 +602,7 @@ var createCmd = &cobra.Command{
 			title = args[0]
 		}
 		if title == "" {
-			return fmt.Errorf("title is required (positional arg or --title flag)")
+			return errors.New("title is required (positional arg or --title flag)")
 		}
 
 		issue, err := c.CreateIssue(wsID, client.CreateIssueRequest{

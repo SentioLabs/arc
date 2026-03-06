@@ -1,6 +1,9 @@
+// teams.go implements the team context API endpoint which groups issues
+// by teammate role labels for coordinating agent-team workflows.
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -8,7 +11,14 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+// teammatePrefix is the label prefix used to assign issues to teammates.
+const teammatePrefix = "teammate:"
+
+// teamContextIssueLimit is the max number of issues fetched for team context.
+const teamContextIssueLimit = 500
+
 // getTeamContext returns issues grouped by their teammate:* labels.
+// Optionally scoped to a single epic via the epic_id query parameter.
 func (s *Server) getTeamContext(c echo.Context) error {
 	wsID := workspaceID(c)
 	epicID := c.QueryParam("epic_id")
@@ -20,123 +30,117 @@ func (s *Server) getTeamContext(c echo.Context) error {
 		Unassigned: []TeamContextIssue{},
 	}
 
-	var issues []*types.Issue
-
-	if epicID != "" {
-		// Fetch the epic
-		epic, err := s.store.GetIssue(ctx, epicID)
-		if err != nil {
-			return errorJSON(c, http.StatusNotFound, "epic not found")
-		}
-		if epic.WorkspaceID != wsID {
-			return errorJSON(c, http.StatusForbidden, "access denied")
-		}
-
-		resp.Epic = &TeamContextEpic{
-			ID:    epic.ID,
-			Title: epic.Title,
-		}
-
-		// Get epic's inline plan
-		pc, err := s.store.GetPlanContext(ctx, epicID)
-		if err == nil && pc.InlinePlan != nil {
-			resp.Epic.Plan = &pc.InlinePlan.Text
-		}
-
-		// Find children via dependents (issues that have parent-child dep on this epic)
-		dependents, err := s.store.GetDependents(ctx, epicID)
-		if err != nil {
-			return errorJSON(c, http.StatusInternalServerError, err.Error())
-		}
-
-		for _, dep := range dependents {
-			if dep.Type != types.DepParentChild {
-				continue
-			}
-			child, err := s.store.GetIssue(ctx, dep.IssueID)
-			if err != nil {
-				continue
-			}
-			if child.WorkspaceID == wsID {
-				issues = append(issues, child)
-			}
-		}
-	} else {
-		// Fetch all non-closed issues in the workspace
-		allIssues, err := s.store.ListIssues(ctx, types.IssueFilter{
-			WorkspaceID: wsID,
-			Limit:       500,
-		})
-		if err != nil {
-			return errorJSON(c, http.StatusInternalServerError, err.Error())
-		}
-
-		// Filter to only non-closed issues
-		for _, issue := range allIssues {
-			if issue.Status != types.StatusClosed {
-				issues = append(issues, issue)
-			}
-		}
+	issues, err := s.fetchTeamContextIssues(ctx, c, wsID, epicID, &resp)
+	if err != nil {
+		return err
 	}
 
 	if len(issues) == 0 {
 		return successJSON(c, resp)
 	}
 
-	// Collect issue IDs for batch label fetch
+	if err := s.groupIssuesByRole(ctx, wsID, epicID, issues, &resp); err != nil {
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+
+	return successJSON(c, resp)
+}
+
+// fetchTeamContextIssues loads issues for the team context response.
+// When epicID is set, it populates resp.Epic and returns the epic's children.
+// Otherwise it returns all non-closed issues in the workspace.
+func (s *Server) fetchTeamContextIssues(
+	ctx context.Context, c echo.Context, wsID, epicID string, resp *TeamContext,
+) ([]*types.Issue, error) {
+	if epicID != "" {
+		return s.fetchEpicChildIssues(ctx, c, wsID, epicID, resp)
+	}
+	return s.fetchNonClosedIssues(ctx, c, wsID)
+}
+
+// fetchEpicChildIssues loads an epic and its child issues via parent-child dependencies.
+func (s *Server) fetchEpicChildIssues(
+	ctx context.Context, c echo.Context, wsID, epicID string, resp *TeamContext,
+) ([]*types.Issue, error) {
+	epic, err := s.store.GetIssue(ctx, epicID)
+	if err != nil {
+		return nil, errorJSON(c, http.StatusNotFound, "epic not found")
+	}
+	if epic.WorkspaceID != wsID {
+		return nil, errorJSON(c, http.StatusForbidden, "access denied")
+	}
+
+	resp.Epic = &TeamContextEpic{ID: epic.ID, Title: epic.Title}
+
+	pc, err := s.store.GetPlanContext(ctx, epicID)
+	if err == nil && pc.InlinePlan != nil {
+		resp.Epic.Plan = &pc.InlinePlan.Text
+	}
+
+	dependents, err := s.store.GetDependents(ctx, epicID)
+	if err != nil {
+		return nil, errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+
+	var issues []*types.Issue
+	for _, dep := range dependents {
+		if dep.Type != types.DepParentChild {
+			continue
+		}
+		child, err := s.store.GetIssue(ctx, dep.IssueID)
+		if err != nil {
+			continue
+		}
+		if child.WorkspaceID == wsID {
+			issues = append(issues, child)
+		}
+	}
+	return issues, nil
+}
+
+// fetchNonClosedIssues loads all non-closed issues in the workspace.
+func (s *Server) fetchNonClosedIssues(
+	ctx context.Context, c echo.Context, wsID string,
+) ([]*types.Issue, error) {
+	allIssues, err := s.store.ListIssues(ctx, types.IssueFilter{
+		WorkspaceID: wsID,
+		Limit:       teamContextIssueLimit,
+	})
+	if err != nil {
+		return nil, errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+
+	var issues []*types.Issue
+	for _, issue := range allIssues {
+		if issue.Status != types.StatusClosed {
+			issues = append(issues, issue)
+		}
+	}
+	return issues, nil
+}
+
+// groupIssuesByRole fetches labels for all issues and groups them by teammate:* label.
+func (s *Server) groupIssuesByRole(
+	ctx context.Context, wsID, epicID string, issues []*types.Issue, resp *TeamContext,
+) error {
 	issueIDs := make([]string, len(issues))
 	for i, issue := range issues {
 		issueIDs[i] = issue.ID
 	}
 
-	// Batch fetch labels for all issues
 	labelsMap, err := s.store.GetLabelsForIssues(ctx, issueIDs)
 	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return err
 	}
 
-	// Group issues by teammate:* label
 	for _, issue := range issues {
-		labels := labelsMap[issue.ID]
-		tci := TeamContextIssue{
-			ID:       issue.ID,
-			Title:    issue.Title,
-			Priority: issue.Priority,
-			Status:   string(issue.Status),
-			Type:     string(issue.IssueType),
-		}
-
-		// Get inline plan for this issue
-		pc, err := s.store.GetPlanContext(ctx, issue.ID)
-		if err == nil && pc.InlinePlan != nil {
-			tci.Plan = &pc.InlinePlan.Text
-		}
-
-		// Get dependencies
-		deps, err := s.store.GetDependencies(ctx, issue.ID)
-		if err == nil && len(deps) > 0 {
-			depIDs := make([]string, 0, len(deps))
-			for _, dep := range deps {
-				depIDs = append(depIDs, dep.DependsOnID)
-			}
-			tci.Deps = &depIDs
-		}
-
-		// Extract teammate role from labels
-		role := ""
-		for _, l := range labels {
-			if strings.HasPrefix(l, "teammate:") {
-				role = strings.TrimPrefix(l, "teammate:")
-				break
-			}
-		}
+		tci := s.buildTeamContextIssue(ctx, issue)
+		role := extractTeammateRole(labelsMap[issue.ID])
 
 		if role == "" {
 			if epicID != "" {
-				// With epic filter, unassigned children are included
 				resp.Unassigned = append(resp.Unassigned, tci)
 			}
-			// Without epic filter, skip issues without teammate labels
 			continue
 		}
 
@@ -145,5 +149,43 @@ func (s *Server) getTeamContext(c echo.Context) error {
 		resp.Roles[role] = r
 	}
 
-	return successJSON(c, resp)
+	return nil
+}
+
+// buildTeamContextIssue creates a TeamContextIssue with plan and dependency data.
+func (s *Server) buildTeamContextIssue(ctx context.Context, issue *types.Issue) TeamContextIssue {
+	tci := TeamContextIssue{
+		ID:       issue.ID,
+		Title:    issue.Title,
+		Priority: issue.Priority,
+		Status:   string(issue.Status),
+		Type:     string(issue.IssueType),
+	}
+
+	pc, err := s.store.GetPlanContext(ctx, issue.ID)
+	if err == nil && pc.InlinePlan != nil {
+		tci.Plan = &pc.InlinePlan.Text
+	}
+
+	deps, err := s.store.GetDependencies(ctx, issue.ID)
+	if err == nil && len(deps) > 0 {
+		depIDs := make([]string, 0, len(deps))
+		for _, dep := range deps {
+			depIDs = append(depIDs, dep.DependsOnID)
+		}
+		tci.Deps = &depIDs
+	}
+
+	return tci
+}
+
+// extractTeammateRole finds the teammate:* label and returns the role suffix.
+// Returns empty string if no teammate label is found.
+func extractTeammateRole(labels []string) string {
+	for _, l := range labels {
+		if strings.HasPrefix(l, teammatePrefix) {
+			return strings.TrimPrefix(l, teammatePrefix)
+		}
+	}
+	return ""
 }

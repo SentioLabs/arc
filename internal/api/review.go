@@ -16,6 +16,15 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// sessionIDBytesLen is the number of random bytes used to generate session IDs.
+const sessionIDBytesLen = 8
+
+// minDiffStatFields is the minimum number of fields expected in a diff stat token.
+const minDiffStatFields = 2
+
+// diffFilePermissions is the file mode for diff files written to disk.
+const diffFilePermissions = 0o600
+
 // reviewSession is the internal representation of a review session stored in memory.
 // It extends the generated ReviewSession with fields not exposed via JSON or not in the OpenAPI spec.
 type reviewSession struct {
@@ -44,8 +53,9 @@ type submitReviewRequest struct {
 	FileComments map[string]string `json:"file_comments,omitempty"`
 }
 
+// generateSessionID creates a random hex-encoded session identifier.
 func generateSessionID() string {
-	b := make([]byte, 8)
+	b := make([]byte, sessionIDBytesLen)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }
@@ -75,12 +85,13 @@ func (s *Server) createReview(c echo.Context) error {
 
 	// Validate .git directory exists
 	gitDir := filepath.Join(ws.Path, ".git")
-	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) { //nolint:gosec // path from trusted workspace config
 		return errorJSON(c, http.StatusBadRequest, "workspace path is not a git repository")
 	}
 
 	// Run git diff
-	diffCmd := exec.Command("git", "diff", fmt.Sprintf("%s...%s", req.Base, req.Head))
+	diffRange := fmt.Sprintf("%s...%s", req.Base, req.Head)
+	diffCmd := exec.Command("git", "diff", diffRange)
 	diffCmd.Dir = ws.Path
 	diffOutput, err := diffCmd.Output()
 	if err != nil {
@@ -88,7 +99,7 @@ func (s *Server) createReview(c echo.Context) error {
 	}
 
 	// Run git diff --stat for stats
-	statCmd := exec.Command("git", "diff", "--stat", fmt.Sprintf("%s...%s", req.Base, req.Head))
+	statCmd := exec.Command("git", "diff", "--stat", diffRange)
 	statCmd.Dir = ws.Path
 	statOutput, err := statCmd.Output()
 	if err != nil {
@@ -105,12 +116,12 @@ func (s *Server) createReview(c echo.Context) error {
 	}
 
 	diffDir := filepath.Join(home, ".arc", "reviews", wsID)
-	if err := os.MkdirAll(diffDir, 0o755); err != nil {
+	if err := os.MkdirAll(diffDir, 0o755); err != nil { //nolint:mnd // standard dir permissions
 		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("failed to create review directory: %v", err))
 	}
 
 	diffPath := filepath.Join(diffDir, sessionID+".diff")
-	if err := os.WriteFile(diffPath, diffOutput, 0o644); err != nil {
+	if err := os.WriteFile(diffPath, diffOutput, diffFilePermissions); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("failed to write diff: %v", err))
 	}
 
@@ -190,10 +201,12 @@ func (s *Server) submitReview(c echo.Context) error {
 	return successJSON(c, session)
 }
 
+// reviewKey builds the sync.Map key for a review session.
 func reviewKey(wsID, sessionID string) string {
 	return wsID + "/" + sessionID
 }
 
+// loadReview retrieves a review session from the in-memory store.
 func (s *Server) loadReview(wsID, sessionID string) (*reviewSession, bool) {
 	val, ok := s.reviews.Load(reviewKey(wsID, sessionID))
 	if !ok {
@@ -225,7 +238,7 @@ func parseDiffStats(statOutput string) *DiffStats {
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		fields := strings.Fields(part)
-		if len(fields) < 2 {
+		if len(fields) < minDiffStatFields {
 			continue
 		}
 		n, err := strconv.Atoi(fields[0])

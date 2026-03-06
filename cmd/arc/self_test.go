@@ -29,9 +29,9 @@ func TestSelfChannelShowDefault(t *testing.T) {
 
 	channel := cfg.Channel
 	if channel == "" {
-		channel = "stable"
+		channel = channelStable
 	}
-	assert.Equal(t, "stable", channel)
+	assert.Equal(t, channelStable, channel)
 }
 
 func TestSelfChannelSwitchNightly(t *testing.T) {
@@ -47,13 +47,13 @@ func TestSelfChannelSwitchNightly(t *testing.T) {
 	cfg, err := loadConfig()
 	require.NoError(t, err)
 
-	err = setSelfChannel(cfg, "nightly")
+	err = setSelfChannel(cfg, channelNightly)
 	require.NoError(t, err)
 
 	// Re-read and verify
 	cfg, err = loadConfig()
 	require.NoError(t, err)
-	assert.Equal(t, "nightly", cfg.Channel)
+	assert.Equal(t, channelNightly, cfg.Channel)
 }
 
 func TestSelfChannelSwitchRC(t *testing.T) {
@@ -68,12 +68,12 @@ func TestSelfChannelSwitchRC(t *testing.T) {
 	cfg, err := loadConfig()
 	require.NoError(t, err)
 
-	err = setSelfChannel(cfg, "rc")
+	err = setSelfChannel(cfg, channelRC)
 	require.NoError(t, err)
 
 	cfg, err = loadConfig()
 	require.NoError(t, err)
-	assert.Equal(t, "rc", cfg.Channel)
+	assert.Equal(t, channelRC, cfg.Channel)
 }
 
 func TestSelfChannelInvalid(t *testing.T) {
@@ -89,7 +89,7 @@ func TestSelfChannelInvalid(t *testing.T) {
 	require.NoError(t, err)
 
 	err = setSelfChannel(cfg, "beta")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid channel")
 }
 
@@ -118,7 +118,7 @@ func TestResolveChannelVersion_Stable(t *testing.T) {
 	githubReleasesURL = srv.URL + "/releases"
 	t.Cleanup(func() { githubReleasesURL = origURL })
 
-	tag, err := resolveChannelVersion("stable")
+	tag, err := resolveChannelVersion(channelStable)
 	require.NoError(t, err)
 	assert.Equal(t, "v0.10.0", tag)
 }
@@ -134,7 +134,7 @@ func TestResolveChannelVersion_RC(t *testing.T) {
 	githubReleasesURL = srv.URL + "/releases"
 	t.Cleanup(func() { githubReleasesURL = origURL })
 
-	tag, err := resolveChannelVersion("rc")
+	tag, err := resolveChannelVersion(channelRC)
 	require.NoError(t, err)
 	assert.Equal(t, "v0.11.0-rc3", tag)
 }
@@ -150,7 +150,7 @@ func TestResolveChannelVersion_Nightly(t *testing.T) {
 	githubReleasesURL = srv.URL + "/releases"
 	t.Cleanup(func() { githubReleasesURL = origURL })
 
-	tag, err := resolveChannelVersion("nightly")
+	tag, err := resolveChannelVersion(channelNightly)
 	require.NoError(t, err)
 	assert.Equal(t, "v0.10.0-nightly.20260302", tag)
 }
@@ -166,8 +166,8 @@ func TestResolveChannelVersion_NoMatch(t *testing.T) {
 	githubReleasesURL = srv.URL + "/releases"
 	t.Cleanup(func() { githubReleasesURL = origURL })
 
-	_, err := resolveChannelVersion("rc")
-	assert.Error(t, err)
+	_, err := resolveChannelVersion(channelRC)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no rc release found")
 }
 

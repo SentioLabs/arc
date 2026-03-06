@@ -15,7 +15,7 @@
 
 	let { value, options, onSave, children }: Props = $props();
 
-	const instanceId = crypto.randomUUID().slice(0, 8);
+	const instanceId = Math.random().toString(36).slice(2, 10);
 	let open = $state(false);
 	let saving = $state(false);
 	let highlightedIndex = $state(-1);

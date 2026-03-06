@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -65,12 +66,44 @@ func New(path string) (*Store, error) {
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
 
+	// Populate FTS5 search index
+	store.populateFTS(context.Background())
+
 	return store, nil
 }
 
-// initSchema runs all database migrations.
+// initSchema backs up the database, then runs all pending migrations.
+// If a migration fails and a backup exists, the database is restored
+// to its pre-migration state.
 func (s *Store) initSchema(_ context.Context) error {
-	return RunMigrations(s.db)
+	backupPath, err := backupDatabase(s.db, s.path)
+	if err != nil {
+		// Non-fatal: migrating without a backup is better than not migrating
+		log.Printf("warning: could not back up database before migration: %v", err)
+	}
+
+	if err := RunMigrations(s.db); err != nil {
+		if backupPath != "" {
+			log.Printf("migration failed, restoring backup: %v", err)
+			// Close the connection before overwriting the file
+			_ = s.db.Close()
+			if restoreErr := restoreBackup(s.path, backupPath); restoreErr != nil {
+				return fmt.Errorf(
+					"migration failed and restore also failed: migration: %w, restore: %w",
+					err, restoreErr,
+				)
+			}
+			return fmt.Errorf("migration failed (database restored to pre-migration state): %w", err)
+		}
+		return err
+	}
+
+	// Migration succeeded — clean up backup
+	if backupPath != "" {
+		_ = os.Remove(backupPath)
+	}
+
+	return nil
 }
 
 // Close closes the database connection.

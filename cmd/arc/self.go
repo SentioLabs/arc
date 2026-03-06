@@ -24,11 +24,20 @@ var selfCheck bool
 // selfYes skips confirmation prompts.
 var selfYes bool
 
+// Release channel names.
+const (
+	channelStable  = "stable"
+	channelRC      = "rc"
+	channelNightly = "nightly"
+)
+
+// selfCmd is the parent command for arc self-management (update, channel).
 var selfCmd = &cobra.Command{
 	Use:   "self",
 	Short: "Manage the arc CLI itself",
 }
 
+// selfUpdateCmd checks for and installs newer versions of the arc CLI.
 var selfUpdateCmd = &cobra.Command{
 	Use:          "update",
 	Short:        "Update arc to the latest version",
@@ -49,6 +58,7 @@ Examples:
 	RunE: runSelfUpdate,
 }
 
+// selfChannelCmd views or switches the release channel (stable, rc, nightly).
 var selfChannelCmd = &cobra.Command{
 	Use:   "channel [stable|rc|nightly]",
 	Short: "View or switch the update channel",
@@ -87,8 +97,8 @@ type githubRelease struct {
 
 // channelTagPattern maps channel names to their tag matching patterns.
 var channelTagPattern = map[string]*regexp.Regexp{
-	"rc":      regexp.MustCompile(`^v\d+\.\d+\.\d+-rc\.?\d+$`),
-	"nightly": regexp.MustCompile(`^v\d+\.\d+\.\d+-nightly\.\d{8}$`),
+	channelRC:      regexp.MustCompile(`^v\d+\.\d+\.\d+-rc\.?\d+$`),
+	channelNightly: regexp.MustCompile(`^v\d+\.\d+\.\d+-nightly\.\d{8}$`),
 }
 
 func runSelfUpdate(cmd *cobra.Command, args []string) error {
@@ -101,7 +111,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 
 	channel := cfg.Channel
 	if channel == "" {
-		channel = "stable"
+		channel = channelStable
 	}
 
 	latest, err := resolveChannelVersion(channel)
@@ -144,7 +154,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 
 // resolveChannelVersion finds the latest release tag for the given channel.
 func resolveChannelVersion(channel string) (string, error) {
-	if channel == "" || channel == "stable" {
+	if channel == "" || channel == channelStable {
 		return getLatestVersion()
 	}
 
@@ -203,10 +213,8 @@ func runInstallScript(tag string) error {
 	if tag != "" {
 		scriptArgs += " --tag=" + tag
 	}
-	script := fmt.Sprintf(
-		"curl -fsSL https://raw.githubusercontent.com/sentiolabs/arc/main/scripts/install.sh | bash -s -- %s",
-		scriptArgs,
-	)
+	installURL := "https://raw.githubusercontent.com/sentiolabs/arc/main/scripts/install.sh"
+	script := "curl -fsSL " + installURL + " | bash -s -- " + scriptArgs
 
 	cmd := exec.Command("bash", "-c", script)
 	cmd.Stdout = os.Stdout
@@ -237,7 +245,7 @@ func runSelfChannel(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		channel := cfg.Channel
 		if channel == "" {
-			channel = "stable"
+			channel = channelStable
 		}
 		fmt.Printf("Current update channel: %s\n", channel)
 		return nil
@@ -246,19 +254,19 @@ func runSelfChannel(cmd *cobra.Command, args []string) error {
 	newChannel := args[0]
 
 	// Warn and confirm for non-stable channels
-	if newChannel != "stable" && !selfYes {
+	if newChannel != channelStable && !selfYes {
 		var warning string
 		switch newChannel {
-		case "rc":
+		case channelRC:
 			warning = "Release candidates may contain bugs that haven't been fully tested."
-		case "nightly":
+		case channelNightly:
 			warning = "Nightly builds are built from the latest main branch and may be unstable."
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "\n⚠  %s\n\n", warning)
 		_, _ = fmt.Fprintf(os.Stderr, "Switch to %s channel? [y/N] ", newChannel)
 
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Cancelled.")
 			return nil
@@ -271,7 +279,7 @@ func runSelfChannel(cmd *cobra.Command, args []string) error {
 // setSelfChannel validates and persists the update channel.
 func setSelfChannel(cfg *Config, channel string) error {
 	switch channel {
-	case "stable", "rc", "nightly":
+	case channelStable, channelRC, channelNightly:
 		// valid
 	default:
 		return fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", channel)
@@ -283,7 +291,7 @@ func setSelfChannel(cfg *Config, channel string) error {
 	}
 
 	_, _ = fmt.Printf("\n✓ Switched to %s channel\n", channel)
-	if channel != "stable" {
+	if channel != channelStable {
 		_, _ = fmt.Printf("  Run 'arc self update' to get the latest %s build\n", channel)
 	}
 	return nil

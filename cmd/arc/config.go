@@ -48,7 +48,7 @@ var configListCmd = &cobra.Command{
 		_, _ = fmt.Printf("server_url = %s\n", cfg.ServerURL)
 		channel := cfg.Channel
 		if channel == "" {
-			channel = "stable"
+			channel = channelStable
 		}
 		_, _ = fmt.Printf("channel    = %s\n", channel)
 		_, _ = fmt.Printf("\nConfig file: %s\n", defaultConfigPath())
@@ -121,7 +121,7 @@ Examples:
 			cfg.ServerURL = value
 		case "channel":
 			switch value {
-			case "stable", "rc", "nightly":
+			case channelStable, channelRC, channelNightly:
 				cfg.Channel = value
 			default:
 				return fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", value)

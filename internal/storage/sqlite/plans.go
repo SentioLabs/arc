@@ -150,6 +150,8 @@ func (s *Store) SetInlinePlan(ctx context.Context, issueID, author, text string)
 		return nil, fmt.Errorf("set inline plan: %w", err)
 	}
 
+	s.rebuildFTSForIssue(ctx, issueID)
+
 	return &types.Comment{
 		ID:          result.ID,
 		IssueID:     result.IssueID,

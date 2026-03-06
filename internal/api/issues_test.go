@@ -28,8 +28,8 @@ func TestListIssuesParentIDFilter(t *testing.T) {
 	_ = createTestIssue(t, e, wsID, "Unrelated Task")
 
 	// Add parent-child dependencies (child depends on epic)
-	addTestDependency(t, e, wsID, child1ID, epicID, "parent-child")
-	addTestDependency(t, e, wsID, child2ID, epicID, "parent-child")
+	addTestDependency(t, e, wsID, testDep{child1ID, epicID, "parent-child"})
+	addTestDependency(t, e, wsID, testDep{child2ID, epicID, "parent-child"})
 
 	// List issues filtered by parent_id
 	url := fmt.Sprintf("/api/v1/workspaces/%s/issues?parent_id=%s", wsID, epicID)

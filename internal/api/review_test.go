@@ -42,7 +42,7 @@ func setupGitRepo(t *testing.T) (repoPath, base, head string) {
 
 	run("init", "-b", "main")
 	// Create initial file and commit on main
-	if err := os.WriteFile(filepath.Join(repoPath, "file.txt"), []byte("hello\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repoPath, "file.txt"), []byte("hello\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	run("add", ".")
@@ -50,10 +50,10 @@ func setupGitRepo(t *testing.T) (repoPath, base, head string) {
 
 	// Create a feature branch with changes
 	run("checkout", "-b", "feature")
-	if err := os.WriteFile(filepath.Join(repoPath, "file.txt"), []byte("hello\nworld\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repoPath, "file.txt"), []byte("hello\nworld\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repoPath, "new.txt"), []byte("new file\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repoPath, "new.txt"), []byte("new file\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	run("add", ".")
@@ -90,10 +90,7 @@ func createTestWorkspaceWithPath(t *testing.T, e *echo.Echo, path string) string
 
 func TestReviewCreateAndGetDiff(t *testing.T) {
 	// Override HOME so diff files go to a temp dir
-	origHome := os.Getenv("HOME")
-	tmpHome := t.TempDir()
-	os.Setenv("HOME", tmpHome)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
 	repoPath, base, head := setupGitRepo(t)
 
@@ -115,7 +112,8 @@ func TestReviewCreateAndGetDiff(t *testing.T) {
 		"base": base,
 		"head": head,
 	})
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/workspaces/%s/review", wsID), bytes.NewBuffer(createBody))
+	reviewURL := fmt.Sprintf("/api/v1/workspaces/%s/review", wsID)
+	req := httptest.NewRequest(http.MethodPost, reviewURL, bytes.NewBuffer(createBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -149,7 +147,10 @@ func TestReviewCreateAndGetDiff(t *testing.T) {
 	}
 
 	// GET /review/:rid/diff — get the diff as text/plain
-	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/workspaces/%s/review/%s/diff", wsID, session.ID), nil)
+	diffURL := fmt.Sprintf(
+		"/api/v1/workspaces/%s/review/%s/diff", wsID, session.ID,
+	)
+	req = httptest.NewRequest(http.MethodGet, diffURL, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -172,10 +173,7 @@ func TestReviewCreateAndGetDiff(t *testing.T) {
 }
 
 func TestReviewGetStatus(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpHome := t.TempDir()
-	os.Setenv("HOME", tmpHome)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
 	repoPath, base, head := setupGitRepo(t)
 
@@ -194,16 +192,22 @@ func TestReviewGetStatus(t *testing.T) {
 
 	// Create review
 	createBody, _ := json.Marshal(map[string]string{"base": base, "head": head})
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/workspaces/%s/review", wsID), bytes.NewBuffer(createBody))
+	reviewURL := fmt.Sprintf("/api/v1/workspaces/%s/review", wsID)
+	req := httptest.NewRequest(http.MethodPost, reviewURL, bytes.NewBuffer(createBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
 	var session reviewSession
-	json.Unmarshal(rec.Body.Bytes(), &session)
+	if err := json.Unmarshal(rec.Body.Bytes(), &session); err != nil {
+		t.Fatalf("failed to parse session: %v", err)
+	}
 
 	// GET /review/:rid/status
-	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/workspaces/%s/review/%s/status", wsID, session.ID), nil)
+	statusURL := fmt.Sprintf(
+		"/api/v1/workspaces/%s/review/%s/status", wsID, session.ID,
+	)
+	req = httptest.NewRequest(http.MethodGet, statusURL, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -221,10 +225,7 @@ func TestReviewGetStatus(t *testing.T) {
 }
 
 func TestReviewSubmit(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpHome := t.TempDir()
-	os.Setenv("HOME", tmpHome)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
 	repoPath, base, head := setupGitRepo(t)
 
@@ -243,13 +244,16 @@ func TestReviewSubmit(t *testing.T) {
 
 	// Create review
 	createBody, _ := json.Marshal(map[string]string{"base": base, "head": head})
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/workspaces/%s/review", wsID), bytes.NewBuffer(createBody))
+	reviewURL := fmt.Sprintf("/api/v1/workspaces/%s/review", wsID)
+	req := httptest.NewRequest(http.MethodPost, reviewURL, bytes.NewBuffer(createBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
 	var session reviewSession
-	json.Unmarshal(rec.Body.Bytes(), &session)
+	if err := json.Unmarshal(rec.Body.Bytes(), &session); err != nil {
+		t.Fatalf("failed to parse session: %v", err)
+	}
 
 	// POST /review/:rid/submit — submit review decision
 	submitBody, _ := json.Marshal(map[string]any{
@@ -257,7 +261,10 @@ func TestReviewSubmit(t *testing.T) {
 		"comment":       "LGTM",
 		"file_comments": map[string]string{"file.txt": "nice change"},
 	})
-	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/workspaces/%s/review/%s/submit", wsID, session.ID), bytes.NewBuffer(submitBody))
+	submitURL := fmt.Sprintf(
+		"/api/v1/workspaces/%s/review/%s/submit", wsID, session.ID,
+	)
+	req = httptest.NewRequest(http.MethodPost, submitURL, bytes.NewBuffer(submitBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -289,7 +296,10 @@ func TestReviewNotFound(t *testing.T) {
 	wsID := createTestWorkspace(t, e)
 
 	// GET status for nonexistent review
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/workspaces/%s/review/nonexistent/status", wsID), nil)
+	statusURL := fmt.Sprintf(
+		"/api/v1/workspaces/%s/review/nonexistent/status", wsID,
+	)
+	req := httptest.NewRequest(http.MethodGet, statusURL, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -307,7 +317,8 @@ func TestReviewNoPath(t *testing.T) {
 	wsID := createTestWorkspace(t, e)
 
 	createBody, _ := json.Marshal(map[string]string{"base": "main", "head": "feature"})
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/workspaces/%s/review", wsID), bytes.NewBuffer(createBody))
+	reviewURL := fmt.Sprintf("/api/v1/workspaces/%s/review", wsID)
+	req := httptest.NewRequest(http.MethodPost, reviewURL, bytes.NewBuffer(createBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
