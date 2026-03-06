@@ -43,6 +43,7 @@
 	let totalDeletions = $state(0);
 	let highlightMaps = $state(new Map<string, Map<string, string>>());
 	let fileComments = $state(new Map<string, string>());
+	let lineComments = $state(new Map<string, Array<{ line: number; comment: string }>>());
 	let overallComment = $state('');
 	let viewedFiles = $state(new Set<string>());
 	let activeFile = $state<string | null>(null);
@@ -131,17 +132,36 @@
 		collapsedFiles = next;
 	}
 
+	function handleSaveLineComment(filename: string, line: number, text: string) {
+		const existing = lineComments.get(filename) ?? [];
+		const filtered = existing.filter((c) => c.line !== line);
+		if (text) filtered.push({ line, comment: text });
+		lineComments.set(filename, filtered);
+		lineComments = new Map(lineComments);
+	}
+
+	function handleDeleteLineComment(filename: string, line: number) {
+		const existing = lineComments.get(filename) ?? [];
+		lineComments.set(
+			filename,
+			existing.filter((c) => c.line !== line)
+		);
+		lineComments = new Map(lineComments);
+	}
+
 	async function handleSubmit(decision: 'approve' | 'request_changes') {
 		if (!session) return;
 		submitting = true;
 		try {
 			const commentEntries = Object.fromEntries(fileComments);
+			const lineCommentEntries = Object.fromEntries(lineComments);
 			await submitReview(
 				workspaceId,
 				session.id,
 				decision,
 				overallComment || undefined,
-				Object.keys(commentEntries).length > 0 ? commentEntries : undefined
+				Object.keys(commentEntries).length > 0 ? commentEntries : undefined,
+				Object.keys(lineCommentEntries).length > 0 ? lineCommentEntries : undefined
 			);
 			submitted = decision === 'approve' ? 'approved' : 'changes_requested';
 		} catch (err) {
@@ -222,6 +242,10 @@
 								onCommentChange={(c) => { fileComments.set(getFileName(file), c); fileComments = new Map(fileComments); }}
 								collapsed={collapsedFiles.has(getFileName(file))}
 								onToggleCollapse={() => handleToggleCollapse(getFileName(file))}
+								lineComments={lineComments.get(getFileName(file)) ?? []}
+								onAddLineComment={() => {}}
+								onSaveLineComment={(line, text) => handleSaveLineComment(getFileName(file), line, text)}
+								onDeleteLineComment={(line) => handleDeleteLineComment(getFileName(file), line)}
 							/>
 						</div>
 					{/each}

@@ -3,6 +3,7 @@
 	import { getFileName } from '$lib/review/parser';
 	import { getLineContent } from '$lib/review/highlight';
 	import DiffLine from './DiffLine.svelte';
+	import LineCommentForm from './LineCommentForm.svelte';
 
 	interface Props {
 		file: DiffFile;
@@ -11,10 +12,27 @@
 		onCommentChange: (c: string) => void;
 		collapsed: boolean;
 		onToggleCollapse: () => void;
+		lineComments: Array<{ line: number; comment: string }>;
+		onAddLineComment: (line: number) => void;
+		onSaveLineComment: (line: number, text: string) => void;
+		onDeleteLineComment: (line: number) => void;
 	}
 
-	let { file, highlightMap, comment, onCommentChange, collapsed, onToggleCollapse }: Props =
-		$props();
+	let {
+		file,
+		highlightMap,
+		comment,
+		onCommentChange,
+		collapsed,
+		onToggleCollapse,
+		lineComments,
+		onAddLineComment,
+		onSaveLineComment,
+		onDeleteLineComment
+	}: Props = $props();
+
+	let activeCommentLine = $state<number | null>(null);
+	let editingCommentLine = $state<number | null>(null);
 
 	let showCommentInput = $state(false);
 	let commentDraft = $state('');
@@ -98,12 +116,79 @@
 						</tr>
 						<!-- Diff lines -->
 						{#each block.lines as line}
+							{@const lineNumber = line.newNumber ?? line.oldNumber}
 							<DiffLine
 								type={line.type}
 								oldNumber={line.oldNumber}
 								newNumber={line.newNumber}
 								highlightedHtml={getHighlightedHtml(getLineContent(line))}
+								onAddComment={() => {
+									if (lineNumber != null) {
+										activeCommentLine = lineNumber;
+										editingCommentLine = null;
+									}
+								}}
 							/>
+							{#if lineNumber != null}
+								{@const existingComment = lineComments.find((c) => c.line === lineNumber)}
+								{#if existingComment && editingCommentLine !== lineNumber}
+									<tr>
+										<td
+											colspan="3"
+											class="px-3 py-2 bg-surface-800 border-t border-b border-border-subtle"
+										>
+											<div class="flex items-start gap-2">
+												<p
+													class="text-sm text-text-secondary flex-1 whitespace-pre-wrap"
+												>
+													{existingComment.comment}
+												</p>
+												<button
+													type="button"
+													class="btn btn-ghost btn-sm shrink-0"
+													onclick={() => {
+														editingCommentLine = lineNumber;
+														activeCommentLine = null;
+													}}
+												>
+													Edit
+												</button>
+												<button
+													type="button"
+													class="btn btn-ghost btn-sm shrink-0 text-red-400"
+													onclick={() => onDeleteLineComment(lineNumber)}
+												>
+													Delete
+												</button>
+											</div>
+										</td>
+									</tr>
+								{/if}
+								{#if editingCommentLine === lineNumber}
+									<LineCommentForm
+										comment={existingComment?.comment ?? ''}
+										onSave={(text) => {
+											onSaveLineComment(lineNumber, text);
+											editingCommentLine = null;
+										}}
+										onCancel={() => {
+											editingCommentLine = null;
+										}}
+									/>
+								{/if}
+								{#if activeCommentLine === lineNumber && editingCommentLine !== lineNumber}
+									<LineCommentForm
+										comment=""
+										onSave={(text) => {
+											onSaveLineComment(lineNumber, text);
+											activeCommentLine = null;
+										}}
+										onCancel={() => {
+											activeCommentLine = null;
+										}}
+									/>
+								{/if}
+							{/if}
 						{/each}
 					{/each}
 				</tbody>

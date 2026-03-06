@@ -365,11 +365,12 @@ export async function submitReview(
 	reviewId: string,
 	decision: 'approve' | 'request_changes',
 	comment?: string,
-	fileComments?: Record<string, string>
+	fileComments?: Record<string, string>,
+	lineComments?: Record<string, Array<{ line: number; comment: string }>>
 ): Promise<ReviewStatusResponse> {
 	const { data, error } = await api.POST('/workspaces/{workspaceId}/review/{reviewId}/submit', {
 		params: { path: { workspaceId, reviewId } },
-		body: { decision, comment, file_comments: fileComments }
+		body: { decision, comment, file_comments: fileComments, line_comments: lineComments }
 	});
 	if (error) handleError(error);
 	if (!data) throw new Error('Failed to submit review');
