@@ -22,7 +22,7 @@
 	const SIDEBAR_STORAGE_KEY = 'arc-review-sidebar-width';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
+	const workspaceId = $derived($page.params.workspaceId!);
 	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
 
 	let sidebarWidth = $state(SIDEBAR_DEFAULT);
