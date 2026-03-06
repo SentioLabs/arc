@@ -29,8 +29,6 @@ tags:
     description: Comments and audit events
   - name: teams
     description: Agent team context and role grouping
-  - name: review
-    description: Code review sessions for diff viewing
 
 paths:
   # ====================
@@ -498,108 +496,6 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ====================
-  # Review
-  # ====================
-  /workspaces/{workspaceId}/review:
-    parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
-
-    post:
-      operationId: createReview
-      tags: [review]
-      summary: Create a new review session
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateReviewRequest"
-      responses:
-        "201":
-          description: Review session created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewSession"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /workspaces/{workspaceId}/review/{reviewId}/diff:
-    parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
-      - $ref: "#/components/parameters/ReviewId"
-
-    get:
-      operationId: getReviewDiff
-      tags: [review]
-      summary: Get the raw unified diff for a review session
-      responses:
-        "200":
-          description: Raw unified diff
-          content:
-            text/plain:
-              schema:
-                type: string
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /workspaces/{workspaceId}/review/{reviewId}/status:
-    parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
-      - $ref: "#/components/parameters/ReviewId"
-
-    get:
-      operationId: getReviewStatus
-      tags: [review]
-      summary: Get the status of a review session
-      responses:
-        "200":
-          description: Review status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewStatusResponse"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /workspaces/{workspaceId}/review/{reviewId}/submit:
-    parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
-      - $ref: "#/components/parameters/ReviewId"
-
-    post:
-      operationId: submitReview
-      tags: [review]
-      summary: Submit a review decision
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SubmitReviewRequest"
-      responses:
-        "200":
-          description: Review submitted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReviewStatusResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  # ====================
   # Dependencies
   # ====================
   /workspaces/{workspaceId}/issues/{issueId}/deps:
@@ -966,14 +862,6 @@ components:
       name: X-Actor
       in: header
       description: User performing the action (defaults to "anonymous")
-      schema:
-        type: string
-
-    ReviewId:
-      name: reviewId
-      in: path
-      required: true
-      description: Review session ID
       schema:
         type: string
 
@@ -1562,106 +1450,3 @@ components:
         created_at:
           type: string
           format: date-time
-
-    # ====================
-    # Review Schemas
-    # ====================
-    CreateReviewRequest:
-      type: object
-      properties:
-        base:
-          type: string
-          description: Base git ref to diff against (default "origin/main")
-          default: "origin/main"
-        head:
-          type: string
-          description: Head git ref (default "HEAD")
-          default: "HEAD"
-
-    ReviewSession:
-      type: object
-      required: [id, workspace_id, base, head, status, created_at]
-      properties:
-        id:
-          type: string
-          description: Unique review session ID
-        workspace_id:
-          type: string
-        base:
-          type: string
-        head:
-          type: string
-        status:
-          type: string
-          enum: [pending, approved, changes_requested]
-        stats:
-          $ref: "#/components/schemas/DiffStats"
-        created_at:
-          type: string
-          format: date-time
-
-    DiffStats:
-      type: object
-      required: [files_changed, insertions, deletions]
-      properties:
-        files_changed:
-          type: integer
-        insertions:
-          type: integer
-        deletions:
-          type: integer
-
-    LineComment:
-      type: object
-      required: [line, comment]
-      properties:
-        line:
-          type: integer
-          description: Line number the comment is anchored to
-        comment:
-          type: string
-          description: Comment text
-
-    SubmitReviewRequest:
-      type: object
-      required: [decision]
-      properties:
-        decision:
-          type: string
-          enum: [approve, request_changes]
-        comment:
-          type: string
-          description: Overall review comment
-        file_comments:
-          type: object
-          additionalProperties:
-            type: string
-          description: Per-file comments keyed by filename
-        line_comments:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              $ref: "#/components/schemas/LineComment"
-          description: Per-file line comments keyed by filename
-
-    ReviewStatusResponse:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [pending, approved, changes_requested]
-        comment:
-          type: string
-        file_comments:
-          type: object
-          additionalProperties:
-            type: string
-        line_comments:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              $ref: "#/components/schemas/LineComment"
-          description: Per-file line comments keyed by filename

@@ -21,9 +21,6 @@ export type TeamContextRole = components['schemas']['TeamContextRole'];
 export type TeamContextEpic = components['schemas']['TeamContextEpic'];
 export type AddCommentRequest = components['schemas']['AddCommentRequest'];
 export type AddLabelToIssueRequest = components['schemas']['AddLabelToIssueRequest'];
-export type ReviewSession = components['schemas']['ReviewSession'];
-export type DiffStats = components['schemas']['DiffStats'];
-export type ReviewStatusResponse = components['schemas']['ReviewStatusResponse'];
 
 // Error helper - extracts message from API error response { error: "message" }
 function handleError(error: unknown): never {
@@ -322,57 +319,4 @@ export async function getTeamContext(
 	});
 	if (error) handleError(error);
 	return data ?? { workspace: workspaceId, roles: {}, unassigned: [] };
-}
-
-// Review APIs
-export async function createReview(
-	workspaceId: string,
-	base = 'origin/main',
-	head = 'HEAD'
-): Promise<ReviewSession> {
-	const { data, error } = await api.POST('/workspaces/{workspaceId}/review', {
-		params: { path: { workspaceId } },
-		body: { base, head }
-	});
-	if (error) handleError(error);
-	if (!data) throw new Error('Failed to create review');
-	return data;
-}
-
-export async function getReviewDiff(
-	workspaceId: string,
-	reviewId: string
-): Promise<string> {
-	const response = await fetch(`/api/v1/workspaces/${workspaceId}/review/${reviewId}/diff`);
-	if (!response.ok) throw new Error('Failed to fetch diff');
-	return response.text();
-}
-
-export async function getReviewStatus(
-	workspaceId: string,
-	reviewId: string
-): Promise<ReviewStatusResponse> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/review/{reviewId}/status', {
-		params: { path: { workspaceId, reviewId } }
-	});
-	if (error) handleError(error);
-	if (!data) throw new Error('Failed to get review status');
-	return data;
-}
-
-export async function submitReview(
-	workspaceId: string,
-	reviewId: string,
-	decision: 'approve' | 'request_changes',
-	comment?: string,
-	fileComments?: Record<string, string>,
-	lineComments?: Record<string, Array<{ line: number; comment: string }>>
-): Promise<ReviewStatusResponse> {
-	const { data, error } = await api.POST('/workspaces/{workspaceId}/review/{reviewId}/submit', {
-		params: { path: { workspaceId, reviewId } },
-		body: { decision, comment, file_comments: fileComments, line_comments: lineComments }
-	});
-	if (error) handleError(error);
-	if (!data) throw new Error('Failed to submit review');
-	return data;
 }
