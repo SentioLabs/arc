@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -15,9 +16,24 @@
 	import FileSection from '$lib/components/review/FileSection.svelte';
 	import ReviewSubmit from '$lib/components/review/ReviewSubmit.svelte';
 
+	const SIDEBAR_MIN = 180;
+	const SIDEBAR_MAX = 500;
+	const SIDEBAR_DEFAULT = 256;
+	const SIDEBAR_STORAGE_KEY = 'arc-review-sidebar-width';
+
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
 	const workspaceId = $derived($page.params.workspaceId);
 	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+
+	let sidebarWidth = $state(SIDEBAR_DEFAULT);
+	let resizing = $state(false);
+
+	$effect(() => {
+		if (browser) {
+			sidebarWidth =
+				parseInt(localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? '') || SIDEBAR_DEFAULT;
+		}
+	});
 
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -33,6 +49,22 @@
 	let collapsedFiles = $state(new Set<string>());
 	let submitting = $state(false);
 	let submitted = $state<'approved' | 'changes_requested' | null>(null);
+
+	function startResize(e: MouseEvent) {
+		e.preventDefault();
+		resizing = true;
+		const onMove = (ev: MouseEvent) => {
+			sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, ev.clientX - 240));
+		};
+		const onUp = () => {
+			resizing = false;
+			localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarWidth));
+			window.removeEventListener('mousemove', onMove);
+			window.removeEventListener('mouseup', onUp);
+		};
+		window.addEventListener('mousemove', onMove);
+		window.addEventListener('mouseup', onUp);
+	}
 
 	$effect(() => {
 		if (workspaceId) {
@@ -154,10 +186,21 @@
 			</div>
 		</div>
 	{:else}
-		<div class="flex h-[calc(100vh-4rem)]">
+		<div class="flex h-[calc(100vh-4rem)] {resizing ? 'select-none cursor-col-resize' : ''}">
 			<!-- Left sidebar: FileTree -->
-			<aside class="w-64 border-r border-border flex flex-col bg-surface-800">
+			<aside
+				class="border-r border-border flex flex-col bg-surface-800 shrink-0 relative"
+				style="width: {sidebarWidth}px"
+			>
 				<FileTree {files} {viewedFiles} {activeFile} onFileClick={handleFileClick} onToggleViewed={handleToggleViewed} />
+				<!-- Drag handle -->
+				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+				<div
+					class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent-500/50 transition-colors {resizing ? 'bg-accent-500/50' : ''}"
+					role="separator"
+					aria-orientation="vertical"
+					onmousedown={startResize}
+				></div>
 			</aside>
 
 			<!-- Main area -->
