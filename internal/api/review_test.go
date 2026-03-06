@@ -288,6 +288,114 @@ func TestReviewSubmit(t *testing.T) {
 	}
 }
 
+func TestReviewSubmitWithLineComments(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	repoPath, base, head := setupGitRepo(t)
+
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := sqlite.New(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	server := New(Config{Address: ":0", Store: store})
+	e := server.echo
+
+	wsID := createTestWorkspaceWithPath(t, e, repoPath)
+
+	// Create review
+	createBody, _ := json.Marshal(map[string]string{"base": base, "head": head})
+	reviewURL := fmt.Sprintf("/api/v1/workspaces/%s/review", wsID)
+	req := httptest.NewRequest(http.MethodPost, reviewURL, bytes.NewBuffer(createBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	var session reviewSession
+	if err := json.Unmarshal(rec.Body.Bytes(), &session); err != nil {
+		t.Fatalf("failed to parse session: %v", err)
+	}
+
+	// POST /review/:rid/submit — submit review with line comments
+	submitBody, _ := json.Marshal(map[string]any{
+		"decision":      "approved",
+		"comment":       "Looks good with line notes",
+		"file_comments": map[string]string{"file.txt": "nice change"},
+		"line_comments": map[string]any{
+			"file.txt": []map[string]any{
+				{"line": 2, "comment": "consider renaming this"},
+				{"line": 5, "comment": "typo here"},
+			},
+			"new.txt": []map[string]any{
+				{"line": 1, "comment": "add a header comment"},
+			},
+		},
+	})
+	submitURL := fmt.Sprintf(
+		"/api/v1/workspaces/%s/review/%s/submit", wsID, session.ID,
+	)
+	req = httptest.NewRequest(http.MethodPost, submitURL, bytes.NewBuffer(submitBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submitReview returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var updated reviewSession
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("failed to parse submit response: %v", err)
+	}
+	if updated.Status != "approved" {
+		t.Errorf("status = %q, want %q", updated.Status, "approved")
+	}
+
+	// Verify line_comments were saved and returned
+	if updated.LineComments == nil {
+		t.Fatal("line_comments should not be nil")
+	}
+	if len(updated.LineComments["file.txt"]) != 2 {
+		t.Errorf("line_comments[file.txt] length = %d, want 2", len(updated.LineComments["file.txt"]))
+	}
+	if len(updated.LineComments["new.txt"]) != 1 {
+		t.Errorf("line_comments[new.txt] length = %d, want 1", len(updated.LineComments["new.txt"]))
+	}
+	if updated.LineComments["file.txt"][0].Line != 2 {
+		t.Errorf("line_comments[file.txt][0].Line = %d, want 2", updated.LineComments["file.txt"][0].Line)
+	}
+	if updated.LineComments["file.txt"][0].Comment != "consider renaming this" {
+		t.Errorf("line_comments[file.txt][0].Comment = %q, want %q",
+			updated.LineComments["file.txt"][0].Comment, "consider renaming this")
+	}
+
+	// Verify line_comments persist via GET status
+	statusURL := fmt.Sprintf(
+		"/api/v1/workspaces/%s/review/%s/status", wsID, session.ID,
+	)
+	req = httptest.NewRequest(http.MethodGet, statusURL, nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("getReviewStatus returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var status reviewSession
+	if err := json.Unmarshal(rec.Body.Bytes(), &status); err != nil {
+		t.Fatalf("failed to parse status: %v", err)
+	}
+	if status.LineComments == nil {
+		t.Fatal("line_comments should persist in status response")
+	}
+	if len(status.LineComments["file.txt"]) != 2 {
+		t.Errorf("status line_comments[file.txt] length = %d, want 2", len(status.LineComments["file.txt"]))
+	}
+}
+
 func TestReviewNotFound(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()

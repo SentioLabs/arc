@@ -1611,6 +1611,17 @@ components:
         deletions:
           type: integer
 
+    LineComment:
+      type: object
+      required: [line, comment]
+      properties:
+        line:
+          type: integer
+          description: Line number the comment is anchored to
+        comment:
+          type: string
+          description: Comment text
+
     SubmitReviewRequest:
       type: object
       required: [decision]
@@ -1626,6 +1637,13 @@ components:
           additionalProperties:
             type: string
           description: Per-file comments keyed by filename
+        line_comments:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/LineComment"
+          description: Per-file line comments keyed by filename
 
     ReviewStatusResponse:
       type: object
@@ -1640,3 +1658,10 @@ components:
           type: object
           additionalProperties:
             type: string
+        line_comments:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/LineComment"
+          description: Per-file line comments keyed by filename
