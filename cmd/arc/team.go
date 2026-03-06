@@ -43,6 +43,12 @@ type TeamContextIssue struct {
 	Deps     []string `json:"deps,omitempty"`
 }
 
+// teamListLimit is the max number of issues to fetch per API call.
+const teamListLimit = 200
+
+// teamTruncateLen is the max length for truncated plan output.
+const teamTruncateLen = 80
+
 // teamCmd is the parent command for team operations.
 var teamCmd = &cobra.Command{
 	Use:   "team",
@@ -101,53 +107,9 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 		Roles:     make(map[string]*TeamRole),
 	}
 
-	var issues []*types.Issue
-
-	if epicID != "" {
-		// Fetch epic details
-		epic, err := c.GetIssue(wsID, epicID)
-		if err != nil {
-			return nil, fmt.Errorf("fetch epic: %w", err)
-		}
-
-		tc.Epic = &TeamContextEpic{
-			ID:    epic.ID,
-			Title: epic.Title,
-		}
-
-		// Get epic's plan
-		pc, err := c.GetPlanContext(wsID, epicID)
-		if err == nil && pc.InlinePlan != nil {
-			tc.Epic.Plan = pc.InlinePlan.Text
-		}
-
-		// Find children via parent filter (returns issues with labels populated)
-		children, err := c.ListIssues(wsID, client.ListIssuesOptions{
-			Parent: epicID,
-			Limit:  200,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("fetch children: %w", err)
-		}
-		issues = children
-	} else {
-		// Fetch all open issues in the workspace
-		allIssues, err := c.ListIssues(wsID, client.ListIssuesOptions{
-			Status: "open",
-			Limit:  200,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("list issues: %w", err)
-		}
-		// Also include in_progress issues
-		inProgress, err := c.ListIssues(wsID, client.ListIssuesOptions{
-			Status: "in_progress",
-			Limit:  200,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("list in-progress issues: %w", err)
-		}
-		issues = append(allIssues, inProgress...)
+	issues, err := fetchTeamIssues(c, wsID, epicID, tc)
+	if err != nil {
+		return nil, err
 	}
 
 	// For each issue, check labels and group by teammate:* label.
@@ -193,12 +155,70 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 	return tc, nil
 }
 
+// fetchTeamIssues fetches issues for team context, either from an epic or from the full workspace.
+// When epicID is provided, it populates tc.Epic and returns the epic's children.
+// Otherwise, it returns all open + in_progress issues.
+func fetchTeamIssues(c *client.Client, wsID, epicID string, tc *TeamContext) ([]*types.Issue, error) {
+	if epicID != "" {
+		return fetchEpicChildren(c, wsID, epicID, tc)
+	}
+	return fetchWorkspaceIssues(c, wsID)
+}
+
+// fetchEpicChildren fetches epic details and its child issues.
+func fetchEpicChildren(c *client.Client, wsID, epicID string, tc *TeamContext) ([]*types.Issue, error) {
+	epic, err := c.GetIssue(wsID, epicID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch epic: %w", err)
+	}
+
+	tc.Epic = &TeamContextEpic{
+		ID:    epic.ID,
+		Title: epic.Title,
+	}
+
+	pc, err := c.GetPlanContext(wsID, epicID)
+	if err == nil && pc.InlinePlan != nil {
+		tc.Epic.Plan = pc.InlinePlan.Text
+	}
+
+	children, err := c.ListIssues(wsID, client.ListIssuesOptions{
+		Parent: epicID,
+		Limit:  teamListLimit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("fetch children: %w", err)
+	}
+	return children, nil
+}
+
+// fetchWorkspaceIssues fetches all open and in_progress issues from the workspace.
+func fetchWorkspaceIssues(c *client.Client, wsID string) ([]*types.Issue, error) {
+	allIssues, err := c.ListIssues(wsID, client.ListIssuesOptions{
+		Status: "open",
+		Limit:  teamListLimit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list issues: %w", err)
+	}
+
+	inProgress, err := c.ListIssues(wsID, client.ListIssuesOptions{
+		Status: "in_progress",
+		Limit:  teamListLimit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list in-progress issues: %w", err)
+	}
+
+	return append(allIssues, inProgress...), nil
+}
+
 // printTeamContext outputs a human-readable team context table.
 func printTeamContext(tc *TeamContext) error {
 	if tc.Epic != nil {
 		fmt.Printf("Epic: %s - %s\n", tc.Epic.ID, tc.Epic.Title)
 		if tc.Epic.Plan != "" {
-			fmt.Printf("Plan: %s\n", truncate(tc.Epic.Plan, 80))
+			fmt.Printf("Plan: %s\n", truncate(tc.Epic.Plan, teamTruncateLen))
 		}
 		fmt.Println()
 	}

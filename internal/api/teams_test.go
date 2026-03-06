@@ -66,19 +66,26 @@ func addTestLabelToIssue(t *testing.T, e *echo.Echo, wsID, issueID, label string
 	}
 }
 
+// testDep describes a dependency to create between two issues.
+type testDep struct {
+	IssueID     string
+	DependsOnID string
+	DepType     string
+}
+
 // addTestDependency creates a dependency between two issues.
-func addTestDependency(t *testing.T, e *echo.Echo, wsID, issueID, dependsOnID, depType string) {
+func addTestDependency(t *testing.T, e *echo.Echo, wsID string, dep testDep) {
 	t.Helper()
 
-	body := fmt.Sprintf(`{"depends_on_id": %q, "type": %q}`, dependsOnID, depType)
-	url := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/deps", wsID, issueID)
-	req := httptest.NewRequest(http.MethodPost, url, bytes.NewBufferString(body))
+	body := fmt.Sprintf(`{"depends_on_id": %q, "type": %q}`, dep.DependsOnID, dep.DepType)
+	depURL := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/deps", wsID, dep.IssueID)
+	req := httptest.NewRequest(http.MethodPost, depURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("failed to add dep %s->%s: %s", issueID, dependsOnID, rec.Body.String())
+		t.Fatalf("failed to add dep %s->%s: %s", dep.IssueID, dep.DependsOnID, rec.Body.String())
 	}
 }
 
@@ -104,8 +111,8 @@ func TestGetTeamContext(t *testing.T) {
 	addTestLabelToIssue(t, e, wsID, backendID, "teammate:backend")
 
 	// Add parent-child deps (child depends on epic)
-	addTestDependency(t, e, wsID, frontendID, epicID, "parent-child")
-	addTestDependency(t, e, wsID, backendID, epicID, "parent-child")
+	addTestDependency(t, e, wsID, testDep{frontendID, epicID, "parent-child"})
+	addTestDependency(t, e, wsID, testDep{backendID, epicID, "parent-child"})
 
 	// Request team context with epic filter
 	url := fmt.Sprintf("/api/v1/workspaces/%s/team-context?epic_id=%s", wsID, epicID)

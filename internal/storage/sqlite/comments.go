@@ -28,6 +28,7 @@ func (s *Store) AddComment(ctx context.Context, issueID, author, text string) (*
 	}
 
 	s.recordEvent(ctx, issueID, types.EventCommented, author, nil, &text)
+	s.rebuildFTSForIssue(ctx, issueID)
 
 	return &types.Comment{
 		ID:          result.ID,
@@ -56,6 +57,9 @@ func (s *Store) GetComments(ctx context.Context, issueID string) ([]*types.Comme
 
 // UpdateComment updates a comment's text.
 func (s *Store) UpdateComment(ctx context.Context, commentID int64, text string) error {
+	// Look up issue ID before update for FTS sync
+	comment, _ := s.queries.GetComment(ctx, commentID)
+
 	now := time.Now()
 	err := s.queries.UpdateComment(ctx, db.UpdateCommentParams{
 		Text:      text,
@@ -66,14 +70,25 @@ func (s *Store) UpdateComment(ctx context.Context, commentID int64, text string)
 		return fmt.Errorf("update comment: %w", err)
 	}
 
+	if comment != nil {
+		s.rebuildFTSForIssue(ctx, comment.IssueID)
+	}
+
 	return nil
 }
 
 // DeleteComment deletes a comment.
 func (s *Store) DeleteComment(ctx context.Context, commentID int64) error {
+	// Look up issue ID before delete for FTS sync
+	comment, _ := s.queries.GetComment(ctx, commentID)
+
 	err := s.queries.DeleteComment(ctx, commentID)
 	if err != nil {
 		return fmt.Errorf("delete comment: %w", err)
+	}
+
+	if comment != nil {
+		s.rebuildFTSForIssue(ctx, comment.IssueID)
 	}
 
 	return nil

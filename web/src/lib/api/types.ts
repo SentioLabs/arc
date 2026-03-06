@@ -219,6 +219,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a new review session */
+        post: operations["createReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/review/{reviewId}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Review session ID */
+                reviewId: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        /** Get the raw unified diff for a review session */
+        get: operations["getReviewDiff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/review/{reviewId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Review session ID */
+                reviewId: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        /** Get the status of a review session */
+        get: operations["getReviewStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/review/{reviewId}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Review session ID */
+                reviewId: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a review decision */
+        post: operations["submitReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/issues/{issueId}/deps": {
         parameters: {
             query?: never;
@@ -640,6 +726,53 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        CreateReviewRequest: {
+            /**
+             * @description Base git ref to diff against (default "origin/main")
+             * @default origin/main
+             */
+            base: string;
+            /**
+             * @description Head git ref (default "HEAD")
+             * @default HEAD
+             */
+            head: string;
+        };
+        ReviewSession: {
+            /** @description Unique review session ID */
+            id: string;
+            workspace_id: string;
+            base: string;
+            head: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "changes_requested";
+            stats?: components["schemas"]["DiffStats"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        DiffStats: {
+            files_changed: number;
+            insertions: number;
+            deletions: number;
+        };
+        SubmitReviewRequest: {
+            /** @enum {string} */
+            decision: "approve" | "request_changes";
+            /** @description Overall review comment */
+            comment?: string;
+            /** @description Per-file comments keyed by filename */
+            file_comments?: {
+                [key: string]: string;
+            };
+        };
+        ReviewStatusResponse: {
+            /** @enum {string} */
+            status: "pending" | "approved" | "changes_requested";
+            comment?: string;
+            file_comments?: {
+                [key: string]: string;
+            };
+        };
     };
     responses: {
         /** @description Bad request */
@@ -677,6 +810,8 @@ export interface components {
         IssueId: string;
         /** @description User performing the action (defaults to "anonymous") */
         ActorHeader: string;
+        /** @description Review session ID */
+        ReviewId: string;
     };
     requestBodies: never;
     headers: never;
@@ -1156,6 +1291,122 @@ export interface operations {
                     "application/json": components["schemas"]["TeamContext"];
                 };
             };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Review session created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getReviewDiff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Review session ID */
+                reviewId: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Raw unified diff */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getReviewStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Review session ID */
+                reviewId: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Review status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewStatusResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    submitReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Review session ID */
+                reviewId: components["parameters"]["ReviewId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Review submitted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewStatusResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };

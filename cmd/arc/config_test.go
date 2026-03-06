@@ -51,7 +51,7 @@ func TestConfigChannelDefault(t *testing.T) {
 
 	cfg, err := loadConfig()
 	require.NoError(t, err)
-	assert.Equal(t, "", cfg.Channel)
+	assert.Empty(t, cfg.Channel)
 }
 
 func TestConfigSetInvalidChannel(t *testing.T) {
@@ -78,6 +78,6 @@ func TestConfigSetInvalidChannel(t *testing.T) {
 		setErr = fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", value)
 	}
 
-	assert.Error(t, setErr)
+	require.Error(t, setErr)
 	assert.Contains(t, setErr.Error(), "invalid channel")
 }

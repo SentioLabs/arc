@@ -361,7 +361,8 @@ var planEditCmd = &cobra.Command{
 	},
 }
 
-// planListCmd lists all shared plans in the workspace with their linked issue counts.
+// planListCmd lists all shared plans in the workspace.
+// Each plan is displayed with its ID, title, and linked issue count.
 var planListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all shared plans in the workspace",
@@ -401,6 +402,7 @@ var planListCmd = &cobra.Command{
 }
 
 // planDeleteCmd removes a shared plan and all its issue linkages.
+// This is permanent — linked issues will no longer reference this plan.
 var planDeleteCmd = &cobra.Command{
 	Use:   "delete <plan-id>",
 	Short: "Delete a shared plan",

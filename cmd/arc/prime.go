@@ -59,7 +59,7 @@ Workflow customization:
 		// Check for custom PRIME.md override
 		localPrimePath := ".arc/PRIME.md"
 		if content, err := os.ReadFile(localPrimePath); err == nil {
-			os.Stdout.Write(content) //nolint:errcheck // best-effort output
+			_, _ = os.Stdout.Write(content)
 			return
 		}
 

@@ -149,7 +149,6 @@ func PathToProjectDir(absPath string) string {
 	return strings.ReplaceAll(cleaned, string(filepath.Separator), "-")
 }
 
-
 // CleanupWorkspaceConfigs removes all project configs under arcHome that reference
 // the given workspace ID. Returns the number of project directories removed.
 func CleanupWorkspaceConfigs(arcHome, workspaceID string) (int, error) {

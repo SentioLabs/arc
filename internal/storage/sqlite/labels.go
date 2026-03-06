@@ -98,6 +98,7 @@ func (s *Store) AddLabelToIssue(ctx context.Context, issueID, label, actor strin
 	}
 
 	s.recordEvent(ctx, issueID, types.EventLabelAdded, actor, nil, &label)
+	s.rebuildFTSForIssue(ctx, issueID)
 	return nil
 }
 
@@ -112,6 +113,7 @@ func (s *Store) RemoveLabelFromIssue(ctx context.Context, issueID, label, actor 
 	}
 
 	s.recordEvent(ctx, issueID, types.EventLabelRemoved, actor, &label, nil)
+	s.rebuildFTSForIssue(ctx, issueID)
 	return nil
 }
 

@@ -143,6 +143,8 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 		_ = s.AddDependency(ctx, dep, actor)
 	}
 
+	s.rebuildFTSForIssue(ctx, issue.ID)
+
 	return nil
 }
 
@@ -192,14 +194,7 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 			Offset:      int64(offset),
 		})
 	case filter.Query != "":
-		searchPattern := "%" + filter.Query + "%"
-		rows, err = s.queries.SearchIssues(ctx, db.SearchIssuesParams{
-			WorkspaceID: filter.WorkspaceID,
-			Title:       searchPattern,
-			Description: toNullString(searchPattern),
-			Limit:       int64(limit),
-			Offset:      int64(offset),
-		})
+		return s.searchIssuesFTS(ctx, filter.WorkspaceID, filter.Query, limit, offset)
 	case filter.Status != nil:
 		rows, err = s.queries.ListIssuesByStatus(ctx, db.ListIssuesByStatusParams{
 			WorkspaceID: filter.WorkspaceID,
@@ -301,6 +296,7 @@ func (s *Store) UpdateIssue(ctx context.Context, id string, updates map[string]a
 	}
 
 	s.recordEvent(ctx, id, types.EventUpdated, actor, nil, nil)
+	s.rebuildFTSForIssue(ctx, id)
 	return nil
 }
 
@@ -338,6 +334,9 @@ func (s *Store) ReopenIssue(ctx context.Context, id string, actor string) error 
 
 // DeleteIssue deletes an issue.
 func (s *Store) DeleteIssue(ctx context.Context, id string) error {
+	// Delete from FTS index before removing the issue
+	s.deleteFTSForIssue(ctx, id)
+
 	// Delete dependencies first
 	err := s.queries.DeleteDependenciesByIssue(ctx, db.DeleteDependenciesByIssueParams{
 		IssueID:     id,

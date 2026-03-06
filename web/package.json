@@ -44,6 +44,7 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
+		"diff2html": "^3.4.56",
 		"isomorphic-dompurify": "^3.0.0",
 		"marked": "^17.0.3",
 		"marked-shiki": "^1.2.1",
