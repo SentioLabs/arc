@@ -28,16 +28,17 @@ const diffFilePermissions = 0o600
 // reviewSession is the internal representation of a review session stored in memory.
 // It extends the generated ReviewSession with fields not exposed via JSON or not in the OpenAPI spec.
 type reviewSession struct {
-	ID           string            `json:"id"`
-	WorkspaceID  string            `json:"workspace_id"`
-	Base         string            `json:"base"`
-	Head         string            `json:"head"`
-	Status       string            `json:"status"`
-	Comment      string            `json:"comment,omitempty"`
-	FileComments map[string]string `json:"file_comments,omitempty"`
-	DiffPath     string            `json:"-"`
-	Stats        *DiffStats        `json:"stats,omitempty"`
-	CreatedAt    time.Time         `json:"created_at"`
+	ID           string                   `json:"id"`
+	WorkspaceID  string                   `json:"workspace_id"`
+	Base         string                   `json:"base"`
+	Head         string                   `json:"head"`
+	Status       string                   `json:"status"`
+	Comment      string                   `json:"comment,omitempty"`
+	FileComments map[string]string        `json:"file_comments,omitempty"`
+	LineComments map[string][]LineComment `json:"line_comments,omitempty"`
+	DiffPath     string                   `json:"-"`
+	Stats        *DiffStats               `json:"stats,omitempty"`
+	CreatedAt    time.Time                `json:"created_at"`
 }
 
 // createReviewRequest is the request body for creating a review.
@@ -48,9 +49,10 @@ type createReviewRequest struct {
 
 // submitReviewRequest is the request body for submitting a review decision.
 type submitReviewRequest struct {
-	Decision     string            `json:"decision"`
-	Comment      string            `json:"comment,omitempty"`
-	FileComments map[string]string `json:"file_comments,omitempty"`
+	Decision     string                   `json:"decision"`
+	Comment      string                   `json:"comment,omitempty"`
+	FileComments map[string]string        `json:"file_comments,omitempty"`
+	LineComments map[string][]LineComment `json:"line_comments,omitempty"`
 }
 
 // generateSessionID creates a random hex-encoded session identifier.
@@ -195,6 +197,7 @@ func (s *Server) submitReview(c echo.Context) error {
 	session.Status = req.Decision
 	session.Comment = req.Comment
 	session.FileComments = req.FileComments
+	session.LineComments = req.LineComments
 
 	s.reviews.Store(reviewKey(wsID, rid), session)
 

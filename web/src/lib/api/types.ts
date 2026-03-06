@@ -755,6 +755,12 @@ export interface components {
             insertions: number;
             deletions: number;
         };
+        LineComment: {
+            /** @description Line number the comment is anchored to */
+            line: number;
+            /** @description Comment text */
+            comment: string;
+        };
         SubmitReviewRequest: {
             /** @enum {string} */
             decision: "approve" | "request_changes";
@@ -764,6 +770,10 @@ export interface components {
             file_comments?: {
                 [key: string]: string;
             };
+            /** @description Per-file line comments keyed by filename */
+            line_comments?: {
+                [key: string]: components["schemas"]["LineComment"][];
+            };
         };
         ReviewStatusResponse: {
             /** @enum {string} */
@@ -771,6 +781,10 @@ export interface components {
             comment?: string;
             file_comments?: {
                 [key: string]: string;
+            };
+            /** @description Per-file line comments keyed by filename */
+            line_comments?: {
+                [key: string]: components["schemas"]["LineComment"][];
             };
         };
     };
