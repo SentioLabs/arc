@@ -32,8 +32,8 @@ arc create "Bug title" --type=bug --priority=1    # High priority bug
 arc create "Feature" --type=feature --priority=2  # New feature
 arc create "Epic" --type=epic --priority=2        # Epic for grouping
 
-# With multi-line description (stdin auto-detected):
-arc create "Title" --type=task <<'EOF'
+# With multi-line description (use --stdin flag):
+arc create "Title" --type=task --stdin <<'EOF'
 Multi-line description here.
 Context, acceptance criteria, etc.
 EOF
@@ -50,8 +50,8 @@ arc update <id> --assignee=<name>       # Assign to someone
 arc update <id> --priority=1            # Change priority
 arc update <id> --title="New title"     # Update title
 
-# Update description via stdin (auto-detected):
-arc update <id> <<'EOF'
+# Update description via stdin (use --stdin flag):
+arc update <id> --stdin <<'EOF'
 COMPLETED: X. IN PROGRESS: Y. NEXT: Z
 EOF
 ```
@@ -99,7 +99,7 @@ When receiving a structured manifest from the `plan` or `brainstorm` skills:
 1. **Parse tasks** from the `## Tasks` section — each `### T<n>: <title>` block defines one task
 2. **Create each task** sequentially using heredoc for multi-line descriptions:
    ```bash
-   arc create "Task title" --type=task --parent=<epic-id> -w <workspace> <<'EOF'
+   arc create "Task title" --type=task --parent=<epic-id> -w <workspace> --stdin <<'EOF'
    Full multi-line description here.
    EOF
    ```
