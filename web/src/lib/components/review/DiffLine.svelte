@@ -43,6 +43,7 @@
 			<button
 				type="button"
 				class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-accent-400 hover:text-accent-300 transition-opacity"
+				aria-label="Add line comment"
 				onclick={onAddComment}
 			>
 				<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">

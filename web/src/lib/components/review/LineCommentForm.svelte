@@ -7,6 +7,7 @@
 
 	let { comment, onSave, onCancel }: Props = $props();
 
+	// eslint-disable-next-line svelte/valid-compile -- intentional: form is freshly mounted each time
 	let draft = $state(comment);
 	let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
