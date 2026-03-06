@@ -584,15 +584,13 @@ var createCmd = &cobra.Command{
 		issueType, _ := cmd.Flags().GetString("type")
 		assignee, _ := cmd.Flags().GetString("assignee")
 		description, _ := cmd.Flags().GetString("description")
-		if description == "" {
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				content, err := io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				description = strings.TrimSpace(string(content))
+		useStdin, _ := cmd.Flags().GetBool("stdin")
+		if useStdin && description == "" {
+			content, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("reading stdin: %w", err)
 			}
+			description = strings.TrimSpace(string(content))
 		}
 		parentID, _ := cmd.Flags().GetString("parent")
 		titleFlag, _ := cmd.Flags().GetString("title")
@@ -633,6 +631,7 @@ func init() {
 	createCmd.Flags().StringP("type", "t", "task", "Issue type")
 	createCmd.Flags().StringP("assignee", "a", "", "Assignee")
 	createCmd.Flags().StringP("description", "d", "", "Description")
+	createCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	createCmd.Flags().String("parent", "", "Parent issue ID (creates child with .N suffix)")
 }
 
@@ -764,15 +763,13 @@ var updateCmd = &cobra.Command{
 			updates["issue_type"] = val
 		}
 		description, _ := cmd.Flags().GetString("description")
-		if description == "" {
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				content, err := io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				description = strings.TrimSpace(string(content))
+		useStdin, _ := cmd.Flags().GetBool("stdin")
+		if useStdin && description == "" {
+			content, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("reading stdin: %w", err)
 			}
+			description = strings.TrimSpace(string(content))
 		}
 		if description != "" {
 			updates["description"] = description
@@ -804,6 +801,7 @@ func init() {
 	updateCmd.Flags().IntP("priority", "p", 0, "New priority")
 	updateCmd.Flags().StringP("type", "t", "", "New type")
 	updateCmd.Flags().StringP("description", "d", "", "New description")
+	updateCmd.Flags().Bool("stdin", false, "Read description from stdin")
 }
 
 // closeCmd marks one or more issues as closed.

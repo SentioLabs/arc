@@ -53,20 +53,6 @@ const (
 	Task    IssueType = "task"
 )
 
-// Defines values for ReviewSessionStatus.
-const (
-	ReviewSessionStatusApproved         ReviewSessionStatus = "approved"
-	ReviewSessionStatusChangesRequested ReviewSessionStatus = "changes_requested"
-	ReviewSessionStatusPending          ReviewSessionStatus = "pending"
-)
-
-// Defines values for ReviewStatusResponseStatus.
-const (
-	ReviewStatusResponseStatusApproved         ReviewStatusResponseStatus = "approved"
-	ReviewStatusResponseStatusChangesRequested ReviewStatusResponseStatus = "changes_requested"
-	ReviewStatusResponseStatusPending          ReviewStatusResponseStatus = "pending"
-)
-
 // Defines values for Status.
 const (
 	StatusBlocked    Status = "blocked"
@@ -74,12 +60,6 @@ const (
 	StatusDeferred   Status = "deferred"
 	StatusInProgress Status = "in_progress"
 	StatusOpen       Status = "open"
-)
-
-// Defines values for SubmitReviewRequestDecision.
-const (
-	Approve        SubmitReviewRequestDecision = "approve"
-	RequestChanges SubmitReviewRequestDecision = "request_changes"
 )
 
 // Defines values for GetReadyWorkParamsSort.
@@ -171,15 +151,6 @@ type CreateLabelRequest struct {
 	Name        string  `json:"name"`
 }
 
-// CreateReviewRequest defines model for CreateReviewRequest.
-type CreateReviewRequest struct {
-	// Base Base git ref to diff against (default "origin/main")
-	Base *string `json:"base,omitempty"`
-
-	// Head Head git ref (default "HEAD")
-	Head *string `json:"head,omitempty"`
-}
-
 // CreateWorkspaceRequest defines model for CreateWorkspaceRequest.
 type CreateWorkspaceRequest struct {
 	// Description Workspace description
@@ -212,13 +183,6 @@ type DependencyGraph struct {
 
 // DependencyType defines model for DependencyType.
 type DependencyType string
-
-// DiffStats defines model for DiffStats.
-type DiffStats struct {
-	Deletions    int `json:"deletions"`
-	FilesChanged int `json:"files_changed"`
-	Insertions   int `json:"insertions"`
-}
 
 // Error defines model for Error.
 type Error struct {
@@ -319,32 +283,6 @@ type PaginatedIssues struct {
 	Total  *int    `json:"total,omitempty"`
 }
 
-// ReviewSession defines model for ReviewSession.
-type ReviewSession struct {
-	Base      string    `json:"base"`
-	CreatedAt time.Time `json:"created_at"`
-	Head      string    `json:"head"`
-
-	// ID Unique review session ID
-	ID          string              `json:"id"`
-	Stats       *DiffStats          `json:"stats,omitempty"`
-	Status      ReviewSessionStatus `json:"status"`
-	WorkspaceID string              `json:"workspace_id"`
-}
-
-// ReviewSessionStatus defines model for ReviewSession.Status.
-type ReviewSessionStatus string
-
-// ReviewStatusResponse defines model for ReviewStatusResponse.
-type ReviewStatusResponse struct {
-	Comment      *string                    `json:"comment,omitempty"`
-	FileComments *map[string]string         `json:"file_comments,omitempty"`
-	Status       ReviewStatusResponseStatus `json:"status"`
-}
-
-// ReviewStatusResponseStatus defines model for ReviewStatusResponse.Status.
-type ReviewStatusResponseStatus string
-
 // Statistics defines model for Statistics.
 type Statistics struct {
 	AvgLeadTimeHours *float64 `json:"avg_lead_time_hours,omitempty"`
@@ -360,19 +298,6 @@ type Statistics struct {
 
 // Status defines model for Status.
 type Status string
-
-// SubmitReviewRequest defines model for SubmitReviewRequest.
-type SubmitReviewRequest struct {
-	// Comment Overall review comment
-	Comment  *string                     `json:"comment,omitempty"`
-	Decision SubmitReviewRequestDecision `json:"decision"`
-
-	// FileComments Per-file comments keyed by filename
-	FileComments *map[string]string `json:"file_comments,omitempty"`
-}
-
-// SubmitReviewRequestDecision defines model for SubmitReviewRequest.Decision.
-type SubmitReviewRequestDecision string
 
 // TeamContext defines model for TeamContext.
 type TeamContext struct {
@@ -476,9 +401,6 @@ type ActorHeader = string
 
 // IssueID defines model for IssueId.
 type IssueID = string
-
-// ReviewID defines model for ReviewId.
-type ReviewID = string
 
 // WorkspaceID defines model for WorkspaceId.
 type WorkspaceID = string
@@ -657,12 +579,6 @@ type AddDependencyJSONRequestBody = AddDependencyRequest
 // AddLabelToIssueJSONRequestBody defines body for AddLabelToIssue for application/json ContentType.
 type AddLabelToIssueJSONRequestBody = AddLabelToIssueRequest
 
-// CreateReviewJSONRequestBody defines body for CreateReview for application/json ContentType.
-type CreateReviewJSONRequestBody = CreateReviewRequest
-
-// SubmitReviewJSONRequestBody defines body for SubmitReview for application/json ContentType.
-type SubmitReviewJSONRequestBody = SubmitReviewRequest
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List all global labels
@@ -749,18 +665,6 @@ type ServerInterface interface {
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /workspaces/{workspaceId}/ready)
 	GetReadyWork(ctx echo.Context, workspaceID WorkspaceID, params GetReadyWorkParams) error
-	// Create a new review session
-	// (POST /workspaces/{workspaceId}/review)
-	CreateReview(ctx echo.Context, workspaceID WorkspaceID) error
-	// Get the raw unified diff for a review session
-	// (GET /workspaces/{workspaceId}/review/{reviewId}/diff)
-	GetReviewDiff(ctx echo.Context, workspaceID WorkspaceID, reviewID ReviewID) error
-	// Get the status of a review session
-	// (GET /workspaces/{workspaceId}/review/{reviewId}/status)
-	GetReviewStatus(ctx echo.Context, workspaceID WorkspaceID, reviewID ReviewID) error
-	// Submit a review decision
-	// (POST /workspaces/{workspaceId}/review/{reviewId}/submit)
-	SubmitReview(ctx echo.Context, workspaceID WorkspaceID, reviewID ReviewID) error
 	// Get workspace statistics
 	// (GET /workspaces/{workspaceId}/stats)
 	GetWorkspaceStats(ctx echo.Context, workspaceID WorkspaceID) error
@@ -1655,94 +1559,6 @@ func (w *ServerInterfaceWrapper) GetReadyWork(ctx echo.Context) error {
 	return err
 }
 
-// CreateReview converts echo context to params.
-func (w *ServerInterfaceWrapper) CreateReview(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.CreateReview(ctx, workspaceID)
-	return err
-}
-
-// GetReviewDiff converts echo context to params.
-func (w *ServerInterfaceWrapper) GetReviewDiff(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// ------------- Path parameter "reviewId" -------------
-	var reviewID ReviewID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", ctx.Param("reviewId"), &reviewID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter reviewId: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetReviewDiff(ctx, workspaceID, reviewID)
-	return err
-}
-
-// GetReviewStatus converts echo context to params.
-func (w *ServerInterfaceWrapper) GetReviewStatus(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// ------------- Path parameter "reviewId" -------------
-	var reviewID ReviewID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", ctx.Param("reviewId"), &reviewID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter reviewId: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetReviewStatus(ctx, workspaceID, reviewID)
-	return err
-}
-
-// SubmitReview converts echo context to params.
-func (w *ServerInterfaceWrapper) SubmitReview(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "workspaceId" -------------
-	var workspaceID WorkspaceID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
-	}
-
-	// ------------- Path parameter "reviewId" -------------
-	var reviewID ReviewID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "reviewId", ctx.Param("reviewId"), &reviewID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter reviewId: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.SubmitReview(ctx, workspaceID, reviewID)
-	return err
-}
-
 // GetWorkspaceStats converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWorkspaceStats(ctx echo.Context) error {
 	var err error
@@ -1840,10 +1656,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.DELETE(baseURL+"/workspaces/:workspaceId/issues/:issueId/labels/:labelName", wrapper.RemoveLabelFromIssue)
 	router.POST(baseURL+"/workspaces/:workspaceId/issues/:issueId/reopen", wrapper.ReopenIssue)
 	router.GET(baseURL+"/workspaces/:workspaceId/ready", wrapper.GetReadyWork)
-	router.POST(baseURL+"/workspaces/:workspaceId/review", wrapper.CreateReview)
-	router.GET(baseURL+"/workspaces/:workspaceId/review/:reviewId/diff", wrapper.GetReviewDiff)
-	router.GET(baseURL+"/workspaces/:workspaceId/review/:reviewId/status", wrapper.GetReviewStatus)
-	router.POST(baseURL+"/workspaces/:workspaceId/review/:reviewId/submit", wrapper.SubmitReview)
 	router.GET(baseURL+"/workspaces/:workspaceId/stats", wrapper.GetWorkspaceStats)
 	router.GET(baseURL+"/workspaces/:workspaceId/team-context", wrapper.GetTeamContext)
 
@@ -2905,170 +2717,6 @@ func (response GetReadyWork500JSONResponse) VisitGetReadyWorkResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateReviewRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-	Body        *CreateReviewJSONRequestBody
-}
-
-type CreateReviewResponseObject interface {
-	VisitCreateReviewResponse(w http.ResponseWriter) error
-}
-
-type CreateReview201JSONResponse ReviewSession
-
-func (response CreateReview201JSONResponse) VisitCreateReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateReview400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response CreateReview400JSONResponse) VisitCreateReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateReview404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response CreateReview404JSONResponse) VisitCreateReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateReview500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response CreateReview500JSONResponse) VisitCreateReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetReviewDiffRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-	ReviewID    ReviewID    `json:"reviewId"`
-}
-
-type GetReviewDiffResponseObject interface {
-	VisitGetReviewDiffResponse(w http.ResponseWriter) error
-}
-
-type GetReviewDiff200TextResponse string
-
-func (response GetReviewDiff200TextResponse) VisitGetReviewDiffResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(200)
-
-	_, err := w.Write([]byte(response))
-	return err
-}
-
-type GetReviewDiff404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetReviewDiff404JSONResponse) VisitGetReviewDiffResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetReviewDiff500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetReviewDiff500JSONResponse) VisitGetReviewDiffResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetReviewStatusRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-	ReviewID    ReviewID    `json:"reviewId"`
-}
-
-type GetReviewStatusResponseObject interface {
-	VisitGetReviewStatusResponse(w http.ResponseWriter) error
-}
-
-type GetReviewStatus200JSONResponse ReviewStatusResponse
-
-func (response GetReviewStatus200JSONResponse) VisitGetReviewStatusResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetReviewStatus404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetReviewStatus404JSONResponse) VisitGetReviewStatusResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetReviewStatus500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetReviewStatus500JSONResponse) VisitGetReviewStatusResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SubmitReviewRequestObject struct {
-	WorkspaceID WorkspaceID `json:"workspaceId"`
-	ReviewID    ReviewID    `json:"reviewId"`
-	Body        *SubmitReviewJSONRequestBody
-}
-
-type SubmitReviewResponseObject interface {
-	VisitSubmitReviewResponse(w http.ResponseWriter) error
-}
-
-type SubmitReview200JSONResponse ReviewStatusResponse
-
-func (response SubmitReview200JSONResponse) VisitSubmitReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SubmitReview400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response SubmitReview400JSONResponse) VisitSubmitReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SubmitReview404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response SubmitReview404JSONResponse) VisitSubmitReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SubmitReview500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response SubmitReview500JSONResponse) VisitSubmitReviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type GetWorkspaceStatsRequestObject struct {
 	WorkspaceID WorkspaceID `json:"workspaceId"`
 }
@@ -3226,18 +2874,6 @@ type StrictServerInterface interface {
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /workspaces/{workspaceId}/ready)
 	GetReadyWork(ctx context.Context, request GetReadyWorkRequestObject) (GetReadyWorkResponseObject, error)
-	// Create a new review session
-	// (POST /workspaces/{workspaceId}/review)
-	CreateReview(ctx context.Context, request CreateReviewRequestObject) (CreateReviewResponseObject, error)
-	// Get the raw unified diff for a review session
-	// (GET /workspaces/{workspaceId}/review/{reviewId}/diff)
-	GetReviewDiff(ctx context.Context, request GetReviewDiffRequestObject) (GetReviewDiffResponseObject, error)
-	// Get the status of a review session
-	// (GET /workspaces/{workspaceId}/review/{reviewId}/status)
-	GetReviewStatus(ctx context.Context, request GetReviewStatusRequestObject) (GetReviewStatusResponseObject, error)
-	// Submit a review decision
-	// (POST /workspaces/{workspaceId}/review/{reviewId}/submit)
-	SubmitReview(ctx context.Context, request SubmitReviewRequestObject) (SubmitReviewResponseObject, error)
 	// Get workspace statistics
 	// (GET /workspaces/{workspaceId}/stats)
 	GetWorkspaceStats(ctx context.Context, request GetWorkspaceStatsRequestObject) (GetWorkspaceStatsResponseObject, error)
@@ -4049,121 +3685,6 @@ func (sh *strictHandler) GetReadyWork(ctx echo.Context, workspaceID WorkspaceID,
 	return nil
 }
 
-// CreateReview operation middleware
-func (sh *strictHandler) CreateReview(ctx echo.Context, workspaceID WorkspaceID) error {
-	var request CreateReviewRequestObject
-
-	request.WorkspaceID = workspaceID
-
-	var body CreateReviewJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
-	}
-	request.Body = &body
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateReview(ctx.Request().Context(), request.(CreateReviewRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateReview")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(CreateReviewResponseObject); ok {
-		return validResponse.VisitCreateReviewResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetReviewDiff operation middleware
-func (sh *strictHandler) GetReviewDiff(ctx echo.Context, workspaceID WorkspaceID, reviewID ReviewID) error {
-	var request GetReviewDiffRequestObject
-
-	request.WorkspaceID = workspaceID
-	request.ReviewID = reviewID
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.GetReviewDiff(ctx.Request().Context(), request.(GetReviewDiffRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetReviewDiff")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(GetReviewDiffResponseObject); ok {
-		return validResponse.VisitGetReviewDiffResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetReviewStatus operation middleware
-func (sh *strictHandler) GetReviewStatus(ctx echo.Context, workspaceID WorkspaceID, reviewID ReviewID) error {
-	var request GetReviewStatusRequestObject
-
-	request.WorkspaceID = workspaceID
-	request.ReviewID = reviewID
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.GetReviewStatus(ctx.Request().Context(), request.(GetReviewStatusRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetReviewStatus")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(GetReviewStatusResponseObject); ok {
-		return validResponse.VisitGetReviewStatusResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// SubmitReview operation middleware
-func (sh *strictHandler) SubmitReview(ctx echo.Context, workspaceID WorkspaceID, reviewID ReviewID) error {
-	var request SubmitReviewRequestObject
-
-	request.WorkspaceID = workspaceID
-	request.ReviewID = reviewID
-
-	var body SubmitReviewJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
-	}
-	request.Body = &body
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.SubmitReview(ctx.Request().Context(), request.(SubmitReviewRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SubmitReview")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(SubmitReviewResponseObject); ok {
-		return validResponse.VisitSubmitReviewResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // GetWorkspaceStats operation middleware
 func (sh *strictHandler) GetWorkspaceStats(ctx echo.Context, workspaceID WorkspaceID) error {
 	var request GetWorkspaceStatsRequestObject
@@ -4218,81 +3739,72 @@ func (sh *strictHandler) GetTeamContext(ctx echo.Context, workspaceID WorkspaceI
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"tWmsGV5/Xf9fAAAA//8lbrCSYXsAAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
