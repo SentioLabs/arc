@@ -30,7 +30,7 @@
 </div>
 
 <!-- Scrollable file list -->
-<div class="overflow-y-auto flex-1">
+<div class="overflow-y-auto overflow-x-auto flex-1">
 	{#each files as file (getFileName(file))}
 		{@const name = getFileName(file)}
 		{@const isActive = activeFile === name}
@@ -40,6 +40,7 @@
 			class="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-surface-700 {isActive
 				? 'bg-surface-700'
 				: ''}"
+			title={name}
 			onclick={() => onFileClick(name)}
 		>
 			<!-- Viewed checkbox -->
@@ -63,7 +64,7 @@
 			{/if}
 
 			<!-- Filename -->
-			<span class="font-mono text-sm text-text-primary truncate flex-1">{name}</span>
+			<span class="font-mono text-sm text-text-primary whitespace-nowrap flex-1">{name}</span>
 
 			<!-- Line stats -->
 			<span class="flex items-center gap-1 text-xs font-mono shrink-0">
