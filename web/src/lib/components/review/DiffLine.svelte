@@ -34,23 +34,23 @@
 	);
 </script>
 
-<tr class="{rowClass} group relative">
+<tr class="{rowClass} group">
 	<td
 		class="select-none text-right pr-2 font-mono text-xs text-text-muted w-[3rem] min-w-[3rem] {gutterClass} relative"
 	>
-		{oldNumber ?? ''}
 		{#if onAddComment}
 			<button
 				type="button"
-				class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-accent-400 hover:text-accent-300 transition-opacity"
+				class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-primary-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary-500 hover:shadow-glow transition-all z-10"
 				aria-label="Add line comment"
 				onclick={onAddComment}
 			>
-				<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+				<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
 					<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
 				</svg>
 			</button>
 		{/if}
+		{oldNumber ?? ''}
 	</td>
 	<td
 		class="select-none text-right pr-2 font-mono text-xs text-text-muted w-[3rem] min-w-[3rem] {gutterClass}"

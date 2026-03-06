@@ -67,7 +67,7 @@
 	}
 </script>
 
-<div class="border border-border rounded-t overflow-hidden">
+<div class="border border-border rounded overflow-hidden">
 	<!-- File header -->
 	<button
 		type="button"
@@ -133,33 +133,36 @@
 								{@const existingComment = lineComments.find((c) => c.line === lineNumber)}
 								{#if existingComment && editingCommentLine !== lineNumber}
 									<tr>
-										<td
-											colspan="3"
-											class="px-3 py-2 bg-surface-800 border-t border-b border-border-subtle"
-										>
-											<div class="flex items-start gap-2">
-												<p
-													class="text-sm text-text-secondary flex-1 whitespace-pre-wrap"
-												>
-													{existingComment.comment}
-												</p>
-												<button
-													type="button"
-													class="btn btn-ghost btn-sm shrink-0"
-													onclick={() => {
-														editingCommentLine = lineNumber;
-														activeCommentLine = null;
-													}}
-												>
-													Edit
-												</button>
-												<button
-													type="button"
-													class="btn btn-ghost btn-sm shrink-0 text-red-400"
-													onclick={() => onDeleteLineComment(lineNumber)}
-												>
-													Delete
-												</button>
+										<td colspan="3" class="p-0">
+											<div class="border-t border-b border-primary-600/20 bg-surface-900/60 flex group/comment">
+												<div class="w-1 bg-primary-600/60 shrink-0"></div>
+												<div class="flex-1 px-3 py-2 flex items-start gap-3">
+													<svg class="w-4 h-4 text-primary-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+														<path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
+													</svg>
+													<p class="text-sm text-text-secondary flex-1 whitespace-pre-wrap">
+														{existingComment.comment}
+													</p>
+													<div class="flex items-center gap-1 opacity-0 group-hover/comment:opacity-100 transition-opacity shrink-0">
+														<button
+															type="button"
+															class="btn btn-ghost btn-sm"
+															onclick={() => {
+																editingCommentLine = lineNumber;
+																activeCommentLine = null;
+															}}
+														>
+															Edit
+														</button>
+														<button
+															type="button"
+															class="btn btn-ghost btn-sm text-red-400 hover:text-red-300"
+															onclick={() => onDeleteLineComment(lineNumber)}
+														>
+															Delete
+														</button>
+													</div>
+												</div>
 											</div>
 										</td>
 									</tr>

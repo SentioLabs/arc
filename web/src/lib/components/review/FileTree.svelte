@@ -37,12 +37,15 @@
 		{@const isViewed = viewedFiles.has(name)}
 		<button
 			type="button"
-			class="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-surface-700 {isActive
+			class="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-surface-700 relative {isActive
 				? 'bg-surface-700'
 				: ''}"
 			title={name}
 			onclick={() => onFileClick(name)}
 		>
+			{#if isActive}
+				<div class="absolute left-0 top-1 bottom-1 w-0.5 bg-primary-500 rounded-r"></div>
+			{/if}
 			<!-- Viewed checkbox -->
 			<input
 				type="checkbox"
@@ -64,7 +67,13 @@
 			{/if}
 
 			<!-- Filename -->
-			<span class="font-mono text-sm text-text-primary whitespace-nowrap flex-1">{name}</span>
+			<span class="font-mono text-sm whitespace-nowrap flex-1">
+				{#if name.includes('/')}
+					<span class="text-text-muted">{name.substring(0, name.lastIndexOf('/') + 1)}</span><span class="text-text-primary">{name.substring(name.lastIndexOf('/') + 1)}</span>
+				{:else}
+					<span class="text-text-primary">{name}</span>
+				{/if}
+			</span>
 
 			<!-- Line stats -->
 			<span class="flex items-center gap-1 text-xs font-mono shrink-0">

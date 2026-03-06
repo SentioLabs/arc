@@ -216,11 +216,13 @@
 				<!-- Drag handle -->
 				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 				<div
-					class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent-500/50 transition-colors {resizing ? 'bg-accent-500/50' : ''}"
+					class="absolute top-0 -right-1 w-3 h-full cursor-col-resize group/handle flex items-center justify-center z-20"
 					role="separator"
 					aria-orientation="vertical"
 					onmousedown={startResize}
-				></div>
+				>
+					<div class="w-px h-full transition-all {resizing ? 'bg-primary-500 w-0.5' : 'bg-transparent group-hover/handle:bg-primary-500/50'}"></div>
+				</div>
 			</aside>
 
 			<!-- Main area -->
