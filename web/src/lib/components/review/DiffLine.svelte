@@ -58,6 +58,6 @@
 		{newNumber ?? ''}
 	</td>
 	<td class="{borderClass} px-2">
-		<pre class="font-mono text-sm leading-6 whitespace-pre-wrap"><code>{@html highlightedHtml}</code></pre>
+		<pre class="font-mono text-sm leading-6 whitespace-pre"><code>{@html highlightedHtml}</code></pre>
 	</td>
 </tr>

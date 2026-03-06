@@ -226,7 +226,7 @@
 			</aside>
 
 			<!-- Main area -->
-			<div class="flex-1 flex flex-col overflow-hidden">
+			<div class="flex-1 flex flex-col min-w-0">
 				<!-- Top bar: branch info + stats -->
 				<div class="px-4 py-3 border-b border-border bg-surface-800 flex items-center justify-between">
 					<span class="text-sm text-text-secondary font-mono">{session?.base}...{session?.head}</span>

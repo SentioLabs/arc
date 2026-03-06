@@ -67,7 +67,7 @@
 	}
 </script>
 
-<div class="border border-border rounded overflow-hidden">
+<div class="border border-border rounded overflow-y-clip">
 	<!-- File header -->
 	<button
 		type="button"
@@ -101,8 +101,8 @@
 
 	{#if !collapsed}
 		<!-- Diff table -->
-		<div class="overflow-x-auto">
-			<table class="w-full border-collapse">
+		<div>
+			<table class="border-collapse">
 				<tbody>
 					{#each file.blocks as block}
 						<!-- Hunk header -->
