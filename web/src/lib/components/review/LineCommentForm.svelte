@@ -7,15 +7,11 @@
 
 	let { comment, onSave, onCancel }: Props = $props();
 
-	// eslint-disable-next-line svelte/valid-compile -- intentional: form is freshly mounted each time
 	let draft = $state(comment);
-	let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
-	$effect(() => {
-		if (textareaEl) {
-			textareaEl.focus();
-		}
-	});
+	function autofocus(node: HTMLElement) {
+		node.focus();
+	}
 
 	function handleSave() {
 		onSave(draft);
@@ -31,7 +27,7 @@
 					class="input w-full min-h-[4rem] font-mono text-sm resize-y bg-surface-800"
 					placeholder="Add a line comment..."
 					bind:value={draft}
-					bind:this={textareaEl}
+					use:autofocus
 					onkeydown={(e) => {
 						if (e.key === 'Escape') onCancel();
 						if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave();
