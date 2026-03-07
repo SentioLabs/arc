@@ -97,13 +97,13 @@ The `--parent` flag automatically creates a parent-child dependency. No manual `
 When receiving a structured manifest from the `plan` or `brainstorm` skills:
 
 1. **Parse tasks** from the `## Tasks` section — each `### T<n>: <title>` block defines one task
-2. **Create each task** sequentially using heredoc for multi-line descriptions:
+2. **Create all tasks in parallel** using concurrent Bash tool calls — arc handles concurrent writes safely. Issue one Bash call per task in a single response:
    ```bash
    arc create "Task title" --type=task --parent=<epic-id> --stdin <<'EOF'
    Full multi-line description here.
    EOF
    ```
-3. **Track the ID mapping** — record logical name (T1, T2, P1, etc.) → arc ID from each creation
+3. **Track the ID mapping** — record logical name (T1, T2, P1, etc.) → arc ID from each creation output
 4. **Set dependencies** from the `## Dependencies` section, substituting logical names with real IDs:
    ```bash
    arc dep add <real-later-id> <real-earlier-id> --type=blocks
