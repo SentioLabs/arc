@@ -22,7 +22,7 @@ Create a TodoWrite checklist with these steps:
 What command proves the claim? Examples:
 - "Tests pass" → `make test` or `go test ./...`
 - "Build succeeds" → `make build`
-- "Issue is resolved" → `arc show <id> -w <workspace>` (check status)
+- "Issue is resolved" → `arc show <id>` (check status)
 - "No regressions" → full test suite, not a subset
 
 ### 2. RUN
@@ -67,7 +67,7 @@ You are skipping verification if you:
 
 ```bash
 # ONLY after verification passes:
-arc close <id> -r "Verified: <evidence summary>" -w <workspace>
+arc close <id> -r "Verified: <evidence summary>"
 ```
 
 If verification **fails**, do NOT close the issue. Instead:

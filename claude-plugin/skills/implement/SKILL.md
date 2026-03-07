@@ -40,15 +40,15 @@ Create a TodoWrite checklist and work through this loop for each task:
 ### 1. Find Next Task
 
 ```bash
-arc ready -w <workspace>
+arc ready
 # or for a specific epic:
-arc list --parent=<epic-id> --status=open -w <workspace>
+arc list --parent=<epic-id> --status=open
 ```
 
 ### 2. Claim Task
 
 ```bash
-arc update <task-id> --status in_progress -w <workspace>
+arc update <task-id> --status in_progress
 ```
 
 ### 3. Dispatch Agent
@@ -62,7 +62,7 @@ PRE_TASK_SHA=$(git rev-parse HEAD)
 Check whether the task has a `docs-only` label:
 
 ```bash
-arc show <task-id> -w <workspace> --json | jq -e '.labels[] | select(. == "docs-only")' > /dev/null 2>&1
+arc show <task-id> --json | jq -e '.labels[] | select(. == "docs-only")' > /dev/null 2>&1
 ```
 
 **If `docs-only`** (exit code 0) — spawn an `arc-doc-writer` subagent:
@@ -71,7 +71,7 @@ arc show <task-id> -w <workspace> --json | jq -e '.labels[] | select(. == "docs-
 Write/update the documentation described in this task.
 
 ## Task
-<paste output of: arc show <task-id> -w <workspace>>
+<paste output of: arc show <task-id>>
 
 Verify formatting quality and commit your work.
 ```
@@ -82,7 +82,7 @@ Verify formatting quality and commit your work.
 Implement this task following TDD (RED → GREEN → REFACTOR).
 
 ## Task
-<paste output of: arc show <task-id> -w <workspace>>
+<paste output of: arc show <task-id>>
 
 ## Project Test Command
 <project's test command, e.g., make test, go test ./...>
@@ -111,12 +111,12 @@ If the result looks clean, invoke the `review` skill to dispatch the `arc-review
 
 - **Critical findings** → re-dispatch implementer with the specific fixes
 - **Important findings** → re-dispatch implementer before moving to next task
-- **Minor findings** → note in an arc comment for later: `arc update <task-id> --description "Minor: ..."  -w <workspace>`
+- **Minor findings** → note in an arc comment for later: `arc update <task-id> --description "Minor: ..." `
 
 ### 8. Close Task
 
 ```bash
-arc close <task-id> -r "Implemented: <summary>" -w <workspace>
+arc close <task-id> -r "Implemented: <summary>"
 ```
 
 ### 9. Repeat
@@ -153,7 +153,7 @@ This is the baseline all worktrees will branch from. Record it — you'll need i
 For each task in the planned parallel batch:
 
 ```bash
-arc show <task-id> -w <workspace>
+arc show <task-id>
 ```
 
 Confirm:
@@ -212,10 +212,10 @@ After successful verification, return to the normal orchestration loop (step 1) 
 ## Arc Commands Used
 
 ```bash
-arc ready -w <workspace>                           # Find next task
-arc update <id> --status in_progress -w <workspace>  # Claim task
-arc show <id> -w <workspace>                        # Get task description for subagent
-arc close <id> -r "reason" -w <workspace>            # Close completed task
+arc ready                           # Find next task
+arc update <id> --status in_progress  # Claim task
+arc show <id>                        # Get task description for subagent
+arc close <id> -r "reason"            # Close completed task
 ```
 
 ## Rules

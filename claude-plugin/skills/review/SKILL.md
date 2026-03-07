@@ -37,10 +37,8 @@ Use the Agent tool to spawn an `arc-reviewer` subagent with this prompt:
 ```
 Review these changes against the task spec and project conventions.
 
-Workspace: <workspace>
-
 ## Task Spec
-<paste output of: arc show <task-id> -w <workspace>>
+<paste output of: arc show <task-id>>
 
 ## Changes
 <paste output of: git diff <BASE_SHA>..<HEAD_SHA>>

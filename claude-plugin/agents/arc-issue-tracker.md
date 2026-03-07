@@ -99,18 +99,18 @@ When receiving a structured manifest from the `plan` or `brainstorm` skills:
 1. **Parse tasks** from the `## Tasks` section — each `### T<n>: <title>` block defines one task
 2. **Create each task** sequentially using heredoc for multi-line descriptions:
    ```bash
-   arc create "Task title" --type=task --parent=<epic-id> -w <workspace> --stdin <<'EOF'
+   arc create "Task title" --type=task --parent=<epic-id> --stdin <<'EOF'
    Full multi-line description here.
    EOF
    ```
 3. **Track the ID mapping** — record logical name (T1, T2, P1, etc.) → arc ID from each creation
 4. **Set dependencies** from the `## Dependencies` section, substituting logical names with real IDs:
    ```bash
-   arc dep add <real-later-id> <real-earlier-id> --type=blocks -w <workspace>
+   arc dep add <real-later-id> <real-earlier-id> --type=blocks
    ```
 5. **Apply labels** from the `## Labels` section:
    ```bash
-   arc label add <real-id> docs-only -w <workspace>
+   arc label add <real-id> docs-only
    ```
 6. **Return a markdown summary table** matching the `## Required Output` format:
    ```

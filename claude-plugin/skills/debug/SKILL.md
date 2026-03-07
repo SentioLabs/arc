@@ -31,7 +31,7 @@ Create a TodoWrite checklist with these phases and work through them:
 - Find working examples of similar code in the codebase
 - Compare working code against broken code — what's different?
 - Check if this is a known pattern (dependency version, config issue, API change)
-- Look for similar past issues: `arc list --type=bug -w <workspace>`
+- Look for similar past issues: `arc list --type=bug`
 
 ### Phase 3: Hypothesis Testing
 
@@ -66,7 +66,7 @@ Instead:
 If the bug turns out to be bigger than expected (not a quick fix within the current task):
 
 ```bash
-arc create "Bug: <description>" --type=bug --priority=<severity> -w <workspace>
+arc create "Bug: <description>" --type=bug --priority=<severity>
 ```
 
 Then decide: fix it now (if it blocks current work) or defer it (if current work can continue without it).

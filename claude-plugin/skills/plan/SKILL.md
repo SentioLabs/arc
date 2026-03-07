@@ -18,7 +18,7 @@ Create a TodoWrite checklist with these steps and work through them:
 ### 1. Read the Design
 
 ```bash
-arc plan show <epic-id> -w <workspace>
+arc plan show <epic-id>
 ```
 
 Load the approved design from brainstorm. Understand the full scope before breaking it down.
@@ -40,7 +40,7 @@ Build a task manifest and dispatch it:
 ```
 Use the Agent tool with subagent_type="arc:arc-issue-tracker":
 
-Create the following tasks under epic <epic-id> in workspace <workspace>.
+Create the following tasks under epic <epic-id>.
 After creation, set dependencies and labels as listed.
 Return a summary table mapping task names to arc IDs.
 
@@ -78,26 +78,34 @@ For each task, check whether **all** files in its `## Files` section are documen
 Before proceeding, verify the agent's output:
 
 1. **Count check**: The number of returned IDs must match the number of tasks in your manifest
-2. **Spot-check**: Run `arc show <id> -w <workspace>` on one returned task to confirm it exists and has the correct parent
+2. **Spot-check**: Run `arc show <id>` on one returned task to confirm it exists and has the correct parent
 3. **If mismatch**: Re-dispatch the agent for missing tasks only, or create them manually
 
 ### 5. Update Epic Plan
 
 Using the task IDs from the agent's returned summary table, add the task breakdown to the epic's plan:
 ```bash
-arc plan set <epic-id> "<updated plan with task listing>" -w <workspace>
+arc plan set <epic-id> --stdin <<'EOF'
+<updated plan with task listing>
+EOF
 ```
 
 ### 6. Choose Execution Path
 
-Ask the user:
-- **Single-agent + subagents**: Invoke the `implement` skill. Main agent orchestrates, `arc-implementer` subagents do TDD per task. Best for sequential tasks.
-- **Agentic team**: Add `teammate:*` labels per task, invoke `arc team-deploy`. Best for parallel multi-role work.
+**Use the AskUserQuestion tool** to let the user choose:
+
+```
+Question: "How should we execute these tasks?"
+Options:
+  - "Single-agent + subagents" (main agent orchestrates, arc-implementer subagents do TDD per task — best for sequential work)
+  - "Agentic team" (add teammate labels, invoke arc team-deploy — best for parallel multi-role work)
+  - "Parallel session" (hand off the plan to a new session for implementation — keeps this session free for other work)
+```
 
 If team, prompt for labels:
 ```bash
-arc label add <task-id> teammate:frontend -w <workspace>
-arc label add <task-id> teammate:backend -w <workspace>
+arc label add <task-id> teammate:frontend
+arc label add <task-id> teammate:backend
 ```
 
 Available roles: `teammate:frontend`, `teammate:backend`, `teammate:architect`, `teammate:tests`, `teammate:devops`, or custom.

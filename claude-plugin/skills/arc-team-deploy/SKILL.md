@@ -26,7 +26,7 @@ Deploy an agent team from arc's issue graph. Translates `teammate:*` labels, pla
 Run `arc team context <epic-id> --json` to get the issue graph grouped by role.
 
 ```bash
-arc team context <epic-id> --json -w <workspace>
+arc team context <epic-id> --json
 ```
 
 The JSON output has this structure:
@@ -135,23 +135,23 @@ As team lead, follow the sync protocol:
 1. **Monitor progress** via `TaskList` — teammates send messages on completion
 2. **Verify work** before closing arc issues:
    ```bash
-   arc show <issue-id> -w <workspace>   # Review the issue
+   arc show <issue-id>   # Review the issue
    # Check the code changes made by the teammate
    ```
 3. **Close verified issues**:
    ```bash
-   arc close <issue-id> --reason "completed by <role>" -w <workspace>
+   arc close <issue-id> --reason "completed by <role>"
    ```
 4. **Check for newly unblocked work**:
    ```bash
-   arc ready -w <workspace>
+   arc ready
    ```
 5. **Shutdown teammates** when all work is complete via `SendMessage` with `type: "shutdown_request"`
 
 ## Error Handling
 
 - If `arc team context` returns empty roles, the epic may not have `teammate:*` labels on children. Suggest labeling first.
-- If a teammate reports a blocker, update the arc issue status: `arc update <id> --status=blocked -w <workspace>`
+- If a teammate reports a blocker, update the arc issue status: `arc update <id> --status=blocked`
 - If a task fails, investigate before reassigning — the arc issue may need plan revision.
 
 ## Example Session
