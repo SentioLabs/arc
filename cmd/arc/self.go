@@ -153,6 +153,9 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 }
 
 // resolveChannelVersion finds the latest release tag for the given channel.
+// For non-stable channels, it also checks the latest stable release and
+// returns whichever is newer, so users on rc/nightly channels still get
+// prompted when a new stable version surpasses their pre-release.
 func resolveChannelVersion(channel string) (string, error) {
 	if channel == "" || channel == channelStable {
 		return getLatestVersion()
@@ -163,7 +166,7 @@ func resolveChannelVersion(channel string) (string, error) {
 		return "", fmt.Errorf("unknown channel: %s", channel)
 	}
 
-	resp, err := http.Get(githubReleasesURL + "?per_page=20")
+	resp, err := http.Get(githubReleasesURL + "?per_page=100")
 	if err != nil {
 		return "", err
 	}
@@ -178,13 +181,32 @@ func resolveChannelVersion(channel string) (string, error) {
 		return "", err
 	}
 
+	var channelTag, stableTag string
 	for _, r := range releases {
-		if pattern.MatchString(r.TagName) {
-			return r.TagName, nil
+		if channelTag == "" && pattern.MatchString(r.TagName) {
+			channelTag = r.TagName
+		}
+		if stableTag == "" && !r.Prerelease {
+			stableTag = r.TagName
+		}
+		if channelTag != "" && stableTag != "" {
+			break
 		}
 	}
 
-	return "", fmt.Errorf("no %s release found", channel)
+	switch {
+	case channelTag != "" && stableTag != "":
+		if semver.Compare(stableTag, channelTag) > 0 {
+			return stableTag, nil
+		}
+		return channelTag, nil
+	case channelTag != "":
+		return channelTag, nil
+	case stableTag != "":
+		return stableTag, nil
+	default:
+		return "", fmt.Errorf("no %s release found", channel)
+	}
 }
 
 // getLatestVersion fetches just the version tag from GitHub.

@@ -95,14 +95,16 @@ func TestSelfChannelInvalid(t *testing.T) {
 
 // mockReleases creates test data for GitHub API mocking.
 // Uses real-world tag formats: rc3 (no dot) and nightly.20260302 (with dot).
+// Nightly builds use the next unreleased version (v0.11.0) so they sort
+// higher than the latest stable (v0.10.0) per semver.
 func mockReleases() []githubRelease {
 	return []githubRelease{
 		{TagName: "v0.11.0-rc3", Prerelease: true},
 		{TagName: "v0.11.0-rc2", Prerelease: true},
 		{TagName: "v0.11.0-rc.1", Prerelease: true}, // also accept dotted format
+		{TagName: "v0.11.0-nightly.20260302", Prerelease: true},
+		{TagName: "v0.11.0-nightly.20260301", Prerelease: true},
 		{TagName: "v0.10.0", Prerelease: false},
-		{TagName: "v0.10.0-nightly.20260302", Prerelease: true},
-		{TagName: "v0.10.0-nightly.20260301", Prerelease: true},
 	}
 }
 
@@ -139,6 +141,28 @@ func TestResolveChannelVersion_RC(t *testing.T) {
 	assert.Equal(t, "v0.11.0-rc3", tag)
 }
 
+func TestResolveChannelVersion_RC_StableIsNewer(t *testing.T) {
+	// When stable surpasses the latest RC, channel should return stable
+	releases := []githubRelease{
+		{TagName: "v0.12.0", Prerelease: false},
+		{TagName: "v0.11.0-rc3", Prerelease: true},
+		{TagName: "v0.11.0-rc2", Prerelease: true},
+		{TagName: "v0.10.0", Prerelease: false},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(releases)
+	}))
+	defer srv.Close()
+
+	origURL := githubReleasesURL
+	githubReleasesURL = srv.URL + "/releases"
+	t.Cleanup(func() { githubReleasesURL = origURL })
+
+	tag, err := resolveChannelVersion(channelRC)
+	require.NoError(t, err)
+	assert.Equal(t, "v0.12.0", tag)
+}
+
 func TestResolveChannelVersion_Nightly(t *testing.T) {
 	releases := mockReleases()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +176,45 @@ func TestResolveChannelVersion_Nightly(t *testing.T) {
 
 	tag, err := resolveChannelVersion(channelNightly)
 	require.NoError(t, err)
-	assert.Equal(t, "v0.10.0-nightly.20260302", tag)
+	assert.Equal(t, "v0.11.0-nightly.20260302", tag)
+}
+
+func TestResolveChannelVersion_Nightly_StableIsNewer(t *testing.T) {
+	releases := []githubRelease{
+		{TagName: "v0.11.0", Prerelease: false},
+		{TagName: "v0.10.0-nightly.20260302", Prerelease: true},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(releases)
+	}))
+	defer srv.Close()
+
+	origURL := githubReleasesURL
+	githubReleasesURL = srv.URL + "/releases"
+	t.Cleanup(func() { githubReleasesURL = origURL })
+
+	tag, err := resolveChannelVersion(channelNightly)
+	require.NoError(t, err)
+	assert.Equal(t, "v0.11.0", tag)
+}
+
+func TestResolveChannelVersion_NoChannelMatch_FallsBackToStable(t *testing.T) {
+	// No nightly releases exist, but stable does — should return stable
+	releases := []githubRelease{
+		{TagName: "v0.10.0", Prerelease: false},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(releases)
+	}))
+	defer srv.Close()
+
+	origURL := githubReleasesURL
+	githubReleasesURL = srv.URL + "/releases"
+	t.Cleanup(func() { githubReleasesURL = origURL })
+
+	tag, err := resolveChannelVersion(channelNightly)
+	require.NoError(t, err)
+	assert.Equal(t, "v0.10.0", tag)
 }
 
 func TestResolveChannelVersion_NoMatch(t *testing.T) {
@@ -179,7 +241,7 @@ func TestSemverComparison(t *testing.T) {
 		{"v0.10.0", "v0.9.0", 1},
 		{"v0.11.0-rc.2", "v0.11.0-rc.1", 1},
 		{"v0.11.0", "v0.11.0-rc.1", 1}, // stable > prerelease per semver
-		{"v0.10.0-nightly.20260302", "v0.10.0-nightly.20260301", 1},
+		{"v0.11.0-nightly.20260302", "v0.11.0-nightly.20260301", 1},
 		{"v0.10.0", "v0.10.0", 0},
 	}
 
