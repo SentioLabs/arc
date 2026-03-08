@@ -23,15 +23,32 @@ arc plan show <epic-id>
 
 Load the approved design from brainstorm. Understand the full scope before breaking it down.
 
-### 2. Identify Tasks
+### 2. Identify Shared Contracts (Foundation Task)
+
+Check the design for **shared contracts** — types, interfaces, config keys, constants, or function signatures referenced by multiple tasks. If the brainstorm design includes a shared contracts section, use it as input.
+
+If shared contracts exist and parallel execution is likely:
+
+1. Create a **T0: Foundation** task that establishes all shared contracts
+2. Mark all parallelizable tasks as **blocked by T0**
+3. T0 runs sequentially before any parallel batch begins
+
+This ensures parallel agents inherit shared definitions from HEAD rather than inventing them independently.
+
+**Skip this step** if the work is purely sequential or no shared contracts were identified.
+
+### 3. Identify Tasks
 
 Break the design into self-contained implementation units. Each task should:
 - Have a clear, testable outcome
 - Be implementable without knowledge of other tasks
 - Include exact file paths for all files to create or modify
 - Follow a logical dependency order
+- **Not overlap in file ownership with other parallelizable tasks**
 
-### 3. Create Arc Issues via arc-issue-tracker
+When identifying tasks, assign **file ownership** — each file should be owned by exactly one task. If two tasks need to modify the same file, either merge them into one task, serialize them with a dependency, or extract the shared file into the foundation task.
+
+### 4. Create Arc Issues via arc-issue-tracker
 
 **Never run `arc create` directly** — always delegate to the `arc-issue-tracker` agent. This keeps bulk CLI output in a disposable subagent context.
 
@@ -73,7 +90,7 @@ Description:
 
 For each task, check whether **all** files in its `## Files` section are documentation (`.md`, `.txt`, `README`, `CHANGELOG`, or anything under `docs/`). If so, include it in the `## Labels` section with `docs-only`. Doc-only tasks skip TDD — the `implement` skill routes them to `arc-doc-writer` instead of `arc-implementer`.
 
-### 4. Validate Returned Results
+### 5. Validate Returned Results
 
 Before proceeding, verify the agent's output:
 
@@ -81,7 +98,7 @@ Before proceeding, verify the agent's output:
 2. **Spot-check**: Run `arc show <id>` on one returned task to confirm it exists and has the correct parent
 3. **If mismatch**: Re-dispatch the agent for missing tasks only, or create them manually
 
-### 5. Update Epic Plan
+### 6. Update Epic Plan
 
 Using the task IDs from the agent's returned summary table, add the task breakdown to the epic's plan:
 ```bash
@@ -90,7 +107,7 @@ arc plan set <epic-id> --stdin <<'EOF'
 EOF
 ```
 
-### 6. Choose Execution Path
+### 7. Choose Execution Path
 
 **Use the AskUserQuestion tool** to let the user choose:
 
@@ -121,6 +138,11 @@ Include in every task description:
 - Create: `path/to/new_file.go`
 - Modify: `path/to/existing_file.go`
 - Test: `path/to/file_test.go`
+
+## Scope Boundary
+Do NOT create or modify any files outside the Files section above.
+If you need a type, interface, or constant that doesn't exist, do NOT create it —
+the foundation task or a prior task is responsible for shared definitions.
 
 ## Steps
 1. Write failing test for <specific behavior> in `path/to/file_test.go`
@@ -154,4 +176,6 @@ For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
 - Team preparation (teammate labels) is optional — only if user chooses team execution
 - The plan skill creates tasks; it does not implement them
 - The plan skill never runs `arc create` directly — always delegate to `arc-issue-tracker`
+- Every task must include a `## Scope Boundary` section — no file modifications outside the `## Files` list
+- No two parallelizable tasks may own the same file — resolve overlaps via foundation task, merging, or serialization
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

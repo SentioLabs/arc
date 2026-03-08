@@ -60,7 +60,24 @@ Options:
 - Present each section and get user approval before moving to the next
 - Iterate on sections as needed based on feedback
 
-### 5. Save to Arc
+### 5. Identify Shared Contracts (Parallel Readiness)
+
+If the design will produce multiple implementation tasks that could run in parallel, explicitly identify the **shared contracts** — types, interfaces, config keys, constants, and function signatures that multiple tasks will reference.
+
+Present these to the user as a "foundation layer":
+
+```
+Shared contracts (referenced by multiple tasks):
+- Type: `SessionConfig` in `internal/types/config.go`
+- Config key: `user.session.timeout`
+- Interface method: `Storage.GetSession(id string) (*Session, error)`
+```
+
+These contracts become a **foundation task** during planning — implemented sequentially before any parallel work begins. This prevents parallel agents from independently inventing conflicting names or duplicating shared types.
+
+**Skip this step** if the design maps to a single task or purely sequential work.
+
+### 6. Save to Arc (Including Shared Contracts)
 
 Detect scale and create appropriate structure:
 
@@ -127,7 +144,7 @@ arc create "Task Name" --type=task
 # Skip brainstorm/plan — go directly to implement
 ```
 
-### 6. Transition
+### 7. Transition
 
 **Use the AskUserQuestion tool** to confirm the next step:
 
