@@ -161,6 +161,11 @@ func getClient() (*client.Client, error) {
 
 	url := serverURL
 	if url == "" {
+		if envURL := os.Getenv("ARC_SERVER"); envURL != "" {
+			url = envURL
+		}
+	}
+	if url == "" {
 		url = cfg.ServerURL
 	}
 
@@ -282,7 +287,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "Server URL (default: http://localhost:7432)")
+	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "Server URL (env: ARC_SERVER, default: http://localhost:7432)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceID, "workspace", "w", "", "Workspace ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
