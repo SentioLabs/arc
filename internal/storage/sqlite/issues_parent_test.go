@@ -63,6 +63,152 @@ func TestListIssuesByParentFilter(t *testing.T) {
 	}
 }
 
+func TestGetOpenChildIssues(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	// Create parent issue
+	parent := setupTestIssue(t, store, ws, "Parent Epic")
+
+	// Create child issues
+	child1 := setupTestIssue(t, store, ws, "Open Child 1")
+	child2 := setupTestIssue(t, store, ws, "Open Child 2")
+	child3 := setupTestIssue(t, store, ws, "Closed Child")
+
+	// Create an unrelated issue
+	_ = setupTestIssue(t, store, ws, "Unrelated Issue")
+
+	// Add parent-child dependencies
+	for _, child := range []*types.Issue{child1, child2, child3} {
+		dep := &types.Dependency{
+			IssueID:     child.ID,
+			DependsOnID: parent.ID,
+			Type:        types.DepParentChild,
+		}
+		if err := store.AddDependency(ctx, dep, "test-actor"); err != nil {
+			t.Fatalf("AddDependency failed: %v", err)
+		}
+	}
+
+	// Close child3
+	if err := store.CloseIssue(ctx, child3.ID, "done", "test-actor"); err != nil {
+		t.Fatalf("CloseIssue failed: %v", err)
+	}
+
+	// Get open children - should return only child1 and child2
+	openChildren, err := store.GetOpenChildIssues(ctx, parent.ID)
+	if err != nil {
+		t.Fatalf("GetOpenChildIssues failed: %v", err)
+	}
+
+	if len(openChildren) != 2 {
+		t.Errorf("GetOpenChildIssues returned %d issues, want 2", len(openChildren))
+	}
+
+	childIDs := make(map[string]bool)
+	for _, issue := range openChildren {
+		childIDs[issue.ID] = true
+	}
+	if !childIDs[child1.ID] {
+		t.Errorf("GetOpenChildIssues did not return child1 (ID: %s)", child1.ID)
+	}
+	if !childIDs[child2.ID] {
+		t.Errorf("GetOpenChildIssues did not return child2 (ID: %s)", child2.ID)
+	}
+	if childIDs[child3.ID] {
+		t.Errorf("GetOpenChildIssues returned closed child3 (ID: %s)", child3.ID)
+	}
+}
+
+func TestGetOpenChildIssuesEmpty(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	// Create an issue with no children
+	parent := setupTestIssue(t, store, ws, "Childless Issue")
+
+	openChildren, err := store.GetOpenChildIssues(ctx, parent.ID)
+	if err != nil {
+		t.Fatalf("GetOpenChildIssues failed: %v", err)
+	}
+
+	if len(openChildren) != 0 {
+		t.Errorf("GetOpenChildIssues returned %d issues for childless parent, want 0", len(openChildren))
+	}
+}
+
+func TestGetOpenChildIssuesAllClosed(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	parent := setupTestIssue(t, store, ws, "Parent")
+	child := setupTestIssue(t, store, ws, "Child")
+
+	dep := &types.Dependency{
+		IssueID:     child.ID,
+		DependsOnID: parent.ID,
+		Type:        types.DepParentChild,
+	}
+	if err := store.AddDependency(ctx, dep, "test-actor"); err != nil {
+		t.Fatalf("AddDependency failed: %v", err)
+	}
+
+	// Close the child
+	if err := store.CloseIssue(ctx, child.ID, "done", "test-actor"); err != nil {
+		t.Fatalf("CloseIssue failed: %v", err)
+	}
+
+	// All children are closed, so result should be empty
+	openChildren, err := store.GetOpenChildIssues(ctx, parent.ID)
+	if err != nil {
+		t.Fatalf("GetOpenChildIssues failed: %v", err)
+	}
+
+	if len(openChildren) != 0 {
+		t.Errorf("GetOpenChildIssues returned %d issues when all children are closed, want 0", len(openChildren))
+	}
+}
+
+func TestGetOpenChildIssuesIgnoresNonParentChildDeps(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	issue1 := setupTestIssue(t, store, ws, "Issue 1")
+	issue2 := setupTestIssue(t, store, ws, "Issue 2")
+
+	// Add a "blocks" dependency (not parent-child)
+	dep := &types.Dependency{
+		IssueID:     issue2.ID,
+		DependsOnID: issue1.ID,
+		Type:        types.DepBlocks,
+	}
+	if err := store.AddDependency(ctx, dep, "test-actor"); err != nil {
+		t.Fatalf("AddDependency failed: %v", err)
+	}
+
+	// Should return empty since there are no parent-child deps
+	openChildren, err := store.GetOpenChildIssues(ctx, issue1.ID)
+	if err != nil {
+		t.Fatalf("GetOpenChildIssues failed: %v", err)
+	}
+
+	if len(openChildren) != 0 {
+		t.Errorf("GetOpenChildIssues returned %d issues for blocks dependency, want 0", len(openChildren))
+	}
+}
+
 func TestListIssuesByParentFilterEmpty(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()

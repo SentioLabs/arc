@@ -368,6 +368,54 @@ func (q *Queries) GetDependents(ctx context.Context, dependsOnID string) ([]*Iss
 	return items, nil
 }
 
+const getOpenChildIssues = `-- name: GetOpenChildIssues :many
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+JOIN dependencies d ON d.issue_id = i.id
+WHERE d.depends_on_id = ?
+  AND d.type = 'parent-child'
+  AND i.status != 'closed'
+ORDER BY i.priority ASC, i.created_at ASC
+`
+
+// Returns open (non-closed) child issues of a given parent via parent-child dependencies.
+func (q *Queries) GetOpenChildIssues(ctx context.Context, dependsOnID string) ([]*Issue, error) {
+	rows, err := q.db.QueryContext(ctx, getOpenChildIssues, dependsOnID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Issue{}
+	for rows.Next() {
+		var i Issue
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Title,
+			&i.Description,
+			&i.Status,
+			&i.Priority,
+			&i.IssueType,
+			&i.Assignee,
+			&i.ExternalRef,
+			&i.Rank,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
+			&i.CloseReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeDependency = `-- name: RemoveDependency :exec
 DELETE FROM dependencies WHERE issue_id = ? AND depends_on_id = ?
 `

@@ -580,6 +580,98 @@ func TestAllSortPolicies(t *testing.T) {
 	}
 }
 
+func TestOpenChildrenError(t *testing.T) {
+	t.Run("implements error interface", func(t *testing.T) {
+		children := []Issue{
+			{ID: "child-1", Title: "Child 1", Status: StatusOpen},
+			{ID: "child-2", Title: "Child 2", Status: StatusInProgress},
+		}
+		err := &OpenChildrenError{
+			IssueID:  "parent-1",
+			Children: children,
+		}
+
+		var _ error = err // compile-time check
+
+		msg := err.Error()
+		if msg == "" {
+			t.Error("OpenChildrenError.Error() returned empty string")
+		}
+	})
+
+	t.Run("error message contains issue ID and child count", func(t *testing.T) {
+		children := []Issue{
+			{ID: "child-1", Title: "Child 1", Status: StatusOpen},
+			{ID: "child-2", Title: "Child 2", Status: StatusInProgress},
+		}
+		err := &OpenChildrenError{
+			IssueID:  "parent-1",
+			Children: children,
+		}
+
+		msg := err.Error()
+		// Should mention the parent issue ID
+		if !containsString(msg, "parent-1") {
+			t.Errorf("OpenChildrenError.Error() = %q, want it to contain %q", msg, "parent-1")
+		}
+		// Should mention the count of open children
+		if !containsString(msg, "2") {
+			t.Errorf("OpenChildrenError.Error() = %q, want it to contain the count %q", msg, "2")
+		}
+	})
+
+	t.Run("single child message", func(t *testing.T) {
+		err := &OpenChildrenError{
+			IssueID: "parent-1",
+			Children: []Issue{
+				{ID: "child-1", Title: "Only Child", Status: StatusOpen},
+			},
+		}
+
+		msg := err.Error()
+		if !containsString(msg, "parent-1") {
+			t.Errorf("OpenChildrenError.Error() = %q, want it to contain %q", msg, "parent-1")
+		}
+		if !containsString(msg, "1") {
+			t.Errorf("OpenChildrenError.Error() = %q, want it to contain the count %q", msg, "1")
+		}
+	})
+
+	t.Run("stores fields correctly", func(t *testing.T) {
+		children := []Issue{
+			{ID: "child-1", Title: "Child 1"},
+		}
+		err := &OpenChildrenError{
+			IssueID:  "parent-1",
+			Children: children,
+		}
+
+		if err.IssueID != "parent-1" {
+			t.Errorf("OpenChildrenError.IssueID = %q, want %q", err.IssueID, "parent-1")
+		}
+		if len(err.Children) != 1 {
+			t.Errorf("OpenChildrenError.Children length = %d, want 1", len(err.Children))
+		}
+		if err.Children[0].ID != "child-1" {
+			t.Errorf("OpenChildrenError.Children[0].ID = %q, want %q", err.Children[0].ID, "child-1")
+		}
+	})
+}
+
+// containsString checks if s contains substr.
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestIssueFilterParentIDField(t *testing.T) {
 	// Verify that IssueFilter has a ParentID field and it works as expected
 	filter := IssueFilter{

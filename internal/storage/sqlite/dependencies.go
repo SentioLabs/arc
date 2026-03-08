@@ -83,6 +83,22 @@ func (s *Store) GetDependencies(ctx context.Context, issueID string) ([]*types.D
 	return deps, nil
 }
 
+// GetOpenChildIssues returns open (non-closed) child issues of a given parent
+// via parent-child dependencies.
+func (s *Store) GetOpenChildIssues(ctx context.Context, parentID string) ([]*types.Issue, error) {
+	rows, err := s.queries.GetOpenChildIssues(ctx, parentID)
+	if err != nil {
+		return nil, fmt.Errorf("get open child issues: %w", err)
+	}
+
+	issues := make([]*types.Issue, len(rows))
+	for i, row := range rows {
+		issues[i] = dbIssueToType(row)
+	}
+
+	return issues, nil
+}
+
 // GetDependents returns issues that depend on the given issue.
 func (s *Store) GetDependents(ctx context.Context, issueID string) ([]*types.Dependency, error) {
 	rows, err := s.queries.GetDependentRecords(ctx, issueID)

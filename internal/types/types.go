@@ -346,6 +346,17 @@ type Statistics struct {
 	AvgLeadTimeHours float64 `json:"avg_lead_time_hours,omitempty"`
 }
 
+// OpenChildrenError is returned when attempting to close an issue that has open child issues.
+type OpenChildrenError struct {
+	IssueID  string  // The issue that cannot be closed
+	Children []Issue // The open child issues
+}
+
+// Error implements the error interface.
+func (e *OpenChildrenError) Error() string {
+	return fmt.Sprintf("cannot close issue %s: %d open child issue(s)", e.IssueID, len(e.Children))
+}
+
 // BlockedIssue extends Issue with blocking information.
 type BlockedIssue struct {
 	Issue

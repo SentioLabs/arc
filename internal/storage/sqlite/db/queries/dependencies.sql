@@ -63,5 +63,14 @@ GROUP BY i.id
 ORDER BY i.priority ASC
 LIMIT ?;
 
+-- name: GetOpenChildIssues :many
+-- Returns open (non-closed) child issues of a given parent via parent-child dependencies.
+SELECT i.* FROM issues i
+JOIN dependencies d ON d.issue_id = i.id
+WHERE d.depends_on_id = ?
+  AND d.type = 'parent-child'
+  AND i.status != 'closed'
+ORDER BY i.priority ASC, i.created_at ASC;
+
 -- name: DeleteDependenciesByIssue :exec
 DELETE FROM dependencies WHERE issue_id = ? OR depends_on_id = ?;
