@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/SentioLabs/arc/compare/v0.11.0...v0.11.1) (2026-03-08)
+
+
+### Bug Fixes
+
+* **skills:** prevent scope creep and merge conflicts in parallel worktree execution ([c16bc71](https://github.com/SentioLabs/arc/commit/c16bc71ae643525c571747fa8220f5ba47a59d90))
+
 ## [0.11.0](https://github.com/SentioLabs/arc/compare/v0.10.0...v0.11.0) (2026-03-08)
 
 
