@@ -16,6 +16,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
+	"github.com/sentiolabs/arc/internal/types"
 	"github.com/sentiolabs/arc/internal/version"
 	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
@@ -826,11 +827,17 @@ var closeCmd = &cobra.Command{
 		}
 
 		reason, _ := cmd.Flags().GetString("reason")
+		cascade, _ := cmd.Flags().GetBool("cascade")
 
 		for _, id := range args {
-			issue, err := c.CloseIssue(wsID, id, reason, false)
+			issue, err := c.CloseIssue(wsID, id, reason, cascade)
 			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Failed to close %s: %v\n", id, err)
+				var openChildrenErr *types.OpenChildrenError
+				if errors.As(err, &openChildrenErr) {
+					_, _ = fmt.Fprint(os.Stderr, formatOpenChildrenError(openChildrenErr))
+				} else {
+					_, _ = fmt.Fprintf(os.Stderr, "Failed to close %s: %v\n", id, err)
+				}
 				continue
 			}
 			fmt.Printf("Closed: %s\n", issue.ID)
@@ -842,6 +849,48 @@ var closeCmd = &cobra.Command{
 
 func init() {
 	closeCmd.Flags().StringP("reason", "r", "", "Close reason")
+	closeCmd.Flags().Bool("cascade", false, "Close all open child issues recursively")
+}
+
+// formatOpenChildrenError formats an OpenChildrenError into a human-readable
+// multi-line message showing which children are open and how to resolve.
+func formatOpenChildrenError(e *types.OpenChildrenError) string {
+	var b strings.Builder
+
+	// Header
+	plural := "issues"
+	if len(e.Children) == 1 {
+		plural = "issue"
+	}
+	fmt.Fprintf(&b, "Error: cannot close %s: %d open child %s must be closed first\n",
+		e.IssueID, len(e.Children), plural)
+
+	// Children list
+	b.WriteString("\n  Open children:\n")
+
+	// Calculate max widths for alignment
+	maxIDLen := 0
+	maxTitleLen := 0
+	for _, child := range e.Children {
+		if len(child.ID) > maxIDLen {
+			maxIDLen = len(child.ID)
+		}
+		if len(child.Title) > maxTitleLen {
+			maxTitleLen = len(child.Title)
+		}
+	}
+
+	for _, child := range e.Children {
+		fmt.Fprintf(&b, "    %-*s  %-*s  (%s)\n",
+			maxIDLen, child.ID,
+			maxTitleLen, child.Title,
+			child.Status)
+	}
+
+	// Hint
+	b.WriteString("\n  Use --cascade to close all children, or close them individually first.\n")
+
+	return b.String()
 }
 
 // readyCmd shows issues that are unblocked and available to work on.
