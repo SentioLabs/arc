@@ -1,12 +1,14 @@
 package api //nolint:testpackage // tests use internal helpers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -120,5 +122,122 @@ func TestListIssuesWithoutParentIDReturnsAll(t *testing.T) {
 
 	if len(issues) != 3 {
 		t.Errorf("expected 3 issues (all), got %d", len(issues))
+	}
+}
+
+// closeTestIssue sends a POST to close an issue with the given JSON body.
+func closeTestIssue(t *testing.T, e *echo.Echo, wsID, issueID, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	closeURL := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/close", wsID, issueID)
+	req := httptest.NewRequest(http.MethodPost, closeURL, bytes.NewBufferString(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	return rec
+}
+
+func TestCloseIssueCascadeField(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+
+	// Create a parent epic and a child task
+	epicID := createTestIssueWithType(t, e, wsID, "Epic", "epic")
+	childID := createTestIssue(t, e, wsID, "Child Task")
+	addTestDependency(t, e, wsID, testDep{childID, epicID, "parent-child"})
+
+	// Close with cascade=true should close both parent and child
+	rec := closeTestIssue(t, e, wsID, epicID, `{"cascade": true}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("closeIssue with cascade returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify the child was also closed
+	childURL := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s", wsID, childID)
+	req := httptest.NewRequest(http.MethodGet, childURL, nil)
+	childRec := httptest.NewRecorder()
+	e.ServeHTTP(childRec, req)
+
+	var child types.Issue
+	if err := json.Unmarshal(childRec.Body.Bytes(), &child); err != nil {
+		t.Fatalf("failed to parse child issue: %v", err)
+	}
+
+	if child.Status != types.StatusClosed {
+		t.Errorf("child status = %q, want %q", child.Status, types.StatusClosed)
+	}
+}
+
+func TestCloseIssueOpenChildren409(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+
+	// Create a parent epic and a child task
+	epicID := createTestIssueWithType(t, e, wsID, "Epic", "epic")
+	childID := createTestIssue(t, e, wsID, "Child Task")
+	addTestDependency(t, e, wsID, testDep{childID, epicID, "parent-child"})
+
+	// Close without cascade (default false) should return 409
+	rec := closeTestIssue(t, e, wsID, epicID, `{}`)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("closeIssue without cascade returned %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+
+	// Parse the response body
+	var resp struct {
+		Error        string        `json:"error"`
+		Code         string        `json:"code"`
+		OpenChildren []types.Issue `json:"open_children"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse 409 response: %v", err)
+	}
+
+	if resp.Code != "open_children" {
+		t.Errorf("response code = %q, want %q", resp.Code, "open_children")
+	}
+
+	if len(resp.OpenChildren) != 1 {
+		t.Fatalf("expected 1 open child, got %d", len(resp.OpenChildren))
+	}
+
+	if resp.OpenChildren[0].ID != childID {
+		t.Errorf("open_children[0].ID = %q, want %q", resp.OpenChildren[0].ID, childID)
+	}
+}
+
+func TestCloseIssueNoChildrenNoCascade(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+
+	// Create a simple issue with no children
+	issueID := createTestIssue(t, e, wsID, "Simple Task")
+
+	// Close without cascade should succeed (no children to worry about)
+	rec := closeTestIssue(t, e, wsID, issueID, `{}`)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("closeIssue returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var issue types.Issue
+	if err := json.Unmarshal(rec.Body.Bytes(), &issue); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if issue.Status != types.StatusClosed {
+		t.Errorf("status = %q, want %q", issue.Status, types.StatusClosed)
 	}
 }

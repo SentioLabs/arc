@@ -40,7 +40,8 @@ type updateIssueRequest struct {
 
 // closeIssueRequest is the request body for closing an issue.
 type closeIssueRequest struct {
-	Reason string `json:"reason,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+	Cascade bool   `json:"cascade"`
 }
 
 // listIssues returns issues for a workspace with optional filtering and pagination.
@@ -252,7 +253,15 @@ func (s *Server) closeIssue(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := s.store.CloseIssue(c.Request().Context(), id, req.Reason, false, actor); err != nil {
+	if err := s.store.CloseIssue(c.Request().Context(), id, req.Reason, req.Cascade, actor); err != nil {
+		var openChildrenErr *types.OpenChildrenError
+		if errors.As(err, &openChildrenErr) {
+			return c.JSON(http.StatusConflict, map[string]any{
+				"error":         openChildrenErr.Error(),
+				"code":          "open_children",
+				"open_children": openChildrenErr.Children,
+			})
+		}
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
