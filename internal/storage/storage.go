@@ -24,7 +24,7 @@ type Storage interface {
 	GetIssueByExternalRef(ctx context.Context, externalRef string) (*types.Issue, error)
 	ListIssues(ctx context.Context, filter types.IssueFilter) ([]*types.Issue, error)
 	UpdateIssue(ctx context.Context, id string, updates map[string]any, actor string) error
-	CloseIssue(ctx context.Context, id string, reason string, actor string) error
+	CloseIssue(ctx context.Context, id string, reason string, cascade bool, actor string) error
 	ReopenIssue(ctx context.Context, id string, actor string) error
 	DeleteIssue(ctx context.Context, id string) error
 	GetIssueDetails(ctx context.Context, id string) (*types.IssueDetails, error)

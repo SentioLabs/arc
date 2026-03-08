@@ -252,7 +252,7 @@ func (s *Server) closeIssue(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := s.store.CloseIssue(c.Request().Context(), id, req.Reason, actor); err != nil {
+	if err := s.store.CloseIssue(c.Request().Context(), id, req.Reason, false, actor); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 

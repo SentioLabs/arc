@@ -301,7 +301,67 @@ func (s *Store) UpdateIssue(ctx context.Context, id string, updates map[string]a
 }
 
 // CloseIssue closes an issue.
-func (s *Store) CloseIssue(ctx context.Context, id string, reason string, actor string) error {
+// When cascade is false, it checks for open child issues and returns an
+// *types.OpenChildrenError if any are found. When cascade is true, it
+// recursively closes all open descendants leaf-first before closing the
+// target issue. Each cascade-closed child gets a reason of
+// "<reason> (cascade closed by <parent-id>)" where parent-id is the
+// original issue being closed.
+func (s *Store) CloseIssue(ctx context.Context, id string, reason string, cascade bool, actor string) error {
+	// Check for open children
+	openChildren, err := s.GetOpenChildIssues(ctx, id)
+	if err != nil {
+		return fmt.Errorf("check open children: %w", err)
+	}
+
+	if len(openChildren) > 0 && !cascade {
+		children := make([]types.Issue, len(openChildren))
+		for i, c := range openChildren {
+			children[i] = *c
+		}
+		return &types.OpenChildrenError{
+			IssueID:  id,
+			Children: children,
+		}
+	}
+
+	if cascade {
+		// Recursively collect and close all open descendants leaf-first
+		if err := s.cascadeCloseDescendants(ctx, id, id, reason, actor); err != nil {
+			return err
+		}
+	}
+
+	// Close the target issue itself
+	return s.closeIssueSingle(ctx, id, reason, actor)
+}
+
+// cascadeCloseDescendants recursively closes all open descendants of parentID
+// in leaf-first order. rootID is the original issue being closed (for reason formatting).
+func (s *Store) cascadeCloseDescendants(ctx context.Context, parentID, rootID, reason, actor string) error {
+	openChildren, err := s.GetOpenChildIssues(ctx, parentID)
+	if err != nil {
+		return fmt.Errorf("get open children of %s: %w", parentID, err)
+	}
+
+	for _, child := range openChildren {
+		// Recurse into grandchildren first (leaf-first closing)
+		if err := s.cascadeCloseDescendants(ctx, child.ID, rootID, reason, actor); err != nil {
+			return err
+		}
+
+		// Close this child with cascade reason
+		cascadeReason := fmt.Sprintf("%s (cascade closed by %s)", reason, rootID)
+		if err := s.closeIssueSingle(ctx, child.ID, cascadeReason, actor); err != nil {
+			return fmt.Errorf("cascade close %s: %w", child.ID, err)
+		}
+	}
+
+	return nil
+}
+
+// closeIssueSingle closes a single issue without any cascade logic.
+func (s *Store) closeIssueSingle(ctx context.Context, id string, reason string, actor string) error {
 	now := time.Now()
 	err := s.queries.CloseIssue(ctx, db.CloseIssueParams{
 		ClosedAt:    toNullTime(&now),

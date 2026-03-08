@@ -94,7 +94,7 @@ func TestGetOpenChildIssues(t *testing.T) {
 	}
 
 	// Close child3
-	if err := store.CloseIssue(ctx, child3.ID, "done", "test-actor"); err != nil {
+	if err := store.CloseIssue(ctx, child3.ID, "done", false, "test-actor"); err != nil {
 		t.Fatalf("CloseIssue failed: %v", err)
 	}
 
@@ -163,7 +163,7 @@ func TestGetOpenChildIssuesAllClosed(t *testing.T) {
 	}
 
 	// Close the child
-	if err := store.CloseIssue(ctx, child.ID, "done", "test-actor"); err != nil {
+	if err := store.CloseIssue(ctx, child.ID, "done", false, "test-actor"); err != nil {
 		t.Fatalf("CloseIssue failed: %v", err)
 	}
 
