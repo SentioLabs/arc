@@ -828,7 +828,7 @@ var closeCmd = &cobra.Command{
 		reason, _ := cmd.Flags().GetString("reason")
 
 		for _, id := range args {
-			issue, err := c.CloseIssue(wsID, id, reason)
+			issue, err := c.CloseIssue(wsID, id, reason, false)
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Failed to close %s: %v\n", id, err)
 				continue

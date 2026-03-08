@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"errors"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
@@ -295,6 +296,95 @@ func TestClientLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	}
 	if len(retrieved.LinkedIssues) != 0 {
 		t.Errorf("LinkedIssues after unlink length = %d, want 0", len(retrieved.LinkedIssues))
+	}
+}
+
+func TestClientCloseIssueSendsCascade(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	ws := createTestWorkspaceClient(t, c)
+	issue := createTestIssueClient(t, c, ws.ID, "Issue to close")
+
+	// Close without cascade should work for issue with no children
+	closed, err := c.CloseIssue(ws.ID, issue.ID, "done", false)
+	if err != nil {
+		t.Fatalf("CloseIssue failed: %v", err)
+	}
+	if closed.Status != types.StatusClosed {
+		t.Errorf("status = %q, want %q", closed.Status, types.StatusClosed)
+	}
+}
+
+func TestClientCloseIssueReturnsOpenChildrenError(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	ws := createTestWorkspaceClient(t, c)
+
+	// Create parent epic
+	parent := createTestIssueClient(t, c, ws.ID, "Parent epic")
+
+	// Create open child under parent
+	child, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+		Title:     "Open child",
+		IssueType: "task",
+		Priority:  2,
+		ParentID:  parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+
+	// Try to close parent without cascade - should get OpenChildrenError
+	_, err = c.CloseIssue(ws.ID, parent.ID, "done", false)
+	if err == nil {
+		t.Fatal("expected error when closing parent with open children")
+	}
+
+	var openChildrenErr *types.OpenChildrenError
+	if !errors.As(err, &openChildrenErr) {
+		t.Fatalf("expected *types.OpenChildrenError, got %T: %v", err, err)
+	}
+
+	if openChildrenErr.IssueID != parent.ID {
+		t.Errorf("IssueID = %q, want %q", openChildrenErr.IssueID, parent.ID)
+	}
+	if len(openChildrenErr.Children) != 1 {
+		t.Fatalf("expected 1 open child, got %d", len(openChildrenErr.Children))
+	}
+	if openChildrenErr.Children[0].ID != child.ID {
+		t.Errorf("child ID = %q, want %q", openChildrenErr.Children[0].ID, child.ID)
+	}
+}
+
+func TestClientCloseIssueWithCascade(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	ws := createTestWorkspaceClient(t, c)
+
+	// Create parent epic
+	parent := createTestIssueClient(t, c, ws.ID, "Parent epic")
+
+	// Create open child under parent
+	_, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+		Title:     "Open child",
+		IssueType: "task",
+		Priority:  2,
+		ParentID:  parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+
+	// Close parent with cascade - should succeed
+	closed, err := c.CloseIssue(ws.ID, parent.ID, "done", true)
+	if err != nil {
+		t.Fatalf("CloseIssue with cascade failed: %v", err)
+	}
+	if closed.Status != types.StatusClosed {
+		t.Errorf("status = %q, want %q", closed.Status, types.StatusClosed)
 	}
 }
 

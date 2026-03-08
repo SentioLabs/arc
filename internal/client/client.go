@@ -257,16 +257,51 @@ func (c *Client) UpdateIssue(wsID, id string, updates map[string]any) (*types.Is
 	return &issue, nil
 }
 
-// CloseIssue closes an issue.
-func (c *Client) CloseIssue(wsID, id, reason string) (*types.Issue, error) {
+// CloseIssue closes an issue. When cascade is true, open children are closed
+// recursively. When cascade is false and the issue has open children, a
+// *types.OpenChildrenError is returned so the caller can prompt the user.
+func (c *Client) CloseIssue(wsID, id, reason string, cascade bool) (*types.Issue, error) {
 	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/close", wsID, id)
 
-	body := map[string]string{"reason": reason}
-	resp, err := c.post(path, body)
+	body := map[string]any{"reason": reason, "cascade": cascade}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal body: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", c.baseURL+path, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Actor", c.actor)
+
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
 	defer resp.Body.Close()
+
+	// Handle 409 Conflict with open_children code
+	if resp.StatusCode == http.StatusConflict {
+		respBody, _ := io.ReadAll(resp.Body)
+		var conflictResp struct {
+			Error        string       `json:"error"`
+			Code         string       `json:"code"`
+			OpenChildren []types.Issue `json:"open_children"`
+		}
+		if json.Unmarshal(respBody, &conflictResp) == nil && conflictResp.Code == "open_children" {
+			return nil, &types.OpenChildrenError{
+				IssueID:  id,
+				Children: conflictResp.OpenChildren,
+			}
+		}
+		return nil, fmt.Errorf("%s", string(respBody))
+	}
+
+	if err := c.checkError(resp); err != nil {
+		return nil, err
+	}
 
 	var issue types.Issue
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
