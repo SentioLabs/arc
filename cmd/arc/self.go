@@ -275,6 +275,14 @@ func runSelfChannel(cmd *cobra.Command, args []string) error {
 
 	newChannel := args[0]
 
+	// Validate channel name early
+	switch newChannel {
+	case channelStable, channelRC, channelNightly:
+		// valid
+	default:
+		return fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", newChannel)
+	}
+
 	// Warn and confirm for non-stable channels
 	if newChannel != channelStable && !selfYes {
 		var warning string
