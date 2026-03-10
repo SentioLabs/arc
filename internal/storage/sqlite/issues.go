@@ -175,6 +175,8 @@ func (s *Store) GetIssueByExternalRef(ctx context.Context, externalRef string) (
 }
 
 // ListIssues returns issues matching the filter.
+// All filter fields are composed with AND semantics so multiple filters
+// (e.g. --parent + --status) work together via a single sqlc query.
 func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*types.Issue, error) {
 	limit := filter.Limit
 	if limit <= 0 {
@@ -182,48 +184,35 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 	}
 	offset := max(filter.Offset, 0)
 
-	var rows []*db.Issue
-	var err error
-
-	switch {
-	case filter.ParentID != "":
-		rows, err = s.queries.ListIssuesByParent(ctx, db.ListIssuesByParentParams{
-			DependsOnID: filter.ParentID,
-			WorkspaceID: filter.WorkspaceID,
-			Limit:       int64(limit),
-			Offset:      int64(offset),
-		})
-	case filter.Query != "":
+	// Full-text search has its own dedicated path.
+	if filter.Query != "" {
 		return s.searchIssuesFTS(ctx, filter.WorkspaceID, filter.Query, limit, offset)
-	case filter.Status != nil:
-		rows, err = s.queries.ListIssuesByStatus(ctx, db.ListIssuesByStatusParams{
-			WorkspaceID: filter.WorkspaceID,
-			Status:      string(*filter.Status),
-			Limit:       int64(limit),
-			Offset:      int64(offset),
-		})
-	case filter.Assignee != nil:
-		rows, err = s.queries.ListIssuesByAssignee(ctx, db.ListIssuesByAssigneeParams{
-			WorkspaceID: filter.WorkspaceID,
-			Assignee:    toNullString(*filter.Assignee),
-			Limit:       int64(limit),
-			Offset:      int64(offset),
-		})
-	case filter.IssueType != nil:
-		rows, err = s.queries.ListIssuesByType(ctx, db.ListIssuesByTypeParams{
-			WorkspaceID: filter.WorkspaceID,
-			IssueType:   string(*filter.IssueType),
-			Limit:       int64(limit),
-			Offset:      int64(offset),
-		})
-	default:
-		rows, err = s.queries.ListIssuesByWorkspace(ctx, db.ListIssuesByWorkspaceParams{
-			WorkspaceID: filter.WorkspaceID,
-			Limit:       int64(limit),
-			Offset:      int64(offset),
-		})
 	}
 
+	// Convert pointer filters to nil-able interface{} values for sqlc.narg params.
+	// nil means "skip this filter", non-nil means "apply this filter".
+	params := db.ListIssuesFilteredParams{
+		WorkspaceID: filter.WorkspaceID,
+		Limit:       int64(limit),
+		Offset:      int64(offset),
+	}
+	if filter.Status != nil {
+		params.Status = string(*filter.Status)
+	}
+	if filter.IssueType != nil {
+		params.IssueType = string(*filter.IssueType)
+	}
+	if filter.Assignee != nil {
+		params.Assignee = *filter.Assignee
+	}
+	if filter.Priority != nil {
+		params.Priority = *filter.Priority
+	}
+	if filter.ParentID != "" {
+		params.ParentID = filter.ParentID
+	}
+
+	rows, err := s.queries.ListIssuesFiltered(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("list issues: %w", err)
 	}

@@ -11,29 +11,22 @@ SELECT * FROM issues WHERE id = ?;
 -- name: GetIssueByExternalRef :one
 SELECT * FROM issues WHERE external_ref = ?;
 
--- name: ListIssuesByWorkspace :many
-SELECT * FROM issues
-WHERE workspace_id = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?;
-
--- name: ListIssuesByStatus :many
-SELECT * FROM issues
-WHERE workspace_id = ? AND status = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?;
-
--- name: ListIssuesByAssignee :many
-SELECT * FROM issues
-WHERE workspace_id = ? AND assignee = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?;
-
--- name: ListIssuesByType :many
-SELECT * FROM issues
-WHERE workspace_id = ? AND issue_type = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?;
+-- name: ListIssuesFiltered :many
+-- Composable filter query: all optional params use sqlc.narg so NULL means "skip this filter".
+-- The LEFT JOIN on dependencies is only effective when parent_id is non-NULL.
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
+       i.issue_type, i.assignee, i.external_ref, i.rank,
+       i.created_at, i.updated_at, i.closed_at, i.close_reason
+FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
+WHERE i.workspace_id = sqlc.arg('workspace_id')
+  AND (sqlc.narg('status') IS NULL OR i.status = sqlc.narg('status'))
+  AND (sqlc.narg('issue_type') IS NULL OR i.issue_type = sqlc.narg('issue_type'))
+  AND (sqlc.narg('assignee') IS NULL OR i.assignee = sqlc.narg('assignee'))
+  AND (sqlc.narg('priority') IS NULL OR i.priority = sqlc.narg('priority'))
+  AND (sqlc.narg('parent_id') IS NULL OR d.depends_on_id = sqlc.narg('parent_id'))
+ORDER BY i.priority ASC, i.updated_at DESC
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: SearchIssues :many
 SELECT * FROM issues
@@ -154,16 +147,6 @@ GROUP BY i.id
 HAVING COUNT(blocker.id) = 0
 ORDER BY i.created_at ASC
 LIMIT ?;
-
--- name: ListIssuesByParent :many
--- Returns child issues of a parent via parent-child dependencies.
-SELECT i.* FROM issues i
-JOIN dependencies d ON d.issue_id = i.id
-WHERE d.depends_on_id = ?
-  AND d.type = 'parent-child'
-  AND i.workspace_id = ?
-ORDER BY i.priority ASC, i.created_at ASC
-LIMIT ? OFFSET ?;
 
 -- name: UpdateIssueRank :exec
 UPDATE issues SET rank = ?, updated_at = ? WHERE id = ?;

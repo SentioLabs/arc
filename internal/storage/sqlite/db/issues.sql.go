@@ -419,253 +419,46 @@ func (q *Queries) GetReadyIssuesPriority(ctx context.Context, arg GetReadyIssues
 	return items, nil
 }
 
-const listIssuesByAssignee = `-- name: ListIssuesByAssignee :many
-SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
-WHERE workspace_id = ? AND assignee = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?
+const listIssuesFiltered = `-- name: ListIssuesFiltered :many
+SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
+       i.issue_type, i.assignee, i.external_ref, i.rank,
+       i.created_at, i.updated_at, i.closed_at, i.close_reason
+FROM issues i
+LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
+WHERE i.workspace_id = ?1
+  AND (?2 IS NULL OR i.status = ?2)
+  AND (?3 IS NULL OR i.issue_type = ?3)
+  AND (?4 IS NULL OR i.assignee = ?4)
+  AND (?5 IS NULL OR i.priority = ?5)
+  AND (?6 IS NULL OR d.depends_on_id = ?6)
+ORDER BY i.priority ASC, i.updated_at DESC
+LIMIT ?8 OFFSET ?7
 `
 
-type ListIssuesByAssigneeParams struct {
-	WorkspaceID string         `json:"workspace_id"`
-	Assignee    sql.NullString `json:"assignee"`
-	Limit       int64          `json:"limit"`
-	Offset      int64          `json:"offset"`
+type ListIssuesFilteredParams struct {
+	WorkspaceID string      `json:"workspace_id"`
+	Status      interface{} `json:"status"`
+	IssueType   interface{} `json:"issue_type"`
+	Assignee    interface{} `json:"assignee"`
+	Priority    interface{} `json:"priority"`
+	ParentID    interface{} `json:"parent_id"`
+	Offset      int64       `json:"offset"`
+	Limit       int64       `json:"limit"`
 }
 
-func (q *Queries) ListIssuesByAssignee(ctx context.Context, arg ListIssuesByAssigneeParams) ([]*Issue, error) {
-	rows, err := q.db.QueryContext(ctx, listIssuesByAssignee,
-		arg.WorkspaceID,
-		arg.Assignee,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*Issue{}
-	for rows.Next() {
-		var i Issue
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.Title,
-			&i.Description,
-			&i.Status,
-			&i.Priority,
-			&i.IssueType,
-			&i.Assignee,
-			&i.ExternalRef,
-			&i.Rank,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ClosedAt,
-			&i.CloseReason,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listIssuesByParent = `-- name: ListIssuesByParent :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
-JOIN dependencies d ON d.issue_id = i.id
-WHERE d.depends_on_id = ?
-  AND d.type = 'parent-child'
-  AND i.workspace_id = ?
-ORDER BY i.priority ASC, i.created_at ASC
-LIMIT ? OFFSET ?
-`
-
-type ListIssuesByParentParams struct {
-	DependsOnID string `json:"depends_on_id"`
-	WorkspaceID string `json:"workspace_id"`
-	Limit       int64  `json:"limit"`
-	Offset      int64  `json:"offset"`
-}
-
-// Returns child issues of a parent via parent-child dependencies.
-func (q *Queries) ListIssuesByParent(ctx context.Context, arg ListIssuesByParentParams) ([]*Issue, error) {
-	rows, err := q.db.QueryContext(ctx, listIssuesByParent,
-		arg.DependsOnID,
-		arg.WorkspaceID,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*Issue{}
-	for rows.Next() {
-		var i Issue
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.Title,
-			&i.Description,
-			&i.Status,
-			&i.Priority,
-			&i.IssueType,
-			&i.Assignee,
-			&i.ExternalRef,
-			&i.Rank,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ClosedAt,
-			&i.CloseReason,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listIssuesByStatus = `-- name: ListIssuesByStatus :many
-SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
-WHERE workspace_id = ? AND status = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?
-`
-
-type ListIssuesByStatusParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	Status      string `json:"status"`
-	Limit       int64  `json:"limit"`
-	Offset      int64  `json:"offset"`
-}
-
-func (q *Queries) ListIssuesByStatus(ctx context.Context, arg ListIssuesByStatusParams) ([]*Issue, error) {
-	rows, err := q.db.QueryContext(ctx, listIssuesByStatus,
+// Composable filter query: all optional params use sqlc.narg so NULL means "skip this filter".
+// The LEFT JOIN on dependencies is only effective when parent_id is non-NULL.
+func (q *Queries) ListIssuesFiltered(ctx context.Context, arg ListIssuesFilteredParams) ([]*Issue, error) {
+	rows, err := q.db.QueryContext(ctx, listIssuesFiltered,
 		arg.WorkspaceID,
 		arg.Status,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*Issue{}
-	for rows.Next() {
-		var i Issue
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.Title,
-			&i.Description,
-			&i.Status,
-			&i.Priority,
-			&i.IssueType,
-			&i.Assignee,
-			&i.ExternalRef,
-			&i.Rank,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ClosedAt,
-			&i.CloseReason,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listIssuesByType = `-- name: ListIssuesByType :many
-SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
-WHERE workspace_id = ? AND issue_type = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?
-`
-
-type ListIssuesByTypeParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	IssueType   string `json:"issue_type"`
-	Limit       int64  `json:"limit"`
-	Offset      int64  `json:"offset"`
-}
-
-func (q *Queries) ListIssuesByType(ctx context.Context, arg ListIssuesByTypeParams) ([]*Issue, error) {
-	rows, err := q.db.QueryContext(ctx, listIssuesByType,
-		arg.WorkspaceID,
 		arg.IssueType,
-		arg.Limit,
+		arg.Assignee,
+		arg.Priority,
+		arg.ParentID,
 		arg.Offset,
+		arg.Limit,
 	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*Issue{}
-	for rows.Next() {
-		var i Issue
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.Title,
-			&i.Description,
-			&i.Status,
-			&i.Priority,
-			&i.IssueType,
-			&i.Assignee,
-			&i.ExternalRef,
-			&i.Rank,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ClosedAt,
-			&i.CloseReason,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listIssuesByWorkspace = `-- name: ListIssuesByWorkspace :many
-SELECT id, workspace_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
-WHERE workspace_id = ?
-ORDER BY priority ASC, updated_at DESC
-LIMIT ? OFFSET ?
-`
-
-type ListIssuesByWorkspaceParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	Limit       int64  `json:"limit"`
-	Offset      int64  `json:"offset"`
-}
-
-func (q *Queries) ListIssuesByWorkspace(ctx context.Context, arg ListIssuesByWorkspaceParams) ([]*Issue, error) {
-	rows, err := q.db.QueryContext(ctx, listIssuesByWorkspace, arg.WorkspaceID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

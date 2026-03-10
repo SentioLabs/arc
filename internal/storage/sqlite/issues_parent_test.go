@@ -209,6 +209,53 @@ func TestGetOpenChildIssuesIgnoresNonParentChildDeps(t *testing.T) {
 	}
 }
 
+func TestListIssuesByParentAndStatusFilter(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	// Create parent and children
+	parent := setupTestIssue(t, store, ws, "Parent Epic")
+	child1 := setupTestIssue(t, store, ws, "Open Child")
+	child2 := setupTestIssue(t, store, ws, "Closed Child")
+
+	for _, child := range []*types.Issue{child1, child2} {
+		dep := &types.Dependency{
+			IssueID:     child.ID,
+			DependsOnID: parent.ID,
+			Type:        types.DepParentChild,
+		}
+		if err := store.AddDependency(ctx, dep, "test-actor"); err != nil {
+			t.Fatalf("AddDependency failed: %v", err)
+		}
+	}
+
+	// Close child2
+	if err := store.CloseIssue(ctx, child2.ID, "done", false, "test-actor"); err != nil {
+		t.Fatalf("CloseIssue failed: %v", err)
+	}
+
+	// Filter by parent + status=open should only return child1
+	openStatus := types.StatusOpen
+	issues, err := store.ListIssues(ctx, types.IssueFilter{
+		WorkspaceID: ws.ID,
+		ParentID:    parent.ID,
+		Status:      &openStatus,
+	})
+	if err != nil {
+		t.Fatalf("ListIssues with ParentID+Status failed: %v", err)
+	}
+
+	if len(issues) != 1 {
+		t.Errorf("ListIssues with ParentID+Status returned %d issues, want 1", len(issues))
+	}
+	if len(issues) > 0 && issues[0].ID != child1.ID {
+		t.Errorf("expected child1 (%s), got %s", child1.ID, issues[0].ID)
+	}
+}
+
 func TestListIssuesByParentFilterEmpty(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
