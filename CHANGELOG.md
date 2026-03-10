@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.2](https://github.com/SentioLabs/arc/compare/v0.11.1...v0.11.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* **storage:** compose list filters with AND instead of mutually exclusive switch ([43279e1](https://github.com/SentioLabs/arc/commit/43279e17ea97fee21f04ef4af8858476b914dc68))
+
 ## [0.11.1](https://github.com/SentioLabs/arc/compare/v0.11.0...v0.11.1) (2026-03-08)
 
 
