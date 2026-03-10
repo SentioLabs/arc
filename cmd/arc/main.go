@@ -14,6 +14,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/fatih/color"
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
@@ -1116,11 +1117,8 @@ func formatIssue(id, status, issueType string, priority int, title string, label
 		icon = "\u25c7" // ◇
 	}
 
-	// Priority badge - filled for high priority (P0-P1), empty for lower
-	priorityIcon := statusIconOpen
-	if priority <= 1 {
-		priorityIcon = statusIconClosed
-	}
+	// Priority badge - color-coded by priority level
+	priorityStr := colorPriority(priority)
 
 	// Labels as space-separated in brackets
 	labelStr := ""
@@ -1128,8 +1126,8 @@ func formatIssue(id, status, issueType string, priority int, title string, label
 		labelStr = " [" + strings.Join(labels, " ") + "]"
 	}
 
-	return fmt.Sprintf("%s %s [%s P%d] [%s]%s - %s",
-		icon, id, priorityIcon, priority, issueType, labelStr, title)
+	return fmt.Sprintf("%s %s [%s] [%s]%s - %s",
+		icon, id, priorityStr, issueType, labelStr, title)
 }
 
 // formatBlockedIssue returns a beads-style formatted blocked issue line.
@@ -1139,11 +1137,8 @@ func formatBlockedIssue(id, issueType string, priority int, title string, labels
 	// Blocked issues always use blocked icon
 	icon := "\u25cc" // ◌
 
-	// Priority badge
-	priorityIcon := statusIconOpen
-	if priority <= 1 {
-		priorityIcon = statusIconClosed
-	}
+	// Priority badge - color-coded
+	priorityStr := colorPriority(priority)
 
 	// Labels
 	labelStr := ""
@@ -1151,6 +1146,24 @@ func formatBlockedIssue(id, issueType string, priority int, title string, labels
 		labelStr = " [" + strings.Join(labels, " ") + "]"
 	}
 
-	return fmt.Sprintf("%s %s [%s P%d] [%s]%s - %s (blocked by %d)",
-		icon, id, priorityIcon, priority, issueType, labelStr, title, blockedByCount)
+	return fmt.Sprintf("%s %s [%s] [%s]%s - %s (blocked by %d)",
+		icon, id, priorityStr, issueType, labelStr, title, blockedByCount)
+}
+
+// colorPriority returns a color-coded priority string.
+// P0=red (critical), P1=yellow (high), P2=cyan (normal), P3=blue (low), P4=dim (minimal).
+func colorPriority(priority int) string {
+	label := fmt.Sprintf("P%d", priority)
+	switch priority {
+	case 0:
+		return color.New(color.FgRed, color.Bold).Sprint(label)
+	case 1:
+		return color.New(color.FgYellow).Sprint(label)
+	case 2:
+		return color.New(color.FgCyan).Sprint(label)
+	case 3:
+		return color.New(color.FgBlue).Sprint(label)
+	default:
+		return color.New(color.FgMagenta).Sprint(label)
+	}
 }
