@@ -33,9 +33,12 @@ workspace initialization automatically.
 For Codex CLI users: Run arc setup codex to install the repo-scoped
 arc skill bundle under .codex/skills.
 
+If a workspace with that name already exists, the current directory is registered to it.
+
 Examples:
   arc init                    # Use directory name as workspace
   arc init my-project         # Use custom name
+  arc init bacstack           # Join existing 'bacstack' workspace
   arc init --prefix cxsh      # Custom issue prefix (e.g., cxsh-0b7w)`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runInit,
@@ -109,9 +112,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 		Prefix      string `json:"prefix"`
 	}
 
-	// Look for existing workspace by path or name (normalize paths to handle symlinks)
+	// When user provides an explicit name, match by name only.
+	// When auto-generating name, match by path or name (existing behavior).
+	nameExplicit := len(args) > 0
 	for _, existing := range workspaces {
-		if existing.Path == cwd || project.NormalizePath(existing.Path) == cwd || existing.Name == name {
+		var match bool
+		if nameExplicit {
+			match = existing.Name == name
+		} else {
+			match = existing.Path == cwd ||
+				project.NormalizePath(existing.Path) == cwd ||
+				existing.Name == name
+		}
+		if match {
 			ws = &struct {
 				ID          string `json:"id"`
 				Name        string `json:"name"`
