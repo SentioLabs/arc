@@ -80,9 +80,10 @@ type Config struct {
 type WorkspaceSource int
 
 const (
-	WorkspaceSourceFlag    WorkspaceSource = iota
-	WorkspaceSourceProject                 // ~/.arc/projects/<path>/config.json
-	WorkspaceSourceServer                  // server path matching (containers/mounts)
+	WorkspaceSourceFlag     WorkspaceSource = iota
+	WorkspaceSourceProject                  // ~/.arc/projects/<path>/config.json
+	WorkspaceSourceWorktree                 // ~/.arc/ config via git worktree main repo
+	WorkspaceSourceServer                   // server path matching (containers/mounts)
 )
 
 func (s WorkspaceSource) String() string {
@@ -91,6 +92,8 @@ func (s WorkspaceSource) String() string {
 		return "command line flag (-w)"
 	case WorkspaceSourceProject:
 		return "~/.arc/projects/ (local)"
+	case WorkspaceSourceWorktree:
+		return "git worktree → main repo config"
 	case WorkspaceSourceServer:
 		return "server path match"
 	default:
@@ -217,7 +220,12 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 		return wsID, source, warning, nil
 	}
 
-	// Priority 3: Server path matching (handles containers/mounts without local config)
+	// Priority 3: Worktree detection (inherits workspace from main repo)
+	if wtWsID, _, wtErr := resolveFromWorktree(cwd, arcHome); wtErr == nil && wtWsID != "" {
+		return wtWsID, WorkspaceSourceWorktree, "", nil
+	}
+
+	// Priority 4: Server path matching (handles containers/mounts without local config)
 	if serverWsID, serverErr := resolveFromServerPath(cwd); serverErr == nil && serverWsID != "" {
 		return serverWsID, WorkspaceSourceServer, "", nil
 	}
@@ -274,6 +282,26 @@ func resolveFromProjectConfig(cwd, arcHome string) (wsID string, source Workspac
 	}
 
 	return cfg.WorkspaceID, WorkspaceSourceProject, "", nil
+}
+
+// resolveFromWorktree attempts to resolve workspace by detecting if cwd is a git worktree
+// and loading the project config for the main repo. Returns empty wsID if not a worktree.
+func resolveFromWorktree(cwd, arcHome string) (wsID string, mainRepo string, err error) {
+	mainRepo, err = project.DetectWorktreeMainRepo(cwd)
+	if err != nil || mainRepo == "" {
+		return "", "", nil //nolint:nilerr // not a worktree; fall through
+	}
+
+	cfg, cfgErr := project.LoadConfig(arcHome, mainRepo)
+	if cfgErr != nil || cfg.WorkspaceID == "" {
+		return "", "", nil //nolint:nilerr // no config for main repo; fall through
+	}
+
+	if err := validateWorkspaceOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
+		return "", "", err
+	}
+
+	return cfg.WorkspaceID, mainRepo, nil
 }
 
 // validateWorkspaceOnServer checks that the workspace exists on the server.
@@ -415,6 +443,13 @@ This helps debug workspace resolution issues by showing:
 			arcHome := project.DefaultArcHome()
 			if root, err := project.FindProjectRootWithArcHome(cwd, arcHome); err == nil {
 				fmt.Printf("Config: ~/.arc/projects/%s/config.json\n", project.PathToProjectDir(root))
+			}
+		}
+
+		if source == WorkspaceSourceWorktree {
+			cwd, _ := os.Getwd()
+			if mainRepo, err := project.DetectWorktreeMainRepo(cwd); err == nil && mainRepo != "" {
+				fmt.Printf("Main repo: %s\n", mainRepo)
 			}
 		}
 
