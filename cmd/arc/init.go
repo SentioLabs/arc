@@ -53,11 +53,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	description, _ := cmd.Flags().GetString("description")
 
-	// Get current working directory
+	// Get current working directory, resolving symlinks for consistent path storage
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
 	}
+	cwd = project.NormalizePath(cwd)
 
 	// Determine workspace name
 	var name string
@@ -108,9 +109,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 		Prefix      string `json:"prefix"`
 	}
 
-	// Look for existing workspace by path or name
+	// Look for existing workspace by path or name (normalize paths to handle symlinks)
 	for _, existing := range workspaces {
-		if existing.Path == cwd || existing.Name == name {
+		if existing.Path == cwd || project.NormalizePath(existing.Path) == cwd || existing.Name == name {
 			ws = &struct {
 				ID          string `json:"id"`
 				Name        string `json:"name"`

@@ -86,8 +86,10 @@ func findWorkspaceByPath(c *client.Client) (*types.Workspace, error) {
 		return nil, err
 	}
 
+	normalizedCwd := project.NormalizePath(cwd)
+
 	for _, ws := range workspaces {
-		if ws.Path == cwd {
+		if ws.Path == cwd || project.NormalizePath(ws.Path) == normalizedCwd {
 			return ws, nil
 		}
 	}

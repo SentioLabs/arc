@@ -82,6 +82,7 @@ type WorkspaceSource int
 const (
 	WorkspaceSourceFlag    WorkspaceSource = iota
 	WorkspaceSourceProject                 // ~/.arc/projects/<path>/config.json
+	WorkspaceSourceServer                  // server path matching (containers/mounts)
 )
 
 func (s WorkspaceSource) String() string {
@@ -90,6 +91,8 @@ func (s WorkspaceSource) String() string {
 		return "command line flag (-w)"
 	case WorkspaceSourceProject:
 		return "~/.arc/projects/ (local)"
+	case WorkspaceSourceServer:
+		return "server path match"
 	default:
 		return "unknown"
 	}
@@ -188,6 +191,7 @@ func getWorkspaceID() (string, error) {
 // Resolution priority:
 //  1. CLI flag (-w/--workspace) - explicit override always works
 //  2. Project config (~/.arc/projects/<path>/config.json)
+//  3. Server path matching (handles containers/mounts without local config)
 //
 // If none is available, an error is returned. There is no global fallback
 // to prevent accidentally operating in the wrong workspace.
@@ -213,9 +217,43 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 		return wsID, source, warning, nil
 	}
 
+	// Priority 3: Server path matching (handles containers/mounts without local config)
+	if serverWsID, serverErr := resolveFromServerPath(cwd); serverErr == nil && serverWsID != "" {
+		return serverWsID, WorkspaceSourceServer, "", nil
+	}
+
 	return "", 0, "", errors.New(
 		"no workspace configured for this directory\n" +
 			"  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
+}
+
+// resolveFromServerPath queries the server for a workspace whose path matches cwd.
+// Compares both raw and symlink-resolved paths to handle mounts and symlinks.
+func resolveFromServerPath(cwd string) (string, error) {
+	c, err := getClient()
+	if err != nil {
+		return "", err
+	}
+
+	workspaces, err := c.ListWorkspaces()
+	if err != nil {
+		return "", err
+	}
+
+	normalizedCwd := project.NormalizePath(cwd)
+
+	for _, ws := range workspaces {
+		// Direct match (handles containers where paths are identical)
+		if ws.Path == cwd {
+			return ws.ID, nil
+		}
+		// Normalized match (handles symlinks like ~/devspace → /Volumes/ExternalSamsung/devspace)
+		if project.NormalizePath(ws.Path) == normalizedCwd {
+			return ws.ID, nil
+		}
+	}
+
+	return "", nil
 }
 
 // resolveFromProjectConfig attempts to resolve workspace from ~/.arc/projects/ config.

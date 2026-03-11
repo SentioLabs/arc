@@ -141,6 +141,17 @@ func findByPrefixWalk(dir string, arcHome string) (string, error) {
 	}
 }
 
+// NormalizePath resolves symlinks and returns the canonical absolute path.
+// Falls back to filepath.Abs if symlink resolution fails (e.g. path doesn't exist).
+func NormalizePath(path string) string {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		abs, _ := filepath.Abs(path)
+		return abs
+	}
+	return resolved
+}
+
 // PathToProjectDir converts an absolute filesystem path to a project directory name.
 // Replaces "/" with "-", matching the Claude Code ~/.claude/projects/ convention.
 // Example: "/home/user/my-repo" → "-home-user-my-repo"
