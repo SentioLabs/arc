@@ -1,6 +1,7 @@
 package project_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -178,6 +179,71 @@ func TestCleanupWorkspaceConfigs(t *testing.T) {
 	}
 	if loaded.WorkspaceID != "ws-other" {
 		t.Errorf("proj-c WorkspaceID = %q, want %q", loaded.WorkspaceID, "ws-other")
+	}
+}
+
+func TestDetectWorktreeMainRepo_Worktree(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Simulate a worktree: .git is a file, not a directory
+	mainRepo := filepath.Join(tmpDir, "main-repo")
+	if err := os.MkdirAll(mainRepo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	worktree := filepath.Join(tmpDir, "worktree")
+	if err := os.MkdirAll(worktree, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	gitdirPath := filepath.Join(mainRepo, ".git", "worktrees", "feature-x")
+	if err := os.MkdirAll(gitdirPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	gitFileContent := fmt.Sprintf("gitdir: %s\n", gitdirPath)
+	if err := os.WriteFile(filepath.Join(worktree, ".git"), []byte(gitFileContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := project.DetectWorktreeMainRepo(worktree)
+	if err != nil {
+		t.Fatalf("DetectWorktreeMainRepo failed: %v", err)
+	}
+
+	// NormalizePath resolves symlinks, so we need to normalize the expected path too
+	expected := project.NormalizePath(mainRepo)
+	if result != expected {
+		t.Errorf("DetectWorktreeMainRepo = %q, want %q", result, expected)
+	}
+}
+
+func TestDetectWorktreeMainRepo_NotWorktree(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// .git is a directory (normal repo, not a worktree)
+	if err := os.Mkdir(filepath.Join(tmpDir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := project.DetectWorktreeMainRepo(tmpDir)
+	if err != nil {
+		t.Fatalf("DetectWorktreeMainRepo failed: %v", err)
+	}
+	if result != "" {
+		t.Errorf("DetectWorktreeMainRepo = %q, want empty string", result)
+	}
+}
+
+func TestDetectWorktreeMainRepo_NoGit(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	result, err := project.DetectWorktreeMainRepo(tmpDir)
+	if err != nil {
+		t.Fatalf("DetectWorktreeMainRepo failed: %v", err)
+	}
+	if result != "" {
+		t.Errorf("DetectWorktreeMainRepo = %q, want empty string", result)
 	}
 }
 

@@ -152,6 +152,39 @@ func NormalizePath(path string) string {
 	return resolved
 }
 
+// DetectWorktreeMainRepo checks if dir is a git worktree and returns the main
+// repository root path. Returns ("", nil) if dir is not a worktree or has no .git.
+func DetectWorktreeMainRepo(dir string) (string, error) {
+	gitPath := filepath.Join(dir, ".git")
+	info, err := os.Lstat(gitPath)
+	if err != nil || info.IsDir() {
+		return "", nil
+	}
+
+	// .git is a file — read its content
+	data, err := os.ReadFile(gitPath)
+	if err != nil {
+		return "", fmt.Errorf("read .git file: %w", err)
+	}
+
+	content := strings.TrimSpace(string(data))
+	if !strings.HasPrefix(content, "gitdir: ") {
+		return "", nil
+	}
+
+	gitdir := strings.TrimPrefix(content, "gitdir: ")
+
+	// Find ".git/worktrees/" segment and strip it plus everything after
+	marker := string(filepath.Separator) + ".git" + string(filepath.Separator) + "worktrees" + string(filepath.Separator)
+	idx := strings.Index(gitdir, marker)
+	if idx < 0 {
+		return "", nil
+	}
+
+	mainRepo := filepath.Clean(gitdir[:idx])
+	return NormalizePath(mainRepo), nil
+}
+
 // PathToProjectDir converts an absolute filesystem path to a project directory name.
 // Replaces "/" with "-", matching the Claude Code ~/.claude/projects/ convention.
 // Example: "/home/user/my-repo" → "-home-user-my-repo"
