@@ -3,7 +3,7 @@ info:
   title: Arc Issue Tracker API
   description: |
     Central issue tracking server for AI-assisted coding workflows.
-    Arc provides workspace-scoped issue management with dependency tracking,
+    Arc provides project-scoped issue management with dependency tracking,
     labels, comments, and audit trails.
   version: 1.0.0
   contact:
@@ -15,8 +15,8 @@ servers:
     description: API v1
 
 tags:
-  - name: workspaces
-    description: Workspace management
+  - name: projects
+    description: Project management
   - name: issues
     description: Issue CRUD and lifecycle operations
   - name: ready
@@ -29,146 +29,87 @@ tags:
     description: Comments and audit events
   - name: teams
     description: Agent team context and role grouping
-  - name: workspace-paths
-    description: Workspace path management for multi-directory workspaces
-  - name: filesystem
-    description: Filesystem browsing utilities
 
 paths:
   # ====================
-  # Workspaces
+  # Projects
   # ====================
-  /workspaces:
+  /projects:
     get:
-      operationId: listWorkspaces
-      tags: [workspaces]
-      summary: List all workspaces
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects
       responses:
         "200":
-          description: List of workspaces
+          description: List of projects
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Workspace"
+                  $ref: "#/components/schemas/Project"
         "500":
           $ref: "#/components/responses/InternalError"
 
     post:
-      operationId: createWorkspace
-      tags: [workspaces]
-      summary: Create a new workspace
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateWorkspaceRequest"
+              $ref: "#/components/schemas/CreateProjectRequest"
       responses:
         "201":
-          description: Workspace created
+          description: Project created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Workspace"
+                $ref: "#/components/schemas/Project"
         "400":
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/merge:
-    post:
-      operationId: mergeWorkspaces
-      tags: [workspaces]
-      summary: Merge source workspaces into a target workspace
-      description: |
-        Moves all issues and plans from the source workspaces into the target
-        workspace, then deletes the source workspaces.
-      parameters:
-        - $ref: "#/components/parameters/ActorHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MergeWorkspacesRequest"
-      responses:
-        "200":
-          description: Merge completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MergeResult"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  # ====================
-  # Workspace Path Resolution
-  # ====================
-  /workspaces/resolve:
-    get:
-      operationId: resolveWorkspaceByPath
-      tags: [workspace-paths]
-      summary: Resolve a workspace by filesystem path
-      parameters:
-        - name: path
-          in: query
-          required: true
-          description: Filesystem path to resolve
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Resolved workspace path
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WorkspacePath"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /workspaces/{workspaceId}:
+  /projects/{projectId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
-      operationId: getWorkspace
-      tags: [workspaces]
-      summary: Get workspace by ID
+      operationId: getProject
+      tags: [projects]
+      summary: Get project by ID
       responses:
         "200":
-          description: Workspace details
+          description: Project details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Workspace"
+                $ref: "#/components/schemas/Project"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 
     put:
-      operationId: updateWorkspace
-      tags: [workspaces]
-      summary: Update workspace
+      operationId: updateProject
+      tags: [projects]
+      summary: Update project
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateWorkspaceRequest"
+              $ref: "#/components/schemas/UpdateProjectRequest"
       responses:
         "200":
-          description: Workspace updated
+          description: Project updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Workspace"
+                $ref: "#/components/schemas/Project"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -177,28 +118,28 @@ paths:
           $ref: "#/components/responses/InternalError"
 
     delete:
-      operationId: deleteWorkspace
-      tags: [workspaces]
-      summary: Delete workspace
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete project
       responses:
         "204":
-          description: Workspace deleted
+          description: Project deleted
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/stats:
+  /projects/{projectId}/stats:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
-      operationId: getWorkspaceStats
-      tags: [workspaces]
-      summary: Get workspace statistics
+      operationId: getProjectStats
+      tags: [projects]
+      summary: Get project statistics
       responses:
         "200":
-          description: Workspace statistics
+          description: Project statistics
           content:
             application/json:
               schema:
@@ -209,134 +150,16 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ====================
-  # Workspace Paths
-  # ====================
-  /workspaces/{workspaceId}/paths:
-    parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
-
-    get:
-      operationId: listWorkspacePaths
-      tags: [workspace-paths]
-      summary: List paths for a workspace
-      responses:
-        "200":
-          description: List of workspace paths
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WorkspacePath"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-    post:
-      operationId: createWorkspacePath
-      tags: [workspace-paths]
-      summary: Add a path to a workspace
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateWorkspacePathRequest"
-      responses:
-        "201":
-          description: Workspace path created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WorkspacePath"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /workspaces/{workspaceId}/paths/{pathId}:
-    parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
-      - $ref: "#/components/parameters/WorkspacePathId"
-
-    patch:
-      operationId: updateWorkspacePath
-      tags: [workspace-paths]
-      summary: Update a workspace path
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateWorkspacePathRequest"
-      responses:
-        "200":
-          description: Workspace path updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WorkspacePath"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-    delete:
-      operationId: deleteWorkspacePath
-      tags: [workspace-paths]
-      summary: Remove a path from a workspace
-      responses:
-        "204":
-          description: Workspace path deleted
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  # ====================
-  # Filesystem
-  # ====================
-  /filesystem/browse:
-    get:
-      operationId: browseFilesystem
-      tags: [filesystem]
-      summary: Browse filesystem directories
-      parameters:
-        - name: dir
-          in: query
-          description: Directory to browse (defaults to home directory)
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Directory listing
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/BrowseEntry"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  # ====================
   # Issues
   # ====================
-  /workspaces/{workspaceId}/issues:
+  /projects/{projectId}/issues:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: listIssues
       tags: [issues]
-      summary: List issues in workspace
+      summary: List issues in project
       parameters:
         - name: status
           in: query
@@ -420,9 +243,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}:
+  /projects/{projectId}/issues/{issueId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -488,9 +311,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/close:
+  /projects/{projectId}/issues/{issueId}/close:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     post:
@@ -518,9 +341,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/reopen:
+  /projects/{projectId}/issues/{issueId}/reopen:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     post:
@@ -546,9 +369,9 @@ paths:
   # ====================
   # Ready & Blocked
   # ====================
-  /workspaces/{workspaceId}/ready:
+  /projects/{projectId}/ready:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: getReadyWork
@@ -609,9 +432,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/blocked:
+  /projects/{projectId}/blocked:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: getBlockedIssues
@@ -641,9 +464,9 @@ paths:
   # ====================
   # Team Context
   # ====================
-  /workspaces/{workspaceId}/team-context:
+  /projects/{projectId}/team-context:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: getTeamContext
@@ -653,7 +476,7 @@ paths:
         Returns issues grouped by their `teammate:*` labels. When an epic_id is
         provided, only children of that epic (via parent-child dependency) are
         included. Without epic_id, all non-closed issues with teammate labels
-        in the workspace are returned.
+        in the project are returned.
       parameters:
         - name: epic_id
           in: query
@@ -675,9 +498,9 @@ paths:
   # ====================
   # Dependencies
   # ====================
-  /workspaces/{workspaceId}/issues/{issueId}/deps:
+  /projects/{projectId}/issues/{issueId}/deps:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -722,9 +545,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/deps/{dependsOnId}:
+  /projects/{projectId}/issues/{issueId}/deps/{dependsOnId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
       - name: dependsOnId
         in: path
@@ -835,11 +658,11 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ====================
-  # Issue-Label Associations (workspace-scoped)
+  # Issue-Label Associations (project-scoped)
   # ====================
-  /workspaces/{workspaceId}/issues/{issueId}/labels:
+  /projects/{projectId}/issues/{issueId}/labels:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     post:
@@ -864,9 +687,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}:
+  /projects/{projectId}/issues/{issueId}/labels/{labelName}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
       - name: labelName
         in: path
@@ -892,9 +715,9 @@ paths:
   # ====================
   # Comments & Events
   # ====================
-  /workspaces/{workspaceId}/issues/{issueId}/comments:
+  /projects/{projectId}/issues/{issueId}/comments:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -941,9 +764,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/comments/{commentId}:
+  /projects/{projectId}/issues/{issueId}/comments/{commentId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
       - name: commentId
         in: path
@@ -985,9 +808,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/events:
+  /projects/{projectId}/issues/{issueId}/events:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -1019,11 +842,11 @@ paths:
 
 components:
   parameters:
-    WorkspaceId:
-      name: workspaceId
+    ProjectId:
+      name: projectId
       in: path
       required: true
-      description: Workspace ID
+      description: Project ID
       schema:
         type: string
 
@@ -1032,14 +855,6 @@ components:
       in: path
       required: true
       description: Issue ID
-      schema:
-        type: string
-
-    WorkspacePathId:
-      name: pathId
-      in: path
-      required: true
-      description: Workspace path ID
       schema:
         type: string
 
@@ -1126,9 +941,9 @@ components:
         - label_removed
 
     # ====================
-    # Workspace Schemas
+    # Project Schemas
     # ====================
-    Workspace:
+    Project:
       type: object
       required:
         - id
@@ -1139,14 +954,17 @@ components:
       properties:
         id:
           type: string
-          description: Unique workspace ID (e.g., "ws-a1b2")
+          description: Unique project ID (e.g., "ws-a1b2")
         name:
           type: string
           description: Display name
           maxLength: 100
+        path:
+          type: string
+          description: Optional associated directory path
         description:
           type: string
-          description: Workspace description
+          description: Project description
         prefix:
           type: string
           description: Issue ID prefix (e.g., "bd")
@@ -1158,7 +976,7 @@ components:
           type: string
           format: date-time
 
-    CreateWorkspaceRequest:
+    CreateProjectRequest:
       type: object
       required:
         - name
@@ -1168,66 +986,35 @@ components:
           type: string
           description: Display name
           maxLength: 100
+        path:
+          type: string
+          description: Optional associated directory path
         description:
           type: string
-          description: Workspace description
+          description: Project description
         prefix:
           type: string
           description: Issue ID prefix
           maxLength: 10
 
-    UpdateWorkspaceRequest:
+    UpdateProjectRequest:
       type: object
       properties:
         name:
           type: string
           description: New display name
           maxLength: 100
+        path:
+          type: string
+          description: New associated directory path
         description:
           type: string
           description: New description
 
-    MergeWorkspacesRequest:
-      type: object
-      required:
-        - target_id
-        - source_ids
-      properties:
-        target_id:
-          type: string
-          description: ID of the workspace to merge into
-        source_ids:
-          type: array
-          items:
-            type: string
-          description: IDs of workspaces to merge from (will be deleted)
-
-    MergeResult:
-      type: object
-      required:
-        - target_workspace
-        - issues_moved
-        - plans_moved
-        - sources_deleted
-      properties:
-        target_workspace:
-          $ref: "#/components/schemas/Workspace"
-        issues_moved:
-          type: integer
-          description: Number of issues moved to the target workspace
-        plans_moved:
-          type: integer
-          description: Number of plans moved to the target workspace
-        sources_deleted:
-          type: array
-          items:
-            type: string
-          description: IDs of source workspaces that were deleted
-
     Statistics:
       type: object
       required:
-        - workspace_id
+        - project_id
         - total_issues
         - open_issues
         - in_progress_issues
@@ -1236,7 +1023,7 @@ components:
         - deferred_issues
         - ready_issues
       properties:
-        workspace_id:
+        project_id:
           type: string
         total_issues:
           type: integer
@@ -1257,115 +1044,13 @@ components:
           format: double
 
     # ====================
-    # Workspace Path Schemas
-    # ====================
-    WorkspacePath:
-      type: object
-      required:
-        - id
-        - workspace_id
-        - path
-        - created_at
-        - updated_at
-      properties:
-        id:
-          type: string
-          description: Unique workspace path ID
-        workspace_id:
-          type: string
-          description: ID of the workspace this path belongs to
-        path:
-          type: string
-          description: Filesystem path
-        label:
-          type: string
-          description: Optional human-readable label for this path
-        hostname:
-          type: string
-          description: Hostname where this path is located
-        git_remote:
-          type: string
-          description: Git remote URL associated with this path
-        path_type:
-          type: string
-          description: Type of path - canonical (resolved real path) or symlink (alias)
-        last_accessed_at:
-          type: string
-          format: date-time
-          description: When this path was last accessed
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-
-    CreateWorkspacePathRequest:
-      type: object
-      required:
-        - path
-      properties:
-        path:
-          type: string
-          description: Filesystem path to associate
-        label:
-          type: string
-          description: Optional human-readable label
-        hostname:
-          type: string
-          description: Hostname where path is located
-        git_remote:
-          type: string
-          description: Git remote URL
-        path_type:
-          type: string
-          description: Type of path - canonical or symlink
-
-    UpdateWorkspacePathRequest:
-      type: object
-      properties:
-        label:
-          type: string
-          description: Updated label
-        hostname:
-          type: string
-          description: Updated hostname
-        git_remote:
-          type: string
-          description: Updated git remote URL
-        path_type:
-          type: string
-          description: Updated path type
-
-    BrowseEntry:
-      type: object
-      required:
-        - name
-        - path
-        - is_dir
-        - is_git_repo
-      properties:
-        name:
-          type: string
-          description: Entry name
-        path:
-          type: string
-          description: Full path
-        is_dir:
-          type: boolean
-          description: Whether this entry is a directory
-        is_git_repo:
-          type: boolean
-          description: Whether this directory is a git repository
-
-    # ====================
     # Issue Schemas
     # ====================
     Issue:
       type: object
       required:
         - id
-        - workspace_id
+        - project_id
         - title
         - status
         - priority
@@ -1376,7 +1061,7 @@ components:
         id:
           type: string
           description: Unique issue ID
-        workspace_id:
+        project_id:
           type: string
         title:
           type: string
@@ -1471,13 +1156,13 @@ components:
     TeamContext:
       type: object
       required:
-        - workspace
+        - project
         - roles
         - unassigned
       properties:
-        workspace:
+        project:
           type: string
-          description: Workspace ID
+          description: Project ID
         epic:
           $ref: "#/components/schemas/TeamContextEpic"
         roles:
