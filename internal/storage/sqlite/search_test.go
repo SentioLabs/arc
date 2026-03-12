@@ -39,7 +39,7 @@ func TestFTSSearchBasic(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Create issues with distinctive content
 	issues := []struct {
@@ -54,7 +54,7 @@ func TestFTSSearchBasic(t *testing.T) {
 
 	for _, iss := range issues {
 		issue := &types.Issue{
-			WorkspaceID: ws.ID,
+			ProjectID: ws.ID,
 			Title:       iss.title,
 			Description: iss.description,
 			Status:      types.StatusOpen,
@@ -68,7 +68,7 @@ func TestFTSSearchBasic(t *testing.T) {
 
 	// Search for "auth" — should match issues with authentication
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Query:       "auth",
 	})
 	if err != nil {
@@ -100,11 +100,11 @@ func TestFTSSearchTitleRanksHigher(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Issue with "deploy" in title
 	titleIssue := &types.Issue{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Title:       "Deploy the application",
 		Description: "Standard deployment task",
 		Status:      types.StatusOpen,
@@ -117,7 +117,7 @@ func TestFTSSearchTitleRanksHigher(t *testing.T) {
 
 	// Issue with "deploy" only in description
 	descIssue := &types.Issue{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Title:       "Update infrastructure",
 		Description: "Need to deploy new version of the service",
 		Status:      types.StatusOpen,
@@ -129,7 +129,7 @@ func TestFTSSearchTitleRanksHigher(t *testing.T) {
 	}
 
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Query:       "deploy",
 	})
 	if err != nil {
@@ -151,7 +151,7 @@ func TestFTSPrefixSearch(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	setupTestIssue(t, store, ws, "Handle dependencies correctly")
 	setupTestIssue(t, store, ws, "Deployment automation")
@@ -159,7 +159,7 @@ func TestFTSPrefixSearch(t *testing.T) {
 
 	// "dep" should prefix-match both "dependencies" and "deployment"
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Query:       "dep",
 	})
 	if err != nil {
@@ -179,14 +179,14 @@ func TestFTSStemming(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	setupTestIssue(t, store, ws, "Running the test suite")
 	setupTestIssue(t, store, ws, "Something else entirely")
 
 	// "run" should match "running" via Porter stemming
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Query:       "run",
 	})
 	if err != nil {
@@ -201,44 +201,43 @@ func TestFTSStemming(t *testing.T) {
 	}
 }
 
-func TestFTSCommentSearch(t *testing.T) {
+func TestFTSCommentSearchNotIndexed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
-	issue := setupTestIssue(t, store, ws, "Generic issue title")
+	setupTestIssue(t, store, ws, "Generic issue title")
 
 	// Add a comment with unique searchable text
+	issue := setupTestIssue(t, store, ws, "Another issue")
 	_, err := store.AddComment(ctx, issue.ID, "author", "The frobnicator module needs refactoring")
 	if err != nil {
 		t.Fatalf("failed to add comment: %v", err)
 	}
 
-	// Search for text that only exists in the comment
+	// FTS only indexes title and description (simplified in migration 010).
+	// Comments are not indexed, so searching for comment-only text returns no results.
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
-		Query:       "frobnicator",
+		ProjectID: ws.ID,
+		Query:     "frobnicator",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
 
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result for comment search, got %d", len(results))
-	}
-	if results[0].ID != issue.ID {
-		t.Errorf("expected issue %s, got %s", issue.ID, results[0].ID)
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for comment-only text (not indexed), got %d", len(results))
 	}
 }
 
-func TestFTSLabelSearch(t *testing.T) {
+func TestFTSLabelSearchNotIndexed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	issue := setupTestIssue(t, store, ws, "Generic task")
 
@@ -251,29 +250,27 @@ func TestFTSLabelSearch(t *testing.T) {
 		t.Fatalf("failed to add label: %v", err)
 	}
 
-	// Search for the label name
+	// FTS only indexes title and description (simplified in migration 010).
+	// Labels are not indexed, so searching for label-only text returns no results.
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
-		Query:       "frontend",
+		ProjectID: ws.ID,
+		Query:     "frontend",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
 
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result for label search, got %d", len(results))
-	}
-	if results[0].ID != issue.ID {
-		t.Errorf("expected issue %s, got %s", issue.ID, results[0].ID)
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for label-only text (not indexed), got %d", len(results))
 	}
 }
 
-func TestFTSPlanSearch(t *testing.T) {
+func TestFTSPlanSearchNotIndexed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	issue := setupTestIssue(t, store, ws, "Issue with plan")
 
@@ -283,20 +280,18 @@ func TestFTSPlanSearch(t *testing.T) {
 		t.Fatalf("failed to set inline plan: %v", err)
 	}
 
-	// Search for text only in the plan
+	// FTS only indexes title and description (simplified in migration 010).
+	// Plan text is not indexed, so searching for plan-only text returns no results.
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
-		Query:       "zigzag",
+		ProjectID: ws.ID,
+		Query:     "zigzag",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
 
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result for plan search, got %d", len(results))
-	}
-	if results[0].ID != issue.ID {
-		t.Errorf("expected issue %s, got %s", issue.ID, results[0].ID)
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for plan-only text (not indexed), got %d", len(results))
 	}
 }
 
@@ -305,12 +300,12 @@ func TestFTSNoResults(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	setupTestIssue(t, store, ws, "Some issue")
 
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Query:       "xyznonexistent",
 	})
 	if err != nil {
@@ -327,13 +322,13 @@ func TestFTSDeletedIssueNotSearchable(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	issue := setupTestIssue(t, store, ws, "Deletable task with uniqueword")
 
 	// Verify it's searchable
 	results, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Query:       "uniqueword",
 	})
 	if err != nil {
@@ -350,7 +345,7 @@ func TestFTSDeletedIssueNotSearchable(t *testing.T) {
 
 	// Verify it's no longer searchable
 	results, err = store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		Query:       "uniqueword",
 	})
 	if err != nil {

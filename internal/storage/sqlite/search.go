@@ -20,37 +20,15 @@ func (s *Store) rebuildFTSForIssue(ctx context.Context, issueID string) {
 		return
 	}
 
-	// Gather all comment/plan text
-	comments, err := s.queries.ListComments(ctx, issueID)
-	if err != nil {
-		log.Printf("fts: failed to get comments for issue %s: %v", issueID, err)
-		return
-	}
-	var commentParts []string
-	for _, c := range comments {
-		commentParts = append(commentParts, c.Text)
-	}
-	commentsText := strings.Join(commentParts, " ")
-
-	// Gather labels
-	labels, err := s.queries.GetIssueLabels(ctx, issueID)
-	if err != nil {
-		log.Printf("fts: failed to get labels for issue %s: %v", issueID, err)
-		return
-	}
-	labelsText := strings.Join(labels, " ")
-
 	description := fromNullString(issue.Description)
 
 	// Delete existing entry then insert new one.
-	// For contentless FTS5 tables, we must supply the old values to delete.
-	// Simpler approach: delete by rowid if we track it, or just delete+insert.
 	s.deleteFTSForIssue(ctx, issueID)
 
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO issues_fts(issue_id, workspace_id, title, description, comments_text, labels_text)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		issueID, issue.WorkspaceID, issue.Title, description, commentsText, labelsText,
+		`INSERT INTO issues_fts(id, title, description)
+		 VALUES (?, ?, ?)`,
+		issueID, issue.Title, description,
 	)
 	if err != nil {
 		log.Printf("fts: failed to insert issue %s into FTS index: %v", issueID, err)
@@ -60,7 +38,7 @@ func (s *Store) rebuildFTSForIssue(ctx context.Context, issueID string) {
 // deleteFTSForIssue removes an issue's entry from the FTS5 index.
 func (s *Store) deleteFTSForIssue(ctx context.Context, issueID string) {
 	_, err := s.db.ExecContext(ctx,
-		`DELETE FROM issues_fts WHERE issue_id = ?`, issueID,
+		`DELETE FROM issues_fts WHERE id = ?`, issueID,
 	)
 	if err != nil {
 		log.Printf("fts: failed to delete issue %s from FTS index: %v", issueID, err)
@@ -109,26 +87,26 @@ func (s *Store) populateFTS(ctx context.Context) {
 // searchIssuesFTS searches for issues using FTS5 full-text search with BM25 ranking.
 // Falls back to LIKE search if FTS5 MATCH fails (e.g. invalid query syntax).
 func (s *Store) searchIssuesFTS(
-	ctx context.Context, workspaceID, query string, limit, offset int,
+	ctx context.Context, projectID, query string, limit, offset int,
 ) ([]*types.Issue, error) {
 	ftsQuery := PrepareSearchQuery(query)
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
+		SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
 		       i.issue_type, i.assignee, i.external_ref, i.rank,
 		       i.created_at, i.updated_at, i.closed_at, i.close_reason,
-		       bm25(issues_fts, 0, 0, 10.0, 5.0, 2.0, 3.0) as relevance
+		       bm25(issues_fts, 0.0, 10.0, 5.0) as relevance
 		FROM issues_fts
-		JOIN issues i ON i.id = issues_fts.issue_id
-		WHERE issues_fts.workspace_id = ?
+		JOIN issues i ON i.id = issues_fts.id
+		WHERE i.project_id = ?
 		  AND issues_fts MATCH ?
 		ORDER BY relevance
 		LIMIT ? OFFSET ?
-	`, workspaceID, ftsQuery, limit, offset)
+	`, projectID, ftsQuery, limit, offset)
 	if err != nil {
 		// Fall back to LIKE search on FTS failure
 		log.Printf("fts: MATCH query failed (query=%q, fts=%q), falling back to LIKE: %v", query, ftsQuery, err)
-		return s.searchIssuesLIKE(ctx, workspaceID, query, limit, offset)
+		return s.searchIssuesLIKE(ctx, projectID, query, limit, offset)
 	}
 	defer rows.Close()
 
@@ -149,19 +127,19 @@ func (s *Store) searchIssuesFTS(
 
 // searchIssuesLIKE is the fallback search using LIKE pattern matching.
 func (s *Store) searchIssuesLIKE(
-	ctx context.Context, workspaceID, query string, limit, offset int,
+	ctx context.Context, projectID, query string, limit, offset int,
 ) ([]*types.Issue, error) {
 	searchPattern := "%" + query + "%"
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, workspace_id, title, description, status, priority,
+		SELECT id, project_id, title, description, status, priority,
 		       issue_type, assignee, external_ref, rank,
 		       created_at, updated_at, closed_at, close_reason
 		FROM issues
-		WHERE workspace_id = ?
+		WHERE project_id = ?
 		  AND (title LIKE ? OR description LIKE ?)
 		ORDER BY updated_at DESC
 		LIMIT ? OFFSET ?
-	`, workspaceID, searchPattern, searchPattern, limit, offset)
+	`, projectID, searchPattern, searchPattern, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("LIKE search: %w", err)
 	}
@@ -195,14 +173,14 @@ func scanIssueRow(rows *sql.Rows, hasRelevance bool) (*types.Issue, error) {
 	)
 
 	dest := []any{
-		&issue.ID, &issue.WorkspaceID, &issue.Title, &description,
+		&issue.ID, &issue.ProjectID, &issue.Title, &description,
 		&issue.Status, &issue.Priority, &issue.IssueType, &assignee,
 		&externalRef, &issue.Rank,
 		&issue.CreatedAt, &issue.UpdatedAt, &closedAt, &closeReason,
 	}
 
 	if hasRelevance {
-		var relevance float64
+		var relevance sql.NullFloat64
 		dest = append(dest, &relevance)
 	}
 

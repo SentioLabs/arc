@@ -14,7 +14,7 @@ func TestCloseIssueNoCascadeNoChildren(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	issue := setupTestIssue(t, store, ws, "Simple Issue")
 
@@ -39,7 +39,7 @@ func TestCloseIssueNoCascadeWithOpenChildren(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	parent := setupTestIssue(t, store, ws, "Parent")
 	child := setupTestIssue(t, store, ws, "Child")
@@ -82,7 +82,7 @@ func TestCloseIssueCascadeClosesChildren(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	parent := setupTestIssue(t, store, ws, "Parent")
 	child1 := setupTestIssue(t, store, ws, "Child 1")
@@ -137,7 +137,7 @@ func TestCloseIssueCascadeDeepHierarchy(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Create grandparent -> parent -> child hierarchy
 	grandparent := setupTestIssue(t, store, ws, "Grandparent")
@@ -196,7 +196,7 @@ func TestCloseIssueCascadeSkipsAlreadyClosed(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	parent := setupTestIssue(t, store, ws, "Parent")
 	child1 := setupTestIssue(t, store, ws, "Open Child")
@@ -236,7 +236,7 @@ func TestCloseIssueNoCascadeAllChildrenClosed(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	parent := setupTestIssue(t, store, ws, "Parent")
 	child := setupTestIssue(t, store, ws, "Child")

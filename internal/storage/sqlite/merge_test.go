@@ -7,31 +7,31 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-func TestMergeWorkspaces_Basic(t *testing.T) {
+func TestMergeProjects_Basic(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	// Create target and source workspaces
-	target := &types.Workspace{Name: "Target", Prefix: "tgt"}
-	if err := store.CreateWorkspace(ctx, target); err != nil {
-		t.Fatalf("create target workspace: %v", err)
+	// Create target and source projects
+	target := &types.Project{Name: "Target", Prefix: "tgt"}
+	if err := store.CreateProject(ctx, target); err != nil {
+		t.Fatalf("create target project: %v", err)
 	}
-	source := &types.Workspace{Name: "Source", Prefix: "src"}
-	if err := store.CreateWorkspace(ctx, source); err != nil {
-		t.Fatalf("create source workspace: %v", err)
+	source := &types.Project{Name: "Source", Prefix: "src"}
+	if err := store.CreateProject(ctx, source); err != nil {
+		t.Fatalf("create source project: %v", err)
 	}
 
-	// Create issues in both workspaces
+	// Create issues in both projects
 	setupTestIssue(t, store, target, "Target Issue 1")
 	setupTestIssue(t, store, source, "Source Issue 1")
 	setupTestIssue(t, store, source, "Source Issue 2")
 
 	// Merge source into target
-	result, err := store.MergeWorkspaces(ctx, target.ID, []string{source.ID}, "test-actor")
+	result, err := store.MergeProjects(ctx, target.ID, []string{source.ID}, "test-actor")
 	if err != nil {
-		t.Fatalf("MergeWorkspaces failed: %v", err)
+		t.Fatalf("MergeProjects failed: %v", err)
 	}
 
 	// Assert result counts
@@ -46,42 +46,42 @@ func TestMergeWorkspaces_Basic(t *testing.T) {
 	} else if result.SourcesDeleted[0] != source.ID {
 		t.Errorf("SourcesDeleted[0] = %q, want %q", result.SourcesDeleted[0], source.ID)
 	}
-	if result.TargetWorkspace.ID != target.ID {
-		t.Errorf("TargetWorkspace.ID = %q, want %q", result.TargetWorkspace.ID, target.ID)
+	if result.TargetProject.ID != target.ID {
+		t.Errorf("TargetProject.ID = %q, want %q", result.TargetProject.ID, target.ID)
 	}
 
 	// Verify all issues now belong to target
-	issues, err := store.ListIssues(ctx, types.IssueFilter{WorkspaceID: target.ID})
+	issues, err := store.ListIssues(ctx, types.IssueFilter{ProjectID: target.ID})
 	if err != nil {
 		t.Fatalf("ListIssues failed: %v", err)
 	}
 	if len(issues) != 3 {
-		t.Errorf("target workspace issue count = %d, want 3", len(issues))
+		t.Errorf("target project issue count = %d, want 3", len(issues))
 	}
 
-	// Verify source workspace is deleted
-	_, err = store.GetWorkspace(ctx, source.ID)
+	// Verify source project is deleted
+	_, err = store.GetProject(ctx, source.ID)
 	if err == nil {
-		t.Error("source workspace should be deleted after merge")
+		t.Error("source project should be deleted after merge")
 	}
 }
 
-func TestMergeWorkspaces_MultipleSources(t *testing.T) {
+func TestMergeProjects_MultipleSources(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	target := &types.Workspace{Name: "Target", Prefix: "tgt"}
-	if err := store.CreateWorkspace(ctx, target); err != nil {
+	target := &types.Project{Name: "Target", Prefix: "tgt"}
+	if err := store.CreateProject(ctx, target); err != nil {
 		t.Fatalf("create target: %v", err)
 	}
-	src1 := &types.Workspace{Name: "Source1", Prefix: "sr1"}
-	if err := store.CreateWorkspace(ctx, src1); err != nil {
+	src1 := &types.Project{Name: "Source1", Prefix: "sr1"}
+	if err := store.CreateProject(ctx, src1); err != nil {
 		t.Fatalf("create source1: %v", err)
 	}
-	src2 := &types.Workspace{Name: "Source2", Prefix: "sr2"}
-	if err := store.CreateWorkspace(ctx, src2); err != nil {
+	src2 := &types.Project{Name: "Source2", Prefix: "sr2"}
+	if err := store.CreateProject(ctx, src2); err != nil {
 		t.Fatalf("create source2: %v", err)
 	}
 
@@ -89,9 +89,9 @@ func TestMergeWorkspaces_MultipleSources(t *testing.T) {
 	setupTestIssue(t, store, src2, "S2 Issue 1")
 	setupTestIssue(t, store, src2, "S2 Issue 2")
 
-	result, err := store.MergeWorkspaces(ctx, target.ID, []string{src1.ID, src2.ID}, "test-actor")
+	result, err := store.MergeProjects(ctx, target.ID, []string{src1.ID, src2.ID}, "test-actor")
 	if err != nil {
-		t.Fatalf("MergeWorkspaces failed: %v", err)
+		t.Fatalf("MergeProjects failed: %v", err)
 	}
 
 	if result.IssuesMoved != 3 {
@@ -102,17 +102,17 @@ func TestMergeWorkspaces_MultipleSources(t *testing.T) {
 	}
 
 	// Verify both sources deleted
-	_, err = store.GetWorkspace(ctx, src1.ID)
+	_, err = store.GetProject(ctx, src1.ID)
 	if err == nil {
 		t.Error("source1 should be deleted")
 	}
-	_, err = store.GetWorkspace(ctx, src2.ID)
+	_, err = store.GetProject(ctx, src2.ID)
 	if err == nil {
 		t.Error("source2 should be deleted")
 	}
 
 	// Verify all issues in target
-	issues, err := store.ListIssues(ctx, types.IssueFilter{WorkspaceID: target.ID})
+	issues, err := store.ListIssues(ctx, types.IssueFilter{ProjectID: target.ID})
 	if err != nil {
 		t.Fatalf("ListIssues failed: %v", err)
 	}
@@ -121,41 +121,41 @@ func TestMergeWorkspaces_MultipleSources(t *testing.T) {
 	}
 }
 
-func TestMergeWorkspaces_WithPlans(t *testing.T) {
+func TestMergeProjects_WithPlans(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	target := &types.Workspace{Name: "Target", Prefix: "tgt"}
-	if err := store.CreateWorkspace(ctx, target); err != nil {
+	target := &types.Project{Name: "Target", Prefix: "tgt"}
+	if err := store.CreateProject(ctx, target); err != nil {
 		t.Fatalf("create target: %v", err)
 	}
-	source := &types.Workspace{Name: "Source", Prefix: "src"}
-	if err := store.CreateWorkspace(ctx, source); err != nil {
+	source := &types.Project{Name: "Source", Prefix: "src"}
+	if err := store.CreateProject(ctx, source); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
 
-	// Create plans in source workspace
-	plan1 := &types.Plan{ID: "plan.001", WorkspaceID: source.ID, Title: "Plan 1", Content: "Content 1"}
+	// Create plans in source project
+	plan1 := &types.Plan{ID: "plan.001", ProjectID: source.ID, Title: "Plan 1", Content: "Content 1"}
 	if err := store.CreatePlan(ctx, plan1); err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
 	}
-	plan2 := &types.Plan{ID: "plan.002", WorkspaceID: source.ID, Title: "Plan 2", Content: "Content 2"}
+	plan2 := &types.Plan{ID: "plan.002", ProjectID: source.ID, Title: "Plan 2", Content: "Content 2"}
 	if err := store.CreatePlan(ctx, plan2); err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
-	result, err := store.MergeWorkspaces(ctx, target.ID, []string{source.ID}, "test-actor")
+	result, err := store.MergeProjects(ctx, target.ID, []string{source.ID}, "test-actor")
 	if err != nil {
-		t.Fatalf("MergeWorkspaces failed: %v", err)
+		t.Fatalf("MergeProjects failed: %v", err)
 	}
 
 	if result.PlansMoved != 2 {
 		t.Errorf("PlansMoved = %d, want 2", result.PlansMoved)
 	}
 
-	// Verify plans are now in target workspace
+	// Verify plans are now in target project
 	plans, err := store.ListPlans(ctx, target.ID)
 	if err != nil {
 		t.Fatalf("ListPlans failed: %v", err)
@@ -165,22 +165,22 @@ func TestMergeWorkspaces_WithPlans(t *testing.T) {
 	}
 }
 
-func TestMergeWorkspaces_DependenciesPreserved(t *testing.T) {
+func TestMergeProjects_DependenciesPreserved(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	target := &types.Workspace{Name: "Target", Prefix: "tgt"}
-	if err := store.CreateWorkspace(ctx, target); err != nil {
+	target := &types.Project{Name: "Target", Prefix: "tgt"}
+	if err := store.CreateProject(ctx, target); err != nil {
 		t.Fatalf("create target: %v", err)
 	}
-	source := &types.Workspace{Name: "Source", Prefix: "src"}
-	if err := store.CreateWorkspace(ctx, source); err != nil {
+	source := &types.Project{Name: "Source", Prefix: "src"}
+	if err := store.CreateProject(ctx, source); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
 
-	// Create issues with cross-workspace dependency
+	// Create issues with cross-project dependency
 	targetIssue := setupTestIssue(t, store, target, "Target Issue")
 	sourceIssue := setupTestIssue(t, store, source, "Source Issue")
 
@@ -194,9 +194,9 @@ func TestMergeWorkspaces_DependenciesPreserved(t *testing.T) {
 	}
 
 	// Merge source into target
-	_, err := store.MergeWorkspaces(ctx, target.ID, []string{source.ID}, "test-actor")
+	_, err := store.MergeProjects(ctx, target.ID, []string{source.ID}, "test-actor")
 	if err != nil {
-		t.Fatalf("MergeWorkspaces failed: %v", err)
+		t.Fatalf("MergeProjects failed: %v", err)
 	}
 
 	// Verify dependency still exists
@@ -211,53 +211,53 @@ func TestMergeWorkspaces_DependenciesPreserved(t *testing.T) {
 	}
 }
 
-func TestMergeWorkspaces_TargetNotFound(t *testing.T) {
+func TestMergeProjects_TargetNotFound(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	source := &types.Workspace{Name: "Source", Prefix: "src"}
-	if err := store.CreateWorkspace(ctx, source); err != nil {
+	source := &types.Project{Name: "Source", Prefix: "src"}
+	if err := store.CreateProject(ctx, source); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
 
-	_, err := store.MergeWorkspaces(ctx, "nonexistent-id", []string{source.ID}, "test-actor")
+	_, err := store.MergeProjects(ctx, "nonexistent-id", []string{source.ID}, "test-actor")
 	if err == nil {
-		t.Error("MergeWorkspaces should return error for nonexistent target")
+		t.Error("MergeProjects should return error for nonexistent target")
 	}
 }
 
-func TestMergeWorkspaces_SourceNotFound(t *testing.T) {
+func TestMergeProjects_SourceNotFound(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	target := &types.Workspace{Name: "Target", Prefix: "tgt"}
-	if err := store.CreateWorkspace(ctx, target); err != nil {
+	target := &types.Project{Name: "Target", Prefix: "tgt"}
+	if err := store.CreateProject(ctx, target); err != nil {
 		t.Fatalf("create target: %v", err)
 	}
 
-	_, err := store.MergeWorkspaces(ctx, target.ID, []string{"nonexistent-id"}, "test-actor")
+	_, err := store.MergeProjects(ctx, target.ID, []string{"nonexistent-id"}, "test-actor")
 	if err == nil {
-		t.Error("MergeWorkspaces should return error for nonexistent source")
+		t.Error("MergeProjects should return error for nonexistent source")
 	}
 }
 
-func TestMergeWorkspaces_SourceEqualsTarget(t *testing.T) {
+func TestMergeProjects_SourceEqualsTarget(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	ws := &types.Workspace{Name: "Same", Prefix: "same"}
-	if err := store.CreateWorkspace(ctx, ws); err != nil {
-		t.Fatalf("create workspace: %v", err)
+	proj := &types.Project{Name: "Same", Prefix: "same"}
+	if err := store.CreateProject(ctx, proj); err != nil {
+		t.Fatalf("create project: %v", err)
 	}
 
-	_, err := store.MergeWorkspaces(ctx, ws.ID, []string{ws.ID}, "test-actor")
+	_, err := store.MergeProjects(ctx, proj.ID, []string{proj.ID}, "test-actor")
 	if err == nil {
-		t.Error("MergeWorkspaces should return error when source equals target")
+		t.Error("MergeProjects should return error when source equals target")
 	}
 }

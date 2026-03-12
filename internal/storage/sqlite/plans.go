@@ -18,9 +18,9 @@ var ErrNoPlan = errors.New("no inline plan exists")
 func (s *Store) CreatePlan(ctx context.Context, plan *types.Plan) error {
 	now := time.Now()
 	_, err := s.queries.CreatePlan(ctx, db.CreatePlanParams{
-		ID:          plan.ID,
-		WorkspaceID: plan.WorkspaceID,
-		Title:       plan.Title,
+		ID:        plan.ID,
+		ProjectID: plan.ProjectID,
+		Title:     plan.Title,
 		Content:     plan.Content,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -46,9 +46,9 @@ func (s *Store) GetPlan(ctx context.Context, id string) (*types.Plan, error) {
 	return dbPlanToType(row), nil
 }
 
-// ListPlans returns all plans in a workspace.
-func (s *Store) ListPlans(ctx context.Context, workspaceID string) ([]*types.Plan, error) {
-	rows, err := s.queries.ListPlans(ctx, workspaceID)
+// ListPlans returns all plans in a project.
+func (s *Store) ListPlans(ctx context.Context, projectID string) ([]*types.Plan, error) {
+	rows, err := s.queries.ListPlans(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("list plans: %w", err)
 	}
@@ -238,9 +238,9 @@ func (s *Store) GetPlanContext(ctx context.Context, issueID string) (*types.Plan
 // dbPlanToType converts a db.Plan to types.Plan.
 func dbPlanToType(row *db.Plan) *types.Plan {
 	return &types.Plan{
-		ID:          row.ID,
-		WorkspaceID: row.WorkspaceID,
-		Title:       row.Title,
+		ID:        row.ID,
+		ProjectID: row.ProjectID,
+		Title:     row.Title,
 		Content:     row.Content,
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,

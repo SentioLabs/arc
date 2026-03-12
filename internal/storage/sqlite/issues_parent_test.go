@@ -12,7 +12,7 @@ func TestListIssuesByParentFilter(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Create parent epic
 	parent := setupTestIssue(t, store, ws, "Parent Epic")
@@ -38,7 +38,7 @@ func TestListIssuesByParentFilter(t *testing.T) {
 
 	// Use ListIssues with ParentID filter
 	issues, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		ParentID:    parent.ID,
 	})
 	if err != nil {
@@ -68,7 +68,7 @@ func TestGetOpenChildIssues(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Create parent issue
 	parent := setupTestIssue(t, store, ws, "Parent Epic")
@@ -128,7 +128,7 @@ func TestGetOpenChildIssuesEmpty(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Create an issue with no children
 	parent := setupTestIssue(t, store, ws, "Childless Issue")
@@ -148,7 +148,7 @@ func TestGetOpenChildIssuesAllClosed(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	parent := setupTestIssue(t, store, ws, "Parent")
 	child := setupTestIssue(t, store, ws, "Child")
@@ -183,7 +183,7 @@ func TestGetOpenChildIssuesIgnoresNonParentChildDeps(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	issue1 := setupTestIssue(t, store, ws, "Issue 1")
 	issue2 := setupTestIssue(t, store, ws, "Issue 2")
@@ -214,7 +214,7 @@ func TestListIssuesByParentAndStatusFilter(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Create parent and children
 	parent := setupTestIssue(t, store, ws, "Parent Epic")
@@ -240,7 +240,7 @@ func TestListIssuesByParentAndStatusFilter(t *testing.T) {
 	// Filter by parent + status=open should only return child1
 	openStatus := types.StatusOpen
 	issues, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		ParentID:    parent.ID,
 		Status:      &openStatus,
 	})
@@ -261,14 +261,14 @@ func TestListIssuesByParentFilterEmpty(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	ws := setupTestProject(t, store)
 
 	// Create an issue with no children
 	parent := setupTestIssue(t, store, ws, "Childless Epic")
 
 	// Use ListIssues with ParentID filter - should return empty
 	issues, err := store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: ws.ID,
+		ProjectID: ws.ID,
 		ParentID:    parent.ID,
 	})
 	if err != nil {

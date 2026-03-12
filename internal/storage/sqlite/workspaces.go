@@ -7,33 +7,40 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
-	"github.com/sentiolabs/arc/internal/workspace"
 )
 
-// CreateWorkspace creates a new workspace.
+// CreateWorkspace creates a new workspace (directory path entry).
 func (s *Store) CreateWorkspace(ctx context.Context, ws *types.Workspace) error {
 	if err := ws.Validate(); err != nil {
 		return fmt.Errorf("validate workspace: %w", err)
 	}
 
-	// Generate ID if not provided
 	if ws.ID == "" {
-		ws.ID = workspace.GenerateWorkspaceID("ws", ws.Name)
+		ws.ID = project.GenerateProjectID("ws", ws.Path)
 	}
 
 	now := time.Now()
 	ws.CreatedAt = now
 	ws.UpdatedAt = now
 
+	if ws.PathType == "" {
+		ws.PathType = "canonical"
+	}
+
 	err := s.queries.CreateWorkspace(ctx, db.CreateWorkspaceParams{
-		ID:          ws.ID,
-		Name:        ws.Name,
-		Description: toNullString(ws.Description),
-		Prefix:      ws.Prefix,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             ws.ID,
+		ProjectID:      ws.ProjectID,
+		Path:           ws.Path,
+		Label:          toNullString(ws.Label),
+		Hostname:       toNullString(ws.Hostname),
+		GitRemote:      toNullString(ws.GitRemote),
+		PathType:       ws.PathType,
+		LastAccessedAt: toNullTime(ws.LastAccessedAt),
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	})
 	if err != nil {
 		return fmt.Errorf("create workspace: %w", err)
@@ -55,43 +62,36 @@ func (s *Store) GetWorkspace(ctx context.Context, id string) (*types.Workspace, 
 	return dbWorkspaceToType(row), nil
 }
 
-// GetWorkspaceByName retrieves a workspace by name.
-func (s *Store) GetWorkspaceByName(ctx context.Context, name string) (*types.Workspace, error) {
-	row, err := s.queries.GetWorkspaceByName(ctx, name)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("workspace not found: %s", name)
-		}
-		return nil, fmt.Errorf("get workspace by name: %w", err)
-	}
-
-	return dbWorkspaceToType(row), nil
-}
-
-// ListWorkspaces returns all workspaces.
-func (s *Store) ListWorkspaces(ctx context.Context) ([]*types.Workspace, error) {
-	rows, err := s.queries.ListWorkspaces(ctx)
+// ListWorkspaces returns all workspaces for a project.
+func (s *Store) ListWorkspaces(ctx context.Context, projectID string) ([]*types.Workspace, error) {
+	rows, err := s.queries.ListWorkspaces(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("list workspaces: %w", err)
 	}
 
-	workspaces := make([]*types.Workspace, len(rows))
+	result := make([]*types.Workspace, len(rows))
 	for i, row := range rows {
-		workspaces[i] = dbWorkspaceToType(row)
+		result[i] = dbWorkspaceToType(row)
 	}
 
-	return workspaces, nil
+	return result, nil
 }
 
-// UpdateWorkspace updates a workspace.
+// UpdateWorkspace updates a workspace entry.
 func (s *Store) UpdateWorkspace(ctx context.Context, ws *types.Workspace) error {
 	ws.UpdatedAt = time.Now()
 
+	if ws.PathType == "" {
+		ws.PathType = "canonical"
+	}
+
 	err := s.queries.UpdateWorkspace(ctx, db.UpdateWorkspaceParams{
-		Name:        ws.Name,
-		Description: toNullString(ws.Description),
-		UpdatedAt:   ws.UpdatedAt,
-		ID:          ws.ID,
+		Label:     toNullString(ws.Label),
+		Hostname:  toNullString(ws.Hostname),
+		GitRemote: toNullString(ws.GitRemote),
+		PathType:  ws.PathType,
+		UpdatedAt: ws.UpdatedAt,
+		ID:        ws.ID,
 	})
 	if err != nil {
 		return fmt.Errorf("update workspace: %w", err)
@@ -100,21 +100,9 @@ func (s *Store) UpdateWorkspace(ctx context.Context, ws *types.Workspace) error 
 	return nil
 }
 
-// DeleteWorkspace deletes a workspace and all its issues.
-// Accepts either workspace ID (e.g., "ws-00blnw") or name (e.g., "my-project-a1b2c3").
-func (s *Store) DeleteWorkspace(ctx context.Context, idOrName string) error {
-	// Try to resolve by ID first
-	ws, err := s.GetWorkspace(ctx, idOrName)
-	if err != nil {
-		// If not found by ID, try by name
-		ws, err = s.GetWorkspaceByName(ctx, idOrName)
-		if err != nil {
-			return fmt.Errorf("workspace not found: %s", idOrName)
-		}
-	}
-
-	// Delete by the resolved ID
-	err = s.queries.DeleteWorkspace(ctx, ws.ID)
+// DeleteWorkspace removes a workspace entry.
+func (s *Store) DeleteWorkspace(ctx context.Context, id string) error {
+	err := s.queries.DeleteWorkspace(ctx, id)
 	if err != nil {
 		return fmt.Errorf("delete workspace: %w", err)
 	}
@@ -122,143 +110,47 @@ func (s *Store) DeleteWorkspace(ctx context.Context, idOrName string) error {
 	return nil
 }
 
-// MergeWorkspaces moves all issues and plans from source workspaces into the
-// target workspace, deletes the sources, and returns a summary. The entire
-// operation runs inside a single transaction for atomicity.
-func (s *Store) MergeWorkspaces(
-	ctx context.Context, targetID string, sourceIDs []string, actor string,
-) (*types.MergeResult, error) {
-	// Collect issue IDs from source workspaces before the transaction (for FTS rebuild + audit).
-	// Must happen before BeginTx to avoid SQLite single-connection deadlock.
-	var movedIssueIDs []string
-	for _, srcID := range sourceIDs {
-		srcIssues, err := s.ListIssues(ctx, types.IssueFilter{WorkspaceID: srcID})
-		if err == nil {
-			for _, issue := range srcIssues {
-				movedIssueIDs = append(movedIssueIDs, issue.ID)
-			}
-		}
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
+// ResolveProjectByPath finds a workspace entry by filesystem path.
+func (s *Store) ResolveProjectByPath(ctx context.Context, path string) (*types.Workspace, error) {
+	row, err := s.queries.ResolveProjectByPath(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	qtx := s.queries.WithTx(tx)
-
-	// Validate target exists
-	if _, err := qtx.GetWorkspace(ctx, targetID); err != nil {
-		return nil, fmt.Errorf("target workspace not found: %s", targetID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("workspace not found for path: %s", path)
+		}
+		return nil, fmt.Errorf("resolve project by path: %w", err)
 	}
 
-	var totalIssues, totalPlans int64
-	var deletedSources []string
-
-	for _, srcID := range sourceIDs {
-		if srcID == targetID {
-			return nil, fmt.Errorf("source workspace cannot be the same as target: %s", srcID)
-		}
-		if _, err := qtx.GetWorkspace(ctx, srcID); err != nil {
-			return nil, fmt.Errorf("source workspace not found: %s", srcID)
-		}
-
-		// Move issues
-		res, err := qtx.MoveIssuesToWorkspace(ctx, db.MoveIssuesToWorkspaceParams{
-			WorkspaceID:   targetID,
-			WorkspaceID_2: srcID,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("move issues from %s: %w", srcID, err)
-		}
-		n, _ := res.RowsAffected()
-		totalIssues += n
-
-		// Move plans
-		res, err = qtx.MovePlansToWorkspace(ctx, db.MovePlansToWorkspaceParams{
-			WorkspaceID:   targetID,
-			WorkspaceID_2: srcID,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("move plans from %s: %w", srcID, err)
-		}
-		n, _ = res.RowsAffected()
-		totalPlans += n
-
-		// Delete config for source workspace
-		if err := qtx.DeleteConfigByWorkspace(ctx, srcID); err != nil {
-			return nil, fmt.Errorf("delete config for %s: %w", srcID, err)
-		}
-
-		// Delete source workspace
-		if err := qtx.DeleteWorkspace(ctx, srcID); err != nil {
-			return nil, fmt.Errorf("delete workspace %s: %w", srcID, err)
-		}
-
-		deletedSources = append(deletedSources, srcID)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit merge: %w", err)
-	}
-
-	// Best-effort post-commit work (outside transaction)
-	for _, issueID := range movedIssueIDs {
-		s.rebuildFTSForIssue(ctx, issueID)
-		newValue := fmt.Sprintf("merged into %s", targetID)
-		s.recordEvent(ctx, issueID, types.EventMerged, actor, nil, &newValue)
-	}
-
-	target, err := s.GetWorkspace(ctx, targetID)
-	if err != nil {
-		return nil, fmt.Errorf("fetch merged workspace: %w", err)
-	}
-	return &types.MergeResult{
-		TargetWorkspace: target,
-		IssuesMoved:     int(totalIssues),
-		PlansMoved:      int(totalPlans),
-		SourcesDeleted:  deletedSources,
-	}, nil
+	return dbWorkspaceToType(row), nil
 }
 
-// dbWorkspaceToType converts a database workspace to a types.Workspace.
+// UpdateWorkspaceLastAccessed updates the last_accessed_at timestamp for a workspace.
+func (s *Store) UpdateWorkspaceLastAccessed(ctx context.Context, id string) error {
+	now := time.Now()
+
+	err := s.queries.UpdateWorkspaceLastAccessed(ctx, db.UpdateWorkspaceLastAccessedParams{
+		LastAccessedAt: toNullTime(&now),
+		UpdatedAt:      now,
+		ID:             id,
+	})
+	if err != nil {
+		return fmt.Errorf("update workspace last accessed: %w", err)
+	}
+
+	return nil
+}
+
+// dbWorkspaceToType converts a database Workspace to a types.Workspace.
 func dbWorkspaceToType(row *db.Workspace) *types.Workspace {
 	return &types.Workspace{
-		ID:          row.ID,
-		Name:        row.Name,
-		Description: fromNullString(row.Description),
-		Prefix:      row.Prefix,
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
+		ID:             row.ID,
+		ProjectID:      row.ProjectID,
+		Path:           row.Path,
+		Label:          fromNullString(row.Label),
+		Hostname:       fromNullString(row.Hostname),
+		GitRemote:      fromNullString(row.GitRemote),
+		PathType:       row.PathType,
+		LastAccessedAt: fromNullTime(row.LastAccessedAt),
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
 	}
-}
-
-// Helper functions for nullable fields
-func toNullString(s string) sql.NullString {
-	if s == "" {
-		return sql.NullString{}
-	}
-	return sql.NullString{String: s, Valid: true}
-}
-
-func fromNullString(ns sql.NullString) string {
-	if ns.Valid {
-		return ns.String
-	}
-	return ""
-}
-
-func toNullTime(t *time.Time) sql.NullTime {
-	if t == nil {
-		return sql.NullTime{}
-	}
-	return sql.NullTime{Time: *t, Valid: true}
-}
-
-func fromNullTime(nt sql.NullTime) *time.Time {
-	if nt.Valid {
-		return &nt.Time
-	}
-	return nil
 }
