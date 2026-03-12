@@ -130,16 +130,6 @@ func (s *Server) mergeWorkspaces(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, err.Error())
 	}
 
-	// Best-effort cleanup of project configs for deleted source workspaces
-	arcHome := project.DefaultArcHome()
-	for _, srcID := range result.SourcesDeleted {
-		if removed, cleanErr := project.CleanupWorkspaceConfigs(arcHome, srcID); cleanErr != nil {
-			log.Printf("Warning: failed to clean up project configs for merged workspace %s: %v", srcID, cleanErr)
-		} else if removed > 0 {
-			log.Printf("Cleaned up %d project config(s) for merged workspace %s", removed, srcID)
-		}
-	}
-
 	return successJSON(c, result)
 }
 
