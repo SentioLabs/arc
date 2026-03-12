@@ -123,6 +123,25 @@ func (c *Client) DeleteWorkspace(id string) error {
 	return nil
 }
 
+// MergeWorkspaces merges one or more source workspaces into a target workspace.
+func (c *Client) MergeWorkspaces(targetID string, sourceIDs []string) (*types.MergeResult, error) {
+	body := map[string]any{
+		"target_id":  targetID,
+		"source_ids": sourceIDs,
+	}
+	resp, err := c.post("/api/v1/workspaces/merge", body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result types.MergeResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &result, nil
+}
+
 // Issue methods provide CRUD operations for issues within a workspace.
 
 // ListIssues returns issues for a workspace.

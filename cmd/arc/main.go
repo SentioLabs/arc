@@ -387,6 +387,9 @@ func init() {
 	workspaceCmd.AddCommand(workspaceListCmd)
 	workspaceCmd.AddCommand(workspaceCreateCmd)
 	workspaceCmd.AddCommand(workspaceDeleteCmd)
+	workspaceCmd.AddCommand(workspaceMergeCmd)
+	workspaceMergeCmd.Flags().String("into", "", "Target workspace name or ID (required)")
+	workspaceMergeCmd.MarkFlagRequired("into") //nolint:errcheck
 }
 
 // whichCmd shows the active workspace and how it was resolved.
@@ -582,6 +585,77 @@ var workspaceDeleteCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Deleted workspace: %s\n", args[0])
+		return nil
+	},
+}
+
+// workspaceMergeCmd merges one or more source workspaces into a target workspace.
+var workspaceMergeCmd = &cobra.Command{
+	Use:   "merge <source> [source2...]",
+	Short: "Merge workspaces into a target workspace",
+	Long: `Merge one or more source workspaces into a target workspace.
+
+All issues and plans from the source workspace(s) are moved to the target.
+Source workspaces are deleted after the merge. Issue IDs are preserved.
+
+Examples:
+  arc workspace merge --into my-project old-workspace-1
+  arc workspace merge --into my-project old-ws-1 old-ws-2 old-ws-3`,
+	Args: cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		into, _ := cmd.Flags().GetString("into")
+
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+
+		// List all workspaces to resolve names to IDs
+		workspaces, err := c.ListWorkspaces()
+		if err != nil {
+			return fmt.Errorf("list workspaces: %w", err)
+		}
+
+		// Build name-to-ID and ID-to-name lookup maps
+		nameToID := make(map[string]string, len(workspaces))
+		idToName := make(map[string]string, len(workspaces))
+		for _, ws := range workspaces {
+			nameToID[ws.Name] = ws.ID
+			idToName[ws.ID] = ws.Name
+		}
+
+		// Resolve target
+		targetID := into
+		if id, ok := nameToID[into]; ok {
+			targetID = id
+		}
+		targetName := into
+		if name, ok := idToName[targetID]; ok {
+			targetName = name
+		}
+
+		// Resolve sources
+		sourceIDs := make([]string, len(args))
+		for i, arg := range args {
+			if id, ok := nameToID[arg]; ok {
+				sourceIDs[i] = id
+			} else {
+				sourceIDs[i] = arg
+			}
+		}
+
+		result, err := c.MergeWorkspaces(targetID, sourceIDs)
+		if err != nil {
+			return err
+		}
+
+		if outputJSON {
+			outputResult(result)
+			return nil
+		}
+
+		fmt.Printf("Merged %d workspace(s) into '%s': %d issues moved, %d plans moved\n",
+			len(result.SourcesDeleted), targetName, result.IssuesMoved, result.PlansMoved)
 		return nil
 	},
 }

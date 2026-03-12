@@ -407,6 +407,43 @@ func TestClientSetActor(t *testing.T) {
 // TestClientListIssuesParentFilter verifies that the Parent option on
 // ListIssuesOptions causes the client to send the parent_id query parameter,
 // filtering results to only children of the specified parent issue.
+func TestClientMergeWorkspaces(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	// Create target workspace
+	target, err := c.CreateWorkspace("Target", "tgt", "/tmp/target", "Target workspace")
+	if err != nil {
+		t.Fatalf("create target workspace: %v", err)
+	}
+
+	// Create source workspace with an issue
+	source, err := c.CreateWorkspace("Source", "src", "/tmp/source", "Source workspace")
+	if err != nil {
+		t.Fatalf("create source workspace: %v", err)
+	}
+	createTestIssueClient(t, c, source.ID, "Issue in source")
+
+	// Merge source into target
+	result, err := c.MergeWorkspaces(target.ID, []string{source.ID})
+	if err != nil {
+		t.Fatalf("MergeWorkspaces failed: %v", err)
+	}
+
+	if result.TargetWorkspace == nil {
+		t.Fatal("TargetWorkspace should not be nil")
+	}
+	if result.TargetWorkspace.ID != target.ID {
+		t.Errorf("TargetWorkspace.ID = %q, want %q", result.TargetWorkspace.ID, target.ID)
+	}
+	if result.IssuesMoved != 1 {
+		t.Errorf("IssuesMoved = %d, want 1", result.IssuesMoved)
+	}
+	if len(result.SourcesDeleted) != 1 {
+		t.Errorf("SourcesDeleted length = %d, want 1", len(result.SourcesDeleted))
+	}
+}
+
 func TestClientListIssuesParentFilter(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
