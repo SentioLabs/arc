@@ -46,9 +46,6 @@ func TestMergeWorkspaces_Basic(t *testing.T) {
 	} else if result.SourcesDeleted[0] != source.ID {
 		t.Errorf("SourcesDeleted[0] = %q, want %q", result.SourcesDeleted[0], source.ID)
 	}
-	if result.TargetWorkspace == nil {
-		t.Fatal("TargetWorkspace should not be nil")
-	}
 	if result.TargetWorkspace.ID != target.ID {
 		t.Errorf("TargetWorkspace.ID = %q, want %q", result.TargetWorkspace.ID, target.ID)
 	}

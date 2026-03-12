@@ -68,9 +68,6 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 		t.Fatalf("failed to parse merge response: %v", err)
 	}
 
-	if result.TargetWorkspace == nil {
-		t.Fatal("target_workspace should not be nil")
-	}
 	if result.TargetWorkspace.ID != targetID {
 		t.Errorf("target_workspace.id = %q, want %q", result.TargetWorkspace.ID, targetID)
 	}
@@ -127,7 +124,7 @@ func TestMergeWorkspaces_InvalidTarget(t *testing.T) {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

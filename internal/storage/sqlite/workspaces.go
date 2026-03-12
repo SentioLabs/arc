@@ -126,8 +126,20 @@ func (s *Store) DeleteWorkspace(ctx context.Context, idOrName string) error {
 // target workspace, deletes the sources, and returns a summary. The entire
 // operation runs inside a single transaction for atomicity.
 func (s *Store) MergeWorkspaces(
-	ctx context.Context, targetID string, sourceIDs []string, _ string,
+	ctx context.Context, targetID string, sourceIDs []string, actor string,
 ) (*types.MergeResult, error) {
+	// Collect issue IDs from source workspaces before the transaction (for FTS rebuild + audit).
+	// Must happen before BeginTx to avoid SQLite single-connection deadlock.
+	var movedIssueIDs []string
+	for _, srcID := range sourceIDs {
+		srcIssues, err := s.ListIssues(ctx, types.IssueFilter{WorkspaceID: srcID})
+		if err == nil {
+			for _, issue := range srcIssues {
+				movedIssueIDs = append(movedIssueIDs, issue.ID)
+			}
+		}
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -191,13 +203,17 @@ func (s *Store) MergeWorkspaces(
 		return nil, fmt.Errorf("commit merge: %w", err)
 	}
 
-	// Rebuild FTS for moved issues (best-effort, outside transaction)
-	issues, _ := s.ListIssues(ctx, types.IssueFilter{WorkspaceID: targetID})
-	for _, issue := range issues {
-		s.rebuildFTSForIssue(ctx, issue.ID)
+	// Best-effort post-commit work (outside transaction)
+	for _, issueID := range movedIssueIDs {
+		s.rebuildFTSForIssue(ctx, issueID)
+		newValue := fmt.Sprintf("merged into %s", targetID)
+		s.recordEvent(ctx, issueID, types.EventMerged, actor, nil, &newValue)
 	}
 
-	target, _ := s.GetWorkspace(ctx, targetID)
+	target, err := s.GetWorkspace(ctx, targetID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch merged workspace: %w", err)
+	}
 	return &types.MergeResult{
 		TargetWorkspace: target,
 		IssuesMoved:     int(totalIssues),

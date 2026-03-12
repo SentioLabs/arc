@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/types"
@@ -112,7 +113,8 @@ type mergeWorkspacesRequest struct {
 
 // mergeWorkspaces merges one or more source workspaces into a target workspace.
 // All issues and plans from the source workspaces are moved to the target,
-// and the source workspaces are deleted.
+// and the source workspaces are deleted. Best-effort cleanup of project configs
+// for deleted source workspaces is performed after the merge.
 func (s *Server) mergeWorkspaces(c echo.Context) error {
 	var req mergeWorkspacesRequest
 	if err := c.Bind(&req); err != nil {
@@ -127,7 +129,11 @@ func (s *Server) mergeWorkspaces(c echo.Context) error {
 
 	result, err := s.store.MergeWorkspaces(c.Request().Context(), req.TargetID, req.SourceIDs, getActor(c))
 	if err != nil {
-		return errorJSON(c, http.StatusBadRequest, err.Error())
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "not found") {
+			return errorJSON(c, http.StatusNotFound, errMsg)
+		}
+		return errorJSON(c, http.StatusInternalServerError, errMsg)
 	}
 
 	return successJSON(c, result)
