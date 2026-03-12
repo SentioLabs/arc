@@ -15,7 +15,7 @@ Key Differences:
 - **Central Server**: Single server managing multiple workspaces
 - **Web UI**: Svelte client app embedded in Go server
 - **REST API**: Clean JSON API for all operations
-- **Workspaces**: First-class workspace management (replaces per-repo concept)
+- **Workspaces**: First-class workspace management with multi-directory support and git worktree auto-detection
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
 - **Plans**: Inline plans on issues, shared plans linkable to multiple issues
 - **Ready Work**: Find issues with no blockers
@@ -81,6 +81,7 @@ cd your-project
 arc init                        # Uses directory name as workspace
 arc init my-project             # Custom workspace name
 arc init --prefix mp            # Custom issue prefix (e.g., mp-a3f2)
+arc init bacstack               # Join existing 'bacstack' workspace from another directory
 
 # Check which workspace is active
 arc which
@@ -175,6 +176,36 @@ arc docs search "dependencies"  # Fuzzy search across all docs
 arc docs plans                  # Full topic on plans
 arc quickstart                  # Quick start guide
 arc self update                 # Update to latest version
+```
+
+#### Multi-Directory Workspaces
+
+Multiple directories can share the same workspace. This is useful for maintaining
+several clones of a repository or working across related projects:
+
+```bash
+# Initialize workspace in first directory
+cd ~/projects/myapp-01
+arc init myapp
+
+# Join the same workspace from another directory
+cd ~/projects/myapp-02
+arc init myapp                  # Reuses existing 'myapp' workspace
+
+# Issues are shared — create in one, see in both
+arc create "Shared task" -t task
+```
+
+Git worktrees are automatically detected. If a worktree's main repo has an arc
+workspace configured, `arc` commands in the worktree resolve to that workspace:
+
+```bash
+cd ~/projects/myapp
+arc init myapp
+git worktree add ../myapp-feature feature-branch
+
+cd ../myapp-feature
+arc which                       # Resolves to 'myapp' workspace automatically
 ```
 
 #### Advanced: Workspace Management
@@ -388,7 +419,7 @@ Arc uses three configuration layers (highest priority wins):
 }
 ```
 
-Resolution priority: CLI flag > project config > CLI config defaults.
+Resolution priority: CLI flag > project config > git worktree detection > server path matching > CLI config defaults.
 
 ## Development
 
@@ -409,6 +440,29 @@ make gen
 make docker-build
 make docker-up
 ```
+
+### E2E Testing
+
+End-to-end tests run the arc CLI binary against a real server in Docker. Requires Docker.
+
+```bash
+# Run all E2E tests (Go integration + Playwright)
+make test-e2e
+
+# Run only Go CLI integration tests
+make test-integration
+
+# Run only Playwright web UI tests
+make test-playwright
+```
+
+The test infrastructure:
+- Starts an arc server on port **7433** (via `docker-compose.test.yml`) with ephemeral tmpfs storage
+- Builds the arc binary and runs Go integration tests with `//go:build integration` tag
+- Runs Playwright tests against the real server using `web/playwright.e2e.config.ts`
+- Cleans up automatically after each run
+
+CI runs these automatically via `.github/workflows/test.yml`: unit tests first, then integration and Playwright tests in parallel.
 
 ## API Reference
 

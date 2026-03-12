@@ -7,7 +7,7 @@ services:
     ports:
       - "7433:7432"
     tmpfs:
-      - /data
+      - /data:uid=1000,gid=1000
     environment:
       - TZ=UTC
     healthcheck:
