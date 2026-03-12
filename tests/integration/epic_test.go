@@ -22,9 +22,9 @@ func epicUniqueCounter() int64 {
 // as "epic".
 func TestCreateEpic(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("epic-create-%d", epicUniqueCounter())
+	projName := fmt.Sprintf("epic-create-%d", epicUniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "My Epic", "--type", "epic", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -42,9 +42,9 @@ func TestCreateEpic(t *testing.T) {
 // then verifies the child appears when listing by parent.
 func TestCreateWithParent(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("epic-parent-%d", epicUniqueCounter())
+	projName := fmt.Sprintf("epic-parent-%d", epicUniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	epicOut := arcCmdSuccess(t, home, "create", "Parent Epic", "--type", "epic", "--server", serverURL)
 	epicID, ok := extractID(epicOut)
@@ -68,9 +68,9 @@ func TestCreateWithParent(t *testing.T) {
 // all children appear when listing by parent.
 func TestEpicWithMultipleChildren(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("epic-multi-%d", epicUniqueCounter())
+	projName := fmt.Sprintf("epic-multi-%d", epicUniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	epicOut := arcCmdSuccess(t, home, "create", "Multi Child Epic", "--type", "epic", "--server", serverURL)
 	epicID, ok := extractID(epicOut)
@@ -99,9 +99,9 @@ func TestEpicWithMultipleChildren(t *testing.T) {
 // that arc show on the epic mentions the children.
 func TestEpicShowIncludesChildren(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("epic-show-children-%d", epicUniqueCounter())
+	projName := fmt.Sprintf("epic-show-children-%d", epicUniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	epicOut := arcCmdSuccess(t, home, "create", "Show Children Epic", "--type", "epic", "--server", serverURL)
 	epicID, ok := extractID(epicOut)
@@ -135,9 +135,9 @@ func TestEpicShowIncludesChildren(t *testing.T) {
 // epic, chore) and verifies that arc show reports the correct type for each.
 func TestCreateAllIssueTypes(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("epic-types-%d", epicUniqueCounter())
+	projName := fmt.Sprintf("epic-types-%d", epicUniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	types := []string{"bug", "feature", "task", "epic", "chore"}
 	for _, issueType := range types {
@@ -161,9 +161,9 @@ func TestCreateAllIssueTypes(t *testing.T) {
 // and type flags, then verifies they appear in the show output.
 func TestCreateWithPriorityAndAssignee(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("epic-priority-%d", epicUniqueCounter())
+	projName := fmt.Sprintf("epic-priority-%d", epicUniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Priority bug", "--priority", "1", "--assignee", "alice", "--type", "bug", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -189,9 +189,9 @@ func TestCreateWithPriorityAndAssignee(t *testing.T) {
 // the task (via dep add --type parent-child). Verifies the chain is visible.
 func TestNestedParentChild(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("epic-nested-%d", epicUniqueCounter())
+	projName := fmt.Sprintf("epic-nested-%d", epicUniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	// Create epic.
 	epicOut := arcCmdSuccess(t, home, "create", "Nested Epic", "--type", "epic", "--server", serverURL)

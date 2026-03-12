@@ -12,9 +12,9 @@ import (
 // dependency between them is reflected in the show output.
 func TestDepAddBlocks(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("dep-blocks-%d", uniqueCounter())
+	projName := fmt.Sprintf("dep-blocks-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	outA := arcCmdSuccess(t, home, "create", "Issue A blocks test", "--type", "task", "--server", serverURL)
 	idA, ok := extractID(outA)
@@ -44,9 +44,9 @@ func TestDepAddBlocks(t *testing.T) {
 // TestDepAddRemove creates two issues, adds a dependency, then removes it.
 func TestDepAddRemove(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("dep-remove-%d", uniqueCounter())
+	projName := fmt.Sprintf("dep-remove-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	outA := arcCmdSuccess(t, home, "create", "Issue A remove test", "--type", "task", "--server", serverURL)
 	idA, ok := extractID(outA)
@@ -71,9 +71,9 @@ func TestDepAddRemove(t *testing.T) {
 // TestDepAddParentChild verifies that a parent-child dependency can be created.
 func TestDepAddParentChild(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("dep-parent-%d", uniqueCounter())
+	projName := fmt.Sprintf("dep-parent-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	outParent := arcCmdSuccess(t, home, "create", "Parent issue", "--type", "task", "--server", serverURL)
 	idParent, ok := extractID(outParent)
@@ -101,9 +101,9 @@ func TestDepAddParentChild(t *testing.T) {
 // closing the blocker.
 func TestBlockedShowsBlockedIssues(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("dep-blocked-%d", uniqueCounter())
+	projName := fmt.Sprintf("dep-blocked-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	outA := arcCmdSuccess(t, home, "create", "Blocked issue A", "--type", "task", "--server", serverURL)
 	idA, ok := extractID(outA)
@@ -137,14 +137,14 @@ func TestBlockedShowsBlockedIssues(t *testing.T) {
 }
 
 // TestBlockedEmpty verifies that "arc blocked" reports no blocked issues when
-// there are no dependencies. Uses a temp dir for CWD isolation so workspace
+// there are no dependencies. Uses a temp dir for CWD isolation so project
 // resolution doesn't pick up issues from other tests.
 func TestBlockedEmpty(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("dep-empty-%d", uniqueCounter())
+	projName := fmt.Sprintf("dep-empty-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", wsName, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", projName, "--server", serverURL)
 
 	blockedOut := arcCmdInDirSuccess(t, home, dir, "blocked", "--server", serverURL)
 	if !strings.Contains(blockedOut, "No blocked issues") {
@@ -156,9 +156,9 @@ func TestBlockedEmpty(t *testing.T) {
 // in the "ready" list.
 func TestDepAffectsReady(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("dep-ready-%d", uniqueCounter())
+	projName := fmt.Sprintf("dep-ready-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	outA := arcCmdSuccess(t, home, "create", "Ready issue A", "--type", "task", "--server", serverURL)
 	idA, ok := extractID(outA)
@@ -197,9 +197,9 @@ func TestDepAffectsReady(t *testing.T) {
 // TestDepAddRelated verifies that a "related" dependency can be created.
 func TestDepAddRelated(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("dep-related-%d", uniqueCounter())
+	projName := fmt.Sprintf("dep-related-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
 	outA := arcCmdSuccess(t, home, "create", "Related issue A", "--type", "task", "--server", serverURL)
 	idA, ok := extractID(outA)

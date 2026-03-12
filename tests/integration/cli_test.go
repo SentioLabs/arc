@@ -18,20 +18,20 @@ func extractID(text string) (string, bool) {
 	return match, match != ""
 }
 
-// TestWorkspaceCreateAndList verifies that `arc init` creates a workspace
+// TestProjectCreateAndList verifies that `arc init` creates a project
 // and that subsequent commands can operate within it.
-func TestWorkspaceCreateAndList(t *testing.T) {
+func TestProjectCreateAndList(t *testing.T) {
 	home := setupHome(t)
 
-	// Initialize a workspace.
-	output := arcCmdSuccess(t, home, "init", "integration-test-ws", "--server", serverURL)
-	if !strings.Contains(strings.ToLower(output), "workspace") {
-		t.Errorf("expected workspace mention in init output, got: %s", output)
+	// Initialize a project.
+	output := arcCmdSuccess(t, home, "init", "integration-test-proj", "--server", serverURL)
+	if !strings.Contains(strings.ToLower(output), "project") {
+		t.Errorf("expected project mention in init output, got: %s", output)
 	}
 
-	// List issues in the workspace (should be empty but command should succeed).
+	// List issues in the project (should be empty but command should succeed).
 	listOutput := arcCmdSuccess(t, home, "list", "--server", serverURL)
-	// An empty workspace should not error; output may be empty or show a header.
+	// An empty project should not error; output may be empty or show a header.
 	_ = listOutput
 }
 
@@ -40,7 +40,7 @@ func TestWorkspaceCreateAndList(t *testing.T) {
 func TestIssueCreateShowClose(t *testing.T) {
 	home := setupHome(t)
 
-	// Set up workspace first.
+	// Set up project first.
 	arcCmdSuccess(t, home, "init", "integration-crud", "--server", serverURL)
 
 	// Create an issue.
@@ -75,7 +75,7 @@ func TestIssueCreateShowClose(t *testing.T) {
 func TestListAndReady(t *testing.T) {
 	home := setupHome(t)
 
-	// Set up workspace.
+	// Set up project.
 	arcCmdSuccess(t, home, "init", "integration-ready", "--server", serverURL)
 
 	// Create a couple of issues.

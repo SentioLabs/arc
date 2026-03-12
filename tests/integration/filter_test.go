@@ -15,9 +15,9 @@ import (
 // that the --status flag filters correctly.
 func TestListFilterByStatus(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-status-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-status-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	// Create 3 issues.
 	out1 := arcCmdSuccess(t, home, "create", "Status open issue", "--type", "task", "--server", serverURL)
@@ -70,9 +70,9 @@ func TestListFilterByStatus(t *testing.T) {
 // that --type filters correctly.
 func TestListFilterByType(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-type-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-type-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	arcCmdSuccess(t, home, "create", "Filter type task issue", "--type", "task", "--server", serverURL)
 	arcCmdSuccess(t, home, "create", "Filter type bug issue", "--type", "bug", "--server", serverURL)
@@ -90,9 +90,9 @@ func TestListFilterByType(t *testing.T) {
 // that --assignee filters correctly.
 func TestListFilterByAssignee(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-assignee-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-assignee-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	out1 := arcCmdSuccess(t, home, "create", "Assignee alice issue", "--type", "task", "--server", serverURL)
 	id1, ok := extractID(out1)
@@ -118,9 +118,9 @@ func TestListFilterByAssignee(t *testing.T) {
 // that --query performs FTS search.
 func TestListFilterByQuery(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-query-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-query-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	arcCmdSuccess(t, home, "create", "Database migration task", "--type", "task", "--server", serverURL)
 	arcCmdSuccess(t, home, "create", "Frontend styling task", "--type", "task", "--server", serverURL)
@@ -138,9 +138,9 @@ func TestListFilterByQuery(t *testing.T) {
 // the number of results.
 func TestListLimit(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-limit-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-limit-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	for i := 0; i < 5; i++ {
 		arcCmdSuccess(t, home, "create", fmt.Sprintf("Limit test issue %d", i), "--type", "task", "--server", serverURL)
@@ -163,13 +163,13 @@ func TestListLimit(t *testing.T) {
 
 // TestListFilterByParent creates an epic with child tasks and verifies
 // that --parent filters to only children of that epic. Uses a temp dir for
-// CWD isolation so workspace resolution is correct.
+// CWD isolation so project resolution is correct.
 func TestListFilterByParent(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-parent-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-parent-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", ws, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", proj, "--server", serverURL)
 
 	// Create an epic.
 	epicOut := arcCmdInDirSuccess(t, home, dir, "create", "Parent epic issue", "--type", "epic", "--server", serverURL)
@@ -202,10 +202,10 @@ func TestListFilterByParent(t *testing.T) {
 // containing the expected issue data. Uses temp dir for CWD isolation.
 func TestListJsonOutput(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-json-list-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-json-list-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", ws, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", proj, "--server", serverURL)
 
 	arcCmdInDirSuccess(t, home, dir, "create", "JSON list issue one", "--type", "task", "--server", serverURL)
 	arcCmdInDirSuccess(t, home, dir, "create", "JSON list issue two", "--type", "bug", "--server", serverURL)
@@ -238,9 +238,9 @@ func TestListJsonOutput(t *testing.T) {
 // with the correct issue details.
 func TestShowJsonOutput(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-json-show-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-json-show-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "JSON test issue", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -270,9 +270,9 @@ func TestShowJsonOutput(t *testing.T) {
 // TestReadyJsonOutput verifies that `arc ready --json` outputs a valid JSON array.
 func TestReadyJsonOutput(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("filter-json-ready-%d", uniqueCounter())
+	proj := fmt.Sprintf("filter-json-ready-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	arcCmdSuccess(t, home, "create", "Ready JSON issue", "--type", "task", "--server", serverURL)
 
@@ -289,7 +289,7 @@ func TestReadyJsonOutput(t *testing.T) {
 }
 
 // _filterCounter is an atomic counter combined with a timestamp base to
-// generate workspace names that are unique across test runs.
+// generate project names that are unique across test runs.
 var _filterCounter int64
 
 func uniqueCounter() int64 {

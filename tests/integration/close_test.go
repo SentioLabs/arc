@@ -13,9 +13,9 @@ import (
 // and the issue ends up in a closed state.
 func TestCloseWithReason(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("close-reason-%d", uniqueCounter())
+	proj := fmt.Sprintf("close-reason-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Issue to close with reason", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -44,9 +44,9 @@ func TestCloseWithReason(t *testing.T) {
 // single arc close command.
 func TestCloseMultipleIssues(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("close-multi-%d", uniqueCounter())
+	proj := fmt.Sprintf("close-multi-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	ids := make([]string, 3)
 	for i := 0; i < 3; i++ {
@@ -85,9 +85,9 @@ func TestCloseMultipleIssues(t *testing.T) {
 // are open.
 func TestCloseCascade(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("close-cascade-%d", uniqueCounter())
+	proj := fmt.Sprintf("close-cascade-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	// Create parent issue.
 	parentOut := arcCmdSuccess(t, home, "create", "Cascade parent", "--type", "epic", "--server", serverURL)
@@ -144,9 +144,9 @@ func TestCloseCascade(t *testing.T) {
 // not crash or produce an unexpected error.
 func TestCloseAlreadyClosed(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("close-already-%d", uniqueCounter())
+	proj := fmt.Sprintf("close-already-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Already closed issue", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -185,9 +185,9 @@ func TestCloseAlreadyClosed(t *testing.T) {
 // returns an error.
 func TestCloseNonexistentIssue(t *testing.T) {
 	home := setupHome(t)
-	ws := fmt.Sprintf("close-nonexist-%d", uniqueCounter())
+	proj := fmt.Sprintf("close-nonexist-%d", uniqueCounter())
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
 	// Note: the close command exits 0 even on failure because it iterates
 	// over IDs with continue, so we check output for error text.

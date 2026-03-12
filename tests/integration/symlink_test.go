@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// TestInitFromSymlinkRegisterssBothPaths verifies that `arc init` from a
+// TestInitFromSymlinkRegistersBothPaths verifies that `arc init` from a
 // symlinked directory registers both the symlink path and the resolved path.
 func TestInitFromSymlinkRegistersBothPaths(t *testing.T) {
 	home := setupHome(t)
@@ -27,12 +27,12 @@ func TestInitFromSymlinkRegistersBothPaths(t *testing.T) {
 	}
 
 	// Init from the symlink path.
-	arcCmdInDirSuccess(t, home, symlinkDir, "init", "symlink-dual-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, symlinkDir, "init", "symlink-dual-proj", "--server", serverURL)
 
-	wsID := getWorkspaceIDByName(t, home, "symlink-dual-ws")
+	projID := getProjectIDByName(t, home, "symlink-dual-proj")
 
 	// Check registered paths.
-	pathsOut := arcCmdSuccess(t, home, "paths", "-w", wsID, "--json", "--server", serverURL)
+	pathsOut := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
 	var paths []struct {
 		Path string `json:"path"`
 	}
@@ -75,7 +75,7 @@ func TestCommandsWorkFromBothSymlinkAndRealPath(t *testing.T) {
 	}
 
 	// Init from the symlink path.
-	arcCmdInDirSuccess(t, home, symlinkDir, "init", "symlink-both-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, symlinkDir, "init", "symlink-both-proj", "--server", serverURL)
 
 	// Create issue from the symlink path.
 	createOut := arcCmdInDirSuccess(t, home, symlinkDir, "create", "Issue from symlink", "--type", "task", "--server", serverURL)
@@ -106,7 +106,7 @@ func TestCommandsWorkFromBothSymlinkAndRealPath(t *testing.T) {
 }
 
 // TestWhichFromSymlinkAndRealPath verifies that `arc which` resolves
-// the same workspace from both the symlink and real paths.
+// the same project from both the symlink and real paths.
 func TestWhichFromSymlinkAndRealPath(t *testing.T) {
 	home := setupHome(t)
 
@@ -120,7 +120,7 @@ func TestWhichFromSymlinkAndRealPath(t *testing.T) {
 		t.Skipf("cannot create symlink: %v", err)
 	}
 
-	arcCmdInDirSuccess(t, home, symlinkDir, "init", "symlink-which-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, symlinkDir, "init", "symlink-which-proj", "--server", serverURL)
 
 	// `arc which` from symlink.
 	whichSymlink := arcCmdInDirSuccess(t, home, symlinkDir, "which", "--json", "--server", serverURL)
@@ -136,10 +136,10 @@ func TestWhichFromSymlinkAndRealPath(t *testing.T) {
 		t.Fatalf("parse which JSON from real: %v\noutput: %s", err, whichReal)
 	}
 
-	// Both should resolve to the same workspace.
-	if resultSymlink["workspace_id"] != resultReal["workspace_id"] {
-		t.Errorf("workspace IDs differ: symlink=%q, real=%q",
-			resultSymlink["workspace_id"], resultReal["workspace_id"])
+	// Both should resolve to the same project.
+	if resultSymlink["project_id"] != resultReal["project_id"] {
+		t.Errorf("project IDs differ: symlink=%q, real=%q",
+			resultSymlink["project_id"], resultReal["project_id"])
 	}
 }
 
@@ -159,7 +159,7 @@ func TestInitFromRealPathThenAccessFromSymlink(t *testing.T) {
 	}
 
 	// Init from real path.
-	arcCmdInDirSuccess(t, home, realDir, "init", "reverse-sym-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, realDir, "init", "reverse-sym-proj", "--server", serverURL)
 
 	// Create issue from real path.
 	arcCmdInDirSuccess(t, home, realDir, "create", "Real path issue", "--type", "task", "--server", serverURL)

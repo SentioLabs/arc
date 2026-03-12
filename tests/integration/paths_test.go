@@ -14,7 +14,7 @@ func TestPathsListAfterInit(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "paths-list-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "paths-list-proj", "--server", serverURL)
 
 	out := arcCmdInDirSuccess(t, home, dir, "paths", "--server", serverURL)
 	if !strings.Contains(out, dir) && !strings.Contains(out, "PATH") {
@@ -22,47 +22,47 @@ func TestPathsListAfterInit(t *testing.T) {
 	}
 }
 
-// TestPathsListEmpty verifies that `arc paths` on a workspace with no paths
-// prints a friendly message (use -w flag to skip path-based resolution).
+// TestPathsListEmpty verifies that `arc paths` on a project with no paths
+// prints a friendly message (use -p flag to skip path-based resolution).
 func TestPathsListEmpty(t *testing.T) {
 	home := setupHome(t)
 
-	// Create workspace directly (not via init, so no path is registered).
-	arcCmdSuccess(t, home, "workspace", "create", "empty-paths-ws", "--server", serverURL)
+	// Create project directly (not via init, so no path is registered).
+	arcCmdSuccess(t, home, "project", "create", "empty-paths-proj", "--server", serverURL)
 
-	// Get workspace ID from JSON output.
-	jsonOut := arcCmdSuccess(t, home, "workspace", "list", "--json", "--server", serverURL)
-	var workspaces []struct {
+	// Get project ID from JSON output.
+	jsonOut := arcCmdSuccess(t, home, "project", "list", "--json", "--server", serverURL)
+	var projects []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	if err := json.Unmarshal([]byte(jsonOut), &workspaces); err != nil {
-		t.Fatalf("parse workspace list JSON: %v", err)
+	if err := json.Unmarshal([]byte(jsonOut), &projects); err != nil {
+		t.Fatalf("parse project list JSON: %v", err)
 	}
-	var wsID string
-	for _, ws := range workspaces {
-		if ws.Name == "empty-paths-ws" {
-			wsID = ws.ID
+	var projID string
+	for _, proj := range projects {
+		if proj.Name == "empty-paths-proj" {
+			projID = proj.ID
 			break
 		}
 	}
-	if wsID == "" {
-		t.Fatal("could not find workspace empty-paths-ws")
+	if projID == "" {
+		t.Fatal("could not find project empty-paths-proj")
 	}
 
-	out := arcCmdSuccess(t, home, "paths", "-w", wsID, "--server", serverURL)
+	out := arcCmdSuccess(t, home, "paths", "-p", projID, "--server", serverURL)
 	if !strings.Contains(strings.ToLower(out), "no paths") {
-		t.Errorf("expected 'no paths' message for workspace with no paths, got: %s", out)
+		t.Errorf("expected 'no paths' message for project with no paths, got: %s", out)
 	}
 }
 
-// TestPathsAddAndRemove verifies adding a path to a workspace and then
+// TestPathsAddAndRemove verifies adding a path to a project and then
 // removing it.
 func TestPathsAddAndRemove(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "paths-add-rm-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "paths-add-rm-proj", "--server", serverURL)
 
 	// Add a second path.
 	extraDir := t.TempDir()
@@ -95,7 +95,7 @@ func TestPathsAddWithLabel(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "paths-label-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "paths-label-proj", "--server", serverURL)
 
 	extraDir := t.TempDir()
 	arcCmdInDirSuccess(t, home, dir, "paths", "add", extraDir, "--label", "my-custom-label", "--server", serverURL)
@@ -107,24 +107,24 @@ func TestPathsAddWithLabel(t *testing.T) {
 }
 
 // TestPathsListAll verifies that `arc paths list --all` shows paths
-// across multiple workspaces.
+// across multiple projects.
 func TestPathsListAll(t *testing.T) {
 	home := setupHome(t)
 
 	dirA := t.TempDir()
 	dirB := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dirA, "init", "paths-all-ws-a", "--server", serverURL)
-	arcCmdInDirSuccess(t, home, dirB, "init", "paths-all-ws-b", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dirA, "init", "paths-all-proj-a", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dirB, "init", "paths-all-proj-b", "--server", serverURL)
 
 	out := arcCmdSuccess(t, home, "paths", "list", "--all", "--server", serverURL)
 
-	// Should show paths from both workspaces.
-	if !strings.Contains(out, "paths-all-ws-a") {
-		t.Errorf("expected workspace A in --all output, got: %s", out)
+	// Should show paths from both projects.
+	if !strings.Contains(out, "paths-all-proj-a") {
+		t.Errorf("expected project A in --all output, got: %s", out)
 	}
-	if !strings.Contains(out, "paths-all-ws-b") {
-		t.Errorf("expected workspace B in --all output, got: %s", out)
+	if !strings.Contains(out, "paths-all-proj-b") {
+		t.Errorf("expected project B in --all output, got: %s", out)
 	}
 }
 
@@ -133,7 +133,7 @@ func TestPathsJsonOutput(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "paths-json-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "paths-json-proj", "--server", serverURL)
 
 	out := arcCmdInDirSuccess(t, home, dir, "paths", "--json", "--server", serverURL)
 
@@ -161,7 +161,7 @@ func TestPathsAddJsonOutput(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "paths-addjson-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "paths-addjson-proj", "--server", serverURL)
 
 	extraDir := t.TempDir()
 	out := arcCmdInDirSuccess(t, home, dir, "paths", "add", extraDir, "--json", "--server", serverURL)
@@ -185,7 +185,7 @@ func TestPathsListAllJsonOutput(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "paths-alljson-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "paths-alljson-proj", "--server", serverURL)
 
 	out := arcCmdSuccess(t, home, "paths", "list", "--all", "--json", "--server", serverURL)
 

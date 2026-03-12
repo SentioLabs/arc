@@ -15,7 +15,7 @@ import (
 func TestUpdateStatus(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-status-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-status-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Status update test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -36,7 +36,7 @@ func TestUpdateStatus(t *testing.T) {
 func TestUpdateTitle(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-title-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-title-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Original Title", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -57,7 +57,7 @@ func TestUpdateTitle(t *testing.T) {
 func TestUpdatePriority(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-priority-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-priority-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Priority update test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -78,7 +78,7 @@ func TestUpdatePriority(t *testing.T) {
 func TestUpdateAssignee(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-assignee-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-assignee-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Assignee update test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -99,7 +99,7 @@ func TestUpdateAssignee(t *testing.T) {
 func TestUpdateType(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-type-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-type-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Type update test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -120,7 +120,7 @@ func TestUpdateType(t *testing.T) {
 func TestUpdateDescription(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-desc-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-desc-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Description update test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -141,7 +141,7 @@ func TestUpdateDescription(t *testing.T) {
 func TestUpdateMultipleFields(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-multi-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-multi-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Multi-field update test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -175,7 +175,7 @@ func TestUpdateMultipleFields(t *testing.T) {
 func TestUpdateNoChanges(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "update-noop-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "update-noop-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "No-change update test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -197,7 +197,7 @@ func TestUpdateNoChanges(t *testing.T) {
 func TestIssueReopen(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "reopen-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "reopen-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "Reopen test issue", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -208,19 +208,19 @@ func TestIssueReopen(t *testing.T) {
 	// Close the issue.
 	arcCmdSuccess(t, home, "close", id, "--server", serverURL)
 
-	// Get workspace ID from JSON output.
+	// Get project ID from JSON output.
 	jsonOut := arcCmdSuccess(t, home, "show", id, "--json", "--server", serverURL)
 	var issueData map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonOut), &issueData); err != nil {
 		t.Fatalf("failed to parse show --json output: %v\noutput: %s", err, jsonOut)
 	}
-	wsID, ok := issueData["workspace_id"].(string)
-	if !ok || wsID == "" {
-		t.Fatalf("could not extract workspace_id from JSON: %v", issueData)
+	projID, ok := issueData["project_id"].(string)
+	if !ok || projID == "" {
+		t.Fatalf("could not extract project_id from JSON: %v", issueData)
 	}
 
 	// Reopen via HTTP API.
-	reopenURL := fmt.Sprintf("%s/api/v1/workspaces/%s/issues/%s/reopen", serverURL, wsID, id)
+	reopenURL := fmt.Sprintf("%s/api/v1/projects/%s/issues/%s/reopen", serverURL, projID, id)
 	req, err := http.NewRequest(http.MethodPost, reopenURL, nil)
 	if err != nil {
 		t.Fatalf("failed to create reopen request: %v", err)
@@ -250,7 +250,7 @@ func TestIssueReopen(t *testing.T) {
 func TestIssueJsonOutput(t *testing.T) {
 	home := setupHome(t)
 
-	arcCmdSuccess(t, home, "init", "json-output-ws", "--server", serverURL)
+	arcCmdSuccess(t, home, "init", "json-output-proj", "--server", serverURL)
 
 	createOut := arcCmdSuccess(t, home, "create", "JSON output test", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
@@ -266,7 +266,7 @@ func TestIssueJsonOutput(t *testing.T) {
 	}
 
 	// Verify expected fields are present.
-	for _, field := range []string{"id", "title", "status", "priority", "issue_type", "workspace_id"} {
+	for _, field := range []string{"id", "title", "status", "priority", "issue_type", "project_id"} {
 		if _, exists := issueData[field]; !exists {
 			t.Errorf("expected field %q in JSON output, got keys: %v", field, keys(issueData))
 		}

@@ -11,7 +11,7 @@ import (
 )
 
 // writeLegacyConfig creates a legacy ~/.arc/projects/<dir>/config.json file.
-func writeLegacyConfig(t *testing.T, home, projectRoot, wsID, wsName string) {
+func writeLegacyConfig(t *testing.T, home, projectRoot, projID, projName string) {
 	t.Helper()
 
 	// Legacy config dirs use the project root with slashes replaced by dashes.
@@ -22,9 +22,9 @@ func writeLegacyConfig(t *testing.T, home, projectRoot, wsID, wsName string) {
 	}
 
 	cfg := map[string]string{
-		"workspace_id":   wsID,
-		"workspace_name": wsName,
-		"project_root":   projectRoot,
+		"project_id":   projID,
+		"project_name": projName,
+		"project_root": projectRoot,
 	}
 	data, err := json.Marshal(cfg)
 	if err != nil {
@@ -36,24 +36,24 @@ func writeLegacyConfig(t *testing.T, home, projectRoot, wsID, wsName string) {
 	}
 }
 
-// getWorkspaceID extracts the workspace ID from `arc workspace list --json`
-// for a workspace with the given name.
-func getWorkspaceIDByName(t *testing.T, home, name string) string {
+// getProjectIDByName extracts the project ID from `arc project list --json`
+// for a project with the given name.
+func getProjectIDByName(t *testing.T, home, name string) string {
 	t.Helper()
-	jsonOut := arcCmdSuccess(t, home, "workspace", "list", "--json", "--server", serverURL)
-	var workspaces []struct {
+	jsonOut := arcCmdSuccess(t, home, "project", "list", "--json", "--server", serverURL)
+	var projects []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	if err := json.Unmarshal([]byte(jsonOut), &workspaces); err != nil {
-		t.Fatalf("parse workspace list: %v", err)
+	if err := json.Unmarshal([]byte(jsonOut), &projects); err != nil {
+		t.Fatalf("parse project list: %v", err)
 	}
-	for _, ws := range workspaces {
-		if ws.Name == name {
-			return ws.ID
+	for _, proj := range projects {
+		if proj.Name == name {
+			return proj.ID
 		}
 	}
-	t.Fatalf("workspace %q not found", name)
+	t.Fatalf("project %q not found", name)
 	return ""
 }
 
@@ -62,13 +62,13 @@ func getWorkspaceIDByName(t *testing.T, home, name string) string {
 func TestMigratePathsDryRun(t *testing.T) {
 	home := setupHome(t)
 
-	// Create a workspace on the server first (legacy configs reference existing workspaces).
-	arcCmdSuccess(t, home, "workspace", "create", "migrate-dry-ws", "--server", serverURL)
-	wsID := getWorkspaceIDByName(t, home, "migrate-dry-ws")
+	// Create a project on the server first (legacy configs reference existing projects).
+	arcCmdSuccess(t, home, "project", "create", "migrate-dry-proj", "--server", serverURL)
+	projID := getProjectIDByName(t, home, "migrate-dry-proj")
 
-	// Write a legacy config pointing to this workspace.
+	// Write a legacy config pointing to this project.
 	projectDir := t.TempDir()
-	writeLegacyConfig(t, home, projectDir, wsID, "migrate-dry-ws")
+	writeLegacyConfig(t, home, projectDir, projID, "migrate-dry-proj")
 
 	// Run dry-run.
 	out := arcCmdSuccess(t, home, "migrate-paths", "--dry-run", "--server", serverURL)
@@ -91,13 +91,13 @@ func TestMigratePathsDryRun(t *testing.T) {
 func TestMigratePathsActual(t *testing.T) {
 	home := setupHome(t)
 
-	// Create workspace on server.
-	arcCmdSuccess(t, home, "workspace", "create", "migrate-actual-ws", "--server", serverURL)
-	wsID := getWorkspaceIDByName(t, home, "migrate-actual-ws")
+	// Create project on server.
+	arcCmdSuccess(t, home, "project", "create", "migrate-actual-proj", "--server", serverURL)
+	projID := getProjectIDByName(t, home, "migrate-actual-proj")
 
 	// Write legacy config.
 	projectDir := t.TempDir()
-	writeLegacyConfig(t, home, projectDir, wsID, "migrate-actual-ws")
+	writeLegacyConfig(t, home, projectDir, projID, "migrate-actual-proj")
 
 	// Run migration.
 	out := arcCmdSuccess(t, home, "migrate-paths", "--server", serverURL)
@@ -105,8 +105,8 @@ func TestMigratePathsActual(t *testing.T) {
 		t.Errorf("expected 'migrated' in output, got: %s", out)
 	}
 
-	// Verify paths were registered: list paths for the workspace.
-	pathsOut := arcCmdSuccess(t, home, "paths", "-w", wsID, "--json", "--server", serverURL)
+	// Verify paths were registered: list paths for the project.
+	pathsOut := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
 	if !strings.Contains(pathsOut, projectDir) {
 		// The path may be normalized/resolved — just verify something was registered.
 		var paths []map[string]interface{}
@@ -142,17 +142,17 @@ func TestMigratePathsNoConfigs(t *testing.T) {
 func TestMigratePathsMultiple(t *testing.T) {
 	home := setupHome(t)
 
-	// Create two workspaces.
-	arcCmdSuccess(t, home, "workspace", "create", "migrate-multi-a", "--server", serverURL)
-	arcCmdSuccess(t, home, "workspace", "create", "migrate-multi-b", "--server", serverURL)
-	wsIDA := getWorkspaceIDByName(t, home, "migrate-multi-a")
-	wsIDB := getWorkspaceIDByName(t, home, "migrate-multi-b")
+	// Create two projects.
+	arcCmdSuccess(t, home, "project", "create", "migrate-multi-a", "--server", serverURL)
+	arcCmdSuccess(t, home, "project", "create", "migrate-multi-b", "--server", serverURL)
+	projIDA := getProjectIDByName(t, home, "migrate-multi-a")
+	projIDB := getProjectIDByName(t, home, "migrate-multi-b")
 
 	// Write legacy configs for both.
 	dirA := t.TempDir()
 	dirB := t.TempDir()
-	writeLegacyConfig(t, home, dirA, wsIDA, "migrate-multi-a")
-	writeLegacyConfig(t, home, dirB, wsIDB, "migrate-multi-b")
+	writeLegacyConfig(t, home, dirA, projIDA, "migrate-multi-a")
+	writeLegacyConfig(t, home, dirB, projIDB, "migrate-multi-b")
 
 	// Run migration.
 	out := arcCmdSuccess(t, home, "migrate-paths", "--server", serverURL)
@@ -164,22 +164,22 @@ func TestMigratePathsMultiple(t *testing.T) {
 		}
 	}
 
-	// Verify both workspaces have paths registered.
-	pathsA := arcCmdSuccess(t, home, "paths", "-w", wsIDA, "--json", "--server", serverURL)
+	// Verify both projects have paths registered.
+	pathsA := arcCmdSuccess(t, home, "paths", "-p", projIDA, "--json", "--server", serverURL)
 	var pA []map[string]interface{}
 	if err := json.Unmarshal([]byte(pathsA), &pA); err != nil {
 		t.Fatalf("parse paths A: %v", err)
 	}
 	if len(pA) == 0 {
-		t.Error("expected paths for workspace A after migration")
+		t.Error("expected paths for project A after migration")
 	}
 
-	pathsB := arcCmdSuccess(t, home, "paths", "-w", wsIDB, "--json", "--server", serverURL)
+	pathsB := arcCmdSuccess(t, home, "paths", "-p", projIDB, "--json", "--server", serverURL)
 	var pB []map[string]interface{}
 	if err := json.Unmarshal([]byte(pathsB), &pB); err != nil {
 		t.Fatalf("parse paths B: %v", err)
 	}
 	if len(pB) == 0 {
-		t.Error("expected paths for workspace B after migration")
+		t.Error("expected paths for project B after migration")
 	}
 }

@@ -8,35 +8,35 @@ import (
 	"testing"
 )
 
-// TestWhichFromInitDir verifies that `arc which` shows the workspace
+// TestWhichFromInitDir verifies that `arc which` shows the project
 // resolved via server path match after `arc init`.
 func TestWhichFromInitDir(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "which-test-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "which-test-proj", "--server", serverURL)
 
 	out := arcCmdInDirSuccess(t, home, dir, "which", "--server", serverURL)
-	if !strings.Contains(out, "which-test-ws") {
-		t.Errorf("expected workspace name in which output, got: %s", out)
+	if !strings.Contains(out, "which-test-proj") {
+		t.Errorf("expected project name in which output, got: %s", out)
 	}
 	if !strings.Contains(strings.ToLower(out), "server path") {
 		t.Errorf("expected 'server path' source in which output, got: %s", out)
 	}
 }
 
-// TestWhichWithFlag verifies that `arc which -w <id>` shows the flag
+// TestWhichWithFlag verifies that `arc which -p <id>` shows the flag
 // as the resolution source.
 func TestWhichWithFlag(t *testing.T) {
 	home := setupHome(t)
 
-	// Create a workspace to get its ID.
-	arcCmdSuccess(t, home, "workspace", "create", "which-flag-ws", "--server", serverURL)
-	wsID := getWorkspaceIDByName(t, home, "which-flag-ws")
+	// Create a project to get its ID.
+	arcCmdSuccess(t, home, "project", "create", "which-flag-proj", "--server", serverURL)
+	projID := getProjectIDByName(t, home, "which-flag-proj")
 
-	out := arcCmdSuccess(t, home, "which", "-w", wsID, "--server", serverURL)
-	if !strings.Contains(out, wsID) {
-		t.Errorf("expected workspace ID in which output, got: %s", out)
+	out := arcCmdSuccess(t, home, "which", "-p", projID, "--server", serverURL)
+	if !strings.Contains(out, projID) {
+		t.Errorf("expected project ID in which output, got: %s", out)
 	}
 	if !strings.Contains(strings.ToLower(out), "flag") {
 		t.Errorf("expected 'flag' source in which output, got: %s", out)
@@ -44,12 +44,12 @@ func TestWhichWithFlag(t *testing.T) {
 }
 
 // TestWhichJsonOutput verifies that `arc which --json` returns valid JSON
-// with workspace_id and source fields.
+// with project_id and source fields.
 func TestWhichJsonOutput(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", "which-json-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "which-json-proj", "--server", serverURL)
 
 	out := arcCmdInDirSuccess(t, home, dir, "which", "--json", "--server", serverURL)
 
@@ -58,20 +58,20 @@ func TestWhichJsonOutput(t *testing.T) {
 		t.Fatalf("expected valid JSON from which --json, got parse error: %v\noutput: %s", err, out)
 	}
 
-	if result["workspace_id"] == "" {
-		t.Error("expected non-empty workspace_id in JSON output")
+	if result["project_id"] == "" {
+		t.Error("expected non-empty project_id in JSON output")
 	}
 	if result["source"] == "" {
 		t.Error("expected non-empty source in JSON output")
 	}
-	if result["workspace_name"] != "which-json-ws" {
-		t.Errorf("expected workspace_name 'which-json-ws', got %q", result["workspace_name"])
+	if result["project_name"] != "which-json-proj" {
+		t.Errorf("expected project_name 'which-json-proj', got %q", result["project_name"])
 	}
 }
 
-// TestWhichNoWorkspace verifies that `arc which` fails with a helpful
-// message when no workspace is configured.
-func TestWhichNoWorkspace(t *testing.T) {
+// TestWhichNoProject verifies that `arc which` fails with a helpful
+// message when no project is configured.
+func TestWhichNoProject(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
@@ -79,7 +79,7 @@ func TestWhichNoWorkspace(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected arc which to fail in unconfigured dir, but it succeeded: %s", out)
 	}
-	if !strings.Contains(strings.ToLower(out), "no workspace") {
-		t.Errorf("expected 'no workspace' error message, got: %s", out)
+	if !strings.Contains(strings.ToLower(out), "no project") {
+		t.Errorf("expected 'no project' error message, got: %s", out)
 	}
 }

@@ -10,13 +10,13 @@ import (
 
 // TestStatsAllStatuses creates issues in various statuses and verifies the
 // stats command reports correct counts for each status category.
-// Uses a temp dir for CWD isolation so workspace resolution is correct.
+// Uses a temp dir for CWD isolation so project resolution is correct.
 func TestStatsAllStatuses(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("stats-all-%d", uniqueCounter())
+	projName := fmt.Sprintf("stats-all-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", wsName, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", projName, "--server", serverURL)
 
 	// Issue 1: leave open.
 	arcCmdInDirSuccess(t, home, dir, "create", "Stats open issue", "--type", "task", "--server", serverURL)
@@ -74,10 +74,10 @@ func TestStatsAllStatuses(t *testing.T) {
 // verifies that Closed equals Total and Open is 0.
 func TestStatsAfterCloseAll(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("stats-closeall-%d", uniqueCounter())
+	projName := fmt.Sprintf("stats-closeall-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", wsName, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", projName, "--server", serverURL)
 
 	ids := make([]string, 3)
 	for i := 0; i < 3; i++ {
@@ -110,10 +110,10 @@ func TestStatsAfterCloseAll(t *testing.T) {
 // verifies the stats command shows Deferred: 1.
 func TestStatsDeferred(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("stats-deferred-%d", uniqueCounter())
+	projName := fmt.Sprintf("stats-deferred-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", wsName, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", projName, "--server", serverURL)
 
 	out := arcCmdInDirSuccess(t, home, dir, "create", "Deferred stats issue", "--type", "task", "--server", serverURL)
 	id, ok := extractID(out)
@@ -134,10 +134,10 @@ func TestStatsDeferred(t *testing.T) {
 // verifies that all three are counted as ready.
 func TestStatsReadyCount(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("stats-ready-%d", uniqueCounter())
+	projName := fmt.Sprintf("stats-ready-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", wsName, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", projName, "--server", serverURL)
 
 	for i := 0; i < 3; i++ {
 		arcCmdInDirSuccess(t, home, dir, "create", fmt.Sprintf("Ready stats issue %d", i+1), "--type", "task", "--server", serverURL)
@@ -154,10 +154,10 @@ func TestStatsReadyCount(t *testing.T) {
 // each addition to verify counts update correctly.
 func TestStatsMultipleRuns(t *testing.T) {
 	home := setupHome(t)
-	wsName := fmt.Sprintf("stats-multi-%d", uniqueCounter())
+	projName := fmt.Sprintf("stats-multi-%d", uniqueCounter())
 	dir := t.TempDir()
 
-	arcCmdInDirSuccess(t, home, dir, "init", wsName, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", projName, "--server", serverURL)
 
 	// After 0 issues.
 	statsOut := arcCmdInDirSuccess(t, home, dir, "stats", "--server", serverURL)

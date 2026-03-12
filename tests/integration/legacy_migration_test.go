@@ -16,17 +16,17 @@ func TestLegacyAutoMigrationOnList(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	// Step 1: Create a workspace via init so it exists on the server,
+	// Step 1: Create a project via init so it exists on the server,
 	// then create an issue in it.
-	arcCmdInDirSuccess(t, home, dir, "init", "legacy-auto-ws", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", "legacy-auto-proj", "--server", serverURL)
 	arcCmdInDirSuccess(t, home, dir, "create", "Legacy auto issue", "--type", "task", "--server", serverURL)
 
-	// Step 2: Get the workspace ID.
-	wsID := getWorkspaceIDByName(t, home, "legacy-auto-ws")
+	// Step 2: Get the project ID.
+	projID := getProjectIDByName(t, home, "legacy-auto-proj")
 
-	// Step 3: Delete all server-side paths for this workspace, simulating
+	// Step 3: Delete all server-side paths for this project, simulating
 	// a state where only a legacy config exists.
-	pathsJSON := arcCmdSuccess(t, home, "paths", "-w", wsID, "--json", "--server", serverURL)
+	pathsJSON := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
 	var paths []struct {
 		ID   string `json:"id"`
 		Path string `json:"path"`
@@ -35,11 +35,11 @@ func TestLegacyAutoMigrationOnList(t *testing.T) {
 		t.Fatalf("parse paths: %v", err)
 	}
 	for _, p := range paths {
-		arcCmdSuccess(t, home, "paths", "remove", p.ID, "-w", wsID, "--server", serverURL)
+		arcCmdSuccess(t, home, "paths", "remove", p.ID, "-p", projID, "--server", serverURL)
 	}
 
-	// Step 4: Write a legacy config pointing to this workspace.
-	writeLegacyConfig(t, home, dir, wsID, "legacy-auto-ws")
+	// Step 4: Write a legacy config pointing to this project.
+	writeLegacyConfig(t, home, dir, projID, "legacy-auto-proj")
 
 	// Step 5: Run `arc list` from the directory — should auto-migrate and work.
 	listOut := arcCmdInDirSuccess(t, home, dir, "list", "--server", serverURL)
@@ -55,7 +55,7 @@ func TestLegacyAutoMigrationOnList(t *testing.T) {
 	}
 
 	// Step 7: Verify paths were registered on the server.
-	pathsAfter := arcCmdSuccess(t, home, "paths", "-w", wsID, "--json", "--server", serverURL)
+	pathsAfter := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
 	var afterPaths []map[string]interface{}
 	if err := json.Unmarshal([]byte(pathsAfter), &afterPaths); err != nil {
 		t.Fatalf("parse paths after migration: %v", err)
@@ -71,12 +71,12 @@ func TestLegacyAutoMigrationOnCreate(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	// Create workspace on server.
-	arcCmdSuccess(t, home, "workspace", "create", "legacy-create-ws", "--server", serverURL)
-	wsID := getWorkspaceIDByName(t, home, "legacy-create-ws")
+	// Create project on server.
+	arcCmdSuccess(t, home, "project", "create", "legacy-create-proj", "--server", serverURL)
+	projID := getProjectIDByName(t, home, "legacy-create-proj")
 
 	// Write legacy config (no server paths exist).
-	writeLegacyConfig(t, home, dir, wsID, "legacy-create-ws")
+	writeLegacyConfig(t, home, dir, projID, "legacy-create-proj")
 
 	// `arc create` from the directory should auto-migrate and succeed.
 	createOut := arcCmdInDirSuccess(t, home, dir, "create", "Issue via legacy", "--type", "task", "--server", serverURL)
@@ -85,7 +85,7 @@ func TestLegacyAutoMigrationOnCreate(t *testing.T) {
 	}
 
 	// Verify the issue exists.
-	listOut := arcCmdSuccess(t, home, "list", "-w", wsID, "--server", serverURL)
+	listOut := arcCmdSuccess(t, home, "list", "-p", projID, "--server", serverURL)
 	if !strings.Contains(listOut, "Issue via legacy") {
 		t.Errorf("expected issue in list after legacy auto-migration, got: %s", listOut)
 	}
@@ -97,12 +97,12 @@ func TestLegacyAutoMigrationSubsequentCallSkipsMigration(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	// Create workspace on server.
-	arcCmdSuccess(t, home, "workspace", "create", "legacy-skip-ws", "--server", serverURL)
-	wsID := getWorkspaceIDByName(t, home, "legacy-skip-ws")
+	// Create project on server.
+	arcCmdSuccess(t, home, "project", "create", "legacy-skip-proj", "--server", serverURL)
+	projID := getProjectIDByName(t, home, "legacy-skip-proj")
 
 	// Write legacy config.
-	writeLegacyConfig(t, home, dir, wsID, "legacy-skip-ws")
+	writeLegacyConfig(t, home, dir, projID, "legacy-skip-proj")
 
 	// First call triggers auto-migration.
 	arcCmdInDirSuccess(t, home, dir, "create", "First issue", "--type", "task", "--server", serverURL)
@@ -116,7 +116,7 @@ func TestLegacyAutoMigrationSubsequentCallSkipsMigration(t *testing.T) {
 	arcCmdInDirSuccess(t, home, dir, "create", "Second issue", "--type", "task", "--server", serverURL)
 
 	// Both issues should be visible.
-	listOut := arcCmdSuccess(t, home, "list", "-w", wsID, "--server", serverURL)
+	listOut := arcCmdSuccess(t, home, "list", "-p", projID, "--server", serverURL)
 	if !strings.Contains(listOut, "First issue") {
 		t.Errorf("expected 'First issue' in list, got: %s", listOut)
 	}
@@ -131,16 +131,16 @@ func TestLegacyAutoMigrationWhichShowsSource(t *testing.T) {
 	home := setupHome(t)
 	dir := t.TempDir()
 
-	// Create workspace on server.
-	arcCmdSuccess(t, home, "workspace", "create", "legacy-which-ws", "--server", serverURL)
-	wsID := getWorkspaceIDByName(t, home, "legacy-which-ws")
+	// Create project on server.
+	arcCmdSuccess(t, home, "project", "create", "legacy-which-proj", "--server", serverURL)
+	projID := getProjectIDByName(t, home, "legacy-which-proj")
 
 	// Write legacy config.
-	writeLegacyConfig(t, home, dir, wsID, "legacy-which-ws")
+	writeLegacyConfig(t, home, dir, projID, "legacy-which-proj")
 
 	// First `arc which` should resolve via legacy and auto-migrate.
 	out := arcCmdInDirSuccess(t, home, dir, "which", "--server", serverURL)
-	if !strings.Contains(out, wsID) && !strings.Contains(out, "legacy-which-ws") {
-		t.Errorf("expected workspace info in which output, got: %s", out)
+	if !strings.Contains(out, projID) && !strings.Contains(out, "legacy-which-proj") {
+		t.Errorf("expected project info in which output, got: %s", out)
 	}
 }

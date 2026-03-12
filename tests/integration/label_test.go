@@ -113,27 +113,27 @@ func TestLabelAddToIssue(t *testing.T) {
 		t.Fatalf("expected 201 creating label, got %d: %s", resp.StatusCode, body)
 	}
 
-	// Create workspace and issue via CLI.
-	arcCmdSuccess(t, home, "init", "label-add-ws", "--server", serverURL)
+	// Create project and issue via CLI.
+	arcCmdSuccess(t, home, "init", "label-add-proj", "--server", serverURL)
 	createOut := arcCmdSuccess(t, home, "create", "Label add test issue", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
 	if !ok {
 		t.Fatalf("could not extract issue ID from create output: %s", createOut)
 	}
 
-	// Get workspace ID from JSON output.
+	// Get project ID from JSON output.
 	jsonOut := arcCmdSuccess(t, home, "show", id, "--json", "--server", serverURL)
 	var issueData map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonOut), &issueData); err != nil {
 		t.Fatalf("failed to parse show --json output: %v\noutput: %s", err, jsonOut)
 	}
-	wsID, ok := issueData["workspace_id"].(string)
-	if !ok || wsID == "" {
-		t.Fatalf("could not extract workspace_id from JSON: %v", issueData)
+	projID, ok := issueData["project_id"].(string)
+	if !ok || projID == "" {
+		t.Fatalf("could not extract project_id from JSON: %v", issueData)
 	}
 
 	// Add label to issue via API.
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/labels", wsID, id)
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/labels", projID, id)
 	resp = apiRequest(t, http.MethodPost, path, map[string]string{
 		"label": labelName,
 	})
@@ -164,27 +164,27 @@ func TestLabelRemoveFromIssue(t *testing.T) {
 		t.Fatalf("expected 201 creating label, got %d: %s", resp.StatusCode, body)
 	}
 
-	// Create workspace and issue via CLI.
-	arcCmdSuccess(t, home, "init", "label-rm-ws", "--server", serverURL)
+	// Create project and issue via CLI.
+	arcCmdSuccess(t, home, "init", "label-rm-proj", "--server", serverURL)
 	createOut := arcCmdSuccess(t, home, "create", "Label remove test issue", "--type", "task", "--server", serverURL)
 	id, ok := extractID(createOut)
 	if !ok {
 		t.Fatalf("could not extract issue ID from create output: %s", createOut)
 	}
 
-	// Get workspace ID.
+	// Get project ID.
 	jsonOut := arcCmdSuccess(t, home, "show", id, "--json", "--server", serverURL)
 	var issueData map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonOut), &issueData); err != nil {
 		t.Fatalf("failed to parse show --json output: %v\noutput: %s", err, jsonOut)
 	}
-	wsID, ok := issueData["workspace_id"].(string)
-	if !ok || wsID == "" {
-		t.Fatalf("could not extract workspace_id from JSON: %v", issueData)
+	projID, ok := issueData["project_id"].(string)
+	if !ok || projID == "" {
+		t.Fatalf("could not extract project_id from JSON: %v", issueData)
 	}
 
 	// Add label to issue.
-	addPath := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/labels", wsID, id)
+	addPath := fmt.Sprintf("/api/v1/projects/%s/issues/%s/labels", projID, id)
 	resp = apiRequest(t, http.MethodPost, addPath, map[string]string{
 		"label": labelName,
 	})
@@ -200,7 +200,7 @@ func TestLabelRemoveFromIssue(t *testing.T) {
 	}
 
 	// Remove label from issue.
-	rmPath := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/labels/%s", wsID, id, labelName)
+	rmPath := fmt.Sprintf("/api/v1/projects/%s/issues/%s/labels/%s", projID, id, labelName)
 	resp = apiRequest(t, http.MethodDelete, rmPath, nil)
 	readBody(t, resp)
 	if resp.StatusCode != http.StatusNoContent {

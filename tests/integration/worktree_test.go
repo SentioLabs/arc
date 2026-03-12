@@ -23,9 +23,9 @@ func runGit(t *testing.T, dir string, args ...string) string {
 	return string(out)
 }
 
-// TestWorktreeAutoDetection verifies that arc resolves the workspace
+// TestWorktreeAutoDetection verifies that arc resolves the project
 // correctly when run from a git worktree linked to a repo that has an
-// arc workspace configured.
+// arc project configured.
 func TestWorktreeAutoDetection(t *testing.T) {
 	home := setupHome(t)
 
@@ -49,16 +49,16 @@ func TestWorktreeAutoDetection(t *testing.T) {
 	runGit(t, repoDir, "add", ".")
 	runGit(t, repoDir, "commit", "-m", "initial commit")
 
-	// Initialize an arc workspace in the main repo.
+	// Initialize an arc project in the main repo.
 	arcCmdInDirSuccess(t, home, repoDir, "init", "test-worktree", "--server", serverURL)
 
 	// Create a git worktree.
 	worktreeDir := filepath.Join(parentDir, "wt-test")
 	runGit(t, repoDir, "worktree", "add", worktreeDir, "-b", "wt-branch")
 
-	// From the worktree, `arc which` should resolve the workspace.
+	// From the worktree, `arc which` should resolve the project.
 	whichOut := arcCmdInDirSuccess(t, home, worktreeDir, "which", "--server", serverURL)
 	if !strings.Contains(strings.ToLower(whichOut), "test-worktree") {
-		t.Errorf("expected 'test-worktree' workspace in which output from worktree, got: %s", whichOut)
+		t.Errorf("expected 'test-worktree' project in which output from worktree, got: %s", whichOut)
 	}
 }
