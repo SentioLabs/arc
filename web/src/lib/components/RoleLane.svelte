@@ -7,11 +7,11 @@
 	interface Props {
 		role: string;
 		issues: TeamContextIssue[];
-		workspaceId: string;
+		projectId: string;
 		color?: string;
 	}
 
-	let { role, issues, workspaceId, color = '#6366f1' }: Props = $props();
+	let { role, issues, projectId, color = '#6366f1' }: Props = $props();
 
 	const displayRole = $derived(role.charAt(0).toUpperCase() + role.slice(1));
 </script>
@@ -36,7 +36,7 @@
 	<!-- Issue cards -->
 	<div class="space-y-2 flex-1">
 		{#each issues as issue (issue.id)}
-			<TeamIssueCard {issue} {workspaceId} />
+			<TeamIssueCard {issue} {projectId} />
 		{:else}
 			<p class="text-xs text-text-muted py-4 text-center">No issues</p>
 		{/each}

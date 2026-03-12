@@ -4,9 +4,9 @@
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { getBlockedIssues, type Workspace as Project, type BlockedIssue } from '$lib/api';
+	import { getBlockedIssues, type Project, type BlockedIssue } from '$lib/api';
 
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 	const projectId = $derived($page.params.projectId);
 	const project = $derived($projects.find((p) => p.id === projectId));
 
@@ -33,7 +33,7 @@
 </script>
 
 {#if project}
-	<Header workspace={project} title="Blocked Issues" />
+	<Header project={project} title="Blocked Issues" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<header class="mb-6">

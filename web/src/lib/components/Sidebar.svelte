@@ -3,36 +3,36 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 
-	type Workspace = components['schemas']['Workspace'];
+	type Project = components['schemas']['Project'];
 
 	interface Props {
-		workspaces?: Workspace[];
-		currentWorkspace?: Workspace;
+		projects?: Project[];
+		currentProject?: Project;
 	}
 
-	let { workspaces = [], currentWorkspace }: Props = $props();
+	let { projects = [], currentProject }: Props = $props();
 
-	// Workspace search state
+	// Project search state
 	let searchQuery = $state('');
 
-	// Filter workspaces based on search
-	const filteredWorkspaces = $derived.by(() => {
-		if (!searchQuery.trim()) return workspaces;
+	// Filter projects based on search
+	const filteredProjects = $derived.by(() => {
+		if (!searchQuery.trim()) return projects;
 		const q = searchQuery.toLowerCase().trim();
-		return workspaces.filter(
-			(w) =>
-				w.name.toLowerCase().includes(q) ||
-				w.prefix.toLowerCase().includes(q) ||
-				(w.description?.toLowerCase().includes(q) ?? false)
+		return projects.filter(
+			(p) =>
+				p.name.toLowerCase().includes(q) ||
+				p.prefix.toLowerCase().includes(q) ||
+				(p.description?.toLowerCase().includes(q) ?? false)
 		);
 	});
 
-	function selectWorkspace(ws: Workspace) {
+	function selectProject(proj: Project) {
 		searchQuery = '';
-		goto(`/${ws.id}`);
+		goto(`/${proj.id}`);
 	}
 
-	// Navigation items for workspace context
+	// Navigation items for project context
 	const navItems = [
 		{ label: 'Issues', href: 'issues', icon: 'issues' },
 		{ label: 'Ready', href: 'ready', icon: 'ready' },
@@ -50,7 +50,7 @@
 			'M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z',
 		teams:
 			'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
-		workspace:
+		project:
 			'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z'
 	};
 
@@ -77,7 +77,7 @@
 	</div>
 
 	<!-- Project List with Search (only when viewing a project) -->
-	{#if workspaces.length > 0 && currentWorkspace}
+	{#if projects.length > 0 && currentProject}
 		<div class="p-3 border-b border-border">
 			<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
 				Projects
@@ -114,25 +114,25 @@
 					</button>
 				{/if}
 			</div>
-			<!-- Workspace list -->
+			<!-- Project list -->
 			<div class="max-h-40 overflow-y-auto space-y-0.5">
-				{#each filteredWorkspaces as ws (ws.id)}
-					{@const isCurrent = ws.id === currentWorkspace?.id}
+				{#each filteredProjects as proj (proj.id)}
+					{@const isCurrent = proj.id === currentProject?.id}
 					<button
 						type="button"
 						class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-sm transition-colors {isCurrent
 							? 'bg-primary-600/20 text-primary-400'
 							: 'text-text-secondary hover:bg-surface-700 hover:text-text-primary'}"
-						onclick={() => selectWorkspace(ws)}
+						onclick={() => selectProject(proj)}
 					>
 						<span
 							class="flex-shrink-0 w-5 h-5 rounded bg-surface-600 flex items-center justify-center text-xs font-mono font-medium {isCurrent
 								? 'text-primary-400'
 								: 'text-text-muted'}"
 						>
-							{ws.prefix.charAt(0).toUpperCase()}
+							{proj.prefix.charAt(0).toUpperCase()}
 						</span>
-						<span class="truncate">{ws.name}</span>
+						<span class="truncate">{proj.name}</span>
 						{#if isCurrent}
 							<svg
 								class="w-3.5 h-3.5 ml-auto flex-shrink-0"
@@ -151,7 +151,7 @@
 	{/if}
 
 	<!-- Navigation -->
-	{#if currentWorkspace}
+	{#if currentProject}
 		<nav class="flex-1 p-3 space-y-1 overflow-y-auto">
 			<div class="text-xs font-medium text-text-muted uppercase tracking-wider px-2 mb-3">
 				Navigation
@@ -159,7 +159,7 @@
 
 			{#each navItems as item (item.href)}
 				{@const active = isActive(item.href)}
-				<a href="/{currentWorkspace.id}/{item.href}" class="nav-link {active ? 'active' : ''}">
+				<a href="/{currentProject.id}/{item.href}" class="nav-link {active ? 'active' : ''}">
 					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
 						<path d={icons[item.icon]} />
 					</svg>
@@ -182,7 +182,7 @@
 
 			<!-- Create Issue button -->
 			<div class="pt-4 mt-4 border-t border-border">
-				<a href="/{currentWorkspace.id}/issues/new" class="btn btn-primary w-full justify-center">
+				<a href="/{currentProject.id}/issues/new" class="btn btn-primary w-full justify-center">
 					<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
 						<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
 					</svg>
@@ -195,7 +195,7 @@
 			<div class="text-xs font-medium text-text-muted uppercase tracking-wider px-2 mb-3">
 				Projects
 			</div>
-			{#if workspaces.length > 0}
+			{#if projects.length > 0}
 				<!-- Search input -->
 				<div class="relative mb-3 flex-shrink-0">
 					<svg
@@ -228,14 +228,14 @@
 						</button>
 					{/if}
 				</div>
-				<!-- Workspace list -->
+				<!-- Project list -->
 				<div class="flex-1 overflow-y-auto space-y-1">
-					{#each filteredWorkspaces as ws (ws.id)}
-						<a href="/{ws.id}" class="nav-link">
+					{#each filteredProjects as proj (proj.id)}
+						<a href="/{proj.id}" class="nav-link">
 							<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-								<path d={icons.workspace} />
+								<path d={icons.project} />
 							</svg>
-							{ws.name}
+							{proj.name}
 						</a>
 					{:else}
 						<p class="text-sm text-text-muted px-2">No matching projects</p>

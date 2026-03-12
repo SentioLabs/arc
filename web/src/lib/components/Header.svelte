@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	type Workspace = components['schemas']['Workspace'];
+	type Project = components['schemas']['Project'];
 
 	interface Action {
 		id: string;
@@ -12,14 +12,14 @@
 	}
 
 	interface Props {
-		workspace?: Workspace;
+		project?: Project;
 		title?: string;
 		showSearch?: boolean;
 		actions?: Action[];
 		onaction?: (actionId: string) => void;
 	}
 
-	let { workspace, title, showSearch = true, actions, onaction }: Props = $props();
+	let { project, title, showSearch = true, actions, onaction }: Props = $props();
 
 	let searchQuery = $state('');
 	let searchFocused = $state(false);
@@ -34,7 +34,7 @@
 	function handleSearchInput() {
 		clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
-			if (!workspace) return;
+			if (!project) return;
 			const params = new URLSearchParams($page.url.searchParams);
 			if (searchQuery.trim()) {
 				params.set('q', searchQuery.trim());
@@ -42,7 +42,7 @@
 				params.delete('q');
 			}
 			params.delete('offset');
-			goto(`/${workspace.id}/issues?${params}`, { keepFocus: true, noScroll: true });
+			goto(`/${project.id}/issues?${params}`, { keepFocus: true, noScroll: true });
 		}, 300);
 	}
 
@@ -76,13 +76,13 @@
 	<div class="flex items-center justify-between gap-4 px-6 h-14">
 		<!-- Left: Title/Breadcrumb -->
 		<div class="flex items-center gap-3 min-w-0">
-			{#if workspace}
+			{#if project}
 				<nav class="flex items-center gap-2 text-sm">
 					<a
-						href="/{workspace.id}"
+						href="/{project.id}"
 						class="text-text-muted hover:text-text-primary transition-colors"
 					>
-						{workspace.name}
+						{project.name}
 					</a>
 					{#if title}
 						<span class="text-text-muted">/</span>
@@ -96,7 +96,7 @@
 
 		<!-- Right: Search & Actions -->
 		<div class="flex items-center gap-3">
-			{#if showSearch && workspace}
+			{#if showSearch && project}
 				<div class="relative transition-all duration-200 {searchFocused ? 'w-72' : 'w-56'}">
 					<svg
 						class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted"

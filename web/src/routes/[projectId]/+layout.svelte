@@ -2,11 +2,11 @@
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import type { Workspace as Project } from '$lib/api';
+	import type { Project } from '$lib/api';
 	import { goto } from '$app/navigation';
 
 	// Get projects from root layout context
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 
 	// Current project from URL and context
 	const projectId = $derived($page.params.projectId);

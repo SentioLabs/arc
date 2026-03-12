@@ -8,12 +8,12 @@
 	import {
 		getTeamContext,
 		listIssues,
-		type Workspace as Project,
+		type Project,
 		type Issue,
 		type TeamContext
 	} from '$lib/api';
 
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 	const projectId = $derived($page.params.projectId ?? '');
 	const project = $derived($projects.find((p) => p.id === projectId));
 
@@ -108,7 +108,7 @@
 </script>
 
 {#if project}
-	<Header workspace={project} title="Teams" showSearch={false} />
+	<Header project={project} title="Teams" showSearch={false} />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Page header -->
@@ -200,7 +200,7 @@
 			<!-- Role lanes -->
 			<div class="flex gap-4 overflow-x-auto pb-4">
 				{#each roles as [role, data] (role)}
-					<RoleLane {role} issues={data.issues} workspaceId={projectId} color={getRoleColor(role)} />
+					<RoleLane {role} issues={data.issues} projectId={projectId} color={getRoleColor(role)} />
 				{/each}
 
 				<!-- Unassigned lane (only when filtering by epic) -->
@@ -208,7 +208,7 @@
 					<RoleLane
 						role="unassigned"
 						issues={teamContext.unassigned}
-						workspaceId={projectId}
+						projectId={projectId}
 						color="#6b7280"
 					/>
 				{/if}

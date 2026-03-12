@@ -2,19 +2,19 @@
 	import { getContext, onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 	import {
-		deleteWorkspaces,
-		mergeWorkspaces,
-		listWorkspacePaths,
-		type Workspace as Project,
+		deleteProjects,
+		mergeProjects,
+		listWorkspaces,
+		type Project,
 		type MergeResult,
-		type WorkspacePath
+		type Workspace
 	} from '$lib/api';
 	import { ConfirmDialog, Select } from '$lib/components';
 
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 
 	// Project insights state (reporting dashboard)
-	let projectPathsMap = $state<Record<string, WorkspacePath[]>>({});
+	let projectPathsMap = $state<Record<string, Workspace[]>>({});
 	let insightsLoading = $state(false);
 	let insightsLoaded = $state(false);
 
@@ -25,11 +25,11 @@
 		try {
 			const results = await Promise.all(
 				$projects.map(async (p) => {
-					const paths = await listWorkspacePaths(p.id);
+					const paths = await listWorkspaces(p.id);
 					return [p.id, paths] as const;
 				})
 			);
-			const map: Record<string, WorkspacePath[]> = {};
+			const map: Record<string, Workspace[]> = {};
 			for (const [id, paths] of results) {
 				map[id] = paths;
 			}
@@ -131,7 +131,7 @@
 
 	// Workspace paths state (directory paths, read-only expansion)
 	let expandedPaths = $state<Set<string>>(new Set());
-	let workspacePaths = $state<Record<string, WorkspacePath[]>>({});
+	let workspacePaths = $state<Record<string, Workspace[]>>({});
 	let pathsLoading = $state<Set<string>>(new Set());
 	let pathCounts = $state<Record<string, number>>({});
 
@@ -160,7 +160,7 @@
 		newLoading.add(projectId);
 		pathsLoading = newLoading;
 		try {
-			const paths = await listWorkspacePaths(projectId);
+			const paths = await listWorkspaces(projectId);
 			workspacePaths = { ...workspacePaths, [projectId]: paths };
 			pathCounts = { ...pathCounts, [projectId]: paths.length };
 		} catch (err) {
@@ -227,7 +227,7 @@
 		deleting = true;
 		try {
 			const idsToDelete = projectsToDelete.map((w) => w.id);
-			await deleteWorkspaces(idsToDelete);
+			await deleteProjects(idsToDelete);
 
 			projects.update((current) => current.filter((w) => !idsToDelete.includes(w.id)));
 
@@ -271,13 +271,13 @@
 		merging = true;
 		try {
 			const sourceIds = projectsToMerge.map((w) => w.id);
-			const result = await mergeWorkspaces(mergeTargetId, sourceIds);
+			const result = await mergeProjects(mergeTargetId, sourceIds);
 			mergeResult = result;
 
 			projects.update((current) =>
 				current
 					.filter((w) => !result.sources_deleted.includes(w.id))
-					.map((w) => (w.id === result.target_workspace.id ? result.target_workspace : w))
+					.map((w) => (w.id === result.target_project.id ? result.target_project : w))
 			);
 
 			selectedIds = new Set();
@@ -574,7 +574,7 @@
 											{formatRelativeTime(wp.last_accessed_at!)}
 										</span>
 									</div>
-									<span class="text-text-muted">{getProjectName(wp.workspace_id)}</span>
+									<span class="text-text-muted">{getProjectName(wp.project_id)}</span>
 								</li>
 							{/each}
 						</ul>
@@ -655,7 +655,7 @@
 					<div class="flex-1 min-w-0">
 						<h2 class="text-lg font-semibold text-text-primary">Merge complete</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{mergeResult.target_workspace.name}</strong>.
+							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{mergeResult.target_project.name}</strong>.
 						</p>
 					</div>
 				</div>

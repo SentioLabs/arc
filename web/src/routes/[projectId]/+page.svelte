@@ -4,19 +4,19 @@
 	import { getContext, onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 	import {
-		getWorkspaceStats,
-		listWorkspacePaths,
-		createWorkspacePath,
-		deleteWorkspacePath,
-		mergeWorkspaces,
-		type Workspace as Project,
+		getProjectStats,
+		listWorkspaces,
+		createWorkspace,
+		deleteWorkspace,
+		mergeProjects,
+		type Project,
 		type Statistics,
-		type WorkspacePath,
+		type Workspace,
 		type MergeResult
 	} from '$lib/api';
 
 	// Get projects from context
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 	const projectId = $derived($page.params.projectId);
 	const project = $derived($projects.find((p) => p.id === projectId));
 
@@ -25,8 +25,8 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
-	// Paths state
-	let paths = $state<WorkspacePath[]>([]);
+	// Workspaces state (directory paths)
+	let paths = $state<Workspace[]>([]);
 	let pathsLoading = $state(true);
 
 	// Path management panel state
@@ -81,7 +81,7 @@
 		loading = true;
 		error = null;
 		try {
-			stats = await getWorkspaceStats(projectId);
+			stats = await getProjectStats(projectId);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load stats';
 		} finally {
@@ -93,7 +93,7 @@
 		if (!projectId) return;
 		pathsLoading = true;
 		try {
-			paths = await listWorkspacePaths(projectId);
+			paths = await listWorkspaces(projectId);
 		} catch (err) {
 			console.error('Failed to load paths:', err);
 			paths = [];
@@ -173,7 +173,7 @@
 		if (!pathValue.trim() || !projectId) return;
 		addingPath = true;
 		try {
-			const created = await createWorkspacePath(projectId, {
+			const created = await createWorkspace(projectId, {
 				path: pathValue.trim(),
 				label: newPathLabel.trim() || undefined
 			});
@@ -195,7 +195,7 @@
 		deletingPath = true;
 		const { pathId } = deletePathConfirm;
 		try {
-			await deleteWorkspacePath(projectId, pathId);
+			await deleteWorkspace(projectId, pathId);
 			paths = paths.filter((p) => p.id !== pathId);
 			deletePathConfirm = null;
 		} catch (err) {
@@ -224,13 +224,13 @@
 		if (selectedMergeSources.length === 0 || !projectId) return;
 		merging = true;
 		try {
-			const result = await mergeWorkspaces(projectId, selectedMergeSources);
+			const result = await mergeProjects(projectId, selectedMergeSources);
 			mergeResult = result;
 
 			projects.update((current) =>
 				current
 					.filter((w) => !result.sources_deleted.includes(w.id))
-					.map((w) => (w.id === result.target_workspace.id ? result.target_workspace : w))
+					.map((w) => (w.id === result.target_project.id ? result.target_project : w))
 			);
 
 			loadStats();
@@ -270,7 +270,7 @@
 </script>
 
 {#if project}
-	<Header workspace={project} actions={headerActions} onaction={handleHeaderAction} />
+	<Header project={project} actions={headerActions} onaction={handleHeaderAction} />
 
 	<div class="flex-1 p-8 animate-fade-in">
 		<header class="mb-8">
@@ -602,7 +602,7 @@
 <ConfirmDialog
 	open={deletePathConfirm !== null}
 	title="Delete path?"
-	message="Remove this path from the workspace: {deletePathConfirm?.pathValue ?? ''}"
+	message="Remove this path from the project: {deletePathConfirm?.pathValue ?? ''}"
 	confirmLabel="Delete Path"
 	loading={deletingPath}
 	onconfirm={executeDeletePath}

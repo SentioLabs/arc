@@ -6,7 +6,7 @@
 import { api } from './client';
 import type { components } from './types';
 
-export type Workspace = components['schemas']['Workspace'];
+export type Project = components['schemas']['Project'];
 export type Statistics = components['schemas']['Statistics'];
 export type Issue = components['schemas']['Issue'];
 export type PaginatedIssues = components['schemas']['PaginatedIssues'];
@@ -21,8 +21,8 @@ export type TeamContextRole = components['schemas']['TeamContextRole'];
 export type TeamContextEpic = components['schemas']['TeamContextEpic'];
 export type AddCommentRequest = components['schemas']['AddCommentRequest'];
 export type AddLabelToIssueRequest = components['schemas']['AddLabelToIssueRequest'];
-export type WorkspacePath = components['schemas']['WorkspacePath'];
-export type CreateWorkspacePathRequest = components['schemas']['CreateWorkspacePathRequest'];
+export type Workspace = components['schemas']['Workspace'];
+export type CreateWorkspaceRequest = components['schemas']['CreateWorkspaceRequest'];
 
 // Error helper - extracts message from API error response { error: "message" }
 function handleError(error: unknown): never {
@@ -34,78 +34,78 @@ function handleError(error: unknown): never {
 	throw new Error('An unexpected error occurred');
 }
 
-// Workspace APIs
-export async function listWorkspaces(): Promise<Workspace[]> {
-	const { data, error } = await api.GET('/workspaces');
+// Project APIs
+export async function listProjects(): Promise<Project[]> {
+	const { data, error } = await api.GET('/projects');
 	if (error) handleError(error);
 	return data ?? [];
 }
 
-export async function getWorkspace(workspaceId: string): Promise<Workspace> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}', {
-		params: { path: { workspaceId } }
+export async function getProject(projectId: string): Promise<Project> {
+	const { data, error } = await api.GET('/projects/{projectId}', {
+		params: { path: { projectId } }
 	});
 	if (error) handleError(error);
-	if (!data) throw new Error('Workspace not found');
+	if (!data) throw new Error('Project not found');
 	return data;
 }
 
-export async function getWorkspaceStats(workspaceId: string): Promise<Statistics> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/stats', {
-		params: { path: { workspaceId } }
+export async function getProjectStats(projectId: string): Promise<Statistics> {
+	const { data, error } = await api.GET('/projects/{projectId}/stats', {
+		params: { path: { projectId } }
 	});
 	if (error) handleError(error);
 	if (!data) throw new Error('Failed to load stats');
 	return data;
 }
 
-export async function deleteWorkspace(workspaceId: string): Promise<void> {
-	const { error } = await api.DELETE('/workspaces/{workspaceId}', {
-		params: { path: { workspaceId } }
+export async function deleteProject(projectId: string): Promise<void> {
+	const { error } = await api.DELETE('/projects/{projectId}', {
+		params: { path: { projectId } }
 	});
 	if (error) handleError(error);
 }
 
-export async function deleteWorkspaces(workspaceIds: string[]): Promise<void> {
-	await Promise.all(workspaceIds.map((id) => deleteWorkspace(id)));
+export async function deleteProjects(projectIds: string[]): Promise<void> {
+	await Promise.all(projectIds.map((id) => deleteProject(id)));
 }
 
 export type MergeResult = components['schemas']['MergeResult'];
 
-export async function mergeWorkspaces(targetId: string, sourceIds: string[]): Promise<MergeResult> {
-	const { data, error } = await api.POST('/workspaces/merge', {
+export async function mergeProjects(targetId: string, sourceIds: string[]): Promise<MergeResult> {
+	const { data, error } = await api.POST('/projects/merge', {
 		body: { target_id: targetId, source_ids: sourceIds }
 	});
 	if (error) handleError(error);
-	if (!data) throw new Error('Failed to merge workspaces');
+	if (!data) throw new Error('Failed to merge projects');
 	return data;
 }
 
-// Workspace Path APIs
-export async function listWorkspacePaths(workspaceId: string): Promise<WorkspacePath[]> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/paths', {
-		params: { path: { workspaceId } }
+// Workspace APIs (directory paths)
+export async function listWorkspaces(projectId: string): Promise<Workspace[]> {
+	const { data, error } = await api.GET('/projects/{projectId}/workspaces', {
+		params: { path: { projectId } }
 	});
 	if (error) handleError(error);
 	return data ?? [];
 }
 
-export async function createWorkspacePath(
-	workspaceId: string,
-	request: CreateWorkspacePathRequest
-): Promise<WorkspacePath> {
-	const { data, error } = await api.POST('/workspaces/{workspaceId}/paths', {
-		params: { path: { workspaceId } },
+export async function createWorkspace(
+	projectId: string,
+	request: CreateWorkspaceRequest
+): Promise<Workspace> {
+	const { data, error } = await api.POST('/projects/{projectId}/workspaces', {
+		params: { path: { projectId } },
 		body: request
 	});
 	if (error) handleError(error);
-	if (!data) throw new Error('Failed to create workspace path');
+	if (!data) throw new Error('Failed to create workspace');
 	return data;
 }
 
-export async function deleteWorkspacePath(workspaceId: string, pathId: string): Promise<void> {
-	const { error } = await api.DELETE('/workspaces/{workspaceId}/paths/{pathId}', {
-		params: { path: { workspaceId, pathId } }
+export async function deleteWorkspace(projectId: string, pathId: string): Promise<void> {
+	const { error } = await api.DELETE('/projects/{projectId}/workspaces/{pathId}', {
+		params: { path: { projectId, pathId } }
 	});
 	if (error) handleError(error);
 }
@@ -122,12 +122,12 @@ export interface IssueFilters {
 }
 
 export async function listIssues(
-	workspaceId: string,
+	projectId: string,
 	filters: IssueFilters = {}
 ): Promise<PaginatedIssues> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues', {
+	const { data, error } = await api.GET('/projects/{projectId}/issues', {
 		params: {
-			path: { workspaceId },
+			path: { projectId },
 			query: {
 				status: filters.status as
 					| 'open'
@@ -150,13 +150,13 @@ export async function listIssues(
 }
 
 export async function getIssue(
-	workspaceId: string,
+	projectId: string,
 	issueId: string,
 	details = false
 ): Promise<Issue> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues/{issueId}', {
+	const { data, error } = await api.GET('/projects/{projectId}/issues/{issueId}', {
 		params: {
-			path: { workspaceId, issueId },
+			path: { projectId, issueId },
 			query: { details }
 		}
 	});
@@ -168,11 +168,11 @@ export async function getIssue(
 export type CreateIssueRequest = components['schemas']['CreateIssueRequest'];
 
 export async function createIssue(
-	workspaceId: string,
+	projectId: string,
 	request: CreateIssueRequest
 ): Promise<Issue> {
-	const { data, error } = await api.POST('/workspaces/{workspaceId}/issues', {
-		params: { path: { workspaceId } },
+	const { data, error } = await api.POST('/projects/{projectId}/issues', {
+		params: { path: { projectId } },
 		body: request
 	});
 	if (error) handleError(error);
@@ -183,12 +183,12 @@ export async function createIssue(
 export type UpdateIssueRequest = components['schemas']['UpdateIssueRequest'];
 
 export async function updateIssue(
-	workspaceId: string,
+	projectId: string,
 	issueId: string,
 	request: UpdateIssueRequest
 ): Promise<Issue> {
-	const { data, error } = await api.PUT('/workspaces/{workspaceId}/issues/{issueId}', {
-		params: { path: { workspaceId, issueId } },
+	const { data, error } = await api.PUT('/projects/{projectId}/issues/{issueId}', {
+		params: { path: { projectId, issueId } },
 		body: request
 	});
 	if (error) handleError(error);
@@ -197,12 +197,12 @@ export async function updateIssue(
 }
 
 export async function getReadyWork(
-	workspaceId: string,
+	projectId: string,
 	filters: { type?: string; priority?: number; assignee?: string; limit?: number } = {}
 ): Promise<Issue[]> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/ready', {
+	const { data, error } = await api.GET('/projects/{projectId}/ready', {
 		params: {
-			path: { workspaceId },
+			path: { projectId },
 			query: {
 				type: filters.type as 'bug' | 'feature' | 'task' | 'epic' | 'chore' | undefined,
 				priority: filters.priority,
@@ -215,10 +215,10 @@ export async function getReadyWork(
 	return data ?? [];
 }
 
-export async function getBlockedIssues(workspaceId: string, limit = 50): Promise<BlockedIssue[]> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/blocked', {
+export async function getBlockedIssues(projectId: string, limit = 50): Promise<BlockedIssue[]> {
+	const { data, error } = await api.GET('/projects/{projectId}/blocked', {
 		params: {
-			path: { workspaceId },
+			path: { projectId },
 			query: { limit }
 		}
 	});
@@ -269,49 +269,49 @@ export async function deleteLabel(name: string): Promise<void> {
 
 // Issue Label APIs
 export async function addLabelToIssue(
-	workspaceId: string,
+	projectId: string,
 	issueId: string,
 	label: string
 ): Promise<void> {
-	const { error } = await api.POST('/workspaces/{workspaceId}/issues/{issueId}/labels', {
-		params: { path: { workspaceId, issueId } },
+	const { error } = await api.POST('/projects/{projectId}/issues/{issueId}/labels', {
+		params: { path: { projectId, issueId } },
 		body: { label }
 	});
 	if (error) handleError(error);
 }
 
 export async function removeLabelFromIssue(
-	workspaceId: string,
+	projectId: string,
 	issueId: string,
 	labelName: string
 ): Promise<void> {
 	const { error } = await api.DELETE(
-		'/workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}',
+		'/projects/{projectId}/issues/{issueId}/labels/{labelName}',
 		{
-			params: { path: { workspaceId, issueId, labelName } }
+			params: { path: { projectId, issueId, labelName } }
 		}
 	);
 	if (error) handleError(error);
 }
 
 // Comment APIs
-export async function getComments(workspaceId: string, issueId: string): Promise<Comment[]> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues/{issueId}/comments', {
-		params: { path: { workspaceId, issueId } }
+export async function getComments(projectId: string, issueId: string): Promise<Comment[]> {
+	const { data, error } = await api.GET('/projects/{projectId}/issues/{issueId}/comments', {
+		params: { path: { projectId, issueId } }
 	});
 	if (error) handleError(error);
 	return data ?? [];
 }
 
 export async function createComment(
-	workspaceId: string,
+	projectId: string,
 	issueId: string,
 	text: string
 ): Promise<Comment> {
 	const { data, error } = await api.POST(
-		'/workspaces/{workspaceId}/issues/{issueId}/comments',
+		'/projects/{projectId}/issues/{issueId}/comments',
 		{
-			params: { path: { workspaceId, issueId } },
+			params: { path: { projectId, issueId } },
 			body: { text }
 		}
 	);
@@ -322,13 +322,13 @@ export async function createComment(
 
 // Event APIs
 export async function getEvents(
-	workspaceId: string,
+	projectId: string,
 	issueId: string,
 	limit = 50
 ): Promise<Event[]> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues/{issueId}/events', {
+	const { data, error } = await api.GET('/projects/{projectId}/issues/{issueId}/events', {
 		params: {
-			path: { workspaceId, issueId },
+			path: { projectId, issueId },
 			query: { limit }
 		}
 	});
@@ -338,11 +338,11 @@ export async function getEvents(
 
 // Dependency APIs
 export async function getDependencies(
-	workspaceId: string,
+	projectId: string,
 	issueId: string
 ): Promise<DependencyGraph> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/issues/{issueId}/deps', {
-		params: { path: { workspaceId, issueId } }
+	const { data, error } = await api.GET('/projects/{projectId}/issues/{issueId}/deps', {
+		params: { path: { projectId, issueId } }
 	});
 	if (error) handleError(error);
 	return data ?? { dependencies: [], dependents: [] };
@@ -368,15 +368,15 @@ export async function browseFilesystem(dir: string): Promise<BrowseEntry[]> {
 
 // Team Context APIs
 export async function getTeamContext(
-	workspaceId: string,
+	projectId: string,
 	epicId?: string
 ): Promise<TeamContext> {
-	const { data, error } = await api.GET('/workspaces/{workspaceId}/team-context', {
+	const { data, error } = await api.GET('/projects/{projectId}/team-context', {
 		params: {
-			path: { workspaceId },
+			path: { projectId },
 			query: { epic_id: epicId }
 		}
 	});
 	if (error) handleError(error);
-	return data ?? { workspace: workspaceId, roles: {}, unassigned: [] };
+	return data ?? { workspace: projectId, roles: {}, unassigned: [] };
 }

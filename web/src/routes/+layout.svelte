@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { Sidebar } from '$lib/components';
-	import { listWorkspaces, type Workspace as Project } from '$lib/api';
+	import { listProjects, type Project } from '$lib/api';
 	import { page } from '$app/stores';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -11,9 +11,9 @@
 	const loadingStore = writable(true);
 	const errorStore = writable<string | null>(null);
 
-	setContext('workspaces', projectsStore);
-	setContext('workspacesLoading', loadingStore);
-	setContext('workspacesError', errorStore);
+	setContext('projects', projectsStore);
+	setContext('projectsLoading', loadingStore);
+	setContext('projectsError', errorStore);
 
 	// Current project from URL
 	const currentProjectId = $derived($page.params.projectId);
@@ -28,7 +28,7 @@
 		loadingStore.set(true);
 		errorStore.set(null);
 		try {
-			const projects = await listWorkspaces();
+			const projects = await listProjects();
 			projectsStore.set(projects);
 		} catch (err) {
 			errorStore.set(err instanceof Error ? err.message : 'Failed to load projects');
@@ -46,7 +46,7 @@
 </svelte:head>
 
 <div class="flex min-h-screen bg-surface-900">
-	<Sidebar workspaces={$projectsStore} currentWorkspace={currentProject} />
+	<Sidebar projects={$projectsStore} currentProject={currentProject} />
 
 	<main class="flex-1 min-w-0 flex flex-col">
 		{#if $loadingStore}

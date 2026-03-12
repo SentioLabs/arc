@@ -4,9 +4,9 @@
 	import { goto } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { createIssue, type Workspace as Project, type CreateIssueRequest } from '$lib/api';
+	import { createIssue, type Project, type CreateIssueRequest } from '$lib/api';
 
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 	const projectId = $derived($page.params.projectId);
 	const project = $derived($projects.find((p) => p.id === projectId));
 
@@ -69,7 +69,7 @@
 </svelte:head>
 
 {#if project}
-	<Header workspace={project} title="New Issue" />
+	<Header project={project} title="New Issue" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<div class="max-w-2xl mx-auto">

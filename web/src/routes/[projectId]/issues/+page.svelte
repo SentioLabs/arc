@@ -8,7 +8,7 @@
 		listIssues,
 		listLabels,
 		updateIssue,
-		type Workspace as Project,
+		type Project,
 		type Issue,
 		type Label,
 		type IssueFilters,
@@ -16,7 +16,7 @@
 	} from '$lib/api';
 
 	// Get project from context
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 	const projectId = $derived($page.params.projectId);
 	const project = $derived($projects.find((p) => p.id === projectId));
 
@@ -130,7 +130,7 @@
 </script>
 
 {#if project}
-	<Header workspace={project} title="Issues" />
+	<Header project={project} title="Issues" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Filters -->

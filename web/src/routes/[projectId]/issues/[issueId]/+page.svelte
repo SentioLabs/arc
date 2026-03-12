@@ -14,7 +14,7 @@
 		addLabelToIssue,
 		removeLabelFromIssue,
 		listLabels,
-		type Workspace as Project,
+		type Project,
 		type Issue,
 		type Comment,
 		type Event,
@@ -23,7 +23,7 @@
 		type UpdateIssueRequest
 	} from '$lib/api';
 
-	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('projects');
 	const projectId = $derived($page.params.projectId);
 	const issueId = $derived($page.params.issueId);
 	const project = $derived($projects.find((p) => p.id === projectId));
@@ -95,12 +95,12 @@
 
 {#if project}
 	{#if loading}
-		<Header workspace={project} title="Loading..." />
+		<Header project={project} title="Loading..." />
 		<div class="flex-1 flex items-center justify-center">
 			<div class="text-text-muted animate-pulse">Loading issue...</div>
 		</div>
 	{:else if error}
-		<Header workspace={project} title="Error" />
+		<Header project={project} title="Error" />
 		<div class="flex-1 flex items-center justify-center p-8">
 			<div class="card p-8 text-center">
 				<p class="text-status-blocked mb-4">{error}</p>
@@ -108,7 +108,7 @@
 			</div>
 		</div>
 	{:else if issue}
-		<Header workspace={project} title={issue.id} />
+		<Header project={project} title={issue.id} />
 
 		<div class="flex-1 p-6 animate-fade-in">
 			<div class="max-w-4xl mx-auto">
