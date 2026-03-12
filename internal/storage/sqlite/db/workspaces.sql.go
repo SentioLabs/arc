@@ -61,6 +61,15 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 	return err
 }
 
+const deleteConfigByWorkspace = `-- name: DeleteConfigByWorkspace :exec
+DELETE FROM config WHERE workspace_id = ?
+`
+
+func (q *Queries) DeleteConfigByWorkspace(ctx context.Context, workspaceID string) error {
+	_, err := q.db.ExecContext(ctx, deleteConfigByWorkspace, workspaceID)
+	return err
+}
+
 const deleteWorkspace = `-- name: DeleteWorkspace :exec
 DELETE FROM workspaces WHERE id = ?
 `
@@ -160,6 +169,32 @@ func (q *Queries) ListWorkspaces(ctx context.Context) ([]*Workspace, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const moveIssuesToWorkspace = `-- name: MoveIssuesToWorkspace :execresult
+UPDATE issues SET workspace_id = ? WHERE workspace_id = ?
+`
+
+type MoveIssuesToWorkspaceParams struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceID_2 string `json:"workspace_id_2"`
+}
+
+func (q *Queries) MoveIssuesToWorkspace(ctx context.Context, arg MoveIssuesToWorkspaceParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, moveIssuesToWorkspace, arg.WorkspaceID, arg.WorkspaceID_2)
+}
+
+const movePlansToWorkspace = `-- name: MovePlansToWorkspace :execresult
+UPDATE plans SET workspace_id = ? WHERE workspace_id = ?
+`
+
+type MovePlansToWorkspaceParams struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceID_2 string `json:"workspace_id_2"`
+}
+
+func (q *Queries) MovePlansToWorkspace(ctx context.Context, arg MovePlansToWorkspaceParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, movePlansToWorkspace, arg.WorkspaceID, arg.WorkspaceID_2)
 }
 
 const updateWorkspace = `-- name: UpdateWorkspace :exec

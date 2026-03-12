@@ -27,3 +27,12 @@ SELECT COUNT(*) as count FROM workspaces WHERE id = ?;
 
 -- name: CountWorkspacesByName :one
 SELECT COUNT(*) as count FROM workspaces WHERE name = ?;
+
+-- name: MoveIssuesToWorkspace :execresult
+UPDATE issues SET workspace_id = ? WHERE workspace_id = ?;
+
+-- name: MovePlansToWorkspace :execresult
+UPDATE plans SET workspace_id = ? WHERE workspace_id = ?;
+
+-- name: DeleteConfigByWorkspace :exec
+DELETE FROM config WHERE workspace_id = ?;

@@ -17,6 +17,7 @@ type Storage interface {
 	ListWorkspaces(ctx context.Context) ([]*types.Workspace, error)
 	UpdateWorkspace(ctx context.Context, workspace *types.Workspace) error
 	DeleteWorkspace(ctx context.Context, id string) error
+	MergeWorkspaces(ctx context.Context, targetID string, sourceIDs []string, actor string) (*types.MergeResult, error)
 
 	// Issues
 	CreateIssue(ctx context.Context, issue *types.Issue, actor string) error

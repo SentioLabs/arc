@@ -346,6 +346,14 @@ type Statistics struct {
 	AvgLeadTimeHours float64 `json:"avg_lead_time_hours,omitempty"`
 }
 
+// MergeResult contains the outcome of merging one or more source workspaces into a target.
+type MergeResult struct {
+	TargetWorkspace *Workspace `json:"target_workspace"`
+	IssuesMoved     int        `json:"issues_moved"`
+	PlansMoved      int        `json:"plans_moved"`
+	SourcesDeleted  []string   `json:"sources_deleted"`
+}
+
 // OpenChildrenError is returned when attempting to close an issue that has open child issues.
 type OpenChildrenError struct {
 	IssueID  string  // The issue that cannot be closed

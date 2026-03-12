@@ -137,6 +137,88 @@ func (s *Store) DeleteWorkspace(ctx context.Context, idOrName string) error {
 	return nil
 }
 
+// MergeWorkspaces moves all issues and plans from source workspaces into the
+// target workspace, deletes the sources, and returns a summary. The entire
+// operation runs inside a single transaction for atomicity.
+func (s *Store) MergeWorkspaces(ctx context.Context, targetID string, sourceIDs []string, _ string) (*types.MergeResult, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	qtx := s.queries.WithTx(tx)
+
+	// Validate target exists
+	if _, err := qtx.GetWorkspace(ctx, targetID); err != nil {
+		return nil, fmt.Errorf("target workspace not found: %s", targetID)
+	}
+
+	var totalIssues, totalPlans int64
+	var deletedSources []string
+
+	for _, srcID := range sourceIDs {
+		if srcID == targetID {
+			return nil, fmt.Errorf("source workspace cannot be the same as target: %s", srcID)
+		}
+		if _, err := qtx.GetWorkspace(ctx, srcID); err != nil {
+			return nil, fmt.Errorf("source workspace not found: %s", srcID)
+		}
+
+		// Move issues
+		res, err := qtx.MoveIssuesToWorkspace(ctx, db.MoveIssuesToWorkspaceParams{
+			WorkspaceID:   targetID,
+			WorkspaceID_2: srcID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("move issues from %s: %w", srcID, err)
+		}
+		n, _ := res.RowsAffected()
+		totalIssues += n
+
+		// Move plans
+		res, err = qtx.MovePlansToWorkspace(ctx, db.MovePlansToWorkspaceParams{
+			WorkspaceID:   targetID,
+			WorkspaceID_2: srcID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("move plans from %s: %w", srcID, err)
+		}
+		n, _ = res.RowsAffected()
+		totalPlans += n
+
+		// Delete config for source workspace
+		if err := qtx.DeleteConfigByWorkspace(ctx, srcID); err != nil {
+			return nil, fmt.Errorf("delete config for %s: %w", srcID, err)
+		}
+
+		// Delete source workspace
+		if err := qtx.DeleteWorkspace(ctx, srcID); err != nil {
+			return nil, fmt.Errorf("delete workspace %s: %w", srcID, err)
+		}
+
+		deletedSources = append(deletedSources, srcID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit merge: %w", err)
+	}
+
+	// Rebuild FTS for moved issues (best-effort, outside transaction)
+	issues, _ := s.ListIssues(ctx, types.IssueFilter{WorkspaceID: targetID})
+	for _, issue := range issues {
+		s.rebuildFTSForIssue(ctx, issue.ID)
+	}
+
+	target, _ := s.GetWorkspace(ctx, targetID)
+	return &types.MergeResult{
+		TargetWorkspace: target,
+		IssuesMoved:     int(totalIssues),
+		PlansMoved:      int(totalPlans),
+		SourcesDeleted:  deletedSources,
+	}, nil
+}
+
 // dbWorkspaceToType converts a database workspace to a types.Workspace.
 func dbWorkspaceToType(row *db.Workspace) *types.Workspace {
 	return &types.Workspace{
