@@ -256,6 +256,50 @@ func TestResolveWorkspaceByPath_NotFound(t *testing.T) {
 	}
 }
 
+func TestResolveWorkspaceByPath_DualPathVariants(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	// Register two paths for the same workspace (simulating symlink + resolved)
+	symlinkPath := &types.WorkspacePath{
+		WorkspaceID: ws.ID,
+		Path:        "/Users/dev/devspace/project",
+		Label:       "project",
+	}
+	resolvedPath := &types.WorkspacePath{
+		WorkspaceID: ws.ID,
+		Path:        "/Volumes/ExternalSSD/devspace/project",
+		Label:       "project (resolved)",
+	}
+
+	if err := store.CreateWorkspacePath(ctx, symlinkPath); err != nil {
+		t.Fatalf("CreateWorkspacePath(symlink) failed: %v", err)
+	}
+	if err := store.CreateWorkspacePath(ctx, resolvedPath); err != nil {
+		t.Fatalf("CreateWorkspacePath(resolved) failed: %v", err)
+	}
+
+	// Both paths should resolve to the same workspace
+	got1, err := store.ResolveWorkspaceByPath(ctx, "/Users/dev/devspace/project")
+	if err != nil {
+		t.Fatalf("ResolveWorkspaceByPath(symlink) failed: %v", err)
+	}
+	if got1.WorkspaceID != ws.ID {
+		t.Errorf("symlink path resolved to workspace %q, want %q", got1.WorkspaceID, ws.ID)
+	}
+
+	got2, err := store.ResolveWorkspaceByPath(ctx, "/Volumes/ExternalSSD/devspace/project")
+	if err != nil {
+		t.Fatalf("ResolveWorkspaceByPath(resolved) failed: %v", err)
+	}
+	if got2.WorkspaceID != ws.ID {
+		t.Errorf("resolved path resolved to workspace %q, want %q", got2.WorkspaceID, ws.ID)
+	}
+}
+
 func TestUpdatePathLastAccessed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()

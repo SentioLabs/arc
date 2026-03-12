@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -99,4 +100,83 @@ func TestBackupProjectsDirAlreadyExists(t *testing.T) {
 	err := backupProjectsDir(arcHome)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
+}
+
+func TestReadLegacyConfig(t *testing.T) {
+	arcHome := t.TempDir()
+	projDir := filepath.Join(arcHome, "projects")
+	dir1 := filepath.Join(projDir, "-home-user-myproject")
+	require.NoError(t, os.MkdirAll(dir1, 0o755))
+
+	cfg := map[string]string{
+		"workspace_id":   "ws-123",
+		"workspace_name": "myproject",
+		"project_root":   "/home/user/myproject",
+	}
+	data, _ := json.Marshal(cfg)
+	require.NoError(t, os.WriteFile(filepath.Join(dir1, "config.json"), data, 0o600))
+
+	// Should find the config by path
+	got, err := readLegacyConfig(arcHome, "/home/user/myproject")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "ws-123", got.WorkspaceID)
+	assert.Equal(t, "myproject", got.WorkspaceName)
+
+	// Should return nil for unknown path
+	got, err = readLegacyConfig(arcHome, "/unknown/path")
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestRemoveLegacyConfig(t *testing.T) {
+	arcHome := t.TempDir()
+	projDir := filepath.Join(arcHome, "projects")
+	dir1 := filepath.Join(projDir, "-home-user-myproject")
+	dir2 := filepath.Join(projDir, "-home-user-otherproject")
+	require.NoError(t, os.MkdirAll(dir1, 0o755))
+	require.NoError(t, os.MkdirAll(dir2, 0o755))
+
+	cfg1 := map[string]string{
+		"workspace_id":   "ws-123",
+		"workspace_name": "myproject",
+		"project_root":   "/home/user/myproject",
+	}
+	cfg2 := map[string]string{
+		"workspace_id":   "ws-456",
+		"workspace_name": "otherproject",
+		"project_root":   "/home/user/otherproject",
+	}
+	data1, _ := json.Marshal(cfg1)
+	data2, _ := json.Marshal(cfg2)
+	require.NoError(t, os.WriteFile(filepath.Join(dir1, "config.json"), data1, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir2, "config.json"), data2, 0o600))
+
+	// Remove only the first project config
+	err := removeLegacyConfig(arcHome, "/home/user/myproject")
+	require.NoError(t, err)
+
+	// First config dir should be gone
+	_, err = os.Stat(dir1)
+	assert.True(t, os.IsNotExist(err))
+
+	// Second config dir should still exist
+	_, err = os.Stat(dir2)
+	assert.NoError(t, err)
+}
+
+func TestRemoveLegacyConfig_NoProjectsDir(t *testing.T) {
+	arcHome := t.TempDir()
+	// Should not error when projects/ doesn't exist
+	err := removeLegacyConfig(arcHome, "/some/path")
+	require.NoError(t, err)
+}
+
+func TestIsDuplicatePathError(t *testing.T) {
+	assert.False(t, isDuplicatePathError(nil))
+	assert.True(t, isDuplicatePathError(fmt.Errorf("path already registered")))
+	assert.True(t, isDuplicatePathError(fmt.Errorf("UNIQUE constraint failed")))
+	assert.True(t, isDuplicatePathError(fmt.Errorf("duplicate entry")))
+	assert.True(t, isDuplicatePathError(fmt.Errorf("conflict on path")))
+	assert.False(t, isDuplicatePathError(fmt.Errorf("connection refused")))
 }

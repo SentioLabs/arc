@@ -82,6 +82,7 @@ type WorkspaceSource int
 const (
 	WorkspaceSourceFlag   WorkspaceSource = iota
 	WorkspaceSourceServer                 // server path matching via resolve-by-path API
+	WorkspaceSourceLegacy                 // auto-migrated from legacy ~/.arc/projects/ config
 )
 
 func (s WorkspaceSource) String() string {
@@ -90,6 +91,8 @@ func (s WorkspaceSource) String() string {
 		return "command line flag (-w)"
 	case WorkspaceSourceServer:
 		return "server path match"
+	case WorkspaceSourceLegacy:
+		return "auto-migrated from legacy config"
 	default:
 		return "unknown"
 	}
@@ -187,7 +190,8 @@ func getWorkspaceID() (string, error) {
 // resolveWorkspace returns the workspace ID, source, and error.
 // Resolution priority:
 //  1. CLI flag (-w/--workspace) - explicit override always works
-//  2. Server resolve-by-path API - queries server with normalized cwd
+//  2. Server resolve-by-path API - tries raw cwd, then symlink-resolved path
+//  3. Legacy fallback - checks ~/.arc/projects/ for old config, auto-migrates it
 //
 // If none is available, an error is returned. There is no global fallback
 // to prevent accidentally operating in the wrong workspace.
@@ -202,17 +206,55 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 		return "", 0, "", fmt.Errorf("get current directory: %w", err)
 	}
 
-	// Priority 2: Server resolve-by-path
-	normalizedPath := project.NormalizePath(cwd)
+	absPath, resolvedPath := project.NormalizePathPair(cwd)
 
 	c, err := getClient()
 	if err != nil {
 		return "", 0, "", fmt.Errorf("connect to server: %w", err)
 	}
 
-	resolution, err := c.ResolveWorkspaceByPath(normalizedPath)
+	// Priority 2: Server resolve-by-path (try both path variants)
+	resolution, err := c.ResolveWorkspaceByPath(absPath)
 	if err == nil && resolution.WorkspaceID != "" {
 		return resolution.WorkspaceID, WorkspaceSourceServer, "", nil
+	}
+
+	// Try the resolved path if it differs
+	if resolvedPath != absPath {
+		resolution, err = c.ResolveWorkspaceByPath(resolvedPath)
+		if err == nil && resolution.WorkspaceID != "" {
+			// Auto-register the missing symlink path for future direct matches
+			hostname, _ := os.Hostname()
+			_ = registerPathPair(c, resolution.WorkspaceID, absPath, resolvedPath, hostname)
+			return resolution.WorkspaceID, WorkspaceSourceServer, "", nil
+		}
+	}
+
+	// Try git worktree detection: if cwd is a worktree, resolve via the main repo path
+	if mainRepoPath := gitWorktreeMainRepo(cwd); mainRepoPath != "" {
+		mainAbs, mainResolved := project.NormalizePathPair(mainRepoPath)
+		for _, p := range uniquePaths(mainAbs, mainResolved) {
+			resolution, err = c.ResolveWorkspaceByPath(p)
+			if err == nil && resolution.WorkspaceID != "" {
+				return resolution.WorkspaceID, WorkspaceSourceServer, "", nil
+			}
+		}
+	}
+
+	// Priority 3: Legacy fallback — check ~/.arc/projects/ for old config
+	arcHome := project.DefaultArcHome()
+	legacyCfg, legacyErr := readLegacyConfig(arcHome, cwd)
+	if legacyErr == nil && legacyCfg != nil {
+		hostname, _ := os.Hostname()
+		if regErr := registerPathPair(c, legacyCfg.WorkspaceID, absPath, resolvedPath, hostname); regErr != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: auto-migration failed to register paths: %v\n", regErr)
+		} else {
+			// Clean up the old config
+			if rmErr := removeLegacyConfig(arcHome, cwd); rmErr != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "Warning: auto-migration could not clean up old config: %v\n", rmErr)
+			}
+		}
+		return legacyCfg.WorkspaceID, WorkspaceSourceLegacy, "", nil
 	}
 
 	return "", 0, "", errors.New(

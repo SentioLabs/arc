@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
 	"github.com/sentiolabs/arc/internal/workspace"
@@ -59,12 +57,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	description, _ := cmd.Flags().GetString("description")
 
-	// Get current working directory, resolving symlinks for consistent path storage
-	cwd, err := os.Getwd()
+	// Get current working directory with both symlink and resolved forms
+	rawCwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
 	}
-	cwd = project.NormalizePath(cwd)
+	absPath, resolvedPath := project.NormalizePathPair(rawCwd)
+	// Use resolved path as the canonical cwd for name generation, prefix, etc.
+	cwd := resolvedPath
 
 	// Determine workspace name
 	var name string
@@ -157,22 +157,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Register path on the server
+	// Register both path variants on the server (symlink + resolved)
 	hostname, _ := os.Hostname()
-	gitRemote := getGitRemoteURL()
-	label := filepath.Base(cwd)
-
-	pathReq := client.CreateWorkspacePathRequest{
-		Path:      project.NormalizePath(cwd),
-		Label:     label,
-		Hostname:  hostname,
-		GitRemote: gitRemote,
-	}
-	if _, err := c.CreateWorkspacePath(ws.ID, pathReq); err != nil {
+	if err := registerPathPair(c, ws.ID, absPath, resolvedPath, hostname); err != nil {
 		if !quiet {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to register workspace path: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to register workspace paths: %v\n", err)
 		}
 	}
+
+	// Clean up any legacy config for this path
+	arcHome := project.DefaultArcHome()
+	_ = removeLegacyConfig(arcHome, rawCwd)
 
 	// Add "landing the plane" instructions to AGENTS.md
 	if err := addLandingThePlaneInstructions(!quiet); err != nil {

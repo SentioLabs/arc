@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
@@ -20,14 +21,17 @@ type legacyProjectConfig struct {
 }
 
 // migratePathsCmd reads existing ~/.arc/projects/ configs and registers them
-// as workspace paths via the server API, then backs up the old configs.
+// as workspace paths via the server API, then cleans up each migrated config.
 var migratePathsCmd = &cobra.Command{
 	Use:   "migrate-paths",
 	Short: "Migrate local project configs to server-side workspace paths",
-	Long: `One-time migration that reads existing ~/.arc/projects/ configs and
+	Long: `Migration that reads existing ~/.arc/projects/ configs and
 registers them as workspace paths via the server API.
 
-After migration, the projects/ directory is renamed to projects.bak/.`,
+Both the original path and the symlink-resolved path are registered
+so that lookups work regardless of how the directory is accessed.
+
+Each successfully migrated project config directory is removed individually.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
@@ -47,8 +51,14 @@ After migration, the projects/ directory is renamed to projects.bak/.`,
 		migrated := 0
 
 		for _, cfg := range configs {
+			absPath, resolvedPath := project.NormalizePathPair(cfg.ProjectRoot)
+
 			if dryRun {
-				fmt.Printf("Would migrate: %s → %s\n", cfg.ProjectRoot, cfg.WorkspaceName)
+				if absPath != resolvedPath {
+					fmt.Printf("Would migrate: %s (+ resolved: %s) → %s\n", absPath, resolvedPath, cfg.WorkspaceName)
+				} else {
+					fmt.Printf("Would migrate: %s → %s\n", absPath, cfg.WorkspaceName)
+				}
 				migrated++
 				continue
 			}
@@ -58,32 +68,27 @@ After migration, the projects/ directory is renamed to projects.bak/.`,
 				return err
 			}
 
-			pathReq := client.CreateWorkspacePathRequest{
-				Path:     cfg.ProjectRoot,
-				Label:    filepath.Base(cfg.ProjectRoot),
-				Hostname: hostname,
-			}
-
-			if _, err := c.CreateWorkspacePath(cfg.WorkspaceID, pathReq); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to migrate %s: %v\n", cfg.ProjectRoot, err)
+			if err := registerPathPair(c, cfg.WorkspaceID, absPath, resolvedPath, hostname); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to migrate %s: %v\n", cfg.ProjectRoot, err)
 				continue
 			}
 
-			fmt.Printf("Migrated: %s → %s\n", cfg.ProjectRoot, cfg.WorkspaceName)
-			migrated++
-		}
-
-		if !dryRun && migrated > 0 {
-			if err := backupProjectsDir(arcHome); err != nil {
-				return fmt.Errorf("backup projects dir: %w", err)
+			if err := removeLegacyConfig(arcHome, cfg.ProjectRoot); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "Warning: migrated %s but failed to clean up old config: %v\n", cfg.ProjectRoot, err)
 			}
+
+			if absPath != resolvedPath {
+				fmt.Printf("Migrated: %s (+ resolved: %s) → %s\n", absPath, resolvedPath, cfg.WorkspaceName)
+			} else {
+				fmt.Printf("Migrated: %s → %s\n", absPath, cfg.WorkspaceName)
+			}
+			migrated++
 		}
 
 		if dryRun {
 			fmt.Printf("\nDry run: %d paths would be migrated.\n", migrated)
 		} else {
-			fmt.Printf("Migrated %d paths. Original configs backed up to %s\n",
-				migrated, filepath.Join(arcHome, "projects.bak")+"/")
+			fmt.Printf("Migrated %d paths.\n", migrated)
 		}
 
 		return nil
@@ -93,6 +98,109 @@ After migration, the projects/ directory is renamed to projects.bak/.`,
 func init() {
 	migratePathsCmd.Flags().Bool("dry-run", false, "Show what would be migrated without making changes")
 	rootCmd.AddCommand(migratePathsCmd)
+}
+
+// registerPathPair registers both the absolute and resolved paths for a workspace.
+// If both paths are the same, only one is registered. Duplicate path errors are
+// silently ignored (the path is already registered).
+func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname string) error {
+	label := filepath.Base(absPath)
+
+	// Register the absolute path (what user sees / cwd reports)
+	pathReq := client.CreateWorkspacePathRequest{
+		Path:     absPath,
+		Label:    label,
+		Hostname: hostname,
+	}
+	if _, err := c.CreateWorkspacePath(wsID, pathReq); err != nil {
+		if !isDuplicatePathError(err) {
+			return fmt.Errorf("register path %s: %w", absPath, err)
+		}
+	}
+
+	// Register the resolved path if it differs
+	if resolvedPath != absPath {
+		resolvedReq := client.CreateWorkspacePathRequest{
+			Path:     resolvedPath,
+			Label:    label + " (resolved)",
+			Hostname: hostname,
+		}
+		if _, err := c.CreateWorkspacePath(wsID, resolvedReq); err != nil {
+			if !isDuplicatePathError(err) {
+				return fmt.Errorf("register resolved path %s: %w", resolvedPath, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// isDuplicatePathError returns true if the error indicates the path is already registered.
+func isDuplicatePathError(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "already registered") ||
+		strings.Contains(err.Error(), "UNIQUE constraint") ||
+		strings.Contains(err.Error(), "duplicate") ||
+		strings.Contains(err.Error(), "conflict"))
+}
+
+// readLegacyConfig reads a single legacy project config matching the given path.
+// Returns nil if no matching config is found.
+func readLegacyConfig(arcHome, path string) (*legacyProjectConfig, error) {
+	configs, err := readProjectConfigs(arcHome)
+	if err != nil {
+		return nil, err
+	}
+
+	// Normalize the lookup path for comparison
+	absPath, resolvedPath := project.NormalizePathPair(path)
+
+	for _, cfg := range configs {
+		cfgAbs, cfgResolved := project.NormalizePathPair(cfg.ProjectRoot)
+		if cfgAbs == absPath || cfgResolved == resolvedPath ||
+			cfgAbs == resolvedPath || cfgResolved == absPath {
+			return &cfg, nil
+		}
+	}
+	return nil, nil
+}
+
+// removeLegacyConfig removes the legacy project config directory for a given path.
+func removeLegacyConfig(arcHome, path string) error {
+	projDir := filepath.Join(arcHome, "projects")
+
+	entries, err := os.ReadDir(projDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	absPath, resolvedPath := project.NormalizePathPair(path)
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		cfgPath := filepath.Join(projDir, entry.Name(), "config.json")
+		data, err := os.ReadFile(cfgPath)
+		if err != nil {
+			continue
+		}
+
+		var cfg legacyProjectConfig
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			continue
+		}
+
+		cfgAbs, cfgResolved := project.NormalizePathPair(cfg.ProjectRoot)
+		if cfgAbs == absPath || cfgResolved == resolvedPath ||
+			cfgAbs == resolvedPath || cfgResolved == absPath {
+			return os.RemoveAll(filepath.Join(projDir, entry.Name()))
+		}
+	}
+	return nil
 }
 
 // readProjectConfigs reads all project configs from arcHome/projects/ subdirectories.

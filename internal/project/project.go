@@ -21,3 +21,15 @@ func NormalizePath(path string) string {
 	}
 	return resolved
 }
+
+// NormalizePathPair returns both the absolute path (what the user typed / cwd reports)
+// and the symlink-resolved path. When they differ, callers should store both variants
+// so that lookups work regardless of which form is used to access the directory.
+func NormalizePathPair(path string) (absPath, resolvedPath string) {
+	abs, _ := filepath.Abs(path)
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return abs, abs
+	}
+	return abs, resolved
+}
