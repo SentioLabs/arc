@@ -24,16 +24,20 @@ case "$MODE" in
     ARC_BINARY="$PROJECT_ROOT/bin/arc" go test -tags integration -v -count=1 ./tests/integration/...
     ;;
   playwright)
-    echo "==> Running Playwright E2E tests..."
+    echo "==> Ensuring Playwright browsers are installed..."
     cd "$PROJECT_ROOT/web"
+    bunx playwright install --with-deps chromium
+    echo "==> Running Playwright E2E tests..."
     bun playwright test --config playwright.e2e.config.ts
     ;;
   all)
     echo "==> Running Go integration tests..."
     cd "$PROJECT_ROOT"
     ARC_BINARY="$PROJECT_ROOT/bin/arc" go test -tags integration -v -count=1 ./tests/integration/...
-    echo "==> Running Playwright E2E tests..."
+    echo "==> Ensuring Playwright browsers are installed..."
     cd "$PROJECT_ROOT/web"
+    bunx playwright install --with-deps chromium
+    echo "==> Running Playwright E2E tests..."
     bun playwright test --config playwright.e2e.config.ts
     ;;
   *)

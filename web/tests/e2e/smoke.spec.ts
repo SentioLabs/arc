@@ -8,7 +8,8 @@ test.describe('Smoke tests', () => {
 
 	test('web UI loads at root', async ({ page }) => {
 		await page.goto('/');
-		await expect(page).toHaveTitle(/.+/);
+		// SvelteKit sets the title via <svelte:head> after hydration
+		await expect(page).toHaveTitle(/arc/i, { timeout: 10000 });
 	});
 
 	test('root page contains navigation structure', async ({ page }) => {
