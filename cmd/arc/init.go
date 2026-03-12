@@ -8,7 +8,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
-	"github.com/sentiolabs/arc/internal/workspace"
+	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +67,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		name = args[0]
 	} else {
 		// Auto-generate: sanitized-basename-hash
-		name, err = workspace.GenerateName(cwd)
+		name, err = project.GenerateName(cwd)
 		if err != nil {
 			return fmt.Errorf("generate project name: %w", err)
 		}
@@ -78,12 +78,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	var prefix string
 	if customPrefix != "" {
-		prefix, err = workspace.GeneratePrefixWithCustomName(cwd, customPrefix)
+		prefix, err = project.GeneratePrefixWithCustomName(cwd, customPrefix)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
 	} else {
-		prefix, err = workspace.GeneratePrefix(cwd)
+		prefix, err = project.GeneratePrefix(cwd)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
@@ -96,76 +96,53 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check if project already exists
-	workspaces, err := c.ListWorkspaces()
+	projects, err := c.ListProjects()
 	if err != nil {
 		return fmt.Errorf("list projects: %w", err)
 	}
 
-	var ws *struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Path        string `json:"path"`
-		Description string `json:"description"`
-		Prefix      string `json:"prefix"`
-	}
+	var proj *types.Project
 
-	// Look for existing project by path or name (normalize paths to handle symlinks)
-	for _, existing := range workspaces {
-		if existing.Path == cwd || project.NormalizePath(existing.Path) == cwd || existing.Name == name {
-			ws = &struct {
-				ID          string `json:"id"`
-				Name        string `json:"name"`
-				Path        string `json:"path"`
-				Description string `json:"description"`
-				Prefix      string `json:"prefix"`
-			}{
-				ID:          existing.ID,
-				Name:        existing.Name,
-				Path:        existing.Path,
-				Description: existing.Description,
-				Prefix:      existing.Prefix,
-			}
+	// Look for existing project by name
+	for _, existing := range projects {
+		if existing.Name == name {
+			proj = existing
 			if !quiet {
-				fmt.Printf("Using existing project: %s (%s)\n", ws.Name, ws.ID)
+				fmt.Printf("Using existing project: %s (%s)\n", proj.Name, proj.ID)
 			}
 			break
 		}
 	}
 
-	// Create new project if not found
-	if ws == nil {
-		newWs, err := c.CreateWorkspace(name, prefix, cwd, description)
-		if err != nil {
-			return fmt.Errorf("create project: %w", err)
-		}
-		ws = &struct {
-			ID          string `json:"id"`
-			Name        string `json:"name"`
-			Path        string `json:"path"`
-			Description string `json:"description"`
-			Prefix      string `json:"prefix"`
-		}{
-			ID:          newWs.ID,
-			Name:        newWs.Name,
-			Path:        newWs.Path,
-			Description: newWs.Description,
-			Prefix:      newWs.Prefix,
-		}
-		if !quiet {
-			fmt.Printf("Created project: %s (%s)\n", ws.Name, ws.ID)
+	// Also check server-side path resolution
+	if proj == nil {
+		if res, resolveErr := c.ResolveProjectByPath(cwd); resolveErr == nil && res.ProjectID != "" {
+			if existing, getErr := c.GetProject(res.ProjectID); getErr == nil {
+				proj = existing
+				if !quiet {
+					fmt.Printf("Using existing project: %s (%s)\n", proj.Name, proj.ID)
+				}
+			}
 		}
 	}
 
-	// Create project config in ~/.arc/projects/
-	arcHome := project.DefaultArcHome()
-	projectCfg := &project.Config{
-		WorkspaceID:   ws.ID,
-		WorkspaceName: ws.Name,
-		ProjectRoot:   cwd,
-	}
-	if err := project.WriteConfig(arcHome, cwd, projectCfg); err != nil {
+	// Create new project if not found
+	if proj == nil {
+		proj, err = c.CreateProject(name, prefix, description)
+		if err != nil {
+			return fmt.Errorf("create project: %w", err)
+		}
 		if !quiet {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to create project config: %v\n", err)
+			fmt.Printf("Created project: %s (%s)\n", proj.Name, proj.ID)
+		}
+	}
+
+	// Register the current directory as a workspace path
+	hostname, _ := os.Hostname()
+	absPath, resolvedPath := project.NormalizePathPair(cwd)
+	if regErr := registerPathPair(c, proj.ID, absPath, resolvedPath, hostname); regErr != nil {
+		if !quiet {
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to register workspace path: %v\n", regErr)
 		}
 	}
 
@@ -185,11 +162,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	if !quiet {
 		fmt.Printf("\n✓ arc initialized successfully!\n\n")
-		fmt.Printf("  Project: %s\n", ws.Name)
-		fmt.Printf("  ID: %s\n", ws.ID)
-		fmt.Printf("  Prefix: %s\n", ws.Prefix)
+		fmt.Printf("  Project: %s\n", proj.Name)
+		fmt.Printf("  ID: %s\n", proj.ID)
+		fmt.Printf("  Prefix: %s\n", proj.Prefix)
 		fmt.Printf("  Issues will be named: %s.<hash> (e.g., %s.a3f2dd)\n\n",
-			ws.Prefix, ws.Prefix)
+			proj.Prefix, proj.Prefix)
 		fmt.Printf("Run %s to get started.\n", "arc quickstart")
 	}
 

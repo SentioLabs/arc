@@ -113,13 +113,13 @@ func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname st
 	}
 
 	// Register the absolute path (what user sees / cwd reports)
-	pathReq := client.CreateWorkspacePathRequest{
+	pathReq := client.CreateWorkspaceRequest{
 		Path:     absPath,
 		Label:    label,
 		Hostname: hostname,
 		PathType: absPathType,
 	}
-	if _, err := c.CreateWorkspacePath(wsID, pathReq); err != nil {
+	if _, err := c.CreateWorkspace(wsID, pathReq); err != nil {
 		if !isDuplicatePathError(err) {
 			return fmt.Errorf("register path %s: %w", absPath, err)
 		}
@@ -129,13 +129,13 @@ func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname st
 
 	// Register the resolved path if it differs
 	if resolvedPath != absPath {
-		resolvedReq := client.CreateWorkspacePathRequest{
+		resolvedReq := client.CreateWorkspaceRequest{
 			Path:     resolvedPath,
 			Label:    label + " (resolved)",
 			Hostname: hostname,
 			PathType: "canonical",
 		}
-		if _, err := c.CreateWorkspacePath(wsID, resolvedReq); err != nil {
+		if _, err := c.CreateWorkspace(wsID, resolvedReq); err != nil {
 			if !isDuplicatePathError(err) {
 				return fmt.Errorf("register resolved path %s: %w", resolvedPath, err)
 			}
@@ -254,13 +254,13 @@ func readProjectConfigs(arcHome string) ([]legacyProjectConfig, error) {
 // its path_type if it doesn't match the desired value. This handles the case where
 // paths were created before path_type was introduced (defaulting to "canonical").
 func ensurePathType(c *client.Client, wsID, fsPath, desiredType string) {
-	paths, err := c.ListWorkspacePaths(wsID)
+	paths, err := c.ListWorkspaces(wsID)
 	if err != nil {
 		return
 	}
 	for _, p := range paths {
 		if p.Path == fsPath && p.PathType != desiredType {
-			_, _ = c.UpdateWorkspacePath(wsID, p.ID, map[string]string{
+			_, _ = c.UpdateWorkspace(wsID, p.ID, map[string]string{
 				"path_type": desiredType,
 			})
 			return
@@ -272,7 +272,7 @@ func ensurePathType(c *client.Client, wsID, fsPath, desiredType string) {
 // based on actual symlink detection. Paths created before path_type was
 // introduced all default to "canonical" but some may actually be symlinks.
 func fixPathTypes(c *client.Client, wsID string) {
-	paths, err := c.ListWorkspacePaths(wsID)
+	paths, err := c.ListWorkspaces(wsID)
 	if err != nil {
 		return
 	}
@@ -294,7 +294,7 @@ func fixPathTypes(c *client.Client, wsID string) {
 		}
 
 		if p.PathType != desiredType {
-			_, _ = c.UpdateWorkspacePath(wsID, p.ID, map[string]string{
+			_, _ = c.UpdateWorkspace(wsID, p.ID, map[string]string{
 				"path_type": desiredType,
 			})
 		}

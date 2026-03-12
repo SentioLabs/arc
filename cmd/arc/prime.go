@@ -51,7 +51,7 @@ Workflow customization:
 		if err != nil {
 			os.Exit(0)
 		}
-		if _, err := c.ResolveWorkspaceByPath(normalizedCwd); err != nil {
+		if _, err := c.ResolveProjectByPath(normalizedCwd); err != nil {
 			// Not in an arc project - silent exit with success
 			// This enables cross-platform hook integration
 			os.Exit(0)

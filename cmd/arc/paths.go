@@ -26,32 +26,32 @@ var pathsListAll bool
 var pathsCmd = &cobra.Command{
 	Use:   "paths",
 	Short: "Manage workspace path registrations",
-	Long: `List, add, and remove filesystem paths associated with the current workspace.
+	Long: `List, add, and remove filesystem paths associated with the current project.
 
-When run without a subcommand, lists paths for the current workspace.`,
+When run without a subcommand, lists paths for the current project.`,
 	RunE: runPathsList,
 }
 
-// pathsAddCmd registers a new path to the current workspace.
+// pathsAddCmd registers a new path to the current project.
 var pathsAddCmd = &cobra.Command{
 	Use:   "add <dir>",
-	Short: "Register a path to the current workspace",
+	Short: "Register a path to the current project",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runPathsAdd,
 }
 
-// pathsRemoveCmd unregisters a path from the current workspace.
+// pathsRemoveCmd unregisters a path from the current project.
 var pathsRemoveCmd = &cobra.Command{
 	Use:   "remove <path-or-id>",
-	Short: "Unregister a path from the current workspace",
+	Short: "Unregister a path from the current project",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runPathsRemove,
 }
 
-// pathsListCmd lists paths, optionally across all workspaces.
+// pathsListCmd lists paths, optionally across all projects.
 var pathsListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List paths (use --all for all workspaces)",
+	Short: "List paths (use --all for all projects)",
 	RunE:  runPathsListCmd,
 }
 
@@ -65,22 +65,22 @@ func init() {
 	pathsAddCmd.Flags().StringVar(&pathsAddLabel, "label", "", "Label for the path")
 	pathsAddCmd.Flags().StringVar(&pathsAddHostname, "hostname", "", "Hostname for the path")
 
-	pathsListCmd.Flags().BoolVar(&pathsListAll, "all", false, "List paths across all workspaces")
+	pathsListCmd.Flags().BoolVar(&pathsListAll, "all", false, "List paths across all projects")
 }
 
-// runPathsList lists paths for the current workspace (default behavior).
+// runPathsList lists paths for the current project (default behavior).
 func runPathsList(cmd *cobra.Command, args []string) error {
 	c, err := getClient()
 	if err != nil {
 		return err
 	}
 
-	wsID, err := getWorkspaceID()
+	projID, err := getProjectID()
 	if err != nil {
 		return err
 	}
 
-	paths, err := c.ListWorkspacePaths(wsID)
+	paths, err := c.ListWorkspaces(projID)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func runPathsList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(paths) == 0 {
-		fmt.Println("No paths registered for this workspace.")
+		fmt.Println("No paths registered for this project.")
 		return nil
 	}
 
@@ -109,19 +109,22 @@ func runPathsList(cmd *cobra.Command, args []string) error {
 			host = "-"
 		}
 		lastAccessed := p.UpdatedAt
-		if lastAccessed == "" {
+		if lastAccessed.IsZero() {
 			lastAccessed = p.CreatedAt
 		}
-		if lastAccessed == "" {
-			lastAccessed = "-"
+		var lastAccessedStr string
+		if lastAccessed.IsZero() {
+			lastAccessedStr = "-"
+		} else {
+			lastAccessedStr = lastAccessed.Format("2006-01-02 15:04")
 		}
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Path, label, host, lastAccessed)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Path, label, host, lastAccessedStr)
 	}
 
 	return w.Flush()
 }
 
-// runPathsAdd registers a new path to the current workspace.
+// runPathsAdd registers a new path to the current project.
 func runPathsAdd(cmd *cobra.Command, args []string) error {
 	dir := args[0]
 
@@ -130,7 +133,7 @@ func runPathsAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	wsID, err := getWorkspaceID()
+	projID, err := getProjectID()
 	if err != nil {
 		return err
 	}
@@ -155,7 +158,7 @@ func runPathsAdd(cmd *cobra.Command, args []string) error {
 		pathType = "symlink"
 	}
 
-	req := client.CreateWorkspacePathRequest{
+	req := client.CreateWorkspaceRequest{
 		Path:      normalizedPath,
 		Label:     pathsAddLabel,
 		Hostname:  hostname,
@@ -163,7 +166,7 @@ func runPathsAdd(cmd *cobra.Command, args []string) error {
 		PathType:  pathType,
 	}
 
-	wp, err := c.CreateWorkspacePath(wsID, req)
+	wp, err := c.CreateWorkspace(projID, req)
 	if err != nil {
 		return err
 	}
@@ -177,7 +180,7 @@ func runPathsAdd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// runPathsRemove unregisters a path from the current workspace.
+// runPathsRemove unregisters a path from the current project.
 func runPathsRemove(cmd *cobra.Command, args []string) error {
 	arg := args[0]
 
@@ -186,7 +189,7 @@ func runPathsRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	wsID, err := getWorkspaceID()
+	projID, err := getProjectID()
 	if err != nil {
 		return err
 	}
@@ -195,7 +198,7 @@ func runPathsRemove(cmd *cobra.Command, args []string) error {
 
 	// If argument looks like a path (contains /), find the matching path ID
 	if strings.Contains(arg, "/") {
-		paths, listErr := c.ListWorkspacePaths(wsID)
+		paths, listErr := c.ListWorkspaces(projID)
 		if listErr != nil {
 			return listErr
 		}
@@ -214,7 +217,7 @@ func runPathsRemove(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if err := c.DeleteWorkspacePath(wsID, pathID); err != nil {
+	if err := c.DeleteWorkspace(projID, pathID); err != nil {
 		return err
 	}
 
@@ -224,7 +227,7 @@ func runPathsRemove(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// runPathsListCmd lists paths, optionally across all workspaces.
+// runPathsListCmd lists paths, optionally across all projects.
 func runPathsListCmd(cmd *cobra.Command, args []string) error {
 	if !pathsListAll {
 		return runPathsList(cmd, args)
@@ -235,31 +238,31 @@ func runPathsListCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	workspaces, err := c.ListWorkspaces()
+	projects, err := c.ListProjects()
 	if err != nil {
 		return err
 	}
 
-	type wsPath struct {
-		Workspace string `json:"workspace"`
-		Path      string `json:"path"`
-		Label     string `json:"label,omitempty"`
-		Host      string `json:"host,omitempty"`
+	type projPath struct {
+		Project string `json:"project"`
+		Path    string `json:"path"`
+		Label   string `json:"label,omitempty"`
+		Host    string `json:"host,omitempty"`
 	}
 
-	var allPaths []wsPath
+	var allPaths []projPath
 
-	for _, ws := range workspaces {
-		paths, pErr := c.ListWorkspacePaths(ws.ID)
+	for _, p := range projects {
+		paths, pErr := c.ListWorkspaces(p.ID)
 		if pErr != nil {
 			continue
 		}
-		for _, p := range paths {
-			allPaths = append(allPaths, wsPath{
-				Workspace: ws.Name,
-				Path:      p.Path,
-				Label:     p.Label,
-				Host:      p.Hostname,
+		for _, wp := range paths {
+			allPaths = append(allPaths, projPath{
+				Project: p.Name,
+				Path:    wp.Path,
+				Label:   wp.Label,
+				Host:    wp.Hostname,
 			})
 		}
 	}
@@ -270,13 +273,13 @@ func runPathsListCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(allPaths) == 0 {
-		fmt.Println("No paths registered across any workspace.")
+		fmt.Println("No paths registered across any project.")
 		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, tabwriterPadding, ' ', 0)
-	_, _ = fmt.Fprintln(w, "WORKSPACE\tPATH\tLABEL\tHOST")
-	_, _ = fmt.Fprintln(w, "─────────\t────\t─────\t────")
+	_, _ = fmt.Fprintln(w, "PROJECT\tPATH\tLABEL\tHOST")
+	_, _ = fmt.Fprintln(w, "───────\t────\t─────\t────")
 
 	for _, p := range allPaths {
 		label := p.Label
@@ -287,7 +290,7 @@ func runPathsListCmd(cmd *cobra.Command, args []string) error {
 		if host == "" {
 			host = "-"
 		}
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Workspace, p.Path, label, host)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Project, p.Path, label, host)
 	}
 
 	return w.Flush()

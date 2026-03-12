@@ -19,7 +19,6 @@ import (
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/sentiolabs/arc/internal/version"
-	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -208,8 +207,13 @@ func resolveProject() (wsID string, source ProjectSource, warning string, err er
 
 	arcHome := project.DefaultArcHome()
 
-	// Priority 2: Find project root and load config from ~/.arc/projects/
-	wsID, source, warning, resolveErr := resolveFromProjectConfig(cwd, arcHome)
+	// Priority 2: Server path matching (checks workspace_paths table, handles symlinks)
+	if serverWsID, serverErr := resolveFromServer(cwd); serverErr == nil && serverWsID != "" {
+		return serverWsID, ProjectSourceServer, "", nil
+	}
+
+	// Priority 3: Legacy config fallback (~/.arc/projects/ configs from before server-side paths)
+	wsID, source, warning, resolveErr := resolveFromLegacyConfig(cwd, arcHome)
 	if resolveErr != nil {
 		return "", 0, "", resolveErr
 	}
@@ -217,78 +221,56 @@ func resolveProject() (wsID string, source ProjectSource, warning string, err er
 		return wsID, source, warning, nil
 	}
 
-	// Priority 3: Server path matching (handles containers/mounts without local config)
-	if serverWsID, serverErr := resolveFromServerPath(cwd); serverErr == nil && serverWsID != "" {
-		return serverWsID, ProjectSourceServer, "", nil
-	}
-
 	return "", 0, "", errors.New(
 		"no project configured for this directory\n" +
 			"  Run 'arc init' to set up a project, or use '-p <project>' to specify one")
 }
 
-// resolveFromServerPath queries the server for a project whose path matches cwd.
-// Compares both raw and symlink-resolved paths to handle mounts and symlinks.
-func resolveFromServerPath(cwd string) (string, error) {
+// resolveFromServer attempts to resolve the project by querying the server.
+// First tries the ResolveProjectByPath endpoint, then falls back to listing
+// all projects and matching paths (handles symlinks and mounts).
+func resolveFromServer(cwd string) (string, error) {
 	c, err := getClient()
 	if err != nil {
 		return "", err
 	}
 
-	workspaces, err := c.ListWorkspaces()
-	if err != nil {
-		return "", err
+	// Try server-side resolution first (checks workspace_paths table)
+	if res, resolveErr := c.ResolveProjectByPath(cwd); resolveErr == nil && res.ProjectID != "" {
+		return res.ProjectID, nil
 	}
 
+	// Fall back to normalized path matching against all projects
 	normalizedCwd := project.NormalizePath(cwd)
-
-	for _, ws := range workspaces {
-		// Direct match (handles containers where paths are identical)
-		if ws.Path == cwd {
-			return ws.ID, nil
-		}
-		// Normalized match (handles symlinks like ~/devspace → /Volumes/ExternalSamsung/devspace)
-		if project.NormalizePath(ws.Path) == normalizedCwd {
-			return ws.ID, nil
+	if normalizedCwd != cwd {
+		if res, resolveErr := c.ResolveProjectByPath(normalizedCwd); resolveErr == nil && res.ProjectID != "" {
+			return res.ProjectID, nil
 		}
 	}
 
 	return "", nil
 }
 
-// resolveFromProjectConfig attempts to resolve project from ~/.arc/projects/ config.
+// resolveFromLegacyConfig attempts to resolve project from ~/.arc/projects/ config.
 // Returns empty wsID if no config is found (without error).
-func resolveFromProjectConfig(cwd, arcHome string) (wsID string, source ProjectSource, warning string, err error) {
-	projectRoot, rootErr := project.FindProjectRootWithArcHome(cwd, arcHome)
-	if rootErr != nil {
-		return "", 0, "", nil //nolint:nilerr // no project root means no config; fall through to next resolver
+func resolveFromLegacyConfig(cwd, arcHome string) (wsID string, source ProjectSource, warning string, err error) {
+	cfg, cfgErr := readLegacyConfig(arcHome, cwd)
+	if cfgErr != nil || cfg == nil || cfg.WorkspaceID == "" {
+		return "", 0, "", nil
 	}
 
-	cfg, cfgErr := project.LoadConfig(arcHome, projectRoot)
-	if cfgErr != nil || cfg.WorkspaceID == "" {
-		return "", 0, "", nil //nolint:nilerr // missing or empty config; fall through to next resolver
+	// Validate project exists on server
+	c, clientErr := getClient()
+	if clientErr != nil {
+		return "", 0, "", nil //nolint:nilerr // server unreachable; skip validation
 	}
 
-	if err := validateProjectOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
-		return "", 0, "", err
+	if _, wsErr := c.GetProject(cfg.WorkspaceID); wsErr != nil {
+		return "", 0, "", fmt.Errorf("project '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
+			cfg.WorkspaceName, cfg.WorkspaceID)
 	}
 
 	return cfg.WorkspaceID, ProjectSourceProject, "", nil
-}
-
-// validateProjectOnServer checks that the project exists on the server.
-func validateProjectOnServer(wsID, wsName string) error {
-	c, clientErr := getClient()
-	if clientErr != nil {
-		return nil //nolint:nilerr // server unreachable; skip validation, work offline
-	}
-
-	if _, wsErr := c.GetWorkspace(wsID); wsErr != nil {
-		return fmt.Errorf("project '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
-			wsName, wsID)
-	}
-
-	return nil
 }
 
 // outputResult writes data as indented JSON to stdout when --json is set.
@@ -382,8 +364,8 @@ This helps debug project resolution issues by showing:
 		c, clientErr := getClient()
 		var wsName string
 		if clientErr == nil {
-			if ws, wsErr := c.GetWorkspace(wsID); wsErr == nil {
-				wsName = ws.Name
+			if proj, wsErr := c.GetProject(wsID); wsErr == nil {
+				wsName = proj.Name
 			}
 		}
 
@@ -411,11 +393,7 @@ This helps debug project resolution issues by showing:
 		fmt.Printf("Source: %s\n", source)
 
 		if source == ProjectSourceProject {
-			cwd, _ := os.Getwd()
-			arcHome := project.DefaultArcHome()
-			if root, err := project.FindProjectRootWithArcHome(cwd, arcHome); err == nil {
-				fmt.Printf("Config: ~/.arc/projects/%s/config.json\n", project.PathToProjectDir(root))
-			}
+			fmt.Printf("Config: legacy ~/.arc/projects/ config\n")
 		}
 
 		if warning != "" {
@@ -441,44 +419,32 @@ var projectListCmd = &cobra.Command{
 			return err
 		}
 
-		workspaces, err := c.ListWorkspaces()
+		projects, err := c.ListProjects()
 		if err != nil {
 			return err
 		}
 
 		if outputJSON {
-			outputResult(workspaces)
+			outputResult(projects)
 			return nil
 		}
 
-		if len(workspaces) == 0 {
+		if len(projects) == 0 {
 			_, _ = fmt.Println("No projects found. Create one with: arc project create <name>")
 			return nil
 		}
 
-		// Get current directory to mark the active project
-		cwd, _ := os.Getwd()
-
 		// Create a tabwriter for aligned columns
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, tabwriterPadding, ' ', 0)
-		_, _ = fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION\tPATH")
-		_, _ = fmt.Fprintln(w, "  \t────\t──────\t──\t───────────\t────")
+		_, _ = fmt.Fprintln(w, "NAME\tPREFIX\tID\tDESCRIPTION")
+		_, _ = fmt.Fprintln(w, "────\t──────\t──\t───────────")
 
-		for _, ws := range workspaces {
-			marker := " "
-			// Mark project if current directory is within its path
-			if ws.Path != "" && cwd != "" && isSubdirectory(ws.Path, cwd) {
-				marker = "*"
-			}
-			path := ws.Path
-			if path == "" {
-				path = "-"
-			}
-			desc := ws.Description
+		for _, p := range projects {
+			desc := p.Description
 			if desc == "" {
 				desc = "-"
 			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc, path)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.Name, p.Prefix, p.ID, desc)
 		}
 		_ = w.Flush()
 		return nil
@@ -502,26 +468,26 @@ var projectCreateCmd = &cobra.Command{
 		// Generate prefix from path if provided, otherwise from project name
 		var prefix string
 		if path != "" {
-			prefix, err = workspace.GeneratePrefix(path)
+			prefix, err = project.GeneratePrefix(path)
 			if err != nil {
 				return fmt.Errorf("generate prefix: %w", err)
 			}
 		} else {
 			// No path - generate prefix from project name with hash
-			prefix = workspace.GeneratePrefixFromName(args[0])
+			prefix = project.GeneratePrefixFromName(args[0])
 		}
 
-		ws, err := c.CreateWorkspace(args[0], prefix, path, description)
+		proj, err := c.CreateProject(args[0], prefix, description)
 		if err != nil {
 			return err
 		}
 
 		if outputJSON {
-			outputResult(ws)
+			outputResult(proj)
 			return nil
 		}
 
-		fmt.Printf("Created project: %s (%s)\n", ws.Name, ws.ID)
+		fmt.Printf("Created project: %s (%s)\n", proj.Name, proj.ID)
 		return nil
 	},
 }
@@ -542,7 +508,7 @@ var projectDeleteCmd = &cobra.Command{
 			return err
 		}
 
-		if err := c.DeleteWorkspace(args[0]); err != nil {
+		if err := c.DeleteProject(args[0]); err != nil {
 			return err
 		}
 
@@ -1113,7 +1079,7 @@ var statsCmd = &cobra.Command{
 			return err
 		}
 
-		stats, err := c.GetStatistics(wsID)
+		stats, err := c.GetProjectStats(wsID)
 		if err != nil {
 			return err
 		}
