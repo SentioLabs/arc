@@ -98,7 +98,7 @@
 			{#if items.length > 0}
 				<div class="mb-6">
 					<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
-						{items.length === 1 ? 'Workspace to delete' : `${items.length} workspaces to delete`}
+						{items.length === 1 ? 'Project to delete' : `${items.length} projects to delete`}
 					</div>
 					<div
 						class="bg-surface-900 border border-border-subtle rounded-md max-h-40 overflow-y-auto"
