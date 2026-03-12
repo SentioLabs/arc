@@ -5,17 +5,26 @@
 
 	type Workspace = components['schemas']['Workspace'];
 
+	interface Action {
+		id: string;
+		label: string;
+		icon: string;
+	}
+
 	interface Props {
 		workspace?: Workspace;
 		title?: string;
 		showSearch?: boolean;
+		actions?: Action[];
+		onaction?: (actionId: string) => void;
 	}
 
-	let { workspace, title, showSearch = true }: Props = $props();
+	let { workspace, title, showSearch = true, actions, onaction }: Props = $props();
 
 	let searchQuery = $state('');
 	let searchFocused = $state(false);
 	let debounceTimer: ReturnType<typeof setTimeout>;
+	let menuOpen = $state(false);
 
 	// Sync search query with URL params
 	$effect(() => {
@@ -41,7 +50,27 @@
 		searchQuery = '';
 		handleSearchInput();
 	}
+
+	function handleAction(actionId: string) {
+		menuOpen = false;
+		onaction?.(actionId);
+	}
+
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		if (!target.closest('.actions-menu')) {
+			menuOpen = false;
+		}
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && menuOpen) {
+			menuOpen = false;
+		}
+	}
 </script>
+
+<svelte:document onclick={handleClickOutside} onkeydown={handleKeydown} />
 
 <header class="sticky top-0 z-10 bg-surface-900/95 backdrop-blur border-b border-border">
 	<div class="flex items-center justify-between gap-4 px-6 h-14">
@@ -112,6 +141,37 @@
 					/>
 				</svg>
 			</button>
+
+			<!-- Actions menu (three-dot) -->
+			{#if actions && actions.length > 0}
+				<div class="relative actions-menu">
+					<button
+						type="button"
+						class="btn btn-ghost p-2"
+						title="Actions"
+						onclick={() => (menuOpen = !menuOpen)}
+					>
+						<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+						</svg>
+					</button>
+
+					{#if menuOpen}
+						<div class="absolute right-0 top-full mt-1 bg-surface-800 border border-border rounded-lg shadow-lg min-w-[180px] py-1 animate-fade-in z-20">
+							{#each actions as action (action.id)}
+								<button
+									type="button"
+									class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-700 transition-colors text-left"
+									onclick={() => handleAction(action.id)}
+								>
+									{@html action.icon}
+									{action.label}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 </header>

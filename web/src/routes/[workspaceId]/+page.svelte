@@ -1,9 +1,19 @@
 <script lang="ts">
-	import { Header } from '$lib/components';
+	import { Header, ConfirmDialog, Select, FilesystemBrowser } from '$lib/components';
 	import { page } from '$app/stores';
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { getWorkspaceStats, type Workspace, type Statistics } from '$lib/api';
+	import {
+		getWorkspaceStats,
+		listWorkspacePaths,
+		createWorkspacePath,
+		deleteWorkspacePath,
+		mergeWorkspaces,
+		type Workspace,
+		type Statistics,
+		type WorkspacePath,
+		type MergeResult
+	} from '$lib/api';
 
 	// Get workspaces from context
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
@@ -15,10 +25,54 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
+	// Paths state
+	let paths = $state<WorkspacePath[]>([]);
+	let pathsLoading = $state(true);
+
+	// Path management panel state
+	let managingPaths = $state(false);
+	let addPathOpen = $state(false);
+	let addPathMode = $state<'browse' | 'manual'>('browse');
+	let manualPath = $state('');
+	let selectedPath = $state('');
+	let newPathLabel = $state('');
+	let addingPath = $state(false);
+	let deletePathConfirm = $state<{ pathId: string; pathValue: string } | null>(null);
+	let deletingPath = $state(false);
+
+	// Merge state
+	let mergeDialogOpen = $state(false);
+	let merging = $state(false);
+	let mergeResult: MergeResult | null = $state(null);
+
+	// Header actions menu — only merge now (manage paths moved inline)
+	const headerActions = [
+		{
+			id: 'merge',
+			label: 'Merge Into This Workspace',
+			icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z"/></svg>'
+		}
+	];
+
+	function handleHeaderAction(actionId: string) {
+		if (actionId === 'merge') {
+			mergeResult = null;
+			mergeDialogOpen = true;
+		}
+	}
+
+	// Merge source options: all workspaces except current
+	const mergeSourceOptions = $derived.by(() => {
+		return $workspaces
+			.filter((w) => w.id !== workspaceId)
+			.map((w) => ({ value: w.id, label: w.name }));
+	});
+
 	// Load stats when workspace changes
 	$effect(() => {
 		if (workspaceId) {
 			loadStats();
+			loadPaths();
 		}
 	});
 
@@ -33,6 +87,152 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function loadPaths() {
+		if (!workspaceId) return;
+		pathsLoading = true;
+		try {
+			paths = await listWorkspacePaths(workspaceId);
+		} catch (err) {
+			console.error('Failed to load paths:', err);
+			paths = [];
+		} finally {
+			pathsLoading = false;
+		}
+	}
+
+	function formatRelativeTime(dateStr: string): string {
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffMins = Math.floor(diffMs / 60000);
+		if (diffMins < 1) return 'just now';
+		if (diffMins < 60) return `${diffMins}m ago`;
+		const diffHours = Math.floor(diffMins / 60);
+		if (diffHours < 24) return `${diffHours}h ago`;
+		const diffDays = Math.floor(diffHours / 24);
+		if (diffDays < 30) return `${diffDays}d ago`;
+		return date.toLocaleDateString();
+	}
+
+	// Compute column widths for terminal-style alignment
+	const pathColumns = $derived.by(() => {
+		const pathW = Math.max(4, ...paths.map((p) => p.path.length));
+		const labelW = Math.max(5, ...paths.map((p) => (p.label ?? '-').length));
+		const hostW = Math.max(4, ...paths.map((p) => (p.hostname ?? '-').length));
+		return { pathW, labelW, hostW };
+	});
+
+	function padRight(str: string, len: number): string {
+		return str + ' '.repeat(Math.max(0, len - str.length));
+	}
+
+	function makeSeparator(len: number): string {
+		return '─'.repeat(len);
+	}
+
+	// Path management functions
+	function getAddPathValue(): string {
+		return addPathMode === 'browse' ? selectedPath : manualPath;
+	}
+
+	function handleBrowseSelect(path: string) {
+		selectedPath = path;
+	}
+
+	function resetAddPathForm() {
+		addPathOpen = false;
+		manualPath = '';
+		selectedPath = '';
+		newPathLabel = '';
+		addPathMode = 'browse';
+	}
+
+	async function submitAddPath() {
+		const pathValue = getAddPathValue();
+		if (!pathValue.trim() || !workspaceId) return;
+		addingPath = true;
+		try {
+			const created = await createWorkspacePath(workspaceId, {
+				path: pathValue.trim(),
+				label: newPathLabel.trim() || undefined
+			});
+			paths = [...paths, created];
+			resetAddPathForm();
+		} catch (err) {
+			console.error('Failed to add path:', err);
+		} finally {
+			addingPath = false;
+		}
+	}
+
+	function confirmDeletePathAction(pathId: string, pathValue: string) {
+		deletePathConfirm = { pathId, pathValue };
+	}
+
+	async function executeDeletePath() {
+		if (!deletePathConfirm || !workspaceId) return;
+		deletingPath = true;
+		const { pathId } = deletePathConfirm;
+		try {
+			await deleteWorkspacePath(workspaceId, pathId);
+			paths = paths.filter((p) => p.id !== pathId);
+			deletePathConfirm = null;
+		} catch (err) {
+			console.error('Failed to delete path:', err);
+		} finally {
+			deletingPath = false;
+		}
+	}
+
+	function cancelDeletePath() {
+		deletePathConfirm = null;
+	}
+
+	// Merge functions
+	let selectedMergeSources = $state<string[]>([]);
+
+	function toggleMergeSource(id: string) {
+		if (selectedMergeSources.includes(id)) {
+			selectedMergeSources = selectedMergeSources.filter((s) => s !== id);
+		} else {
+			selectedMergeSources = [...selectedMergeSources, id];
+		}
+	}
+
+	async function confirmMerge() {
+		if (selectedMergeSources.length === 0 || !workspaceId) return;
+		merging = true;
+		try {
+			const result = await mergeWorkspaces(workspaceId, selectedMergeSources);
+			mergeResult = result;
+
+			workspaces.update((current) =>
+				current
+					.filter((w) => !result.sources_deleted.includes(w.id))
+					.map((w) => (w.id === result.target_workspace.id ? result.target_workspace : w))
+			);
+
+			loadStats();
+			loadPaths();
+		} catch (err) {
+			console.error('Failed to merge workspaces:', err);
+		} finally {
+			merging = false;
+		}
+	}
+
+	function cancelMerge() {
+		mergeDialogOpen = false;
+		selectedMergeSources = [];
+		mergeResult = null;
+	}
+
+	function closeMergeAfterSuccess() {
+		mergeDialogOpen = false;
+		selectedMergeSources = [];
+		mergeResult = null;
 	}
 
 	// Dashboard stat cards - derived from stats
@@ -51,7 +251,7 @@
 </script>
 
 {#if workspace}
-	<Header {workspace} />
+	<Header {workspace} actions={headerActions} onaction={handleHeaderAction} />
 
 	<div class="flex-1 p-8 animate-fade-in">
 		<header class="mb-8">
@@ -86,6 +286,209 @@
 					</div>
 				{/each}
 			</div>
+
+			<!-- Paths Section — terminal-style display -->
+			<section class="mb-8">
+				<div class="flex items-center justify-between mb-3">
+					<div class="flex items-center gap-3">
+						<svg class="w-5 h-5 text-text-muted" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+						</svg>
+						<h2 class="text-lg font-semibold text-text-primary">Paths</h2>
+						<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-700 text-text-muted">
+							{paths.length}
+						</span>
+					</div>
+				</div>
+
+				{#if pathsLoading}
+					<div class="flex items-center gap-2 text-sm text-text-muted py-4">
+						<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
+						Loading paths...
+					</div>
+				{:else if paths.length === 0}
+					<div class="bg-surface-900 border border-border-subtle rounded-lg p-6 text-center">
+						<p class="text-sm text-text-muted font-mono">
+							No paths registered
+						</p>
+						<button
+							type="button"
+							class="mt-3 text-sm text-primary-400 hover:text-primary-300 transition-colors"
+							onclick={() => { managingPaths = true; addPathOpen = true; }}
+						>
+							+ Add a path
+						</button>
+					</div>
+				{:else}
+					<!-- Terminal-style table matching `arc paths` output -->
+					<div class="bg-surface-900 border border-border-subtle rounded-lg overflow-x-auto">
+						<pre class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre"><span class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  {padRight('LABEL', pathColumns.labelW)}  {padRight('HOST', pathColumns.hostW)}  LAST ACCESSED</span>
+<span class="text-text-muted/50">{makeSeparator(pathColumns.pathW)}  {makeSeparator(pathColumns.labelW)}  {makeSeparator(pathColumns.hostW)}  {makeSeparator(13)}</span>
+{#each paths as wp, i}{#if i > 0}{'\n'}{/if}{padRight(wp.path, pathColumns.pathW)}  <span class="text-text-secondary">{padRight(wp.label ?? '-', pathColumns.labelW)}</span>  <span class="text-text-secondary">{padRight(wp.hostname ?? '-', pathColumns.hostW)}</span>  <span class="text-text-muted">{wp.last_accessed_at ?? '-'}</span>{/each}</pre>
+					</div>
+				{/if}
+
+				<!-- Expandable manage paths section -->
+				<div class="mt-3">
+					<button
+						type="button"
+						class="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors group"
+						onclick={() => { managingPaths = !managingPaths; if (!managingPaths) addPathOpen = false; }}
+					>
+						<svg
+							class="w-3.5 h-3.5 transition-transform {managingPaths ? 'rotate-90' : ''}"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+						>
+							<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+						</svg>
+						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+						</svg>
+						Manage paths
+					</button>
+
+					{#if managingPaths}
+						<div class="mt-3 animate-fade-in">
+							<div class="card p-5">
+								<!-- Editable path list with delete buttons -->
+								{#if paths.length > 0}
+									<div class="border border-border-subtle rounded-md overflow-hidden mb-4">
+										<table class="w-full text-xs">
+											<thead>
+												<tr class="bg-surface-800">
+													<th class="text-left px-3 py-2 text-text-muted font-medium">Path</th>
+													<th class="text-left px-3 py-2 text-text-muted font-medium">Label</th>
+													<th class="text-left px-3 py-2 text-text-muted font-medium">Host</th>
+													<th class="w-10 px-3 py-2"></th>
+												</tr>
+											</thead>
+											<tbody>
+												{#each paths as wp (wp.id)}
+													<tr class="border-t border-border-subtle hover:bg-surface-800/50">
+														<td class="px-3 py-2 font-mono text-text-primary truncate max-w-[280px]" title={wp.path}>{wp.path}</td>
+														<td class="px-3 py-2 text-text-secondary">{wp.label ?? '-'}</td>
+														<td class="px-3 py-2 text-text-secondary">{wp.hostname ?? '-'}</td>
+														<td class="px-3 py-2">
+															<button
+																type="button"
+																class="text-text-muted hover:text-status-blocked transition-colors"
+																title="Delete path"
+																onclick={() => confirmDeletePathAction(wp.id, wp.path)}
+															>
+																<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+																	<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z" />
+																</svg>
+															</button>
+														</td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								{/if}
+
+								<!-- Add path toggle -->
+								{#if !addPathOpen}
+									<button
+										type="button"
+										class="flex items-center gap-2 text-sm text-primary-400 hover:text-primary-300 transition-colors"
+										onclick={() => (addPathOpen = true)}
+									>
+										<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+											<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+										</svg>
+										Add Path
+									</button>
+								{:else}
+									<!-- Add path form -->
+									<div class="bg-surface-800 border border-border-subtle rounded-lg p-4 animate-fade-in">
+										<h4 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Add a directory path</h4>
+
+										<!-- Mode toggle -->
+										<div class="flex gap-1 mb-4 p-1 bg-surface-900 rounded-lg w-fit">
+											<button
+												type="button"
+												class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'browse' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
+												onclick={() => (addPathMode = 'browse')}
+											>
+												Browse
+											</button>
+											<button
+												type="button"
+												class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'manual' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
+												onclick={() => (addPathMode = 'manual')}
+											>
+												Manual
+											</button>
+										</div>
+
+										{#if addPathMode === 'browse'}
+											<FilesystemBrowser onSelect={handleBrowseSelect} />
+											{#if selectedPath}
+												<div class="mt-3 flex items-center gap-2 p-2 bg-surface-900 rounded-lg">
+													<svg class="w-4 h-4 text-primary-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+														<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+													</svg>
+													<span class="text-sm font-mono text-text-primary truncate">{selectedPath}</span>
+												</div>
+											{/if}
+										{:else}
+											<input
+												type="text"
+												bind:value={manualPath}
+												placeholder="Enter absolute directory path (e.g. /home/user/projects/my-app)"
+												class="input w-full text-sm font-mono"
+											/>
+										{/if}
+
+										<!-- Label input -->
+										<div class="mt-3">
+											<input
+												type="text"
+												bind:value={newPathLabel}
+												placeholder="Label (optional)"
+												class="input w-full text-sm"
+											/>
+										</div>
+
+										<!-- Actions -->
+										<div class="mt-4 flex items-center justify-end gap-2">
+											<button
+												type="button"
+												class="btn btn-ghost btn-sm text-xs"
+												onclick={resetAddPathForm}
+												disabled={addingPath}
+											>
+												Cancel
+											</button>
+											<button
+												type="button"
+												class="btn btn-primary btn-sm text-xs"
+												onclick={submitAddPath}
+												disabled={addingPath || !getAddPathValue().trim()}
+											>
+												{#if addingPath}
+													<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+													</svg>
+													Adding...
+												{:else}
+													Add Path
+												{/if}
+											</button>
+										</div>
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/if}
+				</div>
+			</section>
 
 			<!-- Quick Actions -->
 			<div class="grid md:grid-cols-3 gap-4 mb-8">
@@ -184,4 +587,127 @@
 			{/if}
 		{/if}
 	</div>
+{/if}
+
+<!-- Delete Path Confirmation -->
+<ConfirmDialog
+	open={deletePathConfirm !== null}
+	title="Delete path?"
+	message="Remove this path from the workspace: {deletePathConfirm?.pathValue ?? ''}"
+	confirmLabel="Delete Path"
+	loading={deletingPath}
+	onconfirm={executeDeletePath}
+	oncancel={cancelDeletePath}
+/>
+
+<!-- Merge Dialog -->
+{#if mergeDialogOpen}
+	<dialog
+		class="dialog-modal"
+		open
+		onclick={(e) => { if (e.target === e.currentTarget && !merging) cancelMerge(); }}
+		onkeydown={(e) => { if (e.key === 'Escape' && !merging) { e.preventDefault(); cancelMerge(); } }}
+	>
+		<div class="dialog-content animate-dialog-in">
+			{#if mergeResult}
+				<!-- Success state -->
+				<div class="flex items-start gap-4 mb-6">
+					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-status-open/20">
+						<svg class="w-5 h-5 text-status-open" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+						</svg>
+					</div>
+					<div class="flex-1 min-w-0">
+						<h2 class="text-lg font-semibold text-text-primary">Merge complete</h2>
+						<p class="text-sm text-text-secondary mt-1">
+							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{workspace?.name}</strong>.
+						</p>
+					</div>
+				</div>
+
+				<div class="flex items-center justify-end">
+					<button class="btn btn-primary" onclick={closeMergeAfterSuccess} type="button">
+						Done
+					</button>
+				</div>
+			{:else}
+				<!-- Merge form -->
+				<div class="flex items-start gap-4 mb-6">
+					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-primary-600/20">
+						<svg class="w-5 h-5 text-primary-400" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z" />
+						</svg>
+					</div>
+					<div class="flex-1 min-w-0">
+						<h2 class="text-lg font-semibold text-text-primary">Merge into {workspace?.name}</h2>
+						<p class="text-sm text-text-secondary mt-1">
+							Select workspaces to merge into this one. All issues and plans will be moved here. The source workspaces will be deleted.
+						</p>
+					</div>
+				</div>
+
+				<!-- Source workspace selection -->
+				<div class="mb-6">
+					<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
+						Select workspaces to merge
+					</div>
+					<div class="bg-surface-900 border border-border-subtle rounded-md max-h-60 overflow-y-auto">
+						{#each mergeSourceOptions as option (option.value)}
+							{@const isSelected = selectedMergeSources.includes(option.value)}
+							<button
+								type="button"
+								class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left border-b border-border-subtle last:border-b-0 transition-colors {isSelected ? 'bg-primary-600/10 text-text-primary' : 'text-text-secondary hover:bg-surface-800'}"
+								onclick={() => toggleMergeSource(option.value)}
+							>
+								<input
+									type="checkbox"
+									class="checkbox"
+									checked={isSelected}
+									onclick={(e) => e.stopPropagation()}
+									onchange={() => toggleMergeSource(option.value)}
+								/>
+								<span class="font-mono">{option.label}</span>
+							</button>
+						{/each}
+					</div>
+					{#if selectedMergeSources.length > 0}
+						<p class="text-xs text-text-muted mt-2">{selectedMergeSources.length} workspace{selectedMergeSources.length === 1 ? '' : 's'} selected</p>
+					{/if}
+				</div>
+
+				<!-- Warning -->
+				{#if selectedMergeSources.length > 0}
+					<div class="flex items-center gap-2 p-3 bg-priority-high/10 border border-priority-high/20 rounded-md mb-6">
+						<svg class="w-4 h-4 text-priority-high shrink-0" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+						</svg>
+						<span class="text-xs text-priority-high">Selected workspaces will be permanently deleted after merge</span>
+					</div>
+				{/if}
+
+				<!-- Actions -->
+				<div class="flex items-center justify-end gap-3">
+					<button class="btn btn-ghost" onclick={cancelMerge} disabled={merging} type="button">
+						Cancel
+					</button>
+					<button
+						class="btn btn-primary"
+						onclick={confirmMerge}
+						disabled={merging || selectedMergeSources.length === 0}
+						type="button"
+					>
+						{#if merging}
+							<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							Merging...
+						{:else}
+							Merge {selectedMergeSources.length} workspace{selectedMergeSources.length === 1 ? '' : 's'}
+						{/if}
+					</button>
+				</div>
+			{/if}
+		</div>
+	</dialog>
 {/if}

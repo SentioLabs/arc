@@ -5,14 +5,11 @@
 		deleteWorkspaces,
 		mergeWorkspaces,
 		listWorkspacePaths,
-		createWorkspacePath,
-		deleteWorkspacePath,
 		type Workspace,
 		type MergeResult,
 		type WorkspacePath
 	} from '$lib/api';
 	import { ConfirmDialog, Select } from '$lib/components';
-	import FilesystemBrowser from '$lib/components/FilesystemBrowser.svelte';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
 
@@ -132,17 +129,11 @@
 	let workspacesToMerge: Workspace[] = $state([]);
 	let mergeResult: MergeResult | null = $state(null);
 
-	// Workspace paths state
+	// Workspace paths state (read-only expansion)
 	let expandedPaths = $state<Set<string>>(new Set());
 	let workspacePaths = $state<Record<string, WorkspacePath[]>>({});
 	let pathsLoading = $state<Set<string>>(new Set());
 	let pathCounts = $state<Record<string, number>>({});
-	let addingPathFor = $state<string | null>(null);
-	let newPathValue = $state('');
-	let newPathLabel = $state('');
-	let addingPath = $state(false);
-	let deletePathConfirm = $state<{ workspaceId: string; pathId: string; pathValue: string } | null>(null);
-	let deletingPath = $state(false);
 
 	function togglePaths(workspaceId: string, event: MouseEvent) {
 		event.preventDefault();
@@ -182,72 +173,6 @@
 		}
 	}
 
-	function startAddPath(workspaceId: string, event: MouseEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		addingPathFor = workspaceId;
-		newPathValue = '';
-		newPathLabel = '';
-	}
-
-	function cancelAddPath(event: MouseEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		addingPathFor = null;
-		newPathValue = '';
-		newPathLabel = '';
-	}
-
-	async function submitAddPath(event: MouseEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		if (!addingPathFor || !newPathValue.trim()) return;
-		addingPath = true;
-		try {
-			const created = await createWorkspacePath(addingPathFor, {
-				path: newPathValue.trim(),
-				label: newPathLabel.trim() || undefined
-			});
-			const existing = workspacePaths[addingPathFor] ?? [];
-			workspacePaths = { ...workspacePaths, [addingPathFor]: [...existing, created] };
-			pathCounts = { ...pathCounts, [addingPathFor]: (pathCounts[addingPathFor] ?? 0) + 1 };
-			addingPathFor = null;
-			newPathValue = '';
-			newPathLabel = '';
-		} catch (err) {
-			console.error('Failed to add path:', err);
-		} finally {
-			addingPath = false;
-		}
-	}
-
-	function confirmDeletePath(workspaceId: string, pathId: string, pathValue: string, event: MouseEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		deletePathConfirm = { workspaceId, pathId, pathValue };
-	}
-
-	async function executeDeletePath() {
-		if (!deletePathConfirm) return;
-		deletingPath = true;
-		const { workspaceId, pathId } = deletePathConfirm;
-		try {
-			await deleteWorkspacePath(workspaceId, pathId);
-			const existing = workspacePaths[workspaceId] ?? [];
-			workspacePaths = { ...workspacePaths, [workspaceId]: existing.filter((p) => p.id !== pathId) };
-			pathCounts = { ...pathCounts, [workspaceId]: Math.max(0, (pathCounts[workspaceId] ?? 1) - 1) };
-			deletePathConfirm = null;
-		} catch (err) {
-			console.error('Failed to delete path:', err);
-		} finally {
-			deletingPath = false;
-		}
-	}
-
-	function cancelDeletePath() {
-		deletePathConfirm = null;
-	}
-
 	function formatDate(dateStr?: string): string {
 		if (!dateStr) return '-';
 		const date = new Date(dateStr);
@@ -262,7 +187,6 @@
 	function toggleEditMode() {
 		editMode = !editMode;
 		if (editMode) {
-			// Clear search when entering edit mode to show all workspaces
 			searchQuery = '';
 		} else {
 			selectedIds = new Set();
@@ -305,21 +229,17 @@
 			const idsToDelete = workspacesToDelete.map((w) => w.id);
 			await deleteWorkspaces(idsToDelete);
 
-			// Update the store
 			workspaces.update((current) => current.filter((w) => !idsToDelete.includes(w.id)));
 
-			// Clear selection
 			selectedIds = new Set();
 			workspacesToDelete = [];
 			deleteDialogOpen = false;
 
-			// Exit edit mode if no workspaces left
 			if ($workspaces.length === 0) {
 				editMode = false;
 			}
 		} catch (err) {
 			console.error('Failed to delete workspaces:', err);
-			// TODO: Show error toast
 		} finally {
 			deleting = false;
 		}
@@ -354,18 +274,15 @@
 			const result = await mergeWorkspaces(mergeTargetId, sourceIds);
 			mergeResult = result;
 
-			// Update the store: remove merged sources, replace target with updated version
 			workspaces.update((current) =>
 				current
 					.filter((w) => !result.sources_deleted.includes(w.id))
 					.map((w) => (w.id === result.target_workspace.id ? result.target_workspace : w))
 			);
 
-			// Clear selection
 			selectedIds = new Set();
 		} catch (err) {
 			console.error('Failed to merge workspaces:', err);
-			// TODO: Show error toast
 		} finally {
 			merging = false;
 		}
@@ -384,32 +301,9 @@
 		mergeResult = null;
 		mergeTargetId = '';
 
-		// Exit edit mode if few workspaces left
 		if ($workspaces.length <= 1) {
 			editMode = false;
 		}
-	}
-
-	// Add Path state (filesystem browser)
-	let addPathOpen = $state(false);
-	let addPathMode = $state<'browse' | 'manual'>('browse');
-	let manualPath = $state('');
-	let selectedPath = $state('');
-
-	function toggleAddPath() {
-		addPathOpen = !addPathOpen;
-		if (!addPathOpen) {
-			manualPath = '';
-			selectedPath = '';
-		}
-	}
-
-	function handleBrowseSelect(path: string) {
-		selectedPath = path;
-	}
-
-	function getAddPathValue(): string {
-		return addPathMode === 'browse' ? selectedPath : manualPath;
 	}
 </script>
 
@@ -520,73 +414,6 @@
 					</svg>
 					Delete {selectedCount === 1 ? 'workspace' : `${selectedCount} workspaces`}
 				</button>
-				</div>
-			{/if}
-		</div>
-	{/if}
-
-	<!-- Add Path section -->
-	{#if $workspaces.length > 0 && !editMode}
-		<div class="mb-6">
-			<button
-				type="button"
-				class="btn btn-ghost btn-sm"
-				onclick={toggleAddPath}
-			>
-				<svg class="w-4 h-4 transition-transform {addPathOpen ? 'rotate-45' : ''}" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-				</svg>
-				Add Path
-			</button>
-
-			{#if addPathOpen}
-				<div class="mt-4 card p-6 animate-fade-in">
-					<h3 class="text-sm font-medium text-text-primary mb-4">Add a directory path</h3>
-
-					<!-- Mode toggle -->
-					<div class="flex gap-1 mb-4 p-1 bg-surface-800 rounded-lg w-fit">
-						<button
-							type="button"
-							class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'browse' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
-							onclick={() => (addPathMode = 'browse')}
-						>
-							Browse
-						</button>
-						<button
-							type="button"
-							class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'manual' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
-							onclick={() => (addPathMode = 'manual')}
-						>
-							Manual
-						</button>
-					</div>
-
-					{#if addPathMode === 'browse'}
-						<FilesystemBrowser onSelect={handleBrowseSelect} />
-						{#if selectedPath}
-							<div class="mt-3 flex items-center gap-2 p-2 bg-surface-800 rounded-lg">
-								<svg class="w-4 h-4 text-primary-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-									<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
-								</svg>
-								<span class="text-sm font-mono text-text-primary truncate">{selectedPath}</span>
-							</div>
-						{/if}
-					{:else}
-						<input
-							type="text"
-							bind:value={manualPath}
-							placeholder="Enter absolute directory path (e.g. /home/user/projects/my-app)"
-							class="input w-full text-sm font-mono"
-						/>
-					{/if}
-
-					{#if getAddPathValue()}
-						<div class="mt-4 flex justify-end">
-							<p class="text-xs text-text-muted mr-auto self-center">
-								Selected: <span class="font-mono">{getAddPathValue()}</span>
-							</p>
-						</div>
-					{/if}
 				</div>
 			{/if}
 		</div>
@@ -916,17 +743,6 @@
 	</dialog>
 {/if}
 
-<!-- Delete Path Confirmation -->
-<ConfirmDialog
-	open={deletePathConfirm !== null}
-	title="Delete path?"
-	message="Remove this path from the workspace: {deletePathConfirm?.pathValue ?? ''}"
-	confirmLabel="Delete Path"
-	loading={deletingPath}
-	onconfirm={executeDeletePath}
-	oncancel={cancelDeletePath}
-/>
-
 {#snippet workspaceContent(workspace: Workspace)}
 	<div class="flex items-start justify-between mb-4">
 		<div
@@ -968,7 +784,7 @@
 		<p class="text-sm text-text-muted mb-4">No description</p>
 	{/if}
 
-	<!-- Expandable paths section -->
+	<!-- Expandable paths section (read-only) -->
 	<div class="mt-2">
 		<button
 			type="button"
@@ -1006,7 +822,6 @@
 									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Label</th>
 									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Host</th>
 									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Last Accessed</th>
-									<th class="w-8 px-2 py-1.5"></th>
 								</tr>
 							</thead>
 							<tbody>
@@ -1016,78 +831,11 @@
 										<td class="px-2 py-1.5 text-text-secondary">{wp.label ?? '-'}</td>
 										<td class="px-2 py-1.5 text-text-secondary">{wp.hostname ?? '-'}</td>
 										<td class="px-2 py-1.5 text-text-secondary">{formatDate(wp.last_accessed_at)}</td>
-										<td class="px-2 py-1.5">
-											<button
-												type="button"
-												class="text-text-muted hover:text-status-blocked transition-colors"
-												title="Delete path"
-												onclick={(e) => confirmDeletePath(workspace.id, wp.id, wp.path, e)}
-											>
-												<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-													<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z" />
-												</svg>
-											</button>
-										</td>
 									</tr>
 								{/each}
 							</tbody>
 						</table>
 					</div>
-				{/if}
-
-				<!-- Add path form -->
-				{#if addingPathFor === workspace.id}
-					<div class="mt-2 p-2 bg-surface-800 border border-border-subtle rounded-md" onclick={(e) => e.stopPropagation()}>
-						<div class="flex flex-col gap-2">
-							<input
-								type="text"
-								placeholder="Filesystem path (e.g., /home/user/project)"
-								bind:value={newPathValue}
-								class="input text-xs px-2 py-1.5"
-								onclick={(e) => e.stopPropagation()}
-							/>
-							<input
-								type="text"
-								placeholder="Label (optional)"
-								bind:value={newPathLabel}
-								class="input text-xs px-2 py-1.5"
-								onclick={(e) => e.stopPropagation()}
-							/>
-							<div class="flex items-center gap-2 justify-end">
-								<button
-									type="button"
-									class="btn btn-ghost btn-sm text-xs"
-									onclick={cancelAddPath}
-									disabled={addingPath}
-								>
-									Cancel
-								</button>
-								<button
-									type="button"
-									class="btn btn-primary btn-sm text-xs"
-									onclick={submitAddPath}
-									disabled={addingPath || !newPathValue.trim()}
-								>
-									{#if addingPath}
-										Adding...
-									{:else}
-										Add Path
-									{/if}
-								</button>
-							</div>
-						</div>
-					</div>
-				{:else}
-					<button
-						type="button"
-						class="mt-2 flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 transition-colors"
-						onclick={(e) => startAddPath(workspace.id, e)}
-					>
-						<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-						</svg>
-						Add Path
-					</button>
 				{/if}
 			</div>
 		{/if}
