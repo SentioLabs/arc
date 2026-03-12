@@ -6,19 +6,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/types"
 )
 
-func TestListWorkspacePaths(t *testing.T) {
-	expected := []*WorkspacePath{
-		{ID: "p-1", WorkspaceID: "ws-abc", Path: "/home/user/project"},
-		{ID: "p-2", WorkspaceID: "ws-abc", Path: "/tmp/worktree"},
+func TestListWorkspaces(t *testing.T) {
+	expected := []*types.Workspace{
+		{ID: "p-1", ProjectID: "proj-abc", Path: "/home/user/project"},
+		{ID: "p-2", ProjectID: "proj-abc", Path: "/tmp/worktree"},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/workspaces/ws-abc/paths" {
+		if r.URL.Path != "/api/v1/projects/proj-abc/workspaces" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -27,7 +29,7 @@ func TestListWorkspacePaths(t *testing.T) {
 	defer server.Close()
 
 	c := New(server.URL)
-	paths, err := c.ListWorkspacePaths("ws-abc")
+	paths, err := c.ListWorkspaces("proj-abc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -42,26 +44,26 @@ func TestListWorkspacePaths(t *testing.T) {
 	}
 }
 
-func TestCreateWorkspacePath(t *testing.T) {
-	expected := &WorkspacePath{
-		ID:          "p-new",
-		WorkspaceID: "ws-abc",
-		Path:        "/home/user/project",
-		Label:       "main",
-		Hostname:    "dev-machine",
-		GitRemote:   "git@github.com:user/project.git",
+func TestCreateWorkspace(t *testing.T) {
+	expected := &types.Workspace{
+		ID:        "p-new",
+		ProjectID: "proj-abc",
+		Path:      "/home/user/project",
+		Label:     "main",
+		Hostname:  "dev-machine",
+		GitRemote: "git@github.com:user/project.git",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/workspaces/ws-abc/paths" {
+		if r.URL.Path != "/api/v1/projects/proj-abc/workspaces" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 
 		body, _ := io.ReadAll(r.Body)
-		var req CreateWorkspacePathRequest
+		var req CreateWorkspaceRequest
 		if err := json.Unmarshal(body, &req); err != nil {
 			t.Fatalf("failed to decode request body: %v", err)
 		}
@@ -85,7 +87,7 @@ func TestCreateWorkspacePath(t *testing.T) {
 	defer server.Close()
 
 	c := New(server.URL)
-	result, err := c.CreateWorkspacePath("ws-abc", CreateWorkspacePathRequest{
+	result, err := c.CreateWorkspace("proj-abc", CreateWorkspaceRequest{
 		Path:      "/home/user/project",
 		Label:     "main",
 		Hostname:  "dev-machine",
@@ -102,12 +104,12 @@ func TestCreateWorkspacePath(t *testing.T) {
 	}
 }
 
-func TestDeleteWorkspacePath(t *testing.T) {
+func TestDeleteWorkspace(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "DELETE" {
 			t.Errorf("expected DELETE, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/workspaces/ws-abc/paths/p-1" {
+		if r.URL.Path != "/api/v1/projects/proj-abc/workspaces/p-1" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -115,24 +117,24 @@ func TestDeleteWorkspacePath(t *testing.T) {
 	defer server.Close()
 
 	c := New(server.URL)
-	err := c.DeleteWorkspacePath("ws-abc", "p-1")
+	err := c.DeleteWorkspace("proj-abc", "p-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestResolveWorkspaceByPath(t *testing.T) {
-	expected := &WorkspaceResolution{
-		WorkspaceID:   "ws-abc",
-		WorkspaceName: "my-project",
-		PathID:        "p-1",
+func TestResolveProjectByPath(t *testing.T) {
+	expected := &types.ProjectResolution{
+		ProjectID:   "proj-abc",
+		ProjectName: "my-project",
+		PathID:      "p-1",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/workspaces/resolve" {
+		if r.URL.Path != "/api/v1/projects/resolve" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		queryPath := r.URL.Query().Get("path")
@@ -146,34 +148,34 @@ func TestResolveWorkspaceByPath(t *testing.T) {
 	defer server.Close()
 
 	c := New(server.URL)
-	result, err := c.ResolveWorkspaceByPath("/home/user/project")
+	result, err := c.ResolveProjectByPath("/home/user/project")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.WorkspaceID != "ws-abc" {
-		t.Errorf("expected workspace ID ws-abc, got %s", result.WorkspaceID)
+	if result.ProjectID != "proj-abc" {
+		t.Errorf("expected project ID proj-abc, got %s", result.ProjectID)
 	}
-	if result.WorkspaceName != "my-project" {
-		t.Errorf("expected workspace name my-project, got %s", result.WorkspaceName)
+	if result.ProjectName != "my-project" {
+		t.Errorf("expected project name my-project, got %s", result.ProjectName)
 	}
 	if result.PathID != "p-1" {
 		t.Errorf("expected path ID p-1, got %s", result.PathID)
 	}
 }
 
-func TestUpdateWorkspacePath(t *testing.T) {
-	expected := &WorkspacePath{
-		ID:          "p-1",
-		WorkspaceID: "ws-abc",
-		Path:        "/home/user/project",
-		Label:       "updated-label",
+func TestUpdateWorkspace(t *testing.T) {
+	expected := &types.Workspace{
+		ID:        "p-1",
+		ProjectID: "proj-abc",
+		Path:      "/home/user/project",
+		Label:     "updated-label",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "PATCH" {
 			t.Errorf("expected PATCH, got %s", r.Method)
 		}
-		if r.URL.Path != "/api/v1/workspaces/ws-abc/paths/p-1" {
+		if r.URL.Path != "/api/v1/projects/proj-abc/workspaces/p-1" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 
@@ -192,7 +194,7 @@ func TestUpdateWorkspacePath(t *testing.T) {
 	defer server.Close()
 
 	c := New(server.URL)
-	result, err := c.UpdateWorkspacePath("ws-abc", "p-1", map[string]string{"label": "updated-label"})
+	result, err := c.UpdateWorkspace("proj-abc", "p-1", map[string]string{"label": "updated-label"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

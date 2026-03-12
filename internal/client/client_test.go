@@ -42,22 +42,22 @@ func testClientServer(t *testing.T) (*client.Client, func()) {
 	return c, cleanup
 }
 
-// createTestWorkspaceClient creates a workspace for testing via client.
-func createTestWorkspaceClient(t *testing.T, c *client.Client) *types.Workspace {
+// createTestProjectClient creates a project for testing via client.
+func createTestProjectClient(t *testing.T, c *client.Client) *types.Project {
 	t.Helper()
 
-	ws, err := c.CreateWorkspace("Test Workspace", "test", "Test description")
+	proj, err := c.CreateProject("Test Project", "test", "Test description")
 	if err != nil {
-		t.Fatalf("failed to create workspace: %v", err)
+		t.Fatalf("failed to create project: %v", err)
 	}
-	return ws
+	return proj
 }
 
 // createTestIssueClient creates an issue for testing via client.
-func createTestIssueClient(t *testing.T, c *client.Client, wsID, title string) *types.Issue {
+func createTestIssueClient(t *testing.T, c *client.Client, projID, title string) *types.Issue {
 	t.Helper()
 
-	issue, err := c.CreateIssue(wsID, client.CreateIssueRequest{
+	issue, err := c.CreateIssue(projID, client.CreateIssueRequest{
 		Title:     title,
 		IssueType: "task",
 		Priority:  2,
@@ -72,12 +72,12 @@ func TestClientSetInlinePlan(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
-	issue := createTestIssueClient(t, client, ws.ID, "Issue with Plan")
+	proj := createTestProjectClient(t, client)
+	issue := createTestIssueClient(t, client, proj.ID, "Issue with Plan")
 
 	// Set inline plan
 	planText := "This is the plan for the issue"
-	comment, err := client.SetInlinePlan(ws.ID, issue.ID, planText)
+	comment, err := client.SetInlinePlan(proj.ID, issue.ID, planText)
 	if err != nil {
 		t.Fatalf("SetInlinePlan failed: %v", err)
 	}
@@ -94,11 +94,11 @@ func TestClientGetPlanContext(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
-	issue := createTestIssueClient(t, client, ws.ID, "Issue for Context")
+	proj := createTestProjectClient(t, client)
+	issue := createTestIssueClient(t, client, proj.ID, "Issue for Context")
 
 	// Initially no plan
-	pc, err := client.GetPlanContext(ws.ID, issue.ID)
+	pc, err := client.GetPlanContext(proj.ID, issue.ID)
 	if err != nil {
 		t.Fatalf("GetPlanContext failed: %v", err)
 	}
@@ -108,13 +108,13 @@ func TestClientGetPlanContext(t *testing.T) {
 
 	// Set inline plan
 	planText := "The plan content"
-	_, err = client.SetInlinePlan(ws.ID, issue.ID, planText)
+	_, err = client.SetInlinePlan(proj.ID, issue.ID, planText)
 	if err != nil {
 		t.Fatalf("SetInlinePlan failed: %v", err)
 	}
 
 	// Get plan context again
-	pc, err = client.GetPlanContext(ws.ID, issue.ID)
+	pc, err = client.GetPlanContext(proj.ID, issue.ID)
 	if err != nil {
 		t.Fatalf("GetPlanContext failed: %v", err)
 	}
@@ -130,19 +130,19 @@ func TestClientGetPlanHistory(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
-	issue := createTestIssueClient(t, client, ws.ID, "Issue with History")
+	proj := createTestProjectClient(t, client)
+	issue := createTestIssueClient(t, client, proj.ID, "Issue with History")
 
 	// Create multiple versions
 	versions := []string{"V1", "V2", "V3"}
 	for _, v := range versions {
-		if _, err := client.SetInlinePlan(ws.ID, issue.ID, v); err != nil {
+		if _, err := client.SetInlinePlan(proj.ID, issue.ID, v); err != nil {
 			t.Fatalf("SetInlinePlan failed: %v", err)
 		}
 	}
 
 	// Get history
-	history, err := client.GetPlanHistory(ws.ID, issue.ID)
+	history, err := client.GetPlanHistory(proj.ID, issue.ID)
 	if err != nil {
 		t.Fatalf("GetPlanHistory failed: %v", err)
 	}
@@ -156,10 +156,10 @@ func TestClientCreateAndGetPlan(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
+	proj := createTestProjectClient(t, client)
 
 	// Create shared plan
-	plan, err := client.CreatePlan(ws.ID, "Shared Plan", "Plan content")
+	plan, err := client.CreatePlan(proj.ID, "Shared Plan", "Plan content")
 	if err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestClientCreateAndGetPlan(t *testing.T) {
 	}
 
 	// Get plan
-	retrieved, err := client.GetPlan(ws.ID, plan.ID)
+	retrieved, err := client.GetPlan(proj.ID, plan.ID)
 	if err != nil {
 		t.Fatalf("GetPlan failed: %v", err)
 	}
@@ -186,18 +186,18 @@ func TestClientListPlans(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
+	proj := createTestProjectClient(t, client)
 
 	// Create multiple plans
 	for i := range 3 {
-		_, err := client.CreatePlan(ws.ID, "Plan "+string(rune('A'+i)), "Content")
+		_, err := client.CreatePlan(proj.ID, "Plan "+string(rune('A'+i)), "Content")
 		if err != nil {
 			t.Fatalf("CreatePlan failed: %v", err)
 		}
 	}
 
 	// List plans
-	plans, err := client.ListPlans(ws.ID)
+	plans, err := client.ListPlans(proj.ID)
 	if err != nil {
 		t.Fatalf("ListPlans failed: %v", err)
 	}
@@ -211,16 +211,16 @@ func TestClientUpdatePlan(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
+	proj := createTestProjectClient(t, client)
 
 	// Create plan
-	plan, err := client.CreatePlan(ws.ID, "Original", "Original content")
+	plan, err := client.CreatePlan(proj.ID, "Original", "Original content")
 	if err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
 	// Update plan
-	updated, err := client.UpdatePlan(ws.ID, plan.ID, "Updated", "Updated content")
+	updated, err := client.UpdatePlan(proj.ID, plan.ID, "Updated", "Updated content")
 	if err != nil {
 		t.Fatalf("UpdatePlan failed: %v", err)
 	}
@@ -237,21 +237,21 @@ func TestClientDeletePlan(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
+	proj := createTestProjectClient(t, client)
 
 	// Create plan
-	plan, err := client.CreatePlan(ws.ID, "To Delete", "")
+	plan, err := client.CreatePlan(proj.ID, "To Delete", "")
 	if err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
 	// Delete plan
-	if err := client.DeletePlan(ws.ID, plan.ID); err != nil {
+	if err := client.DeletePlan(proj.ID, plan.ID); err != nil {
 		t.Fatalf("DeletePlan failed: %v", err)
 	}
 
 	// Verify deletion
-	_, err = client.GetPlan(ws.ID, plan.ID)
+	_, err = client.GetPlan(proj.ID, plan.ID)
 	if err == nil {
 		t.Error("GetPlan should fail after deletion")
 	}
@@ -261,22 +261,22 @@ func TestClientLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	client, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, client)
-	issue := createTestIssueClient(t, client, ws.ID, "Issue to Link")
+	proj := createTestProjectClient(t, client)
+	issue := createTestIssueClient(t, client, proj.ID, "Issue to Link")
 
 	// Create plan
-	plan, err := client.CreatePlan(ws.ID, "Linkable", "")
+	plan, err := client.CreatePlan(proj.ID, "Linkable", "")
 	if err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
 	// Link issue
-	if err := client.LinkIssuesToPlan(ws.ID, plan.ID, []string{issue.ID}); err != nil {
+	if err := client.LinkIssuesToPlan(proj.ID, plan.ID, []string{issue.ID}); err != nil {
 		t.Fatalf("LinkIssuesToPlan failed: %v", err)
 	}
 
 	// Verify link
-	retrieved, err := client.GetPlan(ws.ID, plan.ID)
+	retrieved, err := client.GetPlan(proj.ID, plan.ID)
 	if err != nil {
 		t.Fatalf("GetPlan failed: %v", err)
 	}
@@ -285,12 +285,12 @@ func TestClientLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	}
 
 	// Unlink issue
-	if err := client.UnlinkIssueFromPlan(ws.ID, plan.ID, issue.ID); err != nil {
+	if err := client.UnlinkIssueFromPlan(proj.ID, plan.ID, issue.ID); err != nil {
 		t.Fatalf("UnlinkIssueFromPlan failed: %v", err)
 	}
 
 	// Verify unlink
-	retrieved, err = client.GetPlan(ws.ID, plan.ID)
+	retrieved, err = client.GetPlan(proj.ID, plan.ID)
 	if err != nil {
 		t.Fatalf("GetPlan failed: %v", err)
 	}
@@ -303,11 +303,11 @@ func TestClientCloseIssueSendsCascade(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, c)
-	issue := createTestIssueClient(t, c, ws.ID, "Issue to close")
+	proj := createTestProjectClient(t, c)
+	issue := createTestIssueClient(t, c, proj.ID, "Issue to close")
 
 	// Close without cascade should work for issue with no children
-	closed, err := c.CloseIssue(ws.ID, issue.ID, "done", false)
+	closed, err := c.CloseIssue(proj.ID, issue.ID, "done", false)
 	if err != nil {
 		t.Fatalf("CloseIssue failed: %v", err)
 	}
@@ -320,13 +320,13 @@ func TestClientCloseIssueReturnsOpenChildrenError(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, c)
+	proj := createTestProjectClient(t, c)
 
 	// Create parent epic
-	parent := createTestIssueClient(t, c, ws.ID, "Parent epic")
+	parent := createTestIssueClient(t, c, proj.ID, "Parent epic")
 
 	// Create open child under parent
-	child, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+	child, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Open child",
 		IssueType: "task",
 		Priority:  2,
@@ -337,7 +337,7 @@ func TestClientCloseIssueReturnsOpenChildrenError(t *testing.T) {
 	}
 
 	// Try to close parent without cascade - should get OpenChildrenError
-	_, err = c.CloseIssue(ws.ID, parent.ID, "done", false)
+	_, err = c.CloseIssue(proj.ID, parent.ID, "done", false)
 	if err == nil {
 		t.Fatal("expected error when closing parent with open children")
 	}
@@ -362,13 +362,13 @@ func TestClientCloseIssueWithCascade(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, c)
+	proj := createTestProjectClient(t, c)
 
 	// Create parent epic
-	parent := createTestIssueClient(t, c, ws.ID, "Parent epic")
+	parent := createTestIssueClient(t, c, proj.ID, "Parent epic")
 
 	// Create open child under parent
-	_, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+	_, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Open child",
 		IssueType: "task",
 		Priority:  2,
@@ -379,7 +379,7 @@ func TestClientCloseIssueWithCascade(t *testing.T) {
 	}
 
 	// Close parent with cascade - should succeed
-	closed, err := c.CloseIssue(ws.ID, parent.ID, "done", true)
+	closed, err := c.CloseIssue(proj.ID, parent.ID, "done", true)
 	if err != nil {
 		t.Fatalf("CloseIssue with cascade failed: %v", err)
 	}
@@ -397,48 +397,48 @@ func TestClientHealth(t *testing.T) {
 	}
 }
 
-func TestClientCreateWorkspacePathWithPathType(t *testing.T) {
+func TestClientCreateWorkspaceWithPathType(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, c)
+	proj := createTestProjectClient(t, c)
 
-	// Create a canonical path
-	canonical, err := c.CreateWorkspacePath(ws.ID, client.CreateWorkspacePathRequest{
+	// Create a canonical workspace
+	canonical, err := c.CreateWorkspace(proj.ID, client.CreateWorkspaceRequest{
 		Path:     "/Volumes/ExternalSSD/project",
 		Label:    "project",
 		PathType: "canonical",
 	})
 	if err != nil {
-		t.Fatalf("CreateWorkspacePath(canonical) failed: %v", err)
+		t.Fatalf("CreateWorkspace(canonical) failed: %v", err)
 	}
 	if canonical.PathType != "canonical" {
 		t.Errorf("PathType = %q, want %q", canonical.PathType, "canonical")
 	}
 
-	// Create a symlink path
-	symlink, err := c.CreateWorkspacePath(ws.ID, client.CreateWorkspacePathRequest{
+	// Create a symlink workspace
+	symlink, err := c.CreateWorkspace(proj.ID, client.CreateWorkspaceRequest{
 		Path:     "/Users/dev/project",
 		Label:    "project",
 		PathType: "symlink",
 	})
 	if err != nil {
-		t.Fatalf("CreateWorkspacePath(symlink) failed: %v", err)
+		t.Fatalf("CreateWorkspace(symlink) failed: %v", err)
 	}
 	if symlink.PathType != "symlink" {
 		t.Errorf("PathType = %q, want %q", symlink.PathType, "symlink")
 	}
 
-	// Create a path without path_type — should default to canonical
-	defaultPath, err := c.CreateWorkspacePath(ws.ID, client.CreateWorkspacePathRequest{
+	// Create a workspace without path_type — should default to canonical
+	defaultWs, err := c.CreateWorkspace(proj.ID, client.CreateWorkspaceRequest{
 		Path:  "/home/user/project",
 		Label: "project-default",
 	})
 	if err != nil {
-		t.Fatalf("CreateWorkspacePath(default) failed: %v", err)
+		t.Fatalf("CreateWorkspace(default) failed: %v", err)
 	}
-	if defaultPath.PathType != "canonical" {
-		t.Errorf("PathType = %q, want %q", defaultPath.PathType, "canonical")
+	if defaultWs.PathType != "canonical" {
+		t.Errorf("PathType = %q, want %q", defaultWs.PathType, "canonical")
 	}
 }
 
@@ -452,31 +452,31 @@ func TestClientSetActor(t *testing.T) {
 // TestClientListIssuesParentFilter verifies that the Parent option on
 // ListIssuesOptions causes the client to send the parent_id query parameter,
 // filtering results to only children of the specified parent issue.
-func TestClientMergeWorkspaces(t *testing.T) {
+func TestClientMergeProjects(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
 
-	// Create target workspace
-	target, err := c.CreateWorkspace("Target", "tgt", "Target workspace")
+	// Create target project
+	target, err := c.CreateProject("Target", "tgt", "Target project")
 	if err != nil {
-		t.Fatalf("create target workspace: %v", err)
+		t.Fatalf("create target project: %v", err)
 	}
 
-	// Create source workspace with an issue
-	source, err := c.CreateWorkspace("Source", "src", "Source workspace")
+	// Create source project with an issue
+	source, err := c.CreateProject("Source", "src", "Source project")
 	if err != nil {
-		t.Fatalf("create source workspace: %v", err)
+		t.Fatalf("create source project: %v", err)
 	}
 	createTestIssueClient(t, c, source.ID, "Issue in source")
 
 	// Merge source into target
-	result, err := c.MergeWorkspaces(target.ID, []string{source.ID})
+	result, err := c.MergeProjects(target.ID, []string{source.ID})
 	if err != nil {
-		t.Fatalf("MergeWorkspaces failed: %v", err)
+		t.Fatalf("MergeProjects failed: %v", err)
 	}
 
 	if result.TargetProject.ID != target.ID {
-		t.Errorf("TargetWorkspace.ID = %q, want %q", result.TargetProject.ID, target.ID)
+		t.Errorf("TargetProject.ID = %q, want %q", result.TargetProject.ID, target.ID)
 	}
 	if result.IssuesMoved != 1 {
 		t.Errorf("IssuesMoved = %d, want 1", result.IssuesMoved)
@@ -490,10 +490,10 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
 
-	ws := createTestWorkspaceClient(t, c)
+	proj := createTestProjectClient(t, c)
 
 	// Create an epic (parent)
-	epic, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+	epic, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Epic parent",
 		IssueType: "epic",
 		Priority:  1,
@@ -503,7 +503,7 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	}
 
 	// Create a child under the epic
-	child, err := c.CreateIssue(ws.ID, client.CreateIssueRequest{
+	child, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Child task",
 		IssueType: "task",
 		Priority:  2,
@@ -514,7 +514,7 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	}
 
 	// Create an unrelated issue (no parent)
-	_, err = c.CreateIssue(ws.ID, client.CreateIssueRequest{
+	_, err = c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Unrelated task",
 		IssueType: "task",
 		Priority:  2,
@@ -524,7 +524,7 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	}
 
 	// List with Parent filter should only return children of the epic
-	issues, err := c.ListIssues(ws.ID, client.ListIssuesOptions{
+	issues, err := c.ListIssues(proj.ID, client.ListIssuesOptions{
 		Parent: epic.ID,
 	})
 	if err != nil {
@@ -539,7 +539,7 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	}
 
 	// List without Parent filter should return all issues
-	allIssues, err := c.ListIssues(ws.ID, client.ListIssuesOptions{})
+	allIssues, err := c.ListIssues(proj.ID, client.ListIssuesOptions{})
 	if err != nil {
 		t.Fatalf("ListIssues without Parent: %v", err)
 	}

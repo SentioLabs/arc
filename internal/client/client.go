@@ -18,7 +18,7 @@ import (
 const defaultHTTPTimeoutSeconds = 30
 
 // Client is the HTTP API client for the arc issue tracking server.
-// It provides methods for all CRUD operations on workspaces, issues,
+// It provides methods for all CRUD operations on projects, issues,
 // dependencies, labels, plans, and comments.
 type Client struct {
 	// baseURL is the arc server URL (e.g., "http://localhost:8080").
@@ -59,62 +59,77 @@ func (c *Client) Health() error {
 	return nil
 }
 
-// Workspace methods provide CRUD operations for arc workspaces.
+// Project methods provide CRUD operations for arc projects.
 
-// ListWorkspaces returns all workspaces.
-func (c *Client) ListWorkspaces() ([]*types.Workspace, error) {
-	resp, err := c.get("/api/v1/workspaces")
+// ListProjects returns all projects.
+func (c *Client) ListProjects() ([]*types.Project, error) {
+	resp, err := c.get("/api/v1/projects")
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var workspaces []*types.Workspace
-	if err := json.NewDecoder(resp.Body).Decode(&workspaces); err != nil {
+	var projects []*types.Project
+	if err := json.NewDecoder(resp.Body).Decode(&projects); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return workspaces, nil
+	return projects, nil
 }
 
-// CreateWorkspace creates a new workspace.
-func (c *Client) CreateWorkspace(name, prefix, description string) (*types.Workspace, error) {
+// CreateProject creates a new project.
+func (c *Client) CreateProject(name, prefix, description string) (*types.Project, error) {
 	body := map[string]string{
 		"name":        name,
 		"prefix":      prefix,
 		"description": description,
 	}
 
-	resp, err := c.post("/api/v1/workspaces", body)
+	resp, err := c.post("/api/v1/projects", body)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var ws types.Workspace
-	if err := json.NewDecoder(resp.Body).Decode(&ws); err != nil {
+	var proj types.Project
+	if err := json.NewDecoder(resp.Body).Decode(&proj); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return &ws, nil
+	return &proj, nil
 }
 
-// GetWorkspace retrieves a workspace by ID.
-func (c *Client) GetWorkspace(id string) (*types.Workspace, error) {
-	resp, err := c.get("/api/v1/workspaces/" + id)
+// GetProject retrieves a project by ID.
+func (c *Client) GetProject(id string) (*types.Project, error) {
+	resp, err := c.get("/api/v1/projects/" + id)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var ws types.Workspace
-	if err := json.NewDecoder(resp.Body).Decode(&ws); err != nil {
+	var proj types.Project
+	if err := json.NewDecoder(resp.Body).Decode(&proj); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return &ws, nil
+	return &proj, nil
 }
 
-// DeleteWorkspace deletes a workspace.
-func (c *Client) DeleteWorkspace(id string) error {
-	resp, err := c.delete("/api/v1/workspaces/" + id)
+// UpdateProject updates a project.
+func (c *Client) UpdateProject(id string, updates map[string]any) (*types.Project, error) {
+	resp, err := c.put("/api/v1/projects/"+id, updates)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var proj types.Project
+	if err := json.NewDecoder(resp.Body).Decode(&proj); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &proj, nil
+}
+
+// DeleteProject deletes a project.
+func (c *Client) DeleteProject(id string) error {
+	resp, err := c.delete("/api/v1/projects/" + id)
 	if err != nil {
 		return err
 	}
@@ -122,13 +137,13 @@ func (c *Client) DeleteWorkspace(id string) error {
 	return nil
 }
 
-// MergeWorkspaces merges one or more source workspaces into a target workspace.
-func (c *Client) MergeWorkspaces(targetID string, sourceIDs []string) (*types.MergeResult, error) {
+// MergeProjects merges one or more source projects into a target project.
+func (c *Client) MergeProjects(targetID string, sourceIDs []string) (*types.MergeResult, error) {
 	body := map[string]any{
 		"target_id":  targetID,
 		"source_ids": sourceIDs,
 	}
-	resp, err := c.post("/api/v1/workspaces/merge", body)
+	resp, err := c.post("/api/v1/projects/merge", body)
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +156,28 @@ func (c *Client) MergeWorkspaces(targetID string, sourceIDs []string) (*types.Me
 	return &result, nil
 }
 
-// Issue methods provide CRUD operations for issues within a workspace.
+// GetProjectStats returns project statistics.
+func (c *Client) GetProjectStats(projID string) (*types.Statistics, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/stats", projID)
 
-// ListIssues returns issues for a workspace.
-func (c *Client) ListIssues(wsID string, opts ListIssuesOptions) ([]*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues", wsID)
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var stats types.Statistics
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &stats, nil
+}
+
+// Issue methods provide CRUD operations for issues within a project.
+
+// ListIssues returns issues for a project.
+func (c *Client) ListIssues(projID string, opts ListIssuesOptions) ([]*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues", projID)
 
 	query := url.Values{}
 	if opts.Status != "" {
@@ -198,8 +230,8 @@ type ListIssuesOptions struct {
 }
 
 // CreateIssue creates a new issue.
-func (c *Client) CreateIssue(wsID string, req CreateIssueRequest) (*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues", wsID)
+func (c *Client) CreateIssue(projID string, req CreateIssueRequest) (*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues", projID)
 
 	resp, err := c.post(path, req)
 	if err != nil {
@@ -225,8 +257,8 @@ type CreateIssueRequest struct {
 }
 
 // GetIssue retrieves an issue by ID.
-func (c *Client) GetIssue(wsID, id string) (*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s", wsID, id)
+func (c *Client) GetIssue(projID, id string) (*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s", projID, id)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -242,8 +274,8 @@ func (c *Client) GetIssue(wsID, id string) (*types.Issue, error) {
 }
 
 // GetIssueDetails retrieves an issue with all relational data.
-func (c *Client) GetIssueDetails(wsID, id string) (*types.IssueDetails, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s?details=true", wsID, id)
+func (c *Client) GetIssueDetails(projID, id string) (*types.IssueDetails, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s?details=true", projID, id)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -259,8 +291,8 @@ func (c *Client) GetIssueDetails(wsID, id string) (*types.IssueDetails, error) {
 }
 
 // UpdateIssue updates an issue.
-func (c *Client) UpdateIssue(wsID, id string, updates map[string]any) (*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s", wsID, id)
+func (c *Client) UpdateIssue(projID, id string, updates map[string]any) (*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s", projID, id)
 
 	resp, err := c.put(path, updates)
 	if err != nil {
@@ -278,8 +310,8 @@ func (c *Client) UpdateIssue(wsID, id string, updates map[string]any) (*types.Is
 // CloseIssue closes an issue. When cascade is true, open children are closed
 // recursively. When cascade is false and the issue has open children, a
 // *types.OpenChildrenError is returned so the caller can prompt the user.
-func (c *Client) CloseIssue(wsID, id, reason string, cascade bool) (*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/close", wsID, id)
+func (c *Client) CloseIssue(projID, id, reason string, cascade bool) (*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/close", projID, id)
 
 	body := map[string]any{"reason": reason, "cascade": cascade}
 	jsonBody, err := json.Marshal(body)
@@ -329,8 +361,8 @@ func (c *Client) CloseIssue(wsID, id, reason string, cascade bool) (*types.Issue
 }
 
 // DeleteIssue deletes an issue.
-func (c *Client) DeleteIssue(wsID, id string) error {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s", wsID, id)
+func (c *Client) DeleteIssue(projID, id string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s", projID, id)
 
 	resp, err := c.delete(path)
 	if err != nil {
@@ -344,8 +376,8 @@ func (c *Client) DeleteIssue(wsID, id string) error {
 
 // GetReadyWork returns issues ready to work on.
 // sortPolicy can be: "hybrid" (default), "priority", or "oldest".
-func (c *Client) GetReadyWork(wsID string, limit int, sortPolicy string) ([]*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/ready", wsID)
+func (c *Client) GetReadyWork(projID string, limit int, sortPolicy string) ([]*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ready", projID)
 
 	query := url.Values{}
 	if limit > 0 {
@@ -372,8 +404,8 @@ func (c *Client) GetReadyWork(wsID string, limit int, sortPolicy string) ([]*typ
 }
 
 // GetBlockedIssues returns blocked issues.
-func (c *Client) GetBlockedIssues(wsID string, limit int) ([]*types.BlockedIssue, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/blocked", wsID)
+func (c *Client) GetBlockedIssues(projID string, limit int) ([]*types.BlockedIssue, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/blocked", projID)
 	if limit > 0 {
 		path += fmt.Sprintf("?limit=%d", limit)
 	}
@@ -395,8 +427,8 @@ func (c *Client) GetBlockedIssues(wsID string, limit int) ([]*types.BlockedIssue
 
 // AddDependency adds a dependency between two issues.
 // depType should be one of: "blocks", "parent-child", "related", "discovered-from".
-func (c *Client) AddDependency(wsID, issueID, dependsOnID, depType string) error {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/deps", wsID, issueID)
+func (c *Client) AddDependency(projID, issueID, dependsOnID, depType string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/deps", projID, issueID)
 
 	body := map[string]string{
 		"depends_on_id": dependsOnID,
@@ -412,8 +444,8 @@ func (c *Client) AddDependency(wsID, issueID, dependsOnID, depType string) error
 }
 
 // RemoveDependency removes a dependency between two issues.
-func (c *Client) RemoveDependency(wsID, issueID, dependsOnID string) error {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/deps/%s", wsID, issueID, dependsOnID)
+func (c *Client) RemoveDependency(projID, issueID, dependsOnID string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/deps/%s", projID, issueID, dependsOnID)
 
 	resp, err := c.delete(path)
 	if err != nil {
@@ -423,30 +455,11 @@ func (c *Client) RemoveDependency(wsID, issueID, dependsOnID string) error {
 	return nil
 }
 
-// Statistics methods provide aggregated metrics for a workspace.
-
-// GetStatistics returns workspace statistics.
-func (c *Client) GetStatistics(wsID string) (*types.Statistics, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/stats", wsID)
-
-	resp, err := c.get(path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var stats types.Statistics
-	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &stats, nil
-}
-
 // --- Plan methods ---
 
 // SetInlinePlan sets or updates an inline plan on an issue.
-func (c *Client) SetInlinePlan(wsID, issueID, text string) (*types.Comment, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/plan", wsID, issueID)
+func (c *Client) SetInlinePlan(projID, issueID, text string) (*types.Comment, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan", projID, issueID)
 
 	body := map[string]string{"text": text}
 	resp, err := c.post(path, body)
@@ -463,8 +476,8 @@ func (c *Client) SetInlinePlan(wsID, issueID, text string) (*types.Comment, erro
 }
 
 // GetPlanContext returns the plan context for an issue.
-func (c *Client) GetPlanContext(wsID, issueID string) (*types.PlanContext, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/plan", wsID, issueID)
+func (c *Client) GetPlanContext(projID, issueID string) (*types.PlanContext, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan", projID, issueID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -480,8 +493,8 @@ func (c *Client) GetPlanContext(wsID, issueID string) (*types.PlanContext, error
 }
 
 // GetPlanHistory returns the plan version history for an issue.
-func (c *Client) GetPlanHistory(wsID, issueID string) ([]*types.Comment, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/plan/history", wsID, issueID)
+func (c *Client) GetPlanHistory(projID, issueID string) ([]*types.Comment, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan/history", projID, issueID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -496,9 +509,9 @@ func (c *Client) GetPlanHistory(wsID, issueID string) ([]*types.Comment, error) 
 	return comments, nil
 }
 
-// ListPlans returns all shared plans in a workspace.
-func (c *Client) ListPlans(wsID string) ([]*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/plans", wsID)
+// ListPlans returns all shared plans in a project.
+func (c *Client) ListPlans(projID string) ([]*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans", projID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -514,8 +527,8 @@ func (c *Client) ListPlans(wsID string) ([]*types.Plan, error) {
 }
 
 // CreatePlan creates a new shared plan.
-func (c *Client) CreatePlan(wsID, title, content string) (*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/plans", wsID)
+func (c *Client) CreatePlan(projID, title, content string) (*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans", projID)
 
 	body := map[string]string{"title": title, "content": content}
 	resp, err := c.post(path, body)
@@ -532,8 +545,8 @@ func (c *Client) CreatePlan(wsID, title, content string) (*types.Plan, error) {
 }
 
 // GetPlan retrieves a plan by ID.
-func (c *Client) GetPlan(wsID, planID string) (*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s", wsID, planID)
+func (c *Client) GetPlan(projID, planID string) (*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -549,8 +562,8 @@ func (c *Client) GetPlan(wsID, planID string) (*types.Plan, error) {
 }
 
 // UpdatePlan updates a shared plan.
-func (c *Client) UpdatePlan(wsID, planID, title, content string) (*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s", wsID, planID)
+func (c *Client) UpdatePlan(projID, planID, title, content string) (*types.Plan, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
 
 	body := map[string]string{"title": title, "content": content}
 	resp, err := c.put(path, body)
@@ -567,8 +580,8 @@ func (c *Client) UpdatePlan(wsID, planID, title, content string) (*types.Plan, e
 }
 
 // DeletePlan deletes a shared plan.
-func (c *Client) DeletePlan(wsID, planID string) error {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s", wsID, planID)
+func (c *Client) DeletePlan(projID, planID string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
 
 	resp, err := c.delete(path)
 	if err != nil {
@@ -579,8 +592,8 @@ func (c *Client) DeletePlan(wsID, planID string) error {
 }
 
 // LinkIssuesToPlan links one or more issues to a plan.
-func (c *Client) LinkIssuesToPlan(wsID, planID string, issueIDs []string) error {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s/link", wsID, planID)
+func (c *Client) LinkIssuesToPlan(projID, planID string, issueIDs []string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s/link", projID, planID)
 
 	body := map[string][]string{"issue_ids": issueIDs}
 	resp, err := c.post(path, body)
@@ -592,8 +605,8 @@ func (c *Client) LinkIssuesToPlan(wsID, planID string, issueIDs []string) error 
 }
 
 // UnlinkIssueFromPlan removes a link between an issue and a plan.
-func (c *Client) UnlinkIssueFromPlan(wsID, planID, issueID string) error {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/plans/%s/link/%s", wsID, planID, issueID)
+func (c *Client) UnlinkIssueFromPlan(projID, planID, issueID string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s/link/%s", projID, planID, issueID)
 
 	resp, err := c.delete(path)
 	if err != nil {
@@ -603,24 +616,10 @@ func (c *Client) UnlinkIssueFromPlan(wsID, planID, issueID string) error {
 	return nil
 }
 
-// Workspace Path types and methods manage multi-directory workspace paths.
+// Workspace types and methods manage directory paths associated with projects.
 
-// WorkspacePath represents a filesystem path associated with a workspace.
-type WorkspacePath struct {
-	ID             string `json:"id"`
-	WorkspaceID    string `json:"workspace_id"`
-	Path           string `json:"path"`
-	Label          string `json:"label,omitempty"`
-	Hostname       string `json:"hostname,omitempty"`
-	GitRemote      string `json:"git_remote,omitempty"`
-	PathType       string `json:"path_type,omitempty"`
-	LastAccessedAt string `json:"last_accessed_at,omitempty"`
-	CreatedAt      string `json:"created_at,omitempty"`
-	UpdatedAt      string `json:"updated_at,omitempty"`
-}
-
-// CreateWorkspacePathRequest is the request for registering a workspace path.
-type CreateWorkspacePathRequest struct {
+// CreateWorkspaceRequest is the request for registering a workspace (directory path).
+type CreateWorkspaceRequest struct {
 	Path      string `json:"path"`
 	Label     string `json:"label,omitempty"`
 	Hostname  string `json:"hostname,omitempty"`
@@ -628,16 +627,9 @@ type CreateWorkspacePathRequest struct {
 	PathType  string `json:"path_type,omitempty"`
 }
 
-// WorkspaceResolution contains the result of resolving a workspace by path.
-type WorkspaceResolution struct {
-	WorkspaceID   string `json:"workspace_id"`
-	WorkspaceName string `json:"workspace_name"`
-	PathID        string `json:"path_id"`
-}
-
-// ListWorkspacePaths returns all paths for a workspace.
-func (c *Client) ListWorkspacePaths(wsID string) ([]*WorkspacePath, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/paths", wsID)
+// ListWorkspaces returns all workspaces (directory paths) for a project.
+func (c *Client) ListWorkspaces(projID string) ([]*types.Workspace, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/workspaces", projID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -645,16 +637,16 @@ func (c *Client) ListWorkspacePaths(wsID string) ([]*WorkspacePath, error) {
 	}
 	defer resp.Body.Close()
 
-	var paths []*WorkspacePath
-	if err := json.NewDecoder(resp.Body).Decode(&paths); err != nil {
+	var workspaces []*types.Workspace
+	if err := json.NewDecoder(resp.Body).Decode(&workspaces); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return paths, nil
+	return workspaces, nil
 }
 
-// CreateWorkspacePath registers a new path for a workspace.
-func (c *Client) CreateWorkspacePath(wsID string, req CreateWorkspacePathRequest) (*WorkspacePath, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/paths", wsID)
+// CreateWorkspace registers a new workspace (directory path) for a project.
+func (c *Client) CreateWorkspace(projID string, req CreateWorkspaceRequest) (*types.Workspace, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/workspaces", projID)
 
 	resp, err := c.post(path, req)
 	if err != nil {
@@ -662,16 +654,16 @@ func (c *Client) CreateWorkspacePath(wsID string, req CreateWorkspacePathRequest
 	}
 	defer resp.Body.Close()
 
-	var wp WorkspacePath
-	if err := json.NewDecoder(resp.Body).Decode(&wp); err != nil {
+	var ws types.Workspace
+	if err := json.NewDecoder(resp.Body).Decode(&ws); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return &wp, nil
+	return &ws, nil
 }
 
-// UpdateWorkspacePath updates a workspace path's metadata.
-func (c *Client) UpdateWorkspacePath(wsID, pathID string, updates map[string]string) (*WorkspacePath, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/paths/%s", wsID, pathID)
+// UpdateWorkspace updates a workspace's metadata.
+func (c *Client) UpdateWorkspace(projID, wsID string, updates map[string]string) (*types.Workspace, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/workspaces/%s", projID, wsID)
 
 	resp, err := c.patch(path, updates)
 	if err != nil {
@@ -679,16 +671,16 @@ func (c *Client) UpdateWorkspacePath(wsID, pathID string, updates map[string]str
 	}
 	defer resp.Body.Close()
 
-	var wp WorkspacePath
-	if err := json.NewDecoder(resp.Body).Decode(&wp); err != nil {
+	var ws types.Workspace
+	if err := json.NewDecoder(resp.Body).Decode(&ws); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return &wp, nil
+	return &ws, nil
 }
 
-// DeleteWorkspacePath removes a path from a workspace.
-func (c *Client) DeleteWorkspacePath(wsID, pathID string) error {
-	path := fmt.Sprintf("/api/v1/workspaces/%s/paths/%s", wsID, pathID)
+// DeleteWorkspace removes a workspace (directory path) from a project.
+func (c *Client) DeleteWorkspace(projID, wsID string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/workspaces/%s", projID, wsID)
 
 	resp, err := c.delete(path)
 	if err != nil {
@@ -698,9 +690,9 @@ func (c *Client) DeleteWorkspacePath(wsID, pathID string) error {
 	return nil
 }
 
-// ResolveWorkspaceByPath finds the workspace associated with a filesystem path.
-func (c *Client) ResolveWorkspaceByPath(fsPath string) (*WorkspaceResolution, error) {
-	path := fmt.Sprintf("/api/v1/workspaces/resolve?path=%s", url.QueryEscape(fsPath))
+// ResolveProjectByPath finds the project associated with a filesystem path.
+func (c *Client) ResolveProjectByPath(fsPath string) (*types.ProjectResolution, error) {
+	path := fmt.Sprintf("/api/v1/projects/resolve?path=%s", url.QueryEscape(fsPath))
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -708,7 +700,7 @@ func (c *Client) ResolveWorkspaceByPath(fsPath string) (*WorkspaceResolution, er
 	}
 	defer resp.Body.Close()
 
-	var result WorkspaceResolution
+	var result types.ProjectResolution
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
