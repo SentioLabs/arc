@@ -37,23 +37,23 @@ func testServer(t *testing.T) (*Server, func()) {
 	return server, cleanup
 }
 
-// createTestWorkspace creates a workspace for testing and returns its ID.
+// createTestWorkspace creates a project for testing and returns its ID.
 func createTestWorkspace(t *testing.T, e *echo.Echo) string {
 	t.Helper()
 
 	body := `{"name": "Test Workspace", "prefix": "test"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("failed to create workspace: %s", rec.Body.String())
+		t.Fatalf("failed to create project: %s", rec.Body.String())
 	}
 
 	var ws types.Workspace
 	if err := json.Unmarshal(rec.Body.Bytes(), &ws); err != nil {
-		t.Fatalf("failed to parse workspace response: %v", err)
+		t.Fatalf("failed to parse project response: %v", err)
 	}
 
 	return ws.ID
@@ -64,7 +64,7 @@ func createTestIssue(t *testing.T, e *echo.Echo, wsID, title string) string {
 	t.Helper()
 
 	body := `{"title": "` + title + `", "type": "task", "priority": 2}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/issues", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/issues", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -93,7 +93,7 @@ func TestSetAndGetIssuePlan(t *testing.T) {
 	planText := "This is the plan: Step one then Step two"
 	reqBody := map[string]string{"text": planText}
 	bodyBytes, _ := json.Marshal(reqBody)
-	planURL := "/api/v1/workspaces/" + wsID + "/issues/" + issueID + "/plan"
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
 	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBuffer(bodyBytes))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("X-Actor", "test-user")
@@ -105,7 +105,7 @@ func TestSetAndGetIssuePlan(t *testing.T) {
 	}
 
 	// Get plan context
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/issues/"+issueID+"/plan", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/issues/"+issueID+"/plan", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -135,7 +135,7 @@ func TestSetIssuePlanEmptyText(t *testing.T) {
 	issueID := createTestIssue(t, e, wsID, "Issue")
 
 	body := `{"text": ""}`
-	planURL := "/api/v1/workspaces/" + wsID + "/issues/" + issueID + "/plan"
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
 	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -156,7 +156,7 @@ func TestGetIssuePlanHistory(t *testing.T) {
 
 	// Create multiple plan versions
 	versions := []string{"Version 1", "Version 2", "Version 3"}
-	planURL := "/api/v1/workspaces/" + wsID + "/issues/" + issueID + "/plan"
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
 	for _, v := range versions {
 		body := `{"text": "` + v + `"}`
 		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
@@ -169,7 +169,7 @@ func TestGetIssuePlanHistory(t *testing.T) {
 	}
 
 	// Get history
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/issues/"+issueID+"/plan/history", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/issues/"+issueID+"/plan/history", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -196,7 +196,7 @@ func TestCreateAndGetSharedPlan(t *testing.T) {
 
 	// Create shared plan
 	body := `{"title": "Shared Plan", "content": "Plan content here"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -218,7 +218,7 @@ func TestCreateAndGetSharedPlan(t *testing.T) {
 	}
 
 	// Get plan
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID, nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -244,7 +244,7 @@ func TestCreatePlanEmptyTitle(t *testing.T) {
 	wsID := createTestWorkspace(t, e)
 
 	body := `{"title": "", "content": "content"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -264,7 +264,7 @@ func TestListPlans(t *testing.T) {
 	// Create multiple plans
 	for i := range 3 {
 		body := `{"title": "Plan ` + string(rune('A'+i)) + `", "content": "Content"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
@@ -274,7 +274,7 @@ func TestListPlans(t *testing.T) {
 	}
 
 	// List plans
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/plans", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -301,7 +301,7 @@ func TestUpdatePlan(t *testing.T) {
 
 	// Create plan
 	body := `{"title": "Original", "content": "Original content"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -313,7 +313,7 @@ func TestUpdatePlan(t *testing.T) {
 
 	// Update plan
 	body = `{"title": "Updated", "content": "Updated content"}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID, bytes.NewBufferString(body))
+	req = httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -344,7 +344,7 @@ func TestDeletePlan(t *testing.T) {
 
 	// Create plan
 	body := `{"title": "To Delete", "content": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -355,7 +355,7 @@ func TestDeletePlan(t *testing.T) {
 	}
 
 	// Delete plan
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID, nil)
+	req = httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -364,7 +364,7 @@ func TestDeletePlan(t *testing.T) {
 	}
 
 	// Verify deletion
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID, nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -383,7 +383,7 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 
 	// Create plan
 	body := `{"title": "Linkable Plan", "content": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -394,7 +394,7 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	}
 
 	// Link issue to plan
-	linkURL := "/api/v1/workspaces/" + wsID + "/plans/" + plan.ID + "/link"
+	linkURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/link"
 	body = `{"issue_ids": ["` + issueID + `"]}`
 	req = httptest.NewRequest(http.MethodPost, linkURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -406,7 +406,7 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	}
 
 	// Verify link via getPlan (should include linked_issues)
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID, nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -423,7 +423,7 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	}
 
 	// Unlink issue
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID+"/link/"+issueID, nil)
+	req = httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+wsID+"/plans/"+plan.ID+"/link/"+issueID, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -432,7 +432,7 @@ func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
 	}
 
 	// Verify unlink - use new variable to avoid stale data
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/plans/"+plan.ID, nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -455,7 +455,7 @@ func TestLinkIssuesToPlanEmptyList(t *testing.T) {
 
 	// Create plan
 	body := `{"title": "Plan", "content": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID+"/plans", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -466,7 +466,7 @@ func TestLinkIssuesToPlanEmptyList(t *testing.T) {
 	}
 
 	// Try to link empty list
-	linkURL := "/api/v1/workspaces/" + wsID + "/plans/" + plan.ID + "/link"
+	linkURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/link"
 	body = `{"issue_ids": []}`
 	req = httptest.NewRequest(http.MethodPost, linkURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -487,7 +487,7 @@ func TestPlanWorkspaceIsolation(t *testing.T) {
 	wsID1 := createTestWorkspace(t, e)
 
 	body := `{"name": "Other Workspace", "prefix": "other"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -499,7 +499,7 @@ func TestPlanWorkspaceIsolation(t *testing.T) {
 
 	// Create plan in workspace 1
 	body = `{"title": "WS1 Plan", "content": ""}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+wsID1+"/plans", bytes.NewBufferString(body))
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID1+"/plans", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -510,7 +510,7 @@ func TestPlanWorkspaceIsolation(t *testing.T) {
 	}
 
 	// Try to access plan from workspace 2 - should fail
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID2+"/plans/"+plan.ID, nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID2+"/plans/"+plan.ID, nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -526,7 +526,7 @@ func TestGetPlanNotFound(t *testing.T) {
 
 	wsID := createTestWorkspace(t, e)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/"+wsID+"/plans/plan.nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/plan.nonexistent", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 

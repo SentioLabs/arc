@@ -9,24 +9,24 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// createWorkspaceRequest is the request body for creating a workspace.
-type createWorkspaceRequest struct {
+// createProjectRequest is the request body for creating a project.
+type createProjectRequest struct {
 	Name        string `json:"name"`
 	Path        string `json:"path,omitempty"`
 	Description string `json:"description,omitempty"`
 	Prefix      string `json:"prefix"`
 }
 
-// updateWorkspaceRequest is the request body for updating a workspace.
-type updateWorkspaceRequest struct {
+// updateProjectRequest is the request body for updating a project.
+type updateProjectRequest struct {
 	Name        string `json:"name,omitempty"`
 	Path        string `json:"path,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
-// listWorkspaces returns all workspaces registered in the system.
-// Workspaces are the top-level containers for organizing issues.
-func (s *Server) listWorkspaces(c echo.Context) error {
+// listProjects returns all projects registered in the system.
+// Projects are the top-level containers for organizing issues.
+func (s *Server) listProjects(c echo.Context) error {
 	workspaces, err := s.store.ListWorkspaces(c.Request().Context())
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
@@ -35,10 +35,10 @@ func (s *Server) listWorkspaces(c echo.Context) error {
 	return successJSON(c, workspaces)
 }
 
-// createWorkspace creates a new workspace with the specified name and prefix.
-// The prefix is used to generate issue IDs within the workspace.
-func (s *Server) createWorkspace(c echo.Context) error {
-	var req createWorkspaceRequest
+// createProject creates a new project with the specified name and prefix.
+// The prefix is used to generate issue IDs within the project.
+func (s *Server) createProject(c echo.Context) error {
+	var req createProjectRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
@@ -57,8 +57,8 @@ func (s *Server) createWorkspace(c echo.Context) error {
 	return createdJSON(c, ws)
 }
 
-// getWorkspace retrieves a workspace by ID.
-func (s *Server) getWorkspace(c echo.Context) error {
+// getProject retrieves a project by ID.
+func (s *Server) getProject(c echo.Context) error {
 	id := c.Param("id")
 
 	ws, err := s.store.GetWorkspace(c.Request().Context(), id)
@@ -69,12 +69,12 @@ func (s *Server) getWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// updateWorkspace updates a workspace's name, path, or description.
+// updateProject updates a project's name, path, or description.
 // Only non-empty fields in the request body are applied.
-func (s *Server) updateWorkspace(c echo.Context) error {
+func (s *Server) updateProject(c echo.Context) error {
 	id := c.Param("id")
 
-	var req updateWorkspaceRequest
+	var req updateProjectRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
@@ -101,28 +101,28 @@ func (s *Server) updateWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// deleteWorkspace deletes a workspace and performs best-effort cleanup
-// of any project configs that reference the deleted workspace.
-func (s *Server) deleteWorkspace(c echo.Context) error {
+// deleteProject deletes a project and performs best-effort cleanup
+// of any project configs that reference the deleted project.
+func (s *Server) deleteProject(c echo.Context) error {
 	id := c.Param("id")
 
 	if err := s.store.DeleteWorkspace(c.Request().Context(), id); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	// Best-effort cleanup of project configs referencing this workspace
+	// Best-effort cleanup of project configs referencing this project
 	arcHome := project.DefaultArcHome()
 	if removed, err := project.CleanupWorkspaceConfigs(arcHome, id); err != nil {
-		log.Printf("Warning: failed to clean up project configs for workspace %s: %v", id, err)
+		log.Printf("Warning: failed to clean up project configs for project %s: %v", id, err)
 	} else if removed > 0 {
-		log.Printf("Cleaned up %d project config(s) for deleted workspace %s", removed, id)
+		log.Printf("Cleaned up %d project config(s) for deleted project %s", removed, id)
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
 
-// getWorkspaceStats returns statistics for a workspace.
-func (s *Server) getWorkspaceStats(c echo.Context) error {
+// getProjectStats returns statistics for a project.
+func (s *Server) getProjectStats(c echo.Context) error {
 	id := c.Param("id")
 
 	stats, err := s.store.GetStatistics(c.Request().Context(), id)

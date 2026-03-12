@@ -25,7 +25,7 @@ func (s *Server) getTeamContext(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	resp := TeamContext{
-		Workspace:  wsID,
+		Project:    wsID,
 		Roles:      make(map[string]TeamContextRole),
 		Unassigned: []TeamContextIssue{},
 	}

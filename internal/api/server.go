@@ -94,16 +94,16 @@ func (s *Server) registerRoutes() {
 	// API v1 routes
 	v1 := s.echo.Group("/api/v1")
 
-	// Workspaces
-	v1.GET("/workspaces", s.listWorkspaces)
-	v1.POST("/workspaces", s.createWorkspace)
-	v1.GET("/workspaces/:id", s.getWorkspace)
-	v1.PUT("/workspaces/:id", s.updateWorkspace)
-	v1.DELETE("/workspaces/:id", s.deleteWorkspace)
-	v1.GET("/workspaces/:id/stats", s.getWorkspaceStats)
+	// Projects (top-level containers)
+	v1.GET("/projects", s.listProjects)
+	v1.POST("/projects", s.createProject)
+	v1.GET("/projects/:id", s.getProject)
+	v1.PUT("/projects/:id", s.updateProject)
+	v1.DELETE("/projects/:id", s.deleteProject)
+	v1.GET("/projects/:id/stats", s.getProjectStats)
 
-	// Issues (workspace-scoped)
-	ws := v1.Group("/workspaces/:ws")
+	// Issues (project-scoped)
+	ws := v1.Group("/projects/:ws")
 	ws.GET("/issues", s.listIssues)
 	ws.POST("/issues", s.createIssue)
 	ws.GET("/issues/:id", s.getIssue)
