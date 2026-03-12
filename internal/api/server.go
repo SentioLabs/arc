@@ -97,6 +97,7 @@ func (s *Server) registerRoutes() {
 	// Workspaces
 	v1.GET("/workspaces", s.listWorkspaces)
 	v1.POST("/workspaces", s.createWorkspace)
+	v1.POST("/workspaces/merge", s.mergeWorkspaces)
 	v1.GET("/workspaces/:id", s.getWorkspace)
 	v1.PUT("/workspaces/:id", s.updateWorkspace)
 	v1.DELETE("/workspaces/:id", s.deleteWorkspace)

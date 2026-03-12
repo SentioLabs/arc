@@ -22,6 +22,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge source workspaces into a target workspace
+         * @description Moves all issues and plans from the source workspaces into the target
+         *     workspace, then deletes the source workspaces.
+         */
+        post: operations["mergeWorkspaces"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}": {
         parameters: {
             query?: never;
@@ -471,6 +492,21 @@ export interface components {
             /** @description New description */
             description?: string;
         };
+        MergeWorkspacesRequest: {
+            /** @description ID of the workspace to merge into */
+            target_id: string;
+            /** @description IDs of workspaces to merge from (will be deleted) */
+            source_ids: string[];
+        };
+        MergeResult: {
+            target_workspace: components["schemas"]["Workspace"];
+            /** @description Number of issues moved to the target workspace */
+            issues_moved: number;
+            /** @description Number of plans moved to the target workspace */
+            plans_moved: number;
+            /** @description IDs of source workspaces that were deleted */
+            sources_deleted: string[];
+        };
         Statistics: {
             workspace_id: string;
             total_issues: number;
@@ -725,6 +761,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    mergeWorkspaces: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description User performing the action (defaults to "anonymous") */
+                "X-Actor"?: components["parameters"]["ActorHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeWorkspacesRequest"];
+            };
+        };
+        responses: {
+            /** @description Merge completed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeResult"];
                 };
             };
             400: components["responses"]["BadRequest"];

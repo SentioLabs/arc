@@ -73,6 +73,34 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /workspaces/merge:
+    post:
+      operationId: mergeWorkspaces
+      tags: [workspaces]
+      summary: Merge source workspaces into a target workspace
+      description: |
+        Moves all issues and plans from the source workspaces into the target
+        workspace, then deletes the source workspaces.
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MergeWorkspacesRequest"
+      responses:
+        "200":
+          description: Merge completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MergeResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /workspaces/{workspaceId}:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -1010,6 +1038,43 @@ components:
         description:
           type: string
           description: New description
+
+    MergeWorkspacesRequest:
+      type: object
+      required:
+        - target_id
+        - source_ids
+      properties:
+        target_id:
+          type: string
+          description: ID of the workspace to merge into
+        source_ids:
+          type: array
+          items:
+            type: string
+          description: IDs of workspaces to merge from (will be deleted)
+
+    MergeResult:
+      type: object
+      required:
+        - target_workspace
+        - issues_moved
+        - plans_moved
+        - sources_deleted
+      properties:
+        target_workspace:
+          $ref: "#/components/schemas/Workspace"
+        issues_moved:
+          type: integer
+          description: Number of issues moved to the target workspace
+        plans_moved:
+          type: integer
+          description: Number of plans moved to the target workspace
+        sources_deleted:
+          type: array
+          items:
+            type: string
+          description: IDs of source workspaces that were deleted
 
     Statistics:
       type: object

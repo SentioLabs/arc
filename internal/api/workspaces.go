@@ -121,6 +121,45 @@ func (s *Server) deleteWorkspace(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// mergeWorkspacesRequest is the request body for merging workspaces.
+type mergeWorkspacesRequest struct {
+	TargetID  string   `json:"target_id"`
+	SourceIDs []string `json:"source_ids"`
+}
+
+// mergeWorkspaces merges one or more source workspaces into a target workspace.
+// All issues and plans from the source workspaces are moved to the target,
+// and the source workspaces are deleted.
+func (s *Server) mergeWorkspaces(c echo.Context) error {
+	var req mergeWorkspacesRequest
+	if err := c.Bind(&req); err != nil {
+		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	}
+	if req.TargetID == "" {
+		return errorJSON(c, http.StatusBadRequest, "target_id is required")
+	}
+	if len(req.SourceIDs) == 0 {
+		return errorJSON(c, http.StatusBadRequest, "at least one source_id is required")
+	}
+
+	result, err := s.store.MergeWorkspaces(c.Request().Context(), req.TargetID, req.SourceIDs, getActor(c))
+	if err != nil {
+		return errorJSON(c, http.StatusBadRequest, err.Error())
+	}
+
+	// Best-effort cleanup of project configs for deleted source workspaces
+	arcHome := project.DefaultArcHome()
+	for _, srcID := range result.SourcesDeleted {
+		if removed, cleanErr := project.CleanupWorkspaceConfigs(arcHome, srcID); cleanErr != nil {
+			log.Printf("Warning: failed to clean up project configs for merged workspace %s: %v", srcID, cleanErr)
+		} else if removed > 0 {
+			log.Printf("Cleaned up %d project config(s) for merged workspace %s", removed, srcID)
+		}
+	}
+
+	return successJSON(c, result)
+}
+
 // getWorkspaceStats returns statistics for a workspace.
 func (s *Server) getWorkspaceStats(c echo.Context) error {
 	id := c.Param("id")
