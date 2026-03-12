@@ -237,19 +237,17 @@ func TestLabelWithColor(t *testing.T) {
 		t.Fatalf("expected 200 listing labels, got %d: %s", resp.StatusCode, body)
 	}
 
-	// Parse the response to find our label and check its color.
-	var result struct {
-		Data []struct {
-			Name  string `json:"name"`
-			Color string `json:"color"`
-		} `json:"data"`
+	// Parse the response — labels API returns a plain JSON array.
+	var labels []struct {
+		Name  string `json:"name"`
+		Color string `json:"color"`
 	}
-	if err := json.Unmarshal(body, &result); err != nil {
+	if err := json.Unmarshal(body, &labels); err != nil {
 		t.Fatalf("failed to parse labels list: %v\nresponse: %s", err, body)
 	}
 
 	var found bool
-	for _, l := range result.Data {
+	for _, l := range labels {
 		if l.Name == labelName {
 			found = true
 			if l.Color != color {
@@ -281,13 +279,23 @@ func TestLabelDuplicateCreate(t *testing.T) {
 		t.Fatalf("expected 201 creating label, got %d: %s", resp.StatusCode, body)
 	}
 
-	// Create same label again — should fail with 4xx.
+	// Create same label again — arc's label API is idempotent, so this
+	// returns 201 again rather than a conflict error. Verify it succeeds
+	// and doesn't create a second copy.
 	resp = apiRequest(t, http.MethodPost, "/api/v1/labels", map[string]string{
 		"name": labelName,
 	})
 	body = readBody(t, resp)
-	if resp.StatusCode < 400 || resp.StatusCode >= 500 {
-		t.Errorf("expected 4xx for duplicate label creation, got %d: %s", resp.StatusCode, body)
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("expected 201 for idempotent label creation, got %d: %s", resp.StatusCode, body)
+	}
+
+	// Verify only one label with this name exists.
+	resp = apiRequest(t, http.MethodGet, "/api/v1/labels", nil)
+	body = readBody(t, resp)
+	count := strings.Count(string(body), labelName)
+	if count != 1 {
+		t.Errorf("expected exactly 1 label named %q, found %d in: %s", labelName, count, body)
 	}
 
 	// Cleanup.

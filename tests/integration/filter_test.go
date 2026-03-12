@@ -162,29 +162,31 @@ func TestListLimit(t *testing.T) {
 }
 
 // TestListFilterByParent creates an epic with child tasks and verifies
-// that --parent filters to only children of that epic.
+// that --parent filters to only children of that epic. Uses a temp dir for
+// CWD isolation so workspace resolution is correct.
 func TestListFilterByParent(t *testing.T) {
 	home := setupHome(t)
 	ws := fmt.Sprintf("filter-parent-%d", uniqueCounter())
+	dir := t.TempDir()
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", ws, "--server", serverURL)
 
 	// Create an epic.
-	epicOut := arcCmdSuccess(t, home, "create", "Parent epic issue", "--type", "epic", "--server", serverURL)
+	epicOut := arcCmdInDirSuccess(t, home, dir, "create", "Parent epic issue", "--type", "epic", "--server", serverURL)
 	epicID, ok := extractID(epicOut)
 	if !ok {
 		t.Fatalf("could not extract epic ID from: %s", epicOut)
 	}
 
 	// Create child tasks using --parent flag.
-	arcCmdSuccess(t, home, "create", "Child task one", "--type", "task", "--parent", epicID, "--server", serverURL)
-	arcCmdSuccess(t, home, "create", "Child task two", "--type", "task", "--parent", epicID, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "create", "Child task one", "--type", "task", "--parent", epicID, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "create", "Child task two", "--type", "task", "--parent", epicID, "--server", serverURL)
 
 	// Create a standalone task.
-	arcCmdSuccess(t, home, "create", "Standalone task", "--type", "task", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "create", "Standalone task", "--type", "task", "--server", serverURL)
 
 	// Filter by parent.
-	listChildren := arcCmdSuccess(t, home, "list", "--parent", epicID, "--server", serverURL)
+	listChildren := arcCmdInDirSuccess(t, home, dir, "list", "--parent", epicID, "--server", serverURL)
 	if !strings.Contains(listChildren, "Child task one") {
 		t.Errorf("expected child task one in --parent output, got: %s", listChildren)
 	}
@@ -197,17 +199,18 @@ func TestListFilterByParent(t *testing.T) {
 }
 
 // TestListJsonOutput verifies that `arc list --json` outputs valid JSON
-// containing the expected issue data.
+// containing the expected issue data. Uses temp dir for CWD isolation.
 func TestListJsonOutput(t *testing.T) {
 	home := setupHome(t)
 	ws := fmt.Sprintf("filter-json-list-%d", uniqueCounter())
+	dir := t.TempDir()
 
-	arcCmdSuccess(t, home, "init", ws, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", ws, "--server", serverURL)
 
-	arcCmdSuccess(t, home, "create", "JSON list issue one", "--type", "task", "--server", serverURL)
-	arcCmdSuccess(t, home, "create", "JSON list issue two", "--type", "bug", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "create", "JSON list issue one", "--type", "task", "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "create", "JSON list issue two", "--type", "bug", "--server", serverURL)
 
-	listJSON := arcCmdSuccess(t, home, "list", "--json", "--server", serverURL)
+	listJSON := arcCmdInDirSuccess(t, home, dir, "list", "--json", "--server", serverURL)
 
 	var issues []map[string]interface{}
 	if err := json.Unmarshal([]byte(listJSON), &issues); err != nil {

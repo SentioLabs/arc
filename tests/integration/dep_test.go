@@ -137,14 +137,16 @@ func TestBlockedShowsBlockedIssues(t *testing.T) {
 }
 
 // TestBlockedEmpty verifies that "arc blocked" reports no blocked issues when
-// there are no dependencies.
+// there are no dependencies. Uses a temp dir for CWD isolation so workspace
+// resolution doesn't pick up issues from other tests.
 func TestBlockedEmpty(t *testing.T) {
 	home := setupHome(t)
 	wsName := fmt.Sprintf("dep-empty-%d", uniqueCounter())
+	dir := t.TempDir()
 
-	arcCmdSuccess(t, home, "init", wsName, "--server", serverURL)
+	arcCmdInDirSuccess(t, home, dir, "init", wsName, "--server", serverURL)
 
-	blockedOut := arcCmdSuccess(t, home, "blocked", "--server", serverURL)
+	blockedOut := arcCmdInDirSuccess(t, home, dir, "blocked", "--server", serverURL)
 	if !strings.Contains(blockedOut, "No blocked issues") {
 		t.Errorf("expected 'No blocked issues' in output, got: %s", blockedOut)
 	}
