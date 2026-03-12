@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { deleteWorkspaces, type Workspace } from '$lib/api';
-	import { ConfirmDialog } from '$lib/components';
+	import { deleteWorkspaces, mergeWorkspaces, type Workspace, type MergeResult } from '$lib/api';
+	import { ConfirmDialog, Select } from '$lib/components';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
 
@@ -32,6 +32,13 @@
 	let deleteDialogOpen = $state(false);
 	let deleting = $state(false);
 	let workspacesToDelete = $state<Workspace[]>([]);
+
+	// Merge state
+	let mergeDialogOpen = $state(false);
+	let mergeTargetId = $state('');
+	let merging = $state(false);
+	let workspacesToMerge: Workspace[] = $state([]);
+	let mergeResult: MergeResult | null = $state(null);
 
 	// Derived state
 	const selectedCount = $derived(selectedIds.size);
@@ -107,6 +114,66 @@
 	function cancelDelete() {
 		deleteDialogOpen = false;
 		workspacesToDelete = [];
+	}
+
+	// Merge target options: all workspaces except those being merged
+	const mergeTargetOptions = $derived(() => {
+		const sourceIds = new Set(workspacesToMerge.map((w) => w.id));
+		return $workspaces
+			.filter((w) => !sourceIds.has(w.id))
+			.map((w) => ({ value: w.id, label: w.name }));
+	});
+
+	function handleMerge() {
+		workspacesToMerge = $workspaces.filter((w) => selectedIds.has(w.id));
+		mergeTargetId = '';
+		mergeResult = null;
+		mergeDialogOpen = true;
+	}
+
+	async function confirmMerge() {
+		if (!mergeTargetId || workspacesToMerge.length === 0) return;
+
+		merging = true;
+		try {
+			const sourceIds = workspacesToMerge.map((w) => w.id);
+			const result = await mergeWorkspaces(mergeTargetId, sourceIds);
+			mergeResult = result;
+
+			// Update the store: remove merged sources, replace target with updated version
+			workspaces.update((current) =>
+				current
+					.filter((w) => !result.sources_deleted.includes(w.id))
+					.map((w) => (w.id === result.target_workspace.id ? result.target_workspace : w))
+			);
+
+			// Clear selection
+			selectedIds = new Set();
+		} catch (err) {
+			console.error('Failed to merge workspaces:', err);
+			// TODO: Show error toast
+		} finally {
+			merging = false;
+		}
+	}
+
+	function cancelMerge() {
+		mergeDialogOpen = false;
+		workspacesToMerge = [];
+		mergeResult = null;
+		mergeTargetId = '';
+	}
+
+	function closeMergeAfterSuccess() {
+		mergeDialogOpen = false;
+		workspacesToMerge = [];
+		mergeResult = null;
+		mergeTargetId = '';
+
+		// Exit edit mode if few workspaces left
+		if ($workspaces.length <= 1) {
+			editMode = false;
+		}
 	}
 </script>
 
@@ -200,6 +267,15 @@
 			</label>
 
 			{#if selectedCount > 0}
+				<div class="flex items-center gap-2">
+					{#if $workspaces.length > selectedCount}
+						<button class="btn btn-primary btn-sm" onclick={handleMerge}>
+							<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z" />
+							</svg>
+							Merge into...
+						</button>
+					{/if}
 				<button class="btn btn-danger btn-sm" onclick={handleDeleteSelected}>
 					<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
 						<path
@@ -208,6 +284,7 @@
 					</svg>
 					Delete {selectedCount === 1 ? 'workspace' : `${selectedCount} workspaces`}
 				</button>
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -329,6 +406,115 @@
 	onconfirm={confirmDelete}
 	oncancel={cancelDelete}
 />
+
+<!-- Merge Dialog -->
+{#if mergeDialogOpen}
+	{@const targetOptions = mergeTargetOptions()}
+	<dialog
+		class="dialog-modal"
+		open
+		onclick={(e) => { if (e.target === e.currentTarget && !merging) cancelMerge(); }}
+		onkeydown={(e) => { if (e.key === 'Escape' && !merging) { e.preventDefault(); cancelMerge(); } }}
+	>
+		<div class="dialog-content animate-dialog-in">
+			{#if mergeResult}
+				<!-- Success state -->
+				<div class="flex items-start gap-4 mb-6">
+					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-status-open/20">
+						<svg class="w-5 h-5 text-status-open" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+						</svg>
+					</div>
+					<div class="flex-1 min-w-0">
+						<h2 class="text-lg font-semibold text-text-primary">Merge complete</h2>
+						<p class="text-sm text-text-secondary mt-1">
+							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{mergeResult.target_workspace.name}</strong>.
+						</p>
+					</div>
+				</div>
+
+				<div class="flex items-center justify-end">
+					<button class="btn btn-primary" onclick={closeMergeAfterSuccess} type="button">
+						Done
+					</button>
+				</div>
+			{:else}
+				<!-- Merge form -->
+				<div class="flex items-start gap-4 mb-6">
+					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-primary-600/20">
+						<svg class="w-5 h-5 text-primary-400" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z" />
+						</svg>
+					</div>
+					<div class="flex-1 min-w-0">
+						<h2 class="text-lg font-semibold text-text-primary">Merge workspaces</h2>
+						<p class="text-sm text-text-secondary mt-1">
+							Move all issues and plans from the selected workspaces into a target workspace. The source workspaces will be deleted.
+						</p>
+					</div>
+				</div>
+
+				<!-- Source workspaces list -->
+				<div class="mb-4">
+					<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
+						{workspacesToMerge.length === 1 ? 'Workspace to merge' : `${workspacesToMerge.length} workspaces to merge`}
+					</div>
+					<div class="bg-surface-900 border border-border-subtle rounded-md max-h-40 overflow-y-auto">
+						{#each workspacesToMerge as ws (ws.id)}
+							<div class="px-3 py-2 text-sm font-mono text-text-primary border-b border-border-subtle last:border-b-0">
+								{ws.name}
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Target workspace select -->
+				<div class="mb-6">
+					<label class="block text-xs font-medium text-text-muted uppercase tracking-wider mb-2" for="merge-target">
+						Merge into
+					</label>
+					<Select
+						options={targetOptions}
+						value={mergeTargetId}
+						placeholder="Select target workspace..."
+						onchange={(v) => { mergeTargetId = v; }}
+					/>
+				</div>
+
+				<!-- Warning -->
+				<div class="flex items-center gap-2 p-3 bg-priority-high/10 border border-priority-high/20 rounded-md mb-6">
+					<svg class="w-4 h-4 text-priority-high shrink-0" viewBox="0 0 24 24" fill="currentColor">
+						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+					</svg>
+					<span class="text-xs text-priority-high">Source workspaces will be permanently deleted after merge</span>
+				</div>
+
+				<!-- Actions -->
+				<div class="flex items-center justify-end gap-3">
+					<button class="btn btn-ghost" onclick={cancelMerge} disabled={merging} type="button">
+						Cancel
+					</button>
+					<button
+						class="btn btn-primary"
+						onclick={confirmMerge}
+						disabled={merging || !mergeTargetId}
+						type="button"
+					>
+						{#if merging}
+							<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							Merging...
+						{:else}
+							Merge {workspacesToMerge.length === 1 ? 'workspace' : 'workspaces'}
+						{/if}
+					</button>
+				</div>
+			{/if}
+		</div>
+	</dialog>
+{/if}
 
 {#snippet workspaceContent(workspace: Workspace)}
 	<div class="flex items-start justify-between mb-4">

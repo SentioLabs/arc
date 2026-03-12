@@ -68,6 +68,17 @@ export async function deleteWorkspaces(workspaceIds: string[]): Promise<void> {
 	await Promise.all(workspaceIds.map((id) => deleteWorkspace(id)));
 }
 
+export type MergeResult = components['schemas']['MergeResult'];
+
+export async function mergeWorkspaces(targetId: string, sourceIds: string[]): Promise<MergeResult> {
+	const { data, error } = await api.POST('/workspaces/merge', {
+		body: { target_id: targetId, source_ids: sourceIds }
+	});
+	if (error) handleError(error);
+	if (!data) throw new Error('Failed to merge workspaces');
+	return data;
+}
+
 // Issue APIs
 export interface IssueFilters {
 	status?: string;
