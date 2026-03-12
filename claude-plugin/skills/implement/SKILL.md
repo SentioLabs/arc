@@ -53,7 +53,7 @@ arc update <task-id> --status in_progress
 
 ### 3. Dispatch Agent
 
-Record the current HEAD before dispatching — the review skill needs this to determine the commit range:
+Record the current HEAD before dispatching — needed for review if escalated:
 
 ```bash
 PRE_TASK_SHA=$(git rev-parse HEAD)
@@ -79,7 +79,7 @@ Verify formatting quality and commit your work.
 **Otherwise** — spawn an `arc-implementer` subagent:
 
 ```
-Implement this task following TDD (RED → GREEN → REFACTOR).
+Implement this task following TDD (RED → GREEN → REFACTOR → GATE).
 
 ## Task
 <paste output of: arc show <task-id>>
@@ -87,41 +87,64 @@ Implement this task following TDD (RED → GREEN → REFACTOR).
 ## Project Test Command
 <project's test command, e.g., make test, go test ./...>
 
-Commit your work when tests pass.
+Commit your work when all gate checks pass.
 ```
 
-### 4. Review Result
+### 4. Evaluate Result
 
-When the subagent reports back, invoke the `verify` skill to confirm tests pass and the task spec is met. Specifically check:
-- Did all tests pass? (run the proof command fresh — don't trust the subagent's report alone)
-- Was the approach correct per the task spec?
-- Were there any regressions?
+When the subagent reports back, check the **Result** and **Gate Results** in its report:
+
+**If `PASS`** (all gate checks passed):
+- Run the project test command fresh yourself to confirm — do NOT trust the subagent's report alone
+- If tests pass → proceed to step 6
+
+**If `PARTIAL`** (gate identified unresolved issues):
+- Read the `Gate: Unresolved` section carefully
+- Decide: is this a re-dispatch or a debug situation?
+- See step 5
+
+**If the subagent did not include gate results** (it skipped the gate):
+- Treat this as a failed result — re-dispatch with explicit reminder to complete all gate checks
 
 ### 5. Handle Issues
 
+- **Subagent reports `PARTIAL` with clear gaps** → re-dispatch `arc-implementer` with the specific gaps listed in `Gate: Unresolved`, plus the original task description
 - **Subagent reports test failures it can't resolve** → invoke the `debug` skill
 - **3+ implementation attempts fail on same issue** → invoke the `debug` skill
-- **Approach was wrong** → re-dispatch the appropriate agent (`arc-implementer` or `arc-doc-writer`) with corrected guidance
+- **Approach was wrong** → re-dispatch the appropriate agent with corrected guidance
 
-### 6. Review Code
+When re-dispatching, include the previous gate feedback so the implementer knows exactly what to fix:
 
-If the result looks clean, invoke the `review` skill to dispatch the `arc-reviewer` subagent. For `docs-only` tasks, code review is optional — skip it unless the documentation changes are substantial or affect developer-facing API docs.
+```
+Continue implementing this task. A previous attempt was made but the gate check identified issues.
 
-### 7. Process Review Feedback
+## Task
+<paste output of: arc show <task-id>>
 
-- **Critical findings** → re-dispatch implementer with the specific fixes
-- **Important findings** → re-dispatch implementer before moving to next task
-- **Minor findings** → note in an arc comment for later: `arc update <task-id> --description "Minor: ..." `
+## Previous Gate Feedback
+<paste the Gate: Unresolved section from the previous report>
 
-### 8. Close Task
+## Project Test Command
+<project's test command>
+
+Fix the identified issues, re-run all gate checks, and commit when complete.
+```
+
+### 6. Close Task
 
 ```bash
 arc close <task-id> -r "Implemented: <summary>"
 ```
 
-### 9. Repeat
+### 7. Repeat
 
 Go to step 1 for the next task. Continue until all tasks in the epic are closed.
+
+## Optional: Deep Code Review
+
+For high-stakes tasks (security-sensitive, public API changes, complex algorithms), invoke the `review` skill after step 4 to get a separate-eyes code review from the `arc-reviewer` subagent. This is optional because the implementer's gate already covers functional completeness and code quality — the separate review adds value when you want an independent perspective.
+
+For `docs-only` tasks, code review is optional — skip it unless the documentation changes are substantial or affect developer-facing API docs.
 
 ## Parallel Dispatch Protocol
 
@@ -221,8 +244,8 @@ arc close <id> -r "reason"            # Close completed task
 ## Rules
 
 - Never write implementation code as the main agent — always dispatch
-- Never skip the review step after implementation
-- Never close a task without checking that tests pass
+- Never close a task without confirming tests pass yourself (fresh run)
+- Never close a task if the implementer reported `PARTIAL` without re-dispatching
 - If in doubt about the result, re-dispatch rather than fixing manually
 - Never dispatch parallel agents without committing and pushing all sequential work first
 - Never dispatch parallel agents on tasks that share files
