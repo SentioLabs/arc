@@ -5,22 +5,17 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
-	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
 )
 
 // onboardLimit is the default number of issues shown per category in onboard output.
 const onboardLimit = 5
-
-// errWorkspaceNotFound is returned when no workspace matches the current directory.
-var errWorkspaceNotFound = errors.New("no workspace found for current directory")
 
 // onboardCmd displays essential workspace context for new sessions.
 var onboardCmd = &cobra.Command{
@@ -34,9 +29,6 @@ This command helps AI agents quickly understand:
 - Ready-to-work items
 - Blocked issues
 
-If no workspace is configured locally but one exists on the server for this
-directory, the local configuration will be automatically restored.
-
 Run this at the start of a session to get context.`,
 	RunE: runOnboard,
 }
@@ -45,83 +37,22 @@ func init() {
 	rootCmd.AddCommand(onboardCmd)
 }
 
-// loadOnboardConfig attempts to load workspace config from ~/.arc/projects/
-func loadOnboardConfig() (*project.Config, error) {
+// resolveWorkspaceID resolves the workspace ID for the current directory
+// via the server's workspace path resolution API.
+func resolveWorkspaceID(c *client.Client) (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, err
-	}
-	arcHome := project.DefaultArcHome()
-	projectRoot, err := project.FindProjectRootWithArcHome(cwd, arcHome)
-	if err != nil {
-		return nil, err
-	}
-	return project.LoadConfig(arcHome, projectRoot)
-}
-
-// saveOnboardConfig saves workspace info to ~/.arc/projects/
-func saveOnboardConfig(workspaceID, workspaceName string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	arcHome := project.DefaultArcHome()
-	cfg := &project.Config{
-		WorkspaceID:   workspaceID,
-		WorkspaceName: workspaceName,
-		ProjectRoot:   cwd,
-	}
-	return project.WriteConfig(arcHome, cwd, cfg)
-}
-
-// findWorkspaceByPath queries the server for a workspace matching the current directory
-func findWorkspaceByPath(c *client.Client) (*types.Workspace, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	workspaces, err := c.ListWorkspaces()
-	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	normalizedCwd := project.NormalizePath(cwd)
 
-	for _, ws := range workspaces {
-		if ws.Path == cwd || project.NormalizePath(ws.Path) == normalizedCwd {
-			return ws, nil
-		}
-	}
-
-	return nil, errWorkspaceNotFound
-}
-
-// tryRecoverWorkspace attempts to find and restore a workspace matching the
-// current directory from the server. Returns the workspace ID if found, or
-// an empty string when no matching workspace exists.
-func tryRecoverWorkspace(c *client.Client) string {
-	ws, err := findWorkspaceByPath(c)
+	resolution, err := c.ResolveWorkspaceByPath(normalizedCwd)
 	if err != nil {
-		return ""
+		return "", err
 	}
 
-	// Found workspace on server - restore local config
-	_, _ = fmt.Println("## Workspace Recovery")
-	_, _ = fmt.Println()
-	_, _ = fmt.Printf("Found workspace **%s** on server for this directory.\n", ws.Name)
-	_, _ = fmt.Println("Restoring local configuration...")
-	_, _ = fmt.Println()
-
-	// Save project config to ~/.arc/projects/
-	if err := saveOnboardConfig(ws.ID, ws.Name); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Warning: could not save project config: %v\n", err)
-	} else {
-		_, _ = fmt.Println("\u2713 Created project config")
-	}
-	_, _ = fmt.Println()
-
-	return ws.ID
+	return resolution.WorkspaceID, nil
 }
 
 //nolint:revive // function-length + CLI output: onboard prints many sequential lines
@@ -131,21 +62,9 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("connect to server: %w", err)
 	}
 
-	var wsID string
-
-	// Step 1: Try to get workspace ID from project config
-	projCfg, err := loadOnboardConfig()
-	if err == nil && projCfg.WorkspaceID != "" {
-		wsID = projCfg.WorkspaceID
-	}
-
-	// Step 2: If no local config, try to find workspace by path from server
-	if wsID == "" {
-		wsID = tryRecoverWorkspace(c)
-	}
-
-	// Step 3: If still no workspace, suggest initialization
-	if wsID == "" {
+	// Resolve workspace ID via server path resolution
+	wsID, err := resolveWorkspaceID(c)
+	if err != nil || wsID == "" {
 		fmt.Println("# No Workspace Found")
 		fmt.Println()
 		fmt.Println("This directory is not configured for arc issue tracking.")

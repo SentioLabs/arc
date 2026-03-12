@@ -23,7 +23,6 @@ const MaxPrefixLength = 15
 type Workspace struct {
 	ID          string    `json:"id"`             // Short hash ID (e.g., "ws-a1b2")
 	Name        string    `json:"name"`           // Display name
-	Path        string    `json:"path,omitempty"` // Optional: associated directory path
 	Description string    `json:"description,omitempty"`
 	Prefix      string    `json:"prefix"` // Issue ID prefix (e.g., "bd")
 	CreatedAt   time.Time `json:"created_at"`

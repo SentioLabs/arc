@@ -1144,9 +1144,6 @@ components:
           type: string
           description: Display name
           maxLength: 100
-        path:
-          type: string
-          description: Optional associated directory path
         description:
           type: string
           description: Workspace description
@@ -1171,9 +1168,6 @@ components:
           type: string
           description: Display name
           maxLength: 100
-        path:
-          type: string
-          description: Optional associated directory path
         description:
           type: string
           description: Workspace description
@@ -1189,9 +1183,6 @@ components:
           type: string
           description: New display name
           maxLength: 100
-        path:
-          type: string
-          description: New associated directory path
         description:
           type: string
           description: New description

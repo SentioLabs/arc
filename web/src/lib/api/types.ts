@@ -541,8 +541,6 @@ export interface components {
             id: string;
             /** @description Display name */
             name: string;
-            /** @description Optional associated directory path */
-            path?: string;
             /** @description Workspace description */
             description?: string;
             /** @description Issue ID prefix (e.g., "bd") */
@@ -555,8 +553,6 @@ export interface components {
         CreateWorkspaceRequest: {
             /** @description Display name */
             name: string;
-            /** @description Optional associated directory path */
-            path?: string;
             /** @description Workspace description */
             description?: string;
             /** @description Issue ID prefix */
@@ -565,8 +561,6 @@ export interface components {
         UpdateWorkspaceRequest: {
             /** @description New display name */
             name?: string;
-            /** @description New associated directory path */
-            path?: string;
             /** @description New description */
             description?: string;
         };

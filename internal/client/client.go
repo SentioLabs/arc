@@ -81,7 +81,6 @@ func (c *Client) CreateWorkspace(name, prefix, path, description string) (*types
 	body := map[string]string{
 		"name":        name,
 		"prefix":      prefix,
-		"path":        path,
 		"description": description,
 	}
 

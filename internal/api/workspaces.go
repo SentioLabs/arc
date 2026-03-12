@@ -1,18 +1,15 @@
 package api
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
 // createWorkspaceRequest is the request body for creating a workspace.
 type createWorkspaceRequest struct {
 	Name        string `json:"name"`
-	Path        string `json:"path,omitempty"`
 	Description string `json:"description,omitempty"`
 	Prefix      string `json:"prefix"`
 }
@@ -20,7 +17,6 @@ type createWorkspaceRequest struct {
 // updateWorkspaceRequest is the request body for updating a workspace.
 type updateWorkspaceRequest struct {
 	Name        string `json:"name,omitempty"`
-	Path        string `json:"path,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
@@ -45,7 +41,6 @@ func (s *Server) createWorkspace(c echo.Context) error {
 
 	ws := &types.Workspace{
 		Name:        req.Name,
-		Path:        req.Path,
 		Description: req.Description,
 		Prefix:      req.Prefix,
 	}
@@ -69,7 +64,7 @@ func (s *Server) getWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// updateWorkspace updates a workspace's name, path, or description.
+// updateWorkspace updates a workspace's name or description.
 // Only non-empty fields in the request body are applied.
 func (s *Server) updateWorkspace(c echo.Context) error {
 	id := c.Param("id")
@@ -87,9 +82,6 @@ func (s *Server) updateWorkspace(c echo.Context) error {
 	if req.Name != "" {
 		ws.Name = req.Name
 	}
-	if req.Path != "" {
-		ws.Path = req.Path
-	}
 	if req.Description != "" {
 		ws.Description = req.Description
 	}
@@ -101,21 +93,12 @@ func (s *Server) updateWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// deleteWorkspace deletes a workspace and performs best-effort cleanup
-// of any project configs that reference the deleted workspace.
+// deleteWorkspace deletes a workspace.
 func (s *Server) deleteWorkspace(c echo.Context) error {
 	id := c.Param("id")
 
 	if err := s.store.DeleteWorkspace(c.Request().Context(), id); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	// Best-effort cleanup of project configs referencing this workspace
-	arcHome := project.DefaultArcHome()
-	if removed, err := project.CleanupWorkspaceConfigs(arcHome, id); err != nil {
-		log.Printf("Warning: failed to clean up project configs for workspace %s: %v", id, err)
-	} else if removed > 0 {
-		log.Printf("Cleaned up %d project config(s) for deleted workspace %s", removed, id)
 	}
 
 	return c.NoContent(http.StatusNoContent)

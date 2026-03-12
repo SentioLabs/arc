@@ -40,17 +40,18 @@ Install hooks:
 Workflow customization:
 - Place a .arc/PRIME.md file to override the default output entirely.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Check if this project has arc configured via ~/.arc/projects/
+		// Check if this project has arc configured via workspace path resolution
 		cwd, err := os.Getwd()
 		if err != nil {
 			os.Exit(0)
 		}
-		arcHome := project.DefaultArcHome()
-		projectRoot, err := project.FindProjectRootWithArcHome(cwd, arcHome)
+		normalizedCwd := project.NormalizePath(cwd)
+
+		c, err := getClient()
 		if err != nil {
 			os.Exit(0)
 		}
-		if _, err := project.LoadConfig(arcHome, projectRoot); err != nil {
+		if _, err := c.ResolveWorkspaceByPath(normalizedCwd); err != nil {
 			// Not in an arc project - silent exit with success
 			// This enables cross-platform hook integration
 			os.Exit(0)

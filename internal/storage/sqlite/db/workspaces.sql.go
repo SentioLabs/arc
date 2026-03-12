@@ -34,14 +34,13 @@ func (q *Queries) CountWorkspacesByName(ctx context.Context, name string) (int64
 }
 
 const createWorkspace = `-- name: CreateWorkspace :exec
-INSERT INTO workspaces (id, name, path, description, prefix, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO workspaces (id, name, description, prefix, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
 	ID          string         `json:"id"`
 	Name        string         `json:"name"`
-	Path        sql.NullString `json:"path"`
 	Description sql.NullString `json:"description"`
 	Prefix      string         `json:"prefix"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -52,7 +51,6 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 	_, err := q.db.ExecContext(ctx, createWorkspace,
 		arg.ID,
 		arg.Name,
-		arg.Path,
 		arg.Description,
 		arg.Prefix,
 		arg.CreatedAt,
@@ -80,7 +78,7 @@ func (q *Queries) DeleteWorkspace(ctx context.Context, id string) error {
 }
 
 const getWorkspace = `-- name: GetWorkspace :one
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces WHERE id = ?
+SELECT id, name, description, prefix, created_at, updated_at FROM workspaces WHERE id = ?
 `
 
 func (q *Queries) GetWorkspace(ctx context.Context, id string) (*Workspace, error) {
@@ -89,7 +87,6 @@ func (q *Queries) GetWorkspace(ctx context.Context, id string) (*Workspace, erro
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Path,
 		&i.Description,
 		&i.Prefix,
 		&i.CreatedAt,
@@ -99,7 +96,7 @@ func (q *Queries) GetWorkspace(ctx context.Context, id string) (*Workspace, erro
 }
 
 const getWorkspaceByName = `-- name: GetWorkspaceByName :one
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces WHERE name = ?
+SELECT id, name, description, prefix, created_at, updated_at FROM workspaces WHERE name = ?
 `
 
 func (q *Queries) GetWorkspaceByName(ctx context.Context, name string) (*Workspace, error) {
@@ -108,26 +105,6 @@ func (q *Queries) GetWorkspaceByName(ctx context.Context, name string) (*Workspa
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Path,
-		&i.Description,
-		&i.Prefix,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
-const getWorkspaceByPath = `-- name: GetWorkspaceByPath :one
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces WHERE path = ?
-`
-
-func (q *Queries) GetWorkspaceByPath(ctx context.Context, path sql.NullString) (*Workspace, error) {
-	row := q.db.QueryRowContext(ctx, getWorkspaceByPath, path)
-	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Path,
 		&i.Description,
 		&i.Prefix,
 		&i.CreatedAt,
@@ -137,7 +114,7 @@ func (q *Queries) GetWorkspaceByPath(ctx context.Context, path sql.NullString) (
 }
 
 const listWorkspaces = `-- name: ListWorkspaces :many
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces ORDER BY name
+SELECT id, name, description, prefix, created_at, updated_at FROM workspaces ORDER BY name
 `
 
 func (q *Queries) ListWorkspaces(ctx context.Context) ([]*Workspace, error) {
@@ -152,7 +129,6 @@ func (q *Queries) ListWorkspaces(ctx context.Context) ([]*Workspace, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Path,
 			&i.Description,
 			&i.Prefix,
 			&i.CreatedAt,
@@ -199,13 +175,12 @@ func (q *Queries) MovePlansToWorkspace(ctx context.Context, arg MovePlansToWorks
 
 const updateWorkspace = `-- name: UpdateWorkspace :exec
 UPDATE workspaces
-SET name = ?, path = ?, description = ?, updated_at = ?
+SET name = ?, description = ?, updated_at = ?
 WHERE id = ?
 `
 
 type UpdateWorkspaceParams struct {
 	Name        string         `json:"name"`
-	Path        sql.NullString `json:"path"`
 	Description sql.NullString `json:"description"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	ID          string         `json:"id"`
@@ -214,7 +189,6 @@ type UpdateWorkspaceParams struct {
 func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) error {
 	_, err := q.db.ExecContext(ctx, updateWorkspace,
 		arg.Name,
-		arg.Path,
 		arg.Description,
 		arg.UpdatedAt,
 		arg.ID,

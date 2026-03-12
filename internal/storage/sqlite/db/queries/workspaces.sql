@@ -1,6 +1,6 @@
 -- name: CreateWorkspace :exec
-INSERT INTO workspaces (id, name, path, description, prefix, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workspaces (id, name, description, prefix, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: GetWorkspace :one
 SELECT * FROM workspaces WHERE id = ?;
@@ -8,15 +8,12 @@ SELECT * FROM workspaces WHERE id = ?;
 -- name: GetWorkspaceByName :one
 SELECT * FROM workspaces WHERE name = ?;
 
--- name: GetWorkspaceByPath :one
-SELECT * FROM workspaces WHERE path = ?;
-
 -- name: ListWorkspaces :many
 SELECT * FROM workspaces ORDER BY name;
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
-SET name = ?, path = ?, description = ?, updated_at = ?
+SET name = ?, description = ?, updated_at = ?
 WHERE id = ?;
 
 -- name: DeleteWorkspace :exec

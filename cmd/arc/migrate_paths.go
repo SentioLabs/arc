@@ -11,6 +11,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// legacyProjectConfig is the old per-project config format used before
+// workspace paths were managed server-side.
+type legacyProjectConfig struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+	ProjectRoot   string `json:"project_root"`
+}
+
 // migratePathsCmd reads existing ~/.arc/projects/ configs and registers them
 // as workspace paths via the server API, then backs up the old configs.
 var migratePathsCmd = &cobra.Command{
@@ -88,7 +96,7 @@ func init() {
 }
 
 // readProjectConfigs reads all project configs from arcHome/projects/ subdirectories.
-func readProjectConfigs(arcHome string) ([]project.Config, error) {
+func readProjectConfigs(arcHome string) ([]legacyProjectConfig, error) {
 	projDir := filepath.Join(arcHome, "projects")
 
 	entries, err := os.ReadDir(projDir)
@@ -99,7 +107,7 @@ func readProjectConfigs(arcHome string) ([]project.Config, error) {
 		return nil, fmt.Errorf("read projects dir: %w", err)
 	}
 
-	var configs []project.Config
+	var configs []legacyProjectConfig
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -111,7 +119,7 @@ func readProjectConfigs(arcHome string) ([]project.Config, error) {
 			continue // skip dirs without config.json
 		}
 
-		var cfg project.Config
+		var cfg legacyProjectConfig
 		if err := json.Unmarshal(data, &cfg); err != nil {
 			continue // skip unparseable configs
 		}

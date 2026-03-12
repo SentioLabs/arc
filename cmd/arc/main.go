@@ -378,29 +378,18 @@ var workspaceListCmd = &cobra.Command{
 			return nil
 		}
 
-		// Get current directory to mark the active workspace
-		cwd, _ := os.Getwd()
-
 		// Create a tabwriter for aligned columns
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, tabwriterPadding, ' ', 0)
-		_, _ = fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION\tPATH")
-		_, _ = fmt.Fprintln(w, "  \t────\t──────\t──\t───────────\t────")
+		_, _ = fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION")
+		_, _ = fmt.Fprintln(w, "  \t────\t──────\t──\t───────────")
 
 		for _, ws := range workspaces {
 			marker := " "
-			// Mark workspace if current directory is within its path
-			if ws.Path != "" && cwd != "" && isSubdirectory(ws.Path, cwd) {
-				marker = "*"
-			}
-			path := ws.Path
-			if path == "" {
-				path = "-"
-			}
 			desc := ws.Description
 			if desc == "" {
 				desc = "-"
 			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc, path)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc)
 		}
 		_ = w.Flush()
 		return nil

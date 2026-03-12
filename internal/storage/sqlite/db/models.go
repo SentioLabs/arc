@@ -107,7 +107,6 @@ type Plan struct {
 type Workspace struct {
 	ID          string         `json:"id"`
 	Name        string         `json:"name"`
-	Path        sql.NullString `json:"path"`
 	Description sql.NullString `json:"description"`
 	Prefix      string         `json:"prefix"`
 	CreatedAt   time.Time      `json:"created_at"`

@@ -110,34 +110,21 @@ func runInit(cmd *cobra.Command, args []string) error {
 	var ws *struct {
 		ID          string `json:"id"`
 		Name        string `json:"name"`
-		Path        string `json:"path"`
 		Description string `json:"description"`
 		Prefix      string `json:"prefix"`
 	}
 
-	// When user provides an explicit name, match by name only.
-	// When auto-generating name, match by path or name (existing behavior).
-	nameExplicit := len(args) > 0
+	// Look for existing workspace by name
 	for _, existing := range workspaces {
-		var match bool
-		if nameExplicit {
-			match = existing.Name == name
-		} else {
-			match = existing.Path == cwd ||
-				project.NormalizePath(existing.Path) == cwd ||
-				existing.Name == name
-		}
-		if match {
+		if existing.Name == name {
 			ws = &struct {
 				ID          string `json:"id"`
 				Name        string `json:"name"`
-				Path        string `json:"path"`
 				Description string `json:"description"`
 				Prefix      string `json:"prefix"`
 			}{
 				ID:          existing.ID,
 				Name:        existing.Name,
-				Path:        existing.Path,
 				Description: existing.Description,
 				Prefix:      existing.Prefix,
 			}
@@ -157,13 +144,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 		ws = &struct {
 			ID          string `json:"id"`
 			Name        string `json:"name"`
-			Path        string `json:"path"`
 			Description string `json:"description"`
 			Prefix      string `json:"prefix"`
 		}{
 			ID:          newWs.ID,
 			Name:        newWs.Name,
-			Path:        newWs.Path,
 			Description: newWs.Description,
 			Prefix:      newWs.Prefix,
 		}

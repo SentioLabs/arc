@@ -30,7 +30,6 @@ func (s *Store) CreateWorkspace(ctx context.Context, ws *types.Workspace) error 
 	err := s.queries.CreateWorkspace(ctx, db.CreateWorkspaceParams{
 		ID:          ws.ID,
 		Name:        ws.Name,
-		Path:        toNullString(ws.Path),
 		Description: toNullString(ws.Description),
 		Prefix:      ws.Prefix,
 		CreatedAt:   now,
@@ -70,16 +69,10 @@ func (s *Store) GetWorkspaceByName(ctx context.Context, name string) (*types.Wor
 }
 
 // GetWorkspaceByPath retrieves a workspace by its file system path.
+// Deprecated: This method is kept for interface compatibility but workspace
+// paths are now managed via the workspace_paths table.
 func (s *Store) GetWorkspaceByPath(ctx context.Context, path string) (*types.Workspace, error) {
-	row, err := s.queries.GetWorkspaceByPath(ctx, toNullString(path))
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("workspace not found for path: %s", path)
-		}
-		return nil, fmt.Errorf("get workspace by path: %w", err)
-	}
-
-	return dbWorkspaceToType(row), nil
+	return nil, fmt.Errorf("workspace not found for path: %s (deprecated: use workspace_paths)", path)
 }
 
 // ListWorkspaces returns all workspaces.
@@ -103,7 +96,6 @@ func (s *Store) UpdateWorkspace(ctx context.Context, ws *types.Workspace) error 
 
 	err := s.queries.UpdateWorkspace(ctx, db.UpdateWorkspaceParams{
 		Name:        ws.Name,
-		Path:        toNullString(ws.Path),
 		Description: toNullString(ws.Description),
 		UpdatedAt:   ws.UpdatedAt,
 		ID:          ws.ID,
@@ -226,7 +218,6 @@ func dbWorkspaceToType(row *db.Workspace) *types.Workspace {
 	return &types.Workspace{
 		ID:          row.ID,
 		Name:        row.Name,
-		Path:        fromNullString(row.Path),
 		Description: fromNullString(row.Description),
 		Prefix:      row.Prefix,
 		CreatedAt:   row.CreatedAt,
