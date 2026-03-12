@@ -181,7 +181,7 @@ arc self update                 # Update to latest version
 
 ```bash
 # For multi-project setups or manual project control
-arc project create my-project --path /path/to/project
+arc project create my-project
 arc project use my-project      # Set default project
 arc project list
 arc project delete ws-abc123
@@ -287,20 +287,20 @@ arc setup codex
 curl http://localhost:7432/health
 
 # Create project
-curl -X POST http://localhost:7432/api/v1/workspaces \
+curl -X POST http://localhost:7432/api/v1/projects \
   -H "Content-Type: application/json" \
   -d '{"name": "my-project", "prefix": "mp"}'
 
 # List issues
-curl http://localhost:7432/api/v1/workspaces/ws-abc123/issues
+curl http://localhost:7432/api/v1/projects/ws-abc123/issues
 
 # Create issue
-curl -X POST http://localhost:7432/api/v1/workspaces/ws-abc123/issues \
+curl -X POST http://localhost:7432/api/v1/projects/ws-abc123/issues \
   -H "Content-Type: application/json" \
   -d '{"title": "New feature", "priority": 1, "issue_type": "feature"}'
 
 # Get ready work
-curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
+curl http://localhost:7432/api/v1/projects/ws-abc123/ready
 ```
 
 ## Architecture
@@ -336,7 +336,7 @@ flowchart TB
 ### Project
 
 - ID (e.g., "ws-a1b2")
-- Name, description, path
+- Name, description
 - Prefix for issue IDs
 
 ### Issue
@@ -414,38 +414,44 @@ make docker-up
 
 ### Projects
 
-- `GET /api/v1/workspaces` - List projects
-- `POST /api/v1/workspaces` - Create project
-- `GET /api/v1/workspaces/:id` - Get project
-- `PUT /api/v1/workspaces/:id` - Update project
-- `DELETE /api/v1/workspaces/:id` - Delete project
-- `GET /api/v1/workspaces/:id/stats` - Get statistics
+- `GET /api/v1/projects` - List projects
+- `POST /api/v1/projects` - Create project
+- `GET /api/v1/projects/:id` - Get project
+- `PUT /api/v1/projects/:id` - Update project
+- `DELETE /api/v1/projects/:id` - Delete project
+- `GET /api/v1/projects/:id/stats` - Get statistics
+
+### Workspaces (Directory Paths)
+
+- `GET /api/v1/projects/:id/workspaces` - List workspace paths
+- `POST /api/v1/projects/:id/workspaces` - Add workspace path
+- `DELETE /api/v1/projects/:id/workspaces/:wid` - Remove workspace path
 
 ### Issues
 
-- `GET /api/v1/workspaces/:ws/issues` - List issues
-- `POST /api/v1/workspaces/:ws/issues` - Create issue
-- `GET /api/v1/workspaces/:ws/issues/:id` - Get issue
-- `PUT /api/v1/workspaces/:ws/issues/:id` - Update issue
-- `DELETE /api/v1/workspaces/:ws/issues/:id` - Delete issue
-- `POST /api/v1/workspaces/:ws/issues/:id/close` - Close issue
-- `POST /api/v1/workspaces/:ws/issues/:id/reopen` - Reopen issue
+- `GET /api/v1/projects/:id/issues` - List issues
+- `POST /api/v1/projects/:id/issues` - Create issue
+- `GET /api/v1/projects/:id/issues/:iid` - Get issue
+- `PUT /api/v1/projects/:id/issues/:iid` - Update issue
+- `DELETE /api/v1/projects/:id/issues/:iid` - Delete issue
+- `POST /api/v1/projects/:id/issues/:iid/close` - Close issue
+- `POST /api/v1/projects/:id/issues/:iid/reopen` - Reopen issue
 
 ### Ready Work & Blocked
 
-- `GET /api/v1/workspaces/:ws/ready` - Ready issues
-- `GET /api/v1/workspaces/:ws/blocked` - Blocked issues
+- `GET /api/v1/projects/:id/ready` - Ready issues
+- `GET /api/v1/projects/:id/blocked` - Blocked issues
 
 ### Team Context
 
-- `GET /api/v1/workspaces/:ws/team-context` - Issues grouped by `teammate:*` labels
-- `GET /api/v1/workspaces/:ws/team-context?epic_id=ID` - Scoped to epic children
+- `GET /api/v1/projects/:id/team-context` - Issues grouped by `teammate:*` labels
+- `GET /api/v1/projects/:id/team-context?epic_id=ID` - Scoped to epic children
 
 ### Dependencies
 
-- `GET /api/v1/workspaces/:ws/issues/:id/deps` - Get dependencies
-- `POST /api/v1/workspaces/:ws/issues/:id/deps` - Add dependency
-- `DELETE /api/v1/workspaces/:ws/issues/:id/deps/:dep` - Remove dependency
+- `GET /api/v1/projects/:id/issues/:iid/deps` - Get dependencies
+- `POST /api/v1/projects/:id/issues/:iid/deps` - Add dependency
+- `DELETE /api/v1/projects/:id/issues/:iid/deps/:dep` - Remove dependency
 
 ### Labels (Global)
 
@@ -456,35 +462,35 @@ make docker-up
 
 ### Issue Labels
 
-- `POST /api/v1/workspaces/:ws/issues/:id/labels` - Add label to issue
-- `DELETE /api/v1/workspaces/:ws/issues/:id/labels/:label` - Remove label
+- `POST /api/v1/projects/:id/issues/:iid/labels` - Add label to issue
+- `DELETE /api/v1/projects/:id/issues/:iid/labels/:label` - Remove label
 
 ### Comments
 
-- `GET /api/v1/workspaces/:ws/issues/:id/comments` - Get comments
-- `POST /api/v1/workspaces/:ws/issues/:id/comments` - Add comment
-- `PUT /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Update comment
-- `DELETE /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Delete comment
+- `GET /api/v1/projects/:id/issues/:iid/comments` - Get comments
+- `POST /api/v1/projects/:id/issues/:iid/comments` - Add comment
+- `PUT /api/v1/projects/:id/issues/:iid/comments/:cid` - Update comment
+- `DELETE /api/v1/projects/:id/issues/:iid/comments/:cid` - Delete comment
 
 ### Inline Plans
 
-- `POST /api/v1/workspaces/:ws/issues/:id/plan` - Set inline plan
-- `GET /api/v1/workspaces/:ws/issues/:id/plan` - Get inline plan
-- `GET /api/v1/workspaces/:ws/issues/:id/plan/history` - Get plan history
+- `POST /api/v1/projects/:id/issues/:iid/plan` - Set inline plan
+- `GET /api/v1/projects/:id/issues/:iid/plan` - Get inline plan
+- `GET /api/v1/projects/:id/issues/:iid/plan/history` - Get plan history
 
 ### Shared Plans
 
-- `GET /api/v1/workspaces/:ws/plans` - List shared plans
-- `POST /api/v1/workspaces/:ws/plans` - Create shared plan
-- `GET /api/v1/workspaces/:ws/plans/:pid` - Get shared plan
-- `PUT /api/v1/workspaces/:ws/plans/:pid` - Update shared plan
-- `DELETE /api/v1/workspaces/:ws/plans/:pid` - Delete shared plan
-- `POST /api/v1/workspaces/:ws/plans/:pid/link` - Link issues to plan
-- `DELETE /api/v1/workspaces/:ws/plans/:pid/link/:id` - Unlink issue from plan
+- `GET /api/v1/projects/:id/plans` - List shared plans
+- `POST /api/v1/projects/:id/plans` - Create shared plan
+- `GET /api/v1/projects/:id/plans/:pid` - Get shared plan
+- `PUT /api/v1/projects/:id/plans/:pid` - Update shared plan
+- `DELETE /api/v1/projects/:id/plans/:pid` - Delete shared plan
+- `POST /api/v1/projects/:id/plans/:pid/link` - Link issues to plan
+- `DELETE /api/v1/projects/:id/plans/:pid/link/:iid` - Unlink issue from plan
 
 ### Events
 
-- `GET /api/v1/workspaces/:ws/issues/:id/events` - Get audit events
+- `GET /api/v1/projects/:id/issues/:iid/events` - Get audit events
 
 ## License
 

@@ -76,7 +76,7 @@ The server stores data in ~/.arc/ by default.`,
 
 func init() {
 	serverStartCmd.Flags().BoolP("foreground", "f", false, "Run in foreground (don't daemonize)")
-	serverStartCmd.Flags().IntP("port", "p", defaultServerPort, "Server port")
+	serverStartCmd.Flags().Int("port", defaultServerPort, "Server port")
 	serverStartCmd.Flags().String("db", "", "Database path (default: ~/.arc/data.db)")
 }
 

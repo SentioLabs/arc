@@ -22,9 +22,9 @@ func writeLegacyConfig(t *testing.T, home, projectRoot, projID, projName string)
 	}
 
 	cfg := map[string]string{
-		"project_id":   projID,
-		"project_name": projName,
-		"project_root": projectRoot,
+		"workspace_id":   projID,
+		"workspace_name": projName,
+		"project_root":   projectRoot,
 	}
 	data, err := json.Marshal(cfg)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestMigratePathsActual(t *testing.T) {
 	}
 
 	// Verify paths were registered: list paths for the project.
-	pathsOut := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
+	pathsOut := arcCmdSuccess(t, home, "paths", "--project", projID, "--json", "--server", serverURL)
 	if !strings.Contains(pathsOut, projectDir) {
 		// The path may be normalized/resolved — just verify something was registered.
 		var paths []map[string]interface{}
@@ -165,7 +165,7 @@ func TestMigratePathsMultiple(t *testing.T) {
 	}
 
 	// Verify both projects have paths registered.
-	pathsA := arcCmdSuccess(t, home, "paths", "-p", projIDA, "--json", "--server", serverURL)
+	pathsA := arcCmdSuccess(t, home, "paths", "--project", projIDA, "--json", "--server", serverURL)
 	var pA []map[string]interface{}
 	if err := json.Unmarshal([]byte(pathsA), &pA); err != nil {
 		t.Fatalf("parse paths A: %v", err)
@@ -174,7 +174,7 @@ func TestMigratePathsMultiple(t *testing.T) {
 		t.Error("expected paths for project A after migration")
 	}
 
-	pathsB := arcCmdSuccess(t, home, "paths", "-p", projIDB, "--json", "--server", serverURL)
+	pathsB := arcCmdSuccess(t, home, "paths", "--project", projIDB, "--json", "--server", serverURL)
 	var pB []map[string]interface{}
 	if err := json.Unmarshal([]byte(pathsB), &pB); err != nil {
 		t.Fatalf("parse paths B: %v", err)

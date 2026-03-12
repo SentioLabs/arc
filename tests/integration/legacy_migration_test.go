@@ -26,7 +26,7 @@ func TestLegacyAutoMigrationOnList(t *testing.T) {
 
 	// Step 3: Delete all server-side paths for this project, simulating
 	// a state where only a legacy config exists.
-	pathsJSON := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
+	pathsJSON := arcCmdSuccess(t, home, "paths", "--project", projID, "--json", "--server", serverURL)
 	var paths []struct {
 		ID   string `json:"id"`
 		Path string `json:"path"`
@@ -35,7 +35,7 @@ func TestLegacyAutoMigrationOnList(t *testing.T) {
 		t.Fatalf("parse paths: %v", err)
 	}
 	for _, p := range paths {
-		arcCmdSuccess(t, home, "paths", "remove", p.ID, "-p", projID, "--server", serverURL)
+		arcCmdSuccess(t, home, "paths", "remove", p.ID, "--project", projID, "--server", serverURL)
 	}
 
 	// Step 4: Write a legacy config pointing to this project.
@@ -55,7 +55,7 @@ func TestLegacyAutoMigrationOnList(t *testing.T) {
 	}
 
 	// Step 7: Verify paths were registered on the server.
-	pathsAfter := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
+	pathsAfter := arcCmdSuccess(t, home, "paths", "--project", projID, "--json", "--server", serverURL)
 	var afterPaths []map[string]interface{}
 	if err := json.Unmarshal([]byte(pathsAfter), &afterPaths); err != nil {
 		t.Fatalf("parse paths after migration: %v", err)
@@ -85,7 +85,7 @@ func TestLegacyAutoMigrationOnCreate(t *testing.T) {
 	}
 
 	// Verify the issue exists.
-	listOut := arcCmdSuccess(t, home, "list", "-p", projID, "--server", serverURL)
+	listOut := arcCmdSuccess(t, home, "list", "--project", projID, "--server", serverURL)
 	if !strings.Contains(listOut, "Issue via legacy") {
 		t.Errorf("expected issue in list after legacy auto-migration, got: %s", listOut)
 	}
@@ -116,7 +116,7 @@ func TestLegacyAutoMigrationSubsequentCallSkipsMigration(t *testing.T) {
 	arcCmdInDirSuccess(t, home, dir, "create", "Second issue", "--type", "task", "--server", serverURL)
 
 	// Both issues should be visible.
-	listOut := arcCmdSuccess(t, home, "list", "-p", projID, "--server", serverURL)
+	listOut := arcCmdSuccess(t, home, "list", "--project", projID, "--server", serverURL)
 	if !strings.Contains(listOut, "First issue") {
 		t.Errorf("expected 'First issue' in list, got: %s", listOut)
 	}

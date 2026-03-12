@@ -32,7 +32,7 @@ func TestInitFromSymlinkRegistersBothPaths(t *testing.T) {
 	projID := getProjectIDByName(t, home, "symlink-dual-proj")
 
 	// Check registered paths.
-	pathsOut := arcCmdSuccess(t, home, "paths", "-p", projID, "--json", "--server", serverURL)
+	pathsOut := arcCmdSuccess(t, home, "paths", "--project", projID, "--json", "--server", serverURL)
 	var paths []struct {
 		Path string `json:"path"`
 	}

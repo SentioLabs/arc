@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
@@ -87,7 +88,7 @@ const (
 func (s ProjectSource) String() string {
 	switch s {
 	case ProjectSourceFlag:
-		return "command line flag (-p)"
+		return "command line flag (--project)"
 	case ProjectSourceProject:
 		return "~/.arc/projects/ (local)"
 	case ProjectSourceServer:
@@ -177,7 +178,7 @@ func getClient() (*client.Client, error) {
 }
 
 // getProjectID resolves the project ID using the following priority:
-// 1. CLI flag (-p/--project) - explicit override
+// 1. CLI flag (--project) - explicit override
 // 2. Project config (~/.arc/projects/<path>/config.json)
 //
 // If none is available, an error is returned. There is no global fallback.
@@ -188,7 +189,7 @@ func getProjectID() (string, error) {
 
 // resolveProject returns the project ID, source, and error.
 // Resolution priority:
-//  1. CLI flag (-p/--project) - explicit override always works
+//  1. CLI flag (--project) - explicit override always works
 //  2. Project config (~/.arc/projects/<path>/config.json)
 //  3. Server path matching (handles containers/mounts without local config)
 //
@@ -223,12 +224,11 @@ func resolveProject() (wsID string, source ProjectSource, warning string, err er
 
 	return "", 0, "", errors.New(
 		"no project configured for this directory\n" +
-			"  Run 'arc init' to set up a project, or use '-p <project>' to specify one")
+			"  Run 'arc init' to set up a project, or use '--project <id>' to specify one")
 }
 
 // resolveFromServer attempts to resolve the project by querying the server.
-// First tries the ResolveProjectByPath endpoint, then falls back to listing
-// all projects and matching paths (handles symlinks and mounts).
+// Tries the cwd, then normalized path, then git worktree main repo path.
 func resolveFromServer(cwd string) (string, error) {
 	c, err := getClient()
 	if err != nil {
@@ -240,7 +240,7 @@ func resolveFromServer(cwd string) (string, error) {
 		return res.ProjectID, nil
 	}
 
-	// Fall back to normalized path matching against all projects
+	// Fall back to normalized path matching
 	normalizedCwd := project.NormalizePath(cwd)
 	if normalizedCwd != cwd {
 		if res, resolveErr := c.ResolveProjectByPath(normalizedCwd); resolveErr == nil && res.ProjectID != "" {
@@ -248,11 +248,57 @@ func resolveFromServer(cwd string) (string, error) {
 		}
 	}
 
+	// Fall back to git worktree main repo detection
+	if mainRepo := detectGitMainWorktree(cwd); mainRepo != "" {
+		if res, resolveErr := c.ResolveProjectByPath(mainRepo); resolveErr == nil && res.ProjectID != "" {
+			return res.ProjectID, nil
+		}
+		normalizedRepo := project.NormalizePath(mainRepo)
+		if normalizedRepo != mainRepo {
+			if res, resolveErr := c.ResolveProjectByPath(normalizedRepo); resolveErr == nil && res.ProjectID != "" {
+				return res.ProjectID, nil
+			}
+		}
+	}
+
 	return "", nil
+}
+
+// detectGitMainWorktree returns the main worktree path if cwd is a linked git worktree.
+// Returns empty string if cwd is not a worktree or is the main worktree itself.
+func detectGitMainWorktree(dir string) string {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "--git-common-dir")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	commonDir := strings.TrimSpace(string(out))
+
+	// If git-common-dir == .git, we're in the main worktree
+	if commonDir == ".git" {
+		return ""
+	}
+
+	// commonDir is an absolute path to the .git dir of the main repo
+	// The main repo is the parent of the .git dir
+	if !filepath.IsAbs(commonDir) {
+		commonDir = filepath.Join(dir, commonDir)
+	}
+	commonDir = filepath.Clean(commonDir)
+	mainRepo := filepath.Dir(commonDir)
+
+	// Sanity check: don't return the same dir
+	if mainRepo == dir || mainRepo == "." || mainRepo == "" {
+		return ""
+	}
+
+	return mainRepo
 }
 
 // resolveFromLegacyConfig attempts to resolve project from ~/.arc/projects/ config.
 // Returns empty wsID if no config is found (without error).
+// When a valid legacy config is found, auto-migrates it to server-side paths
+// and cleans up the legacy config directory.
 func resolveFromLegacyConfig(cwd, arcHome string) (wsID string, source ProjectSource, warning string, err error) {
 	cfg, cfgErr := readLegacyConfig(arcHome, cwd)
 	if cfgErr != nil || cfg == nil || cfg.WorkspaceID == "" {
@@ -268,6 +314,14 @@ func resolveFromLegacyConfig(cwd, arcHome string) (wsID string, source ProjectSo
 	if _, wsErr := c.GetProject(cfg.WorkspaceID); wsErr != nil {
 		return "", 0, "", fmt.Errorf("project '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
 			cfg.WorkspaceName, cfg.WorkspaceID)
+	}
+
+	// Auto-migrate: register paths on server and clean up legacy config
+	absPath, resolvedPath := project.NormalizePathPair(cwd)
+	hostname, _ := os.Hostname()
+	if regErr := registerPathPair(c, cfg.WorkspaceID, absPath, resolvedPath, hostname); regErr == nil {
+		// Only clean up legacy config if registration succeeded
+		_ = removeLegacyConfig(arcHome, cwd)
 	}
 
 	return cfg.WorkspaceID, ProjectSourceProject, "", nil
@@ -310,7 +364,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "Server URL (env: ARC_SERVER, default: http://localhost:7432)")
-	rootCmd.PersistentFlags().StringVarP(&projectID, "project", "p", "", "Project ID")
+	rootCmd.PersistentFlags().StringVar(&projectID, "project", "", "Project ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 

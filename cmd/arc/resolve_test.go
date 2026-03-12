@@ -7,10 +7,11 @@ import (
 )
 
 func TestProjectFlagRegistered(t *testing.T) {
-	// The root command should have a --project / -p flag, not --workspace / -w
+	// The root command should have a --project flag (no shorthand — -p conflicts
+	// with subcommand flags like --prefix, --priority, --port)
 	flag := rootCmd.PersistentFlags().Lookup("project")
 	assert.NotNil(t, flag, "--project flag should be registered on root command")
-	assert.Equal(t, "p", flag.Shorthand, "--project should have shorthand -p")
+	assert.Empty(t, flag.Shorthand, "--project should not have a shorthand (conflicts with -p on subcommands)")
 
 	// The old --workspace flag should not exist
 	oldFlag := rootCmd.PersistentFlags().Lookup("workspace")
@@ -23,7 +24,7 @@ func TestProjectSourceConstants(t *testing.T) {
 	assert.Equal(t, ProjectSourceProject, ProjectSource(1))
 	assert.Equal(t, ProjectSourceServer, ProjectSource(2))
 
-	assert.Contains(t, ProjectSourceFlag.String(), "-p")
+	assert.Contains(t, ProjectSourceFlag.String(), "--project")
 	assert.Contains(t, ProjectSourceProject.String(), "local")
 	assert.Contains(t, ProjectSourceServer.String(), "server")
 }

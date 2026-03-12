@@ -34,7 +34,7 @@ func TestWhichWithFlag(t *testing.T) {
 	arcCmdSuccess(t, home, "project", "create", "which-flag-proj", "--server", serverURL)
 	projID := getProjectIDByName(t, home, "which-flag-proj")
 
-	out := arcCmdSuccess(t, home, "which", "-p", projID, "--server", serverURL)
+	out := arcCmdSuccess(t, home, "which", "--project", projID, "--server", serverURL)
 	if !strings.Contains(out, projID) {
 		t.Errorf("expected project ID in which output, got: %s", out)
 	}

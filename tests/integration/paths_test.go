@@ -50,7 +50,7 @@ func TestPathsListEmpty(t *testing.T) {
 		t.Fatal("could not find project empty-paths-proj")
 	}
 
-	out := arcCmdSuccess(t, home, "paths", "-p", projID, "--server", serverURL)
+	out := arcCmdSuccess(t, home, "paths", "--project", projID, "--server", serverURL)
 	if !strings.Contains(strings.ToLower(out), "no paths") {
 		t.Errorf("expected 'no paths' message for project with no paths, got: %s", out)
 	}
