@@ -604,6 +604,115 @@ func (c *Client) UnlinkIssueFromPlan(wsID, planID, issueID string) error {
 	return nil
 }
 
+// Workspace Path types and methods manage multi-directory workspace paths.
+
+// WorkspacePath represents a filesystem path associated with a workspace.
+type WorkspacePath struct {
+	ID          string `json:"id"`
+	WorkspaceID string `json:"workspace_id"`
+	Path        string `json:"path"`
+	Label       string `json:"label,omitempty"`
+	Hostname    string `json:"hostname,omitempty"`
+	GitRemote   string `json:"git_remote,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
+}
+
+// CreateWorkspacePathRequest is the request for registering a workspace path.
+type CreateWorkspacePathRequest struct {
+	Path      string `json:"path"`
+	Label     string `json:"label,omitempty"`
+	Hostname  string `json:"hostname,omitempty"`
+	GitRemote string `json:"git_remote,omitempty"`
+}
+
+// WorkspaceResolution contains the result of resolving a workspace by path.
+type WorkspaceResolution struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+	PathID        string `json:"path_id"`
+}
+
+// ListWorkspacePaths returns all paths for a workspace.
+func (c *Client) ListWorkspacePaths(wsID string) ([]*WorkspacePath, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/paths", wsID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var paths []*WorkspacePath
+	if err := json.NewDecoder(resp.Body).Decode(&paths); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return paths, nil
+}
+
+// CreateWorkspacePath registers a new path for a workspace.
+func (c *Client) CreateWorkspacePath(wsID string, req CreateWorkspacePathRequest) (*WorkspacePath, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/paths", wsID)
+
+	resp, err := c.post(path, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var wp WorkspacePath
+	if err := json.NewDecoder(resp.Body).Decode(&wp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &wp, nil
+}
+
+// UpdateWorkspacePath updates a workspace path's metadata.
+func (c *Client) UpdateWorkspacePath(wsID, pathID string, updates map[string]string) (*WorkspacePath, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/paths/%s", wsID, pathID)
+
+	resp, err := c.patch(path, updates)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var wp WorkspacePath
+	if err := json.NewDecoder(resp.Body).Decode(&wp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &wp, nil
+}
+
+// DeleteWorkspacePath removes a path from a workspace.
+func (c *Client) DeleteWorkspacePath(wsID, pathID string) error {
+	path := fmt.Sprintf("/api/v1/workspaces/%s/paths/%s", wsID, pathID)
+
+	resp, err := c.delete(path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// ResolveWorkspaceByPath finds the workspace associated with a filesystem path.
+func (c *Client) ResolveWorkspaceByPath(fsPath string) (*WorkspaceResolution, error) {
+	path := fmt.Sprintf("/api/v1/workspaces/resolve?path=%s", url.QueryEscape(fsPath))
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result WorkspaceResolution
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &result, nil
+}
+
 // HTTP helpers - low-level methods for making requests to the arc server.
 // All methods set the X-Actor header and check for error responses.
 
@@ -636,6 +745,11 @@ func (c *Client) post(path string, body any) (*http.Response, error) {
 // put performs an HTTP PUT request with a JSON body.
 func (c *Client) put(path string, body any) (*http.Response, error) {
 	return c.doJSON("PUT", path, body)
+}
+
+// patch performs an HTTP PATCH request with a JSON body.
+func (c *Client) patch(path string, body any) (*http.Response, error) {
+	return c.doJSON("PATCH", path, body)
 }
 
 // delete performs an HTTP DELETE request to the given path.
