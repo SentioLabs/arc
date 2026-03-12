@@ -136,7 +136,22 @@ Fix the identified issues, re-run all gate checks, and commit when complete.
 arc close <task-id> -r "Implemented: <summary>"
 ```
 
-### 7. Repeat
+### 7. Integration Checkpoint
+
+After closing 2-3 related tasks, or before switching to a new epic phase, run the full integration test suite:
+
+```bash
+make test-integration
+```
+
+This catches cross-task regressions that individual implementer gate checks won't — each implementer only validates its own task's scope. Do not wait until all tasks are complete to discover integration failures.
+
+If integration tests fail:
+- Identify which task's changes caused the failure
+- Re-dispatch `arc-implementer` with the failing test details and the relevant task context
+- If the failure spans multiple tasks, invoke the `debug` skill
+
+### 8. Repeat
 
 Go to step 1 for the next task. Continue until all tasks in the epic are closed.
 
