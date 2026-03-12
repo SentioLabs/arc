@@ -208,6 +208,8 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 	if err != nil {
 		return "", 0, "", fmt.Errorf("get current directory: %w", err)
 	}
+	// Resolve symlinks so path matches the normalized path used by "arc init"
+	cwd = project.NormalizePath(cwd)
 
 	arcHome := project.DefaultArcHome()
 
@@ -445,16 +447,16 @@ This helps debug workspace resolution issues by showing:
 		fmt.Printf("Source: %s\n", source)
 
 		if source == WorkspaceSourceProject {
-			cwd, _ := os.Getwd()
+			whichCwd := project.NormalizePath(func() string { d, _ := os.Getwd(); return d }())
 			arcHome := project.DefaultArcHome()
-			if root, err := project.FindProjectRootWithArcHome(cwd, arcHome); err == nil {
+			if root, err := project.FindProjectRootWithArcHome(whichCwd, arcHome); err == nil {
 				fmt.Printf("Config: ~/.arc/projects/%s/config.json\n", project.PathToProjectDir(root))
 			}
 		}
 
 		if source == WorkspaceSourceWorktree {
-			cwd, _ := os.Getwd()
-			if mainRepo, err := project.DetectWorktreeMainRepo(cwd); err == nil && mainRepo != "" {
+			whichCwd := project.NormalizePath(func() string { d, _ := os.Getwd(); return d }())
+			if mainRepo, err := project.DetectWorktreeMainRepo(whichCwd); err == nil && mainRepo != "" {
 				fmt.Printf("Main repo: %s\n", mainRepo)
 			}
 		}
