@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 
+	"github.com/sentiolabs/arc/internal/project"
+	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/version"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
@@ -145,6 +148,18 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	if cmp < 0 && !selfForce {
 		fmt.Printf("arc %s is newer than latest %s release %s\n", current, channel, latest)
 		return nil
+	}
+
+	// Full backup before major/minor version bumps
+	if semver.MajorMinor(latest) != semver.MajorMinor(current) {
+		dbPath := filepath.Join(project.DefaultArcHome(), "data.db")
+		result, backupErr := sqlite.BackupDatabase(dbPath)
+		if backupErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: pre-update backup failed: %v\n", backupErr)
+		} else if result != nil {
+			fmt.Printf("Pre-update backup: %s (%s → %s)\n",
+				result.Path, formatSize(result.OriginalSize), formatSize(result.BackupSize))
+		}
 	}
 
 	// Run the install script
