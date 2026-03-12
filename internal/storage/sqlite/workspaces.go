@@ -140,7 +140,9 @@ func (s *Store) DeleteWorkspace(ctx context.Context, idOrName string) error {
 // MergeWorkspaces moves all issues and plans from source workspaces into the
 // target workspace, deletes the sources, and returns a summary. The entire
 // operation runs inside a single transaction for atomicity.
-func (s *Store) MergeWorkspaces(ctx context.Context, targetID string, sourceIDs []string, _ string) (*types.MergeResult, error) {
+func (s *Store) MergeWorkspaces(
+	ctx context.Context, targetID string, sourceIDs []string, _ string,
+) (*types.MergeResult, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)

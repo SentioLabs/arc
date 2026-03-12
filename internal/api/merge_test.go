@@ -41,7 +41,10 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 
 	// Create an issue in the source workspace
 	issueBody := `{"title": "Source Issue"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+sourceID+"/issues", bytes.NewBufferString(issueBody))
+	req := httptest.NewRequest(
+		http.MethodPost, "/api/v1/workspaces/"+sourceID+"/issues",
+		bytes.NewBufferString(issueBody),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)

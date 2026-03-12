@@ -189,7 +189,8 @@ func TestCloseIssueOpenChildren409(t *testing.T) {
 	rec := closeTestIssue(t, e, wsID, epicID, `{}`)
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf("closeIssue without cascade returned %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+		t.Fatalf("closeIssue without cascade returned %d, want %d: %s",
+			rec.Code, http.StatusConflict, rec.Body.String())
 	}
 
 	// Parse the response body

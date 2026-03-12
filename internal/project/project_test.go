@@ -202,7 +202,7 @@ func TestDetectWorktreeMainRepo_Worktree(t *testing.T) {
 	}
 
 	gitFileContent := fmt.Sprintf("gitdir: %s\n", gitdirPath)
-	if err := os.WriteFile(filepath.Join(worktree, ".git"), []byte(gitFileContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(worktree, ".git"), []byte(gitFileContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

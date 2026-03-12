@@ -295,7 +295,7 @@ func (c *Client) CloseIssue(wsID, id, reason string, cascade bool) (*types.Issue
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -305,8 +305,8 @@ func (c *Client) CloseIssue(wsID, id, reason string, cascade bool) (*types.Issue
 	if resp.StatusCode == http.StatusConflict {
 		respBody, _ := io.ReadAll(resp.Body)
 		var conflictResp struct {
-			Error        string       `json:"error"`
-			Code         string       `json:"code"`
+			Error        string        `json:"error"`
+			Code         string        `json:"code"`
 			OpenChildren []types.Issue `json:"open_children"`
 		}
 		if json.Unmarshal(respBody, &conflictResp) == nil && conflictResp.Code == "open_children" {
@@ -615,7 +615,7 @@ func (c *Client) get(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -646,7 +646,7 @@ func (c *Client) delete(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -673,7 +673,7 @@ func (c *Client) doJSON(method, path string, body any) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

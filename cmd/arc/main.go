@@ -355,7 +355,10 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "Server URL (env: ARC_SERVER, default: http://localhost:7432)")
+	rootCmd.PersistentFlags().StringVarP(
+		&serverURL, "server", "s", "",
+		"Server URL (env: ARC_SERVER, default: http://localhost:7432)",
+	)
 	rootCmd.PersistentFlags().StringVarP(&workspaceID, "workspace", "w", "", "Workspace ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
@@ -1297,18 +1300,26 @@ func formatBlockedIssue(id, issueType string, priority int, title string, labels
 		icon, id, priorityStr, issueType, labelStr, title, blockedByCount)
 }
 
+// Priority level constants for color-coding.
+const (
+	priorityCritical = 0
+	priorityHigh     = 1
+	priorityNormal   = 2
+	priorityLow      = 3
+)
+
 // colorPriority returns a color-coded priority string.
 // P0=red (critical), P1=yellow (high), P2=cyan (normal), P3=blue (low), P4=dim (minimal).
 func colorPriority(priority int) string {
 	label := fmt.Sprintf("P%d", priority)
 	switch priority {
-	case 0:
+	case priorityCritical:
 		return color.New(color.FgRed, color.Bold).Sprint(label)
-	case 1:
+	case priorityHigh:
 		return color.New(color.FgYellow).Sprint(label)
-	case 2:
+	case priorityNormal:
 		return color.New(color.FgCyan).Sprint(label)
-	case 3:
+	case priorityLow:
 		return color.New(color.FgBlue).Sprint(label)
 	default:
 		return color.New(color.FgMagenta).Sprint(label)

@@ -157,7 +157,10 @@ func NormalizePath(path string) string {
 func DetectWorktreeMainRepo(dir string) (string, error) {
 	gitPath := filepath.Join(dir, ".git")
 	info, err := os.Lstat(gitPath)
-	if err != nil || info.IsDir() {
+	if err != nil {
+		return "", nil //nolint:nilerr // no .git entry means not a worktree — not an error
+	}
+	if info.IsDir() {
 		return "", nil
 	}
 
@@ -175,7 +178,8 @@ func DetectWorktreeMainRepo(dir string) (string, error) {
 	gitdir := strings.TrimPrefix(content, "gitdir: ")
 
 	// Find ".git/worktrees/" segment and strip it plus everything after
-	marker := string(filepath.Separator) + ".git" + string(filepath.Separator) + "worktrees" + string(filepath.Separator)
+	marker := string(filepath.Separator) + ".git" +
+		string(filepath.Separator) + "worktrees" + string(filepath.Separator)
 	idx := strings.Index(gitdir, marker)
 	if idx < 0 {
 		return "", nil

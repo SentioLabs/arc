@@ -525,7 +525,7 @@ func editInEditor(content string) (string, error) {
 	}
 
 	// Read result
-	//nolint:gosec // tmpFile is self-created via os.CreateTemp, not user-controlled path
+
 	result, err := os.ReadFile(tmpFile.Name())
 	if err != nil {
 		return "", err

@@ -98,7 +98,7 @@ func runDocs(cmd *cobra.Command, args []string) error {
 			topic, strings.Join(validDocTopics, ", "))
 	}
 
-	fmt.Fprint(os.Stdout, content) //nolint:revive // stdout write errors are not actionable in CLI
+	fmt.Fprint(os.Stdout, content)
 	return nil
 }
 
