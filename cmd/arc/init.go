@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
+	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -22,30 +22,27 @@ var initCmd = &cobra.Command{
 	Long: `Initialize arc in the current directory by creating a project.
 
 This command:
-1. Creates a workspace on the server (or connects to existing)
-2. Registers the current directory path with the server
+1. Creates a project on the server (or connects to existing)
+2. Saves project config to ~/.arc/projects/
 3. Creates AGENTS.md with session completion instructions
 
 For Claude Code users: Install the arc plugin for full integration
 (hooks, skills, agents). The plugin's onboard skill will handle
-workspace initialization automatically.
+project initialization automatically.
 
 For Codex CLI users: Run arc setup codex to install the repo-scoped
 arc skill bundle under .codex/skills.
 
-If a workspace with that name already exists, the current directory is registered to it.
-
 Examples:
-  arc init                    # Use directory name as workspace
+  arc init                    # Use directory name as project
   arc init my-project         # Use custom name
-  arc init bacstack           # Join existing 'bacstack' workspace
   arc init --prefix cxsh      # Custom issue prefix (e.g., cxsh-0b7w)`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runInit,
 }
 
 func init() {
-	initCmd.Flags().StringP("description", "d", "", "Workspace description")
+	initCmd.Flags().StringP("description", "d", "", "Project description")
 	initCmd.Flags().StringP("prefix", "p", "", "Custom issue prefix (alphanumeric, max 10 chars)")
 	initCmd.Flags().BoolP("quiet", "q", false, "Suppress output")
 	rootCmd.AddCommand(initCmd)
@@ -56,25 +53,23 @@ func runInit(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	description, _ := cmd.Flags().GetString("description")
 
-	// Get current working directory with both symlink and resolved forms
-	rawCwd, err := os.Getwd()
+	// Get current working directory, resolving symlinks for consistent path storage
+	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
 	}
-	absPath, resolvedPath := project.NormalizePathPair(rawCwd)
-	// Use resolved path as the canonical cwd for name generation, prefix, etc.
-	cwd := resolvedPath
+	cwd = project.NormalizePath(cwd)
 
-	// Determine workspace name
+	// Determine project name
 	var name string
 	if len(args) > 0 {
 		// User provided explicit name
 		name = args[0]
 	} else {
 		// Auto-generate: sanitized-basename-hash
-		name, err = project.GenerateName(cwd)
+		name, err = workspace.GenerateName(cwd)
 		if err != nil {
-			return fmt.Errorf("generate workspace name: %w", err)
+			return fmt.Errorf("generate project name: %w", err)
 		}
 	}
 
@@ -83,94 +78,96 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	var prefix string
 	if customPrefix != "" {
-		prefix, err = project.GeneratePrefixWithCustomName(cwd, customPrefix)
+		prefix, err = workspace.GeneratePrefixWithCustomName(cwd, customPrefix)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
 	} else {
-		prefix, err = project.GeneratePrefix(cwd)
+		prefix, err = workspace.GeneratePrefix(cwd)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
 	}
 
-	// Create workspace on server
+	// Create project on server
 	c, err := getClient()
 	if err != nil {
 		return fmt.Errorf("connect to server: %w", err)
 	}
 
-	// Check if workspace already exists
+	// Check if project already exists
 	workspaces, err := c.ListWorkspaces()
 	if err != nil {
-		return fmt.Errorf("list workspaces: %w", err)
+		return fmt.Errorf("list projects: %w", err)
 	}
 
 	var ws *struct {
 		ID          string `json:"id"`
 		Name        string `json:"name"`
+		Path        string `json:"path"`
 		Description string `json:"description"`
 		Prefix      string `json:"prefix"`
 	}
 
-	// Look for existing workspace by name
+	// Look for existing project by path or name (normalize paths to handle symlinks)
 	for _, existing := range workspaces {
-		if existing.Name == name {
+		if existing.Path == cwd || project.NormalizePath(existing.Path) == cwd || existing.Name == name {
 			ws = &struct {
 				ID          string `json:"id"`
 				Name        string `json:"name"`
+				Path        string `json:"path"`
 				Description string `json:"description"`
 				Prefix      string `json:"prefix"`
 			}{
 				ID:          existing.ID,
 				Name:        existing.Name,
+				Path:        existing.Path,
 				Description: existing.Description,
 				Prefix:      existing.Prefix,
 			}
 			if !quiet {
-				fmt.Printf("Using existing workspace: %s (%s)\n", ws.Name, ws.ID)
+				fmt.Printf("Using existing project: %s (%s)\n", ws.Name, ws.ID)
 			}
 			break
 		}
 	}
 
-	// Create new workspace if not found
+	// Create new project if not found
 	if ws == nil {
-		newWs, err := c.CreateWorkspace(name, prefix, description)
+		newWs, err := c.CreateWorkspace(name, prefix, cwd, description)
 		if err != nil {
-			return fmt.Errorf("create workspace: %w", err)
+			return fmt.Errorf("create project: %w", err)
 		}
 		ws = &struct {
 			ID          string `json:"id"`
 			Name        string `json:"name"`
+			Path        string `json:"path"`
 			Description string `json:"description"`
 			Prefix      string `json:"prefix"`
 		}{
 			ID:          newWs.ID,
 			Name:        newWs.Name,
+			Path:        newWs.Path,
 			Description: newWs.Description,
 			Prefix:      newWs.Prefix,
 		}
 		if !quiet {
-			fmt.Printf("Created workspace: %s (%s)\n", ws.Name, ws.ID)
+			fmt.Printf("Created project: %s (%s)\n", ws.Name, ws.ID)
 		}
 	}
 
-	// Register both path variants on the server (symlink + resolved)
-	hostname, _ := os.Hostname()
-	if err := registerPathPair(c, ws.ID, absPath, resolvedPath, hostname); err != nil {
-		if !quiet {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to register workspace paths: %v\n", err)
-		}
-	}
-
-	// Fix path_type on any existing paths that were registered before
-	// path_type was introduced (they default to "canonical" but may be symlinks)
-	fixPathTypes(c, ws.ID)
-
-	// Clean up any legacy config for this path
+	// Create project config in ~/.arc/projects/
 	arcHome := project.DefaultArcHome()
-	_ = removeLegacyConfig(arcHome, rawCwd)
+	projectCfg := &project.Config{
+		WorkspaceID:   ws.ID,
+		WorkspaceName: ws.Name,
+		ProjectRoot:   cwd,
+	}
+	if err := project.WriteConfig(arcHome, cwd, projectCfg); err != nil {
+		if !quiet {
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to create project config: %v\n", err)
+		}
+	}
 
 	// Add "landing the plane" instructions to AGENTS.md
 	if err := addLandingThePlaneInstructions(!quiet); err != nil {
@@ -188,7 +185,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	if !quiet {
 		fmt.Printf("\n✓ arc initialized successfully!\n\n")
-		fmt.Printf("  Workspace: %s\n", ws.Name)
+		fmt.Printf("  Project: %s\n", ws.Name)
 		fmt.Printf("  ID: %s\n", ws.ID)
 		fmt.Printf("  Prefix: %s\n", ws.Prefix)
 		fmt.Printf("  Issues will be named: %s.<hash> (e.g., %s.a3f2dd)\n\n",
@@ -197,16 +194,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// getGitRemoteURL returns the git remote origin URL for the current directory.
-// Returns an empty string if not in a git repo or if the remote is not configured.
-func getGitRemoteURL() string {
-	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
 }
 
 // addLandingThePlaneInstructions adds "landing the plane" instructions to AGENTS.md
@@ -249,7 +236,6 @@ func addLandingThePlaneInstructions(verbose bool) error {
 	}
 	newContent += landingSection
 
-	//nolint:gosec // filename is a constant, not user input
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
@@ -332,7 +318,6 @@ func updateClaudeMdReference(verbose bool) error {
 		newContent += "\n" + reference
 	}
 
-	//nolint:gosec // filename is a constant, not user input
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}

@@ -1,6 +1,6 @@
 // Command arc is the CLI for arc, a central issue tracking server for
 // AI-assisted coding workflows. This package wires together all CLI
-// commands using Cobra, handles workspace resolution, and provides
+// commands using Cobra, handles project resolution, and provides
 // human-readable and JSON output for every operation.
 package main
 
@@ -58,10 +58,10 @@ const (
 
 // Global CLI flags shared across all commands.
 var (
-	serverURL   string // --server flag override
-	workspaceID string // --workspace flag override
-	outputJSON  bool   // --json flag for machine-readable output
-	configPath  string // --config flag for alternate config file
+	serverURL  string // --server flag override
+	projectID  string // --project flag override
+	outputJSON bool   // --json flag for machine-readable output
+	configPath string // --config flag for alternate config file
 )
 
 func main() {
@@ -76,23 +76,23 @@ type Config struct {
 	Channel   string `json:"channel,omitempty"`
 }
 
-// WorkspaceSource indicates how the workspace was resolved
-type WorkspaceSource int
+// ProjectSource indicates how the project was resolved
+type ProjectSource int
 
 const (
-	WorkspaceSourceFlag   WorkspaceSource = iota
-	WorkspaceSourceServer                 // server path matching via resolve-by-path API
-	WorkspaceSourceLegacy                 // auto-migrated from legacy ~/.arc/projects/ config
+	ProjectSourceFlag    ProjectSource = iota
+	ProjectSourceProject               // ~/.arc/projects/<path>/config.json
+	ProjectSourceServer                // server path matching (containers/mounts)
 )
 
-func (s WorkspaceSource) String() string {
+func (s ProjectSource) String() string {
 	switch s {
-	case WorkspaceSourceFlag:
-		return "command line flag (-w)"
-	case WorkspaceSourceServer:
+	case ProjectSourceFlag:
+		return "command line flag (-p)"
+	case ProjectSourceProject:
+		return "~/.arc/projects/ (local)"
+	case ProjectSourceServer:
 		return "server path match"
-	case WorkspaceSourceLegacy:
-		return "auto-migrated from legacy config"
 	default:
 		return "unknown"
 	}
@@ -177,28 +177,28 @@ func getClient() (*client.Client, error) {
 	return client.New(url), nil
 }
 
-// getWorkspaceID resolves the workspace ID using the following priority:
-// 1. CLI flag (-w/--workspace) - explicit override
+// getProjectID resolves the project ID using the following priority:
+// 1. CLI flag (-p/--project) - explicit override
 // 2. Project config (~/.arc/projects/<path>/config.json)
 //
 // If none is available, an error is returned. There is no global fallback.
-func getWorkspaceID() (string, error) {
-	wsID, _, _, err := resolveWorkspace()
+func getProjectID() (string, error) {
+	wsID, _, _, err := resolveProject()
 	return wsID, err
 }
 
-// resolveWorkspace returns the workspace ID, source, and error.
+// resolveProject returns the project ID, source, and error.
 // Resolution priority:
-//  1. CLI flag (-w/--workspace) - explicit override always works
-//  2. Server resolve-by-path API - tries raw cwd, then symlink-resolved path
-//  3. Legacy fallback - checks ~/.arc/projects/ for old config, auto-migrates it
+//  1. CLI flag (-p/--project) - explicit override always works
+//  2. Project config (~/.arc/projects/<path>/config.json)
+//  3. Server path matching (handles containers/mounts without local config)
 //
 // If none is available, an error is returned. There is no global fallback
-// to prevent accidentally operating in the wrong workspace.
-func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, err error) {
+// to prevent accidentally operating in the wrong project.
+func resolveProject() (wsID string, source ProjectSource, warning string, err error) {
 	// Priority 1: CLI flag (explicit override)
-	if workspaceID != "" {
-		return workspaceID, WorkspaceSourceFlag, "", nil
+	if projectID != "" {
+		return projectID, ProjectSourceFlag, "", nil
 	}
 
 	cwd, err := os.Getwd()
@@ -206,62 +206,90 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 		return "", 0, "", fmt.Errorf("get current directory: %w", err)
 	}
 
-	absPath, resolvedPath := project.NormalizePathPair(cwd)
-
-	c, err := getClient()
-	if err != nil {
-		return "", 0, "", fmt.Errorf("connect to server: %w", err)
-	}
-
-	// Priority 2: Server resolve-by-path (try both path variants)
-	resolution, err := c.ResolveWorkspaceByPath(absPath)
-	if err == nil && resolution.WorkspaceID != "" {
-		return resolution.WorkspaceID, WorkspaceSourceServer, "", nil
-	}
-
-	// Try the resolved path if it differs
-	if resolvedPath != absPath {
-		resolution, err = c.ResolveWorkspaceByPath(resolvedPath)
-		if err == nil && resolution.WorkspaceID != "" {
-			// Auto-register the missing symlink path for future direct matches
-			hostname, _ := os.Hostname()
-			_ = registerPathPair(c, resolution.WorkspaceID, absPath, resolvedPath, hostname)
-			return resolution.WorkspaceID, WorkspaceSourceServer, "", nil
-		}
-	}
-
-	// Try git worktree detection: if cwd is a worktree, resolve via the main repo path
-	if mainRepoPath := gitWorktreeMainRepo(cwd); mainRepoPath != "" {
-		mainAbs, mainResolved := project.NormalizePathPair(mainRepoPath)
-		for _, p := range uniquePaths(mainAbs, mainResolved) {
-			resolution, err = c.ResolveWorkspaceByPath(p)
-			if err == nil && resolution.WorkspaceID != "" {
-				return resolution.WorkspaceID, WorkspaceSourceServer, "", nil
-			}
-		}
-	}
-
-	// Priority 3: Legacy fallback — check ~/.arc/projects/ for old config
 	arcHome := project.DefaultArcHome()
-	legacyCfg, legacyErr := readLegacyConfig(arcHome, cwd)
-	if legacyErr == nil && legacyCfg != nil {
-		hostname, _ := os.Hostname()
-		if regErr := registerPathPair(c, legacyCfg.WorkspaceID, absPath, resolvedPath, hostname); regErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: auto-migration failed to register paths: %v\n", regErr)
-		} else {
-			// Clean up the old config
-			if rmErr := removeLegacyConfig(arcHome, cwd); rmErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Warning: auto-migration could not clean up old config: %v\n", rmErr)
-			}
-		}
-		return legacyCfg.WorkspaceID, WorkspaceSourceLegacy, "", nil
+
+	// Priority 2: Find project root and load config from ~/.arc/projects/
+	wsID, source, warning, resolveErr := resolveFromProjectConfig(cwd, arcHome)
+	if resolveErr != nil {
+		return "", 0, "", resolveErr
+	}
+	if wsID != "" {
+		return wsID, source, warning, nil
+	}
+
+	// Priority 3: Server path matching (handles containers/mounts without local config)
+	if serverWsID, serverErr := resolveFromServerPath(cwd); serverErr == nil && serverWsID != "" {
+		return serverWsID, ProjectSourceServer, "", nil
 	}
 
 	return "", 0, "", errors.New(
-		"no workspace configured for this directory\n" +
-			"  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
+		"no project configured for this directory\n" +
+			"  Run 'arc init' to set up a project, or use '-p <project>' to specify one")
 }
 
+// resolveFromServerPath queries the server for a project whose path matches cwd.
+// Compares both raw and symlink-resolved paths to handle mounts and symlinks.
+func resolveFromServerPath(cwd string) (string, error) {
+	c, err := getClient()
+	if err != nil {
+		return "", err
+	}
+
+	workspaces, err := c.ListWorkspaces()
+	if err != nil {
+		return "", err
+	}
+
+	normalizedCwd := project.NormalizePath(cwd)
+
+	for _, ws := range workspaces {
+		// Direct match (handles containers where paths are identical)
+		if ws.Path == cwd {
+			return ws.ID, nil
+		}
+		// Normalized match (handles symlinks like ~/devspace → /Volumes/ExternalSamsung/devspace)
+		if project.NormalizePath(ws.Path) == normalizedCwd {
+			return ws.ID, nil
+		}
+	}
+
+	return "", nil
+}
+
+// resolveFromProjectConfig attempts to resolve project from ~/.arc/projects/ config.
+// Returns empty wsID if no config is found (without error).
+func resolveFromProjectConfig(cwd, arcHome string) (wsID string, source ProjectSource, warning string, err error) {
+	projectRoot, rootErr := project.FindProjectRootWithArcHome(cwd, arcHome)
+	if rootErr != nil {
+		return "", 0, "", nil //nolint:nilerr // no project root means no config; fall through to next resolver
+	}
+
+	cfg, cfgErr := project.LoadConfig(arcHome, projectRoot)
+	if cfgErr != nil || cfg.WorkspaceID == "" {
+		return "", 0, "", nil //nolint:nilerr // missing or empty config; fall through to next resolver
+	}
+
+	if err := validateProjectOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
+		return "", 0, "", err
+	}
+
+	return cfg.WorkspaceID, ProjectSourceProject, "", nil
+}
+
+// validateProjectOnServer checks that the project exists on the server.
+func validateProjectOnServer(wsID, wsName string) error {
+	c, clientErr := getClient()
+	if clientErr != nil {
+		return nil //nolint:nilerr // server unreachable; skip validation, work offline
+	}
+
+	if _, wsErr := c.GetWorkspace(wsID); wsErr != nil {
+		return fmt.Errorf("project '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
+			wsName, wsID)
+	}
+
+	return nil
+}
 
 // outputResult writes data as indented JSON to stdout when --json is set.
 func outputResult(data any) {
@@ -274,6 +302,21 @@ func outputResult(data any) {
 	}
 }
 
+// isSubdirectory returns true if child is the same as or a subdirectory of parent.
+func isSubdirectory(parent, child string) bool {
+	// Clean paths for consistent comparison
+	parent = filepath.Clean(parent)
+	child = filepath.Clean(child)
+
+	// Exact match
+	if parent == child {
+		return true
+	}
+
+	// Check if child starts with parent + separator
+	// This prevents /home/foo/project matching /home/foo/project2
+	return strings.HasPrefix(child, parent+string(filepath.Separator))
+}
 
 // rootCmd is the top-level Cobra command for the arc CLI.
 var rootCmd = &cobra.Command{
@@ -285,12 +328,12 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "Server URL (env: ARC_SERVER, default: http://localhost:7432)")
-	rootCmd.PersistentFlags().StringVarP(&workspaceID, "workspace", "w", "", "Workspace ID")
+	rootCmd.PersistentFlags().StringVarP(&projectID, "project", "p", "", "Project ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 
 	// Add commands
-	rootCmd.AddCommand(workspaceCmd)
+	rootCmd.AddCommand(projectCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(createCmd)
 	rootCmd.AddCommand(showCmd)
@@ -304,37 +347,38 @@ func init() {
 	rootCmd.AddCommand(selfCmd)
 }
 
-// ============ Workspace Commands ============
+// ============ Project Commands ============
 
-// workspaceCmd is the parent command for workspace management.
-var workspaceCmd = &cobra.Command{
-	Use:   "workspace",
-	Short: "Manage workspaces",
+// projectCmd is the parent command for project management.
+var projectCmd = &cobra.Command{
+	Use:   "project",
+	Short: "Manage projects",
 }
 
 func init() {
-	workspaceCmd.AddCommand(workspaceListCmd)
-	workspaceCmd.AddCommand(workspaceCreateCmd)
-	workspaceCmd.AddCommand(workspaceDeleteCmd)
+	projectCmd.AddCommand(projectListCmd)
+	projectCmd.AddCommand(projectCreateCmd)
+	projectCmd.AddCommand(projectDeleteCmd)
 }
 
-// whichCmd shows the active workspace and how it was resolved.
+// whichCmd shows the active project and how it was resolved.
 var whichCmd = &cobra.Command{
 	Use:   "which",
-	Short: "Show which workspace is active and how it was resolved",
-	Long: `Display the currently active workspace and its resolution source.
+	Short: "Show which project is active and how it was resolved",
+	Long: `Display the currently active project and its resolution source.
 
-This helps debug workspace resolution issues by showing:
-- The active workspace ID and name
-- Where the workspace was resolved from (flag or server path match)
+This helps debug project resolution issues by showing:
+- The active project ID and name
+- Where the project was resolved from (flag or project config)
+- The project config file path
 - Any warnings about the configuration`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		wsID, source, warning, err := resolveWorkspace()
+		wsID, source, warning, err := resolveProject()
 		if err != nil {
 			return err
 		}
 
-		// Try to get workspace details
+		// Try to get project details
 		c, clientErr := getClient()
 		var wsName string
 		if clientErr == nil {
@@ -345,11 +389,11 @@ This helps debug workspace resolution issues by showing:
 
 		if outputJSON {
 			result := map[string]string{
-				"workspace_id": wsID,
-				"source":       source.String(),
+				"project_id": wsID,
+				"source":     source.String(),
 			}
 			if wsName != "" {
-				result["workspace_name"] = wsName
+				result["project_name"] = wsName
 			}
 			if warning != "" {
 				result["warning"] = warning
@@ -360,12 +404,19 @@ This helps debug workspace resolution issues by showing:
 
 		// Human-readable output
 		if wsName != "" {
-			fmt.Printf("Workspace: %s (%s)\n", wsName, wsID)
+			fmt.Printf("Project: %s (%s)\n", wsName, wsID)
 		} else {
-			fmt.Printf("Workspace: %s\n", wsID)
+			fmt.Printf("Project: %s\n", wsID)
 		}
 		fmt.Printf("Source: %s\n", source)
 
+		if source == ProjectSourceProject {
+			cwd, _ := os.Getwd()
+			arcHome := project.DefaultArcHome()
+			if root, err := project.FindProjectRootWithArcHome(cwd, arcHome); err == nil {
+				fmt.Printf("Config: ~/.arc/projects/%s/config.json\n", project.PathToProjectDir(root))
+			}
+		}
 
 		if warning != "" {
 			_, _ = fmt.Fprintln(os.Stderr)
@@ -380,10 +431,10 @@ func init() {
 	rootCmd.AddCommand(whichCmd)
 }
 
-// workspaceListCmd lists all workspaces on the server.
-var workspaceListCmd = &cobra.Command{
+// projectListCmd lists all projects on the server.
+var projectListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all workspaces",
+	Short: "List all projects",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -401,32 +452,43 @@ var workspaceListCmd = &cobra.Command{
 		}
 
 		if len(workspaces) == 0 {
-			_, _ = fmt.Println("No workspaces found. Create one with: arc workspace create <name>")
+			_, _ = fmt.Println("No projects found. Create one with: arc project create <name>")
 			return nil
 		}
 
+		// Get current directory to mark the active project
+		cwd, _ := os.Getwd()
+
 		// Create a tabwriter for aligned columns
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, tabwriterPadding, ' ', 0)
-		_, _ = fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION")
-		_, _ = fmt.Fprintln(w, "  \t────\t──────\t──\t───────────")
+		_, _ = fmt.Fprintln(w, "  \tNAME\tPREFIX\tID\tDESCRIPTION\tPATH")
+		_, _ = fmt.Fprintln(w, "  \t────\t──────\t──\t───────────\t────")
 
 		for _, ws := range workspaces {
 			marker := " "
+			// Mark project if current directory is within its path
+			if ws.Path != "" && cwd != "" && isSubdirectory(ws.Path, cwd) {
+				marker = "*"
+			}
+			path := ws.Path
+			if path == "" {
+				path = "-"
+			}
 			desc := ws.Description
 			if desc == "" {
 				desc = "-"
 			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", marker, ws.Name, ws.Prefix, ws.ID, desc, path)
 		}
 		_ = w.Flush()
 		return nil
 	},
 }
 
-// workspaceCreateCmd creates a new workspace on the server.
-var workspaceCreateCmd = &cobra.Command{
+// projectCreateCmd creates a new project on the server.
+var projectCreateCmd = &cobra.Command{
 	Use:   "create <name>",
-	Short: "Create a new workspace",
+	Short: "Create a new project",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -437,7 +499,7 @@ var workspaceCreateCmd = &cobra.Command{
 		path, _ := cmd.Flags().GetString("path")
 		description, _ := cmd.Flags().GetString("description")
 
-		// Generate prefix from path if provided, otherwise from workspace name
+		// Generate prefix from path if provided, otherwise from project name
 		var prefix string
 		if path != "" {
 			prefix, err = workspace.GeneratePrefix(path)
@@ -445,11 +507,11 @@ var workspaceCreateCmd = &cobra.Command{
 				return fmt.Errorf("generate prefix: %w", err)
 			}
 		} else {
-			// No path - generate prefix from workspace name with hash
+			// No path - generate prefix from project name with hash
 			prefix = workspace.GeneratePrefixFromName(args[0])
 		}
 
-		ws, err := c.CreateWorkspace(args[0], prefix, description)
+		ws, err := c.CreateWorkspace(args[0], prefix, path, description)
 		if err != nil {
 			return err
 		}
@@ -459,20 +521,20 @@ var workspaceCreateCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("Created workspace: %s (%s)\n", ws.Name, ws.ID)
+		fmt.Printf("Created project: %s (%s)\n", ws.Name, ws.ID)
 		return nil
 	},
 }
 
 func init() {
-	workspaceCreateCmd.Flags().String("path", "", "Associated directory path")
-	workspaceCreateCmd.Flags().StringP("description", "d", "", "Workspace description")
+	projectCreateCmd.Flags().String("path", "", "Associated directory path")
+	projectCreateCmd.Flags().StringP("description", "d", "", "Project description")
 }
 
-// workspaceDeleteCmd deletes a workspace from the server.
-var workspaceDeleteCmd = &cobra.Command{
+// projectDeleteCmd deletes a project from the server.
+var projectDeleteCmd = &cobra.Command{
 	Use:   "delete <id>",
-	Short: "Delete a workspace",
+	Short: "Delete a project",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -484,14 +546,14 @@ var workspaceDeleteCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("Deleted workspace: %s\n", args[0])
+		fmt.Printf("Deleted project: %s\n", args[0])
 		return nil
 	},
 }
 
 // ============ Issue Commands ============
 
-// listCmd lists issues in the active workspace with optional filters.
+// listCmd lists issues in the active project with optional filters.
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List issues",
@@ -501,7 +563,7 @@ var listCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -547,7 +609,7 @@ func init() {
 	listCmd.Flags().String("parent", "", "Filter by parent issue ID")
 }
 
-// createCmd creates a new issue in the active workspace.
+// createCmd creates a new issue in the active project.
 var createCmd = &cobra.Command{
 	Use:   "create [title]",
 	Short: "Create a new issue",
@@ -558,7 +620,7 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -629,7 +691,7 @@ var showCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -722,7 +784,7 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -798,7 +860,7 @@ var closeCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -880,7 +942,7 @@ var readyCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -928,7 +990,7 @@ var blockedCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -986,7 +1048,7 @@ var depAddCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -1020,7 +1082,7 @@ var depRemoveCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -1036,17 +1098,17 @@ var depRemoveCmd = &cobra.Command{
 
 // ============ Stats Command ============
 
-// statsCmd displays aggregate statistics for the active workspace.
+// statsCmd displays aggregate statistics for the active project.
 var statsCmd = &cobra.Command{
 	Use:   "stats",
-	Short: "Show workspace statistics",
+	Short: "Show project statistics",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}

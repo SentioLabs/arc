@@ -77,7 +77,7 @@ If --stdin is used, reads plan content from stdin.`,
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ var planShowCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -229,7 +229,7 @@ var planHistoryCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -277,7 +277,7 @@ var planCreateCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -326,7 +326,7 @@ var planEditCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -372,7 +372,7 @@ var planListCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -413,7 +413,7 @@ var planDeleteCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -438,7 +438,7 @@ var planLinkCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -466,7 +466,7 @@ var planUnlinkCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
