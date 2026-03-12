@@ -363,6 +363,7 @@ type WorkspacePath struct {
 	Label          string     `json:"label,omitempty"`
 	Hostname       string     `json:"hostname,omitempty"`
 	GitRemote      string     `json:"git_remote,omitempty"`
+	PathType       string     `json:"path_type,omitempty"`
 	LastAccessedAt *time.Time `json:"last_accessed_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`

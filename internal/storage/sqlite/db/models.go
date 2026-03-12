@@ -120,6 +120,7 @@ type WorkspacePath struct {
 	Label          sql.NullString `json:"label"`
 	Hostname       sql.NullString `json:"hostname"`
 	GitRemote      sql.NullString `json:"git_remote"`
+	PathType       string         `json:"path_type"`
 	LastAccessedAt sql.NullTime   `json:"last_accessed_at"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`

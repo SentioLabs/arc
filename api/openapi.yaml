@@ -1286,6 +1286,9 @@ components:
         git_remote:
           type: string
           description: Git remote URL associated with this path
+        path_type:
+          type: string
+          description: Type of path - canonical (resolved real path) or symlink (alias)
         last_accessed_at:
           type: string
           format: date-time
@@ -1314,6 +1317,9 @@ components:
         git_remote:
           type: string
           description: Git remote URL
+        path_type:
+          type: string
+          description: Type of path - canonical or symlink
 
     UpdateWorkspacePathRequest:
       type: object
@@ -1327,6 +1333,9 @@ components:
         git_remote:
           type: string
           description: Updated git remote URL
+        path_type:
+          type: string
+          description: Updated path type
 
     BrowseEntry:
       type: object

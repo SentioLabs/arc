@@ -26,6 +26,10 @@ func (s *Store) CreateWorkspacePath(ctx context.Context, wp *types.WorkspacePath
 	wp.CreatedAt = now
 	wp.UpdatedAt = now
 
+	if wp.PathType == "" {
+		wp.PathType = "canonical"
+	}
+
 	err := s.queries.CreateWorkspacePath(ctx, db.CreateWorkspacePathParams{
 		ID:             wp.ID,
 		WorkspaceID:    wp.WorkspaceID,
@@ -33,6 +37,7 @@ func (s *Store) CreateWorkspacePath(ctx context.Context, wp *types.WorkspacePath
 		Label:          toNullString(wp.Label),
 		Hostname:       toNullString(wp.Hostname),
 		GitRemote:      toNullString(wp.GitRemote),
+		PathType:       wp.PathType,
 		LastAccessedAt: toNullTime(wp.LastAccessedAt),
 		CreatedAt:      now,
 		UpdatedAt:      now,
@@ -76,10 +81,15 @@ func (s *Store) ListWorkspacePaths(ctx context.Context, workspaceID string) ([]*
 func (s *Store) UpdateWorkspacePath(ctx context.Context, wp *types.WorkspacePath) error {
 	wp.UpdatedAt = time.Now()
 
+	if wp.PathType == "" {
+		wp.PathType = "canonical"
+	}
+
 	err := s.queries.UpdateWorkspacePath(ctx, db.UpdateWorkspacePathParams{
 		Label:     toNullString(wp.Label),
 		Hostname:  toNullString(wp.Hostname),
 		GitRemote: toNullString(wp.GitRemote),
+		PathType:  wp.PathType,
 		UpdatedAt: wp.UpdatedAt,
 		ID:        wp.ID,
 	})
@@ -138,6 +148,7 @@ func dbWorkspacePathToType(row *db.WorkspacePath) *types.WorkspacePath {
 		Label:          fromNullString(row.Label),
 		Hostname:       fromNullString(row.Hostname),
 		GitRemote:      fromNullString(row.GitRemote),
+		PathType:       row.PathType,
 		LastAccessedAt: fromNullTime(row.LastAccessedAt),
 		CreatedAt:      row.CreatedAt,
 		UpdatedAt:      row.UpdatedAt,

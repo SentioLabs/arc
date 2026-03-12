@@ -613,6 +613,7 @@ type WorkspacePath struct {
 	Label          string `json:"label,omitempty"`
 	Hostname       string `json:"hostname,omitempty"`
 	GitRemote      string `json:"git_remote,omitempty"`
+	PathType       string `json:"path_type,omitempty"`
 	LastAccessedAt string `json:"last_accessed_at,omitempty"`
 	CreatedAt      string `json:"created_at,omitempty"`
 	UpdatedAt      string `json:"updated_at,omitempty"`
@@ -624,6 +625,7 @@ type CreateWorkspacePathRequest struct {
 	Label     string `json:"label,omitempty"`
 	Hostname  string `json:"hostname,omitempty"`
 	GitRemote string `json:"git_remote,omitempty"`
+	PathType  string `json:"path_type,omitempty"`
 }
 
 // WorkspaceResolution contains the result of resolving a workspace by path.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -147,11 +148,19 @@ func runPathsAdd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Determine path type by checking if the path is a symlink
+	pathType := "canonical"
+	resolved, evalErr := filepath.EvalSymlinks(dir)
+	if evalErr == nil && resolved != normalizedPath {
+		pathType = "symlink"
+	}
+
 	req := client.CreateWorkspacePathRequest{
 		Path:      normalizedPath,
 		Label:     pathsAddLabel,
 		Hostname:  hostname,
 		GitRemote: gitRemote,
+		PathType:  pathType,
 	}
 
 	wp, err := c.CreateWorkspacePath(wsID, req)

@@ -14,6 +14,7 @@ type createWorkspacePathRequest struct {
 	Label     string `json:"label,omitempty"`
 	Hostname  string `json:"hostname,omitempty"`
 	GitRemote string `json:"git_remote,omitempty"`
+	PathType  string `json:"path_type,omitempty"`
 }
 
 // updateWorkspacePathRequest is the request body for updating a workspace path.
@@ -21,6 +22,7 @@ type updateWorkspacePathRequest struct {
 	Label     string `json:"label,omitempty"`
 	Hostname  string `json:"hostname,omitempty"`
 	GitRemote string `json:"git_remote,omitempty"`
+	PathType  string `json:"path_type,omitempty"`
 }
 
 // listWorkspacePaths returns all paths for a workspace.
@@ -60,6 +62,7 @@ func (s *Server) createWorkspacePath(c echo.Context) error {
 		Label:       req.Label,
 		Hostname:    req.Hostname,
 		GitRemote:   req.GitRemote,
+		PathType:    req.PathType,
 	}
 
 	if err := s.store.CreateWorkspacePath(ctx, wp); err != nil {
@@ -95,6 +98,9 @@ func (s *Server) updateWorkspacePath(c echo.Context) error {
 	}
 	if req.GitRemote != "" {
 		wp.GitRemote = req.GitRemote
+	}
+	if req.PathType != "" {
+		wp.PathType = req.PathType
 	}
 
 	if err := s.store.UpdateWorkspacePath(ctx, wp); err != nil {

@@ -102,26 +102,44 @@
 		}
 	}
 
-	function formatRelativeTime(dateStr: string): string {
-		const date = new Date(dateStr);
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffMins = Math.floor(diffMs / 60000);
-		if (diffMins < 1) return 'just now';
-		if (diffMins < 60) return `${diffMins}m ago`;
-		const diffHours = Math.floor(diffMins / 60);
-		if (diffHours < 24) return `${diffHours}h ago`;
-		const diffDays = Math.floor(diffHours / 24);
-		if (diffDays < 30) return `${diffDays}d ago`;
-		return date.toLocaleDateString();
-	}
+	// Group paths: canonical paths first, then symlinks indented below their canonical counterpart
+	const groupedPaths = $derived.by(() => {
+		const canonicalPaths = paths.filter((p) => p.path_type !== 'symlink');
+		const symlinkPaths = paths.filter((p) => p.path_type === 'symlink');
+
+		type GroupedEntry = { path: string; label: string; isSymlink: boolean };
+		const entries: GroupedEntry[] = [];
+
+		for (const cp of canonicalPaths) {
+			entries.push({ path: cp.path, label: cp.label ?? '-', isSymlink: false });
+			// Find symlinks in the same workspace (all paths are for the same workspace)
+			for (const sp of symlinkPaths) {
+				entries.push({
+					path: sp.path,
+					label: '(symlink)',
+					isSymlink: true
+				});
+			}
+			// Remove matched symlinks so they don't appear under other canonical paths
+			// Since all symlinks are for the same workspace, we only show them once
+			// under the first canonical path
+			symlinkPaths.length = 0;
+		}
+
+		// Any remaining symlinks without a canonical counterpart
+		for (const sp of symlinkPaths) {
+			entries.push({ path: sp.path, label: '(symlink)', isSymlink: true });
+		}
+
+		return entries;
+	});
 
 	// Compute column widths for terminal-style alignment
 	const pathColumns = $derived.by(() => {
-		const pathW = Math.max(4, ...paths.map((p) => p.path.length));
-		const labelW = Math.max(5, ...paths.map((p) => (p.label ?? '-').length));
-		const hostW = Math.max(4, ...paths.map((p) => (p.hostname ?? '-').length));
-		return { pathW, labelW, hostW };
+		const allDisplayPaths = groupedPaths.map((e) => (e.isSymlink ? `  \u2192 ${e.path}` : e.path));
+		const pathW = Math.max(4, ...allDisplayPaths.map((p) => p.length));
+		const labelW = Math.max(5, ...groupedPaths.map((e) => e.label.length));
+		return { pathW, labelW };
 	});
 
 	function padRight(str: string, len: number): string {
@@ -325,9 +343,9 @@
 				{:else}
 					<!-- Terminal-style table matching `arc paths` output -->
 					<div class="bg-surface-900 border border-border-subtle rounded-lg overflow-x-auto">
-						<pre class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre"><span class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  {padRight('LABEL', pathColumns.labelW)}  {padRight('HOST', pathColumns.hostW)}  LAST ACCESSED</span>
-<span class="text-text-muted/50">{makeSeparator(pathColumns.pathW)}  {makeSeparator(pathColumns.labelW)}  {makeSeparator(pathColumns.hostW)}  {makeSeparator(13)}</span>
-{#each paths as wp, i}{#if i > 0}{'\n'}{/if}{padRight(wp.path, pathColumns.pathW)}  <span class="text-text-secondary">{padRight(wp.label ?? '-', pathColumns.labelW)}</span>  <span class="text-text-secondary">{padRight(wp.hostname ?? '-', pathColumns.hostW)}</span>  <span class="text-text-muted">{wp.last_accessed_at ?? '-'}</span>{/each}</pre>
+						<pre class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre"><span class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  LABEL</span>
+<span class="text-text-muted/50">{makeSeparator(pathColumns.pathW)}  {makeSeparator(pathColumns.labelW)}</span>
+{#each groupedPaths as entry, i}{#if i > 0}{'\n'}{/if}{#if entry.isSymlink}<span class="text-text-muted">  {padRight('\u2192 ' + entry.path, pathColumns.pathW - 2)}  {entry.label}</span>{:else}{padRight(entry.path, pathColumns.pathW)}  <span class="text-text-secondary">{entry.label}</span>{/if}{/each}</pre>
 					</div>
 				{/if}
 
@@ -335,17 +353,17 @@
 				<div class="mt-3">
 					<button
 						type="button"
-						class="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors group"
+						class="flex items-center gap-2 text-sm text-text-muted hover:text-text-secondary transition-colors group"
 						onclick={() => { managingPaths = !managingPaths; if (!managingPaths) addPathOpen = false; }}
 					>
 						<svg
-							class="w-3.5 h-3.5 transition-transform {managingPaths ? 'rotate-90' : ''}"
+							class="w-4 h-4 transition-transform {managingPaths ? 'rotate-90' : ''}"
 							viewBox="0 0 24 24"
 							fill="currentColor"
 						>
 							<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
 						</svg>
-						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
 							<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
 						</svg>
 						Manage paths
@@ -362,7 +380,6 @@
 												<tr class="bg-surface-800">
 													<th class="text-left px-3 py-2 text-text-muted font-medium">Path</th>
 													<th class="text-left px-3 py-2 text-text-muted font-medium">Label</th>
-													<th class="text-left px-3 py-2 text-text-muted font-medium">Host</th>
 													<th class="w-10 px-3 py-2"></th>
 												</tr>
 											</thead>
@@ -371,7 +388,6 @@
 													<tr class="border-t border-border-subtle hover:bg-surface-800/50">
 														<td class="px-3 py-2 font-mono text-text-primary truncate max-w-[280px]" title={wp.path}>{wp.path}</td>
 														<td class="px-3 py-2 text-text-secondary">{wp.label ?? '-'}</td>
-														<td class="px-3 py-2 text-text-secondary">{wp.hostname ?? '-'}</td>
 														<td class="px-3 py-2">
 															<button
 																type="button"

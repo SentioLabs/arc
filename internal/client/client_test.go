@@ -397,6 +397,51 @@ func TestClientHealth(t *testing.T) {
 	}
 }
 
+func TestClientCreateWorkspacePathWithPathType(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	ws := createTestWorkspaceClient(t, c)
+
+	// Create a canonical path
+	canonical, err := c.CreateWorkspacePath(ws.ID, client.CreateWorkspacePathRequest{
+		Path:     "/Volumes/ExternalSSD/project",
+		Label:    "project",
+		PathType: "canonical",
+	})
+	if err != nil {
+		t.Fatalf("CreateWorkspacePath(canonical) failed: %v", err)
+	}
+	if canonical.PathType != "canonical" {
+		t.Errorf("PathType = %q, want %q", canonical.PathType, "canonical")
+	}
+
+	// Create a symlink path
+	symlink, err := c.CreateWorkspacePath(ws.ID, client.CreateWorkspacePathRequest{
+		Path:     "/Users/dev/project",
+		Label:    "project",
+		PathType: "symlink",
+	})
+	if err != nil {
+		t.Fatalf("CreateWorkspacePath(symlink) failed: %v", err)
+	}
+	if symlink.PathType != "symlink" {
+		t.Errorf("PathType = %q, want %q", symlink.PathType, "symlink")
+	}
+
+	// Create a path without path_type — should default to canonical
+	defaultPath, err := c.CreateWorkspacePath(ws.ID, client.CreateWorkspacePathRequest{
+		Path:  "/home/user/project",
+		Label: "project-default",
+	})
+	if err != nil {
+		t.Fatalf("CreateWorkspacePath(default) failed: %v", err)
+	}
+	if defaultPath.PathType != "canonical" {
+		t.Errorf("PathType = %q, want %q", defaultPath.PathType, "canonical")
+	}
+}
+
 // TestClientSetActor verifies that SetActor does not panic.
 // The actor field is unexported; actual behavior is tested through integration tests.
 func TestClientSetActor(t *testing.T) {

@@ -106,11 +106,18 @@ func init() {
 func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname string) error {
 	label := filepath.Base(absPath)
 
+	// Determine path type for the absolute path
+	absPathType := "canonical"
+	if absPath != resolvedPath {
+		absPathType = "symlink"
+	}
+
 	// Register the absolute path (what user sees / cwd reports)
 	pathReq := client.CreateWorkspacePathRequest{
 		Path:     absPath,
 		Label:    label,
 		Hostname: hostname,
+		PathType: absPathType,
 	}
 	if _, err := c.CreateWorkspacePath(wsID, pathReq); err != nil {
 		if !isDuplicatePathError(err) {
@@ -124,6 +131,7 @@ func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname st
 			Path:     resolvedPath,
 			Label:    label + " (resolved)",
 			Hostname: hostname,
+			PathType: "canonical",
 		}
 		if _, err := c.CreateWorkspacePath(wsID, resolvedReq); err != nil {
 			if !isDuplicatePathError(err) {

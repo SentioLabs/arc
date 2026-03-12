@@ -12,8 +12,8 @@ import (
 )
 
 const createWorkspacePath = `-- name: CreateWorkspacePath :exec
-INSERT INTO workspace_paths (id, workspace_id, path, label, hostname, git_remote, last_accessed_at, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO workspace_paths (id, workspace_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateWorkspacePathParams struct {
@@ -23,6 +23,7 @@ type CreateWorkspacePathParams struct {
 	Label          sql.NullString `json:"label"`
 	Hostname       sql.NullString `json:"hostname"`
 	GitRemote      sql.NullString `json:"git_remote"`
+	PathType       string         `json:"path_type"`
 	LastAccessedAt sql.NullTime   `json:"last_accessed_at"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
@@ -36,6 +37,7 @@ func (q *Queries) CreateWorkspacePath(ctx context.Context, arg CreateWorkspacePa
 		arg.Label,
 		arg.Hostname,
 		arg.GitRemote,
+		arg.PathType,
 		arg.LastAccessedAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -62,7 +64,7 @@ func (q *Queries) DeleteWorkspacePathsByWorkspace(ctx context.Context, workspace
 }
 
 const getWorkspacePath = `-- name: GetWorkspacePath :one
-SELECT id, workspace_id, path, label, hostname, git_remote, last_accessed_at, created_at, updated_at FROM workspace_paths WHERE id = ?
+SELECT id, workspace_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspace_paths WHERE id = ?
 `
 
 func (q *Queries) GetWorkspacePath(ctx context.Context, id string) (*WorkspacePath, error) {
@@ -75,6 +77,7 @@ func (q *Queries) GetWorkspacePath(ctx context.Context, id string) (*WorkspacePa
 		&i.Label,
 		&i.Hostname,
 		&i.GitRemote,
+		&i.PathType,
 		&i.LastAccessedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -83,7 +86,7 @@ func (q *Queries) GetWorkspacePath(ctx context.Context, id string) (*WorkspacePa
 }
 
 const listAllWorkspacePaths = `-- name: ListAllWorkspacePaths :many
-SELECT id, workspace_id, path, label, hostname, git_remote, last_accessed_at, created_at, updated_at FROM workspace_paths ORDER BY workspace_id, path
+SELECT id, workspace_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspace_paths ORDER BY workspace_id, path
 `
 
 func (q *Queries) ListAllWorkspacePaths(ctx context.Context) ([]*WorkspacePath, error) {
@@ -102,6 +105,7 @@ func (q *Queries) ListAllWorkspacePaths(ctx context.Context) ([]*WorkspacePath, 
 			&i.Label,
 			&i.Hostname,
 			&i.GitRemote,
+			&i.PathType,
 			&i.LastAccessedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -120,7 +124,7 @@ func (q *Queries) ListAllWorkspacePaths(ctx context.Context) ([]*WorkspacePath, 
 }
 
 const listWorkspacePaths = `-- name: ListWorkspacePaths :many
-SELECT id, workspace_id, path, label, hostname, git_remote, last_accessed_at, created_at, updated_at FROM workspace_paths WHERE workspace_id = ? ORDER BY path
+SELECT id, workspace_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspace_paths WHERE workspace_id = ? ORDER BY path
 `
 
 func (q *Queries) ListWorkspacePaths(ctx context.Context, workspaceID string) ([]*WorkspacePath, error) {
@@ -139,6 +143,7 @@ func (q *Queries) ListWorkspacePaths(ctx context.Context, workspaceID string) ([
 			&i.Label,
 			&i.Hostname,
 			&i.GitRemote,
+			&i.PathType,
 			&i.LastAccessedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -157,7 +162,7 @@ func (q *Queries) ListWorkspacePaths(ctx context.Context, workspaceID string) ([
 }
 
 const resolveWorkspaceByPath = `-- name: ResolveWorkspaceByPath :one
-SELECT id, workspace_id, path, label, hostname, git_remote, last_accessed_at, created_at, updated_at FROM workspace_paths WHERE path = ?
+SELECT id, workspace_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspace_paths WHERE path = ?
 `
 
 func (q *Queries) ResolveWorkspaceByPath(ctx context.Context, path string) (*WorkspacePath, error) {
@@ -170,6 +175,7 @@ func (q *Queries) ResolveWorkspaceByPath(ctx context.Context, path string) (*Wor
 		&i.Label,
 		&i.Hostname,
 		&i.GitRemote,
+		&i.PathType,
 		&i.LastAccessedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -193,13 +199,14 @@ func (q *Queries) UpdatePathLastAccessed(ctx context.Context, arg UpdatePathLast
 }
 
 const updateWorkspacePath = `-- name: UpdateWorkspacePath :exec
-UPDATE workspace_paths SET label = ?, hostname = ?, git_remote = ?, updated_at = ? WHERE id = ?
+UPDATE workspace_paths SET label = ?, hostname = ?, git_remote = ?, path_type = ?, updated_at = ? WHERE id = ?
 `
 
 type UpdateWorkspacePathParams struct {
 	Label     sql.NullString `json:"label"`
 	Hostname  sql.NullString `json:"hostname"`
 	GitRemote sql.NullString `json:"git_remote"`
+	PathType  string         `json:"path_type"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	ID        string         `json:"id"`
 }
@@ -209,6 +216,7 @@ func (q *Queries) UpdateWorkspacePath(ctx context.Context, arg UpdateWorkspacePa
 		arg.Label,
 		arg.Hostname,
 		arg.GitRemote,
+		arg.PathType,
 		arg.UpdatedAt,
 		arg.ID,
 	)

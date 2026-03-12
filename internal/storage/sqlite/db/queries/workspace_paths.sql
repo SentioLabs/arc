@@ -1,6 +1,6 @@
 -- name: CreateWorkspacePath :exec
-INSERT INTO workspace_paths (id, workspace_id, path, label, hostname, git_remote, last_accessed_at, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO workspace_paths (id, workspace_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetWorkspacePath :one
 SELECT * FROM workspace_paths WHERE id = ?;
@@ -9,7 +9,7 @@ SELECT * FROM workspace_paths WHERE id = ?;
 SELECT * FROM workspace_paths WHERE workspace_id = ? ORDER BY path;
 
 -- name: UpdateWorkspacePath :exec
-UPDATE workspace_paths SET label = ?, hostname = ?, git_remote = ?, updated_at = ? WHERE id = ?;
+UPDATE workspace_paths SET label = ?, hostname = ?, git_remote = ?, path_type = ?, updated_at = ? WHERE id = ?;
 
 -- name: DeleteWorkspacePath :exec
 DELETE FROM workspace_paths WHERE id = ?;

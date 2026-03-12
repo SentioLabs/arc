@@ -604,6 +604,8 @@ export interface components {
             hostname?: string;
             /** @description Git remote URL associated with this path */
             git_remote?: string;
+            /** @description Type of path - canonical (resolved real path) or symlink (alias) */
+            path_type?: string;
             /**
              * Format: date-time
              * @description When this path was last accessed
@@ -623,6 +625,8 @@ export interface components {
             hostname?: string;
             /** @description Git remote URL */
             git_remote?: string;
+            /** @description Type of path - canonical or symlink */
+            path_type?: string;
         };
         UpdateWorkspacePathRequest: {
             /** @description Updated label */
@@ -631,6 +635,8 @@ export interface components {
             hostname?: string;
             /** @description Updated git remote URL */
             git_remote?: string;
+            /** @description Updated path type */
+            path_type?: string;
         };
         BrowseEntry: {
             /** @description Entry name */

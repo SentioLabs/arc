@@ -117,6 +117,21 @@ type BlockedIssue struct {
 	WorkspaceID string    `json:"workspace_id"`
 }
 
+// BrowseEntry defines model for BrowseEntry.
+type BrowseEntry struct {
+	// IsDir Whether this entry is a directory
+	IsDir bool `json:"is_dir"`
+
+	// IsGitRepo Whether this directory is a git repository
+	IsGitRepo bool `json:"is_git_repo"`
+
+	// Name Entry name
+	Name string `json:"name"`
+
+	// Path Full path
+	Path string `json:"path"`
+}
+
 // CloseIssueRequest defines model for CloseIssueRequest.
 type CloseIssueRequest struct {
 	// Reason Reason for closing
@@ -149,6 +164,24 @@ type CreateLabelRequest struct {
 	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
+}
+
+// CreateWorkspacePathRequest defines model for CreateWorkspacePathRequest.
+type CreateWorkspacePathRequest struct {
+	// GitRemote Git remote URL
+	GitRemote *string `json:"git_remote,omitempty"`
+
+	// Hostname Hostname where path is located
+	Hostname *string `json:"hostname,omitempty"`
+
+	// Label Optional human-readable label
+	Label *string `json:"label,omitempty"`
+
+	// Path Filesystem path to associate
+	Path string `json:"path"`
+
+	// PathType Type of path - canonical or symlink
+	PathType *string `json:"path_type,omitempty"`
 }
 
 // CreateWorkspaceRequest defines model for CreateWorkspaceRequest.
@@ -272,6 +305,28 @@ type Label struct {
 	Name        string  `json:"name"`
 }
 
+// MergeResult defines model for MergeResult.
+type MergeResult struct {
+	// IssuesMoved Number of issues moved to the target workspace
+	IssuesMoved int `json:"issues_moved"`
+
+	// PlansMoved Number of plans moved to the target workspace
+	PlansMoved int `json:"plans_moved"`
+
+	// SourcesDeleted IDs of source workspaces that were deleted
+	SourcesDeleted  []string  `json:"sources_deleted"`
+	TargetWorkspace Workspace `json:"target_workspace"`
+}
+
+// MergeWorkspacesRequest defines model for MergeWorkspacesRequest.
+type MergeWorkspacesRequest struct {
+	// SourceIds IDs of workspaces to merge from (will be deleted)
+	SourceIds []string `json:"source_ids"`
+
+	// TargetID ID of the workspace to merge into
+	TargetID string `json:"target_id"`
+}
+
 // PaginatedIssues defines model for PaginatedIssues.
 type PaginatedIssues struct {
 	Data   []Issue `json:"data"`
@@ -360,6 +415,21 @@ type UpdateLabelRequest struct {
 	Description *string `json:"description,omitempty"`
 }
 
+// UpdateWorkspacePathRequest defines model for UpdateWorkspacePathRequest.
+type UpdateWorkspacePathRequest struct {
+	// GitRemote Updated git remote URL
+	GitRemote *string `json:"git_remote,omitempty"`
+
+	// Hostname Updated hostname
+	Hostname *string `json:"hostname,omitempty"`
+
+	// Label Updated label
+	Label *string `json:"label,omitempty"`
+
+	// PathType Updated path type
+	PathType *string `json:"path_type,omitempty"`
+}
+
 // UpdateWorkspaceRequest defines model for UpdateWorkspaceRequest.
 type UpdateWorkspaceRequest struct {
 	// Description New description
@@ -387,6 +457,36 @@ type Workspace struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// WorkspacePath defines model for WorkspacePath.
+type WorkspacePath struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// GitRemote Git remote URL associated with this path
+	GitRemote *string `json:"git_remote,omitempty"`
+
+	// Hostname Hostname where this path is located
+	Hostname *string `json:"hostname,omitempty"`
+
+	// ID Unique workspace path ID
+	ID string `json:"id"`
+
+	// Label Optional human-readable label for this path
+	Label *string `json:"label,omitempty"`
+
+	// LastAccessedAt When this path was last accessed
+	LastAccessedAt *time.Time `json:"last_accessed_at,omitempty"`
+
+	// Path Filesystem path
+	Path string `json:"path"`
+
+	// PathType Type of path - canonical (resolved real path) or symlink (alias)
+	PathType  *string   `json:"path_type,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// WorkspaceID ID of the workspace this path belongs to
+	WorkspaceID string `json:"workspace_id"`
+}
+
 // ActorHeader defines model for ActorHeader.
 type ActorHeader = string
 
@@ -396,6 +496,9 @@ type IssueID = string
 // WorkspaceID defines model for WorkspaceId.
 type WorkspaceID = string
 
+// WorkspacePathID defines model for WorkspacePathId.
+type WorkspacePathID = string
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
@@ -404,6 +507,24 @@ type InternalError = Error
 
 // NotFound defines model for NotFound.
 type NotFound = Error
+
+// BrowseFilesystemParams defines parameters for BrowseFilesystem.
+type BrowseFilesystemParams struct {
+	// Dir Directory to browse (defaults to home directory)
+	Dir *string `form:"dir,omitempty" json:"dir,omitempty"`
+}
+
+// MergeWorkspacesParams defines parameters for MergeWorkspaces.
+type MergeWorkspacesParams struct {
+	// XActor User performing the action (defaults to "anonymous")
+	XActor *ActorHeader `json:"X-Actor,omitempty"`
+}
+
+// ResolveWorkspaceByPathParams defines parameters for ResolveWorkspaceByPath.
+type ResolveWorkspaceByPathParams struct {
+	// Path Filesystem path to resolve
+	Path string `form:"path" json:"path"`
+}
 
 // GetBlockedIssuesParams defines parameters for GetBlockedIssues.
 type GetBlockedIssuesParams struct {
@@ -546,6 +667,9 @@ type UpdateLabelJSONRequestBody = UpdateLabelRequest
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
 
+// MergeWorkspacesJSONRequestBody defines body for MergeWorkspaces for application/json ContentType.
+type MergeWorkspacesJSONRequestBody = MergeWorkspacesRequest
+
 // UpdateWorkspaceJSONRequestBody defines body for UpdateWorkspace for application/json ContentType.
 type UpdateWorkspaceJSONRequestBody = UpdateWorkspaceRequest
 
@@ -570,8 +694,17 @@ type AddDependencyJSONRequestBody = AddDependencyRequest
 // AddLabelToIssueJSONRequestBody defines body for AddLabelToIssue for application/json ContentType.
 type AddLabelToIssueJSONRequestBody = AddLabelToIssueRequest
 
+// CreateWorkspacePathJSONRequestBody defines body for CreateWorkspacePath for application/json ContentType.
+type CreateWorkspacePathJSONRequestBody = CreateWorkspacePathRequest
+
+// UpdateWorkspacePathJSONRequestBody defines body for UpdateWorkspacePath for application/json ContentType.
+type UpdateWorkspacePathJSONRequestBody = UpdateWorkspacePathRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Browse filesystem directories
+	// (GET /filesystem/browse)
+	BrowseFilesystem(ctx echo.Context, params BrowseFilesystemParams) error
 	// List all global labels
 	// (GET /labels)
 	ListLabels(ctx echo.Context) error
@@ -590,6 +723,12 @@ type ServerInterface interface {
 	// Create a new workspace
 	// (POST /workspaces)
 	CreateWorkspace(ctx echo.Context) error
+	// Merge source workspaces into a target workspace
+	// (POST /workspaces/merge)
+	MergeWorkspaces(ctx echo.Context, params MergeWorkspacesParams) error
+	// Resolve a workspace by filesystem path
+	// (GET /workspaces/resolve)
+	ResolveWorkspaceByPath(ctx echo.Context, params ResolveWorkspaceByPathParams) error
 	// Delete workspace
 	// (DELETE /workspaces/{workspaceId})
 	DeleteWorkspace(ctx echo.Context, workspaceID WorkspaceID) error
@@ -653,6 +792,18 @@ type ServerInterface interface {
 	// Reopen a closed issue
 	// (POST /workspaces/{workspaceId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx echo.Context, workspaceID WorkspaceID, issueID IssueID, params ReopenIssueParams) error
+	// List paths for a workspace
+	// (GET /workspaces/{workspaceId}/paths)
+	ListWorkspacePaths(ctx echo.Context, workspaceID WorkspaceID) error
+	// Add a path to a workspace
+	// (POST /workspaces/{workspaceId}/paths)
+	CreateWorkspacePath(ctx echo.Context, workspaceID WorkspaceID) error
+	// Remove a path from a workspace
+	// (DELETE /workspaces/{workspaceId}/paths/{pathId})
+	DeleteWorkspacePath(ctx echo.Context, workspaceID WorkspaceID, pathID WorkspacePathID) error
+	// Update a workspace path
+	// (PATCH /workspaces/{workspaceId}/paths/{pathId})
+	UpdateWorkspacePath(ctx echo.Context, workspaceID WorkspaceID, pathID WorkspacePathID) error
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /workspaces/{workspaceId}/ready)
 	GetReadyWork(ctx echo.Context, workspaceID WorkspaceID, params GetReadyWorkParams) error
@@ -667,6 +818,24 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// BrowseFilesystem converts echo context to params.
+func (w *ServerInterfaceWrapper) BrowseFilesystem(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BrowseFilesystemParams
+	// ------------- Optional query parameter "dir" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "dir", ctx.QueryParams(), &params.Dir)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter dir: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.BrowseFilesystem(ctx, params)
+	return err
 }
 
 // ListLabels converts echo context to params.
@@ -734,6 +903,53 @@ func (w *ServerInterfaceWrapper) CreateWorkspace(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CreateWorkspace(ctx)
+	return err
+}
+
+// MergeWorkspaces converts echo context to params.
+func (w *ServerInterfaceWrapper) MergeWorkspaces(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MergeWorkspacesParams
+
+	headers := ctx.Request().Header
+	// ------------- Optional header parameter "X-Actor" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Actor")]; found {
+		var XActor ActorHeader
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Actor, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Actor", valueList[0], &XActor, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Actor: %s", err))
+		}
+
+		params.XActor = &XActor
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.MergeWorkspaces(ctx, params)
+	return err
+}
+
+// ResolveWorkspaceByPath converts echo context to params.
+func (w *ServerInterfaceWrapper) ResolveWorkspaceByPath(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResolveWorkspaceByPathParams
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "path", ctx.QueryParams(), &params.Path)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter path: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ResolveWorkspaceByPath(ctx, params)
 	return err
 }
 
@@ -1490,6 +1706,86 @@ func (w *ServerInterfaceWrapper) ReopenIssue(ctx echo.Context) error {
 	return err
 }
 
+// ListWorkspacePaths converts echo context to params.
+func (w *ServerInterfaceWrapper) ListWorkspacePaths(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceID WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListWorkspacePaths(ctx, workspaceID)
+	return err
+}
+
+// CreateWorkspacePath converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateWorkspacePath(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceID WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateWorkspacePath(ctx, workspaceID)
+	return err
+}
+
+// DeleteWorkspacePath converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteWorkspacePath(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceID WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
+	}
+
+	// ------------- Path parameter "pathId" -------------
+	var pathID WorkspacePathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pathId", ctx.Param("pathId"), &pathID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter pathId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteWorkspacePath(ctx, workspaceID, pathID)
+	return err
+}
+
+// UpdateWorkspacePath converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateWorkspacePath(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceID WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", ctx.Param("workspaceId"), &workspaceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workspaceId: %s", err))
+	}
+
+	// ------------- Path parameter "pathId" -------------
+	var pathID WorkspacePathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pathId", ctx.Param("pathId"), &pathID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter pathId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateWorkspacePath(ctx, workspaceID, pathID)
+	return err
+}
+
 // GetReadyWork converts echo context to params.
 func (w *ServerInterfaceWrapper) GetReadyWork(ctx echo.Context) error {
 	var err error
@@ -1619,12 +1915,15 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/filesystem/browse", wrapper.BrowseFilesystem)
 	router.GET(baseURL+"/labels", wrapper.ListLabels)
 	router.POST(baseURL+"/labels", wrapper.CreateLabel)
 	router.DELETE(baseURL+"/labels/:labelName", wrapper.DeleteLabel)
 	router.PUT(baseURL+"/labels/:labelName", wrapper.UpdateLabel)
 	router.GET(baseURL+"/workspaces", wrapper.ListWorkspaces)
 	router.POST(baseURL+"/workspaces", wrapper.CreateWorkspace)
+	router.POST(baseURL+"/workspaces/merge", wrapper.MergeWorkspaces)
+	router.GET(baseURL+"/workspaces/resolve", wrapper.ResolveWorkspaceByPath)
 	router.DELETE(baseURL+"/workspaces/:workspaceId", wrapper.DeleteWorkspace)
 	router.GET(baseURL+"/workspaces/:workspaceId", wrapper.GetWorkspace)
 	router.PUT(baseURL+"/workspaces/:workspaceId", wrapper.UpdateWorkspace)
@@ -1646,6 +1945,10 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/workspaces/:workspaceId/issues/:issueId/labels", wrapper.AddLabelToIssue)
 	router.DELETE(baseURL+"/workspaces/:workspaceId/issues/:issueId/labels/:labelName", wrapper.RemoveLabelFromIssue)
 	router.POST(baseURL+"/workspaces/:workspaceId/issues/:issueId/reopen", wrapper.ReopenIssue)
+	router.GET(baseURL+"/workspaces/:workspaceId/paths", wrapper.ListWorkspacePaths)
+	router.POST(baseURL+"/workspaces/:workspaceId/paths", wrapper.CreateWorkspacePath)
+	router.DELETE(baseURL+"/workspaces/:workspaceId/paths/:pathId", wrapper.DeleteWorkspacePath)
+	router.PATCH(baseURL+"/workspaces/:workspaceId/paths/:pathId", wrapper.UpdateWorkspacePath)
 	router.GET(baseURL+"/workspaces/:workspaceId/ready", wrapper.GetReadyWork)
 	router.GET(baseURL+"/workspaces/:workspaceId/stats", wrapper.GetWorkspaceStats)
 	router.GET(baseURL+"/workspaces/:workspaceId/team-context", wrapper.GetTeamContext)
@@ -1657,6 +1960,41 @@ type BadRequestJSONResponse Error
 type InternalErrorJSONResponse Error
 
 type NotFoundJSONResponse Error
+
+type BrowseFilesystemRequestObject struct {
+	Params BrowseFilesystemParams
+}
+
+type BrowseFilesystemResponseObject interface {
+	VisitBrowseFilesystemResponse(w http.ResponseWriter) error
+}
+
+type BrowseFilesystem200JSONResponse []BrowseEntry
+
+func (response BrowseFilesystem200JSONResponse) VisitBrowseFilesystemResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type BrowseFilesystem400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response BrowseFilesystem400JSONResponse) VisitBrowseFilesystemResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type BrowseFilesystem500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response BrowseFilesystem500JSONResponse) VisitBrowseFilesystemResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
 
 type ListLabelsRequestObject struct {
 }
@@ -1851,6 +2189,77 @@ func (response CreateWorkspace400JSONResponse) VisitCreateWorkspaceResponse(w ht
 type CreateWorkspace500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response CreateWorkspace500JSONResponse) VisitCreateWorkspaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type MergeWorkspacesRequestObject struct {
+	Params MergeWorkspacesParams
+	Body   *MergeWorkspacesJSONRequestBody
+}
+
+type MergeWorkspacesResponseObject interface {
+	VisitMergeWorkspacesResponse(w http.ResponseWriter) error
+}
+
+type MergeWorkspaces200JSONResponse MergeResult
+
+func (response MergeWorkspaces200JSONResponse) VisitMergeWorkspacesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type MergeWorkspaces400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response MergeWorkspaces400JSONResponse) VisitMergeWorkspacesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type MergeWorkspaces500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response MergeWorkspaces500JSONResponse) VisitMergeWorkspacesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ResolveWorkspaceByPathRequestObject struct {
+	Params ResolveWorkspaceByPathParams
+}
+
+type ResolveWorkspaceByPathResponseObject interface {
+	VisitResolveWorkspaceByPathResponse(w http.ResponseWriter) error
+}
+
+type ResolveWorkspaceByPath200JSONResponse WorkspacePath
+
+func (response ResolveWorkspaceByPath200JSONResponse) VisitResolveWorkspaceByPathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ResolveWorkspaceByPath404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ResolveWorkspaceByPath404JSONResponse) VisitResolveWorkspaceByPathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ResolveWorkspaceByPath500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ResolveWorkspaceByPath500JSONResponse) VisitResolveWorkspaceByPathResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -2681,6 +3090,167 @@ func (response ReopenIssue500JSONResponse) VisitReopenIssueResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListWorkspacePathsRequestObject struct {
+	WorkspaceID WorkspaceID `json:"workspaceId"`
+}
+
+type ListWorkspacePathsResponseObject interface {
+	VisitListWorkspacePathsResponse(w http.ResponseWriter) error
+}
+
+type ListWorkspacePaths200JSONResponse []WorkspacePath
+
+func (response ListWorkspacePaths200JSONResponse) VisitListWorkspacePathsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWorkspacePaths404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListWorkspacePaths404JSONResponse) VisitListWorkspacePathsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWorkspacePaths500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListWorkspacePaths500JSONResponse) VisitListWorkspacePathsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkspacePathRequestObject struct {
+	WorkspaceID WorkspaceID `json:"workspaceId"`
+	Body        *CreateWorkspacePathJSONRequestBody
+}
+
+type CreateWorkspacePathResponseObject interface {
+	VisitCreateWorkspacePathResponse(w http.ResponseWriter) error
+}
+
+type CreateWorkspacePath201JSONResponse WorkspacePath
+
+func (response CreateWorkspacePath201JSONResponse) VisitCreateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkspacePath400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateWorkspacePath400JSONResponse) VisitCreateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkspacePath404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateWorkspacePath404JSONResponse) VisitCreateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkspacePath500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateWorkspacePath500JSONResponse) VisitCreateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkspacePathRequestObject struct {
+	WorkspaceID WorkspaceID     `json:"workspaceId"`
+	PathID      WorkspacePathID `json:"pathId"`
+}
+
+type DeleteWorkspacePathResponseObject interface {
+	VisitDeleteWorkspacePathResponse(w http.ResponseWriter) error
+}
+
+type DeleteWorkspacePath204Response struct {
+}
+
+func (response DeleteWorkspacePath204Response) VisitDeleteWorkspacePathResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteWorkspacePath404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteWorkspacePath404JSONResponse) VisitDeleteWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkspacePath500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteWorkspacePath500JSONResponse) VisitDeleteWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkspacePathRequestObject struct {
+	WorkspaceID WorkspaceID     `json:"workspaceId"`
+	PathID      WorkspacePathID `json:"pathId"`
+	Body        *UpdateWorkspacePathJSONRequestBody
+}
+
+type UpdateWorkspacePathResponseObject interface {
+	VisitUpdateWorkspacePathResponse(w http.ResponseWriter) error
+}
+
+type UpdateWorkspacePath200JSONResponse WorkspacePath
+
+func (response UpdateWorkspacePath200JSONResponse) VisitUpdateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkspacePath400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateWorkspacePath400JSONResponse) VisitUpdateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkspacePath404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateWorkspacePath404JSONResponse) VisitUpdateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkspacePath500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateWorkspacePath500JSONResponse) VisitUpdateWorkspacePathResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetReadyWorkRequestObject struct {
 	WorkspaceID WorkspaceID `json:"workspaceId"`
 	Params      GetReadyWorkParams
@@ -2781,6 +3351,9 @@ func (response GetTeamContext500JSONResponse) VisitGetTeamContextResponse(w http
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Browse filesystem directories
+	// (GET /filesystem/browse)
+	BrowseFilesystem(ctx context.Context, request BrowseFilesystemRequestObject) (BrowseFilesystemResponseObject, error)
 	// List all global labels
 	// (GET /labels)
 	ListLabels(ctx context.Context, request ListLabelsRequestObject) (ListLabelsResponseObject, error)
@@ -2799,6 +3372,12 @@ type StrictServerInterface interface {
 	// Create a new workspace
 	// (POST /workspaces)
 	CreateWorkspace(ctx context.Context, request CreateWorkspaceRequestObject) (CreateWorkspaceResponseObject, error)
+	// Merge source workspaces into a target workspace
+	// (POST /workspaces/merge)
+	MergeWorkspaces(ctx context.Context, request MergeWorkspacesRequestObject) (MergeWorkspacesResponseObject, error)
+	// Resolve a workspace by filesystem path
+	// (GET /workspaces/resolve)
+	ResolveWorkspaceByPath(ctx context.Context, request ResolveWorkspaceByPathRequestObject) (ResolveWorkspaceByPathResponseObject, error)
 	// Delete workspace
 	// (DELETE /workspaces/{workspaceId})
 	DeleteWorkspace(ctx context.Context, request DeleteWorkspaceRequestObject) (DeleteWorkspaceResponseObject, error)
@@ -2862,6 +3441,18 @@ type StrictServerInterface interface {
 	// Reopen a closed issue
 	// (POST /workspaces/{workspaceId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx context.Context, request ReopenIssueRequestObject) (ReopenIssueResponseObject, error)
+	// List paths for a workspace
+	// (GET /workspaces/{workspaceId}/paths)
+	ListWorkspacePaths(ctx context.Context, request ListWorkspacePathsRequestObject) (ListWorkspacePathsResponseObject, error)
+	// Add a path to a workspace
+	// (POST /workspaces/{workspaceId}/paths)
+	CreateWorkspacePath(ctx context.Context, request CreateWorkspacePathRequestObject) (CreateWorkspacePathResponseObject, error)
+	// Remove a path from a workspace
+	// (DELETE /workspaces/{workspaceId}/paths/{pathId})
+	DeleteWorkspacePath(ctx context.Context, request DeleteWorkspacePathRequestObject) (DeleteWorkspacePathResponseObject, error)
+	// Update a workspace path
+	// (PATCH /workspaces/{workspaceId}/paths/{pathId})
+	UpdateWorkspacePath(ctx context.Context, request UpdateWorkspacePathRequestObject) (UpdateWorkspacePathResponseObject, error)
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /workspaces/{workspaceId}/ready)
 	GetReadyWork(ctx context.Context, request GetReadyWorkRequestObject) (GetReadyWorkResponseObject, error)
@@ -2883,6 +3474,31 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// BrowseFilesystem operation middleware
+func (sh *strictHandler) BrowseFilesystem(ctx echo.Context, params BrowseFilesystemParams) error {
+	var request BrowseFilesystemRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.BrowseFilesystem(ctx.Request().Context(), request.(BrowseFilesystemRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BrowseFilesystem")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(BrowseFilesystemResponseObject); ok {
+		return validResponse.VisitBrowseFilesystemResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // ListLabels operation middleware
@@ -3039,6 +3655,62 @@ func (sh *strictHandler) CreateWorkspace(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(CreateWorkspaceResponseObject); ok {
 		return validResponse.VisitCreateWorkspaceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// MergeWorkspaces operation middleware
+func (sh *strictHandler) MergeWorkspaces(ctx echo.Context, params MergeWorkspacesParams) error {
+	var request MergeWorkspacesRequestObject
+
+	request.Params = params
+
+	var body MergeWorkspacesJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.MergeWorkspaces(ctx.Request().Context(), request.(MergeWorkspacesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MergeWorkspaces")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(MergeWorkspacesResponseObject); ok {
+		return validResponse.VisitMergeWorkspacesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ResolveWorkspaceByPath operation middleware
+func (sh *strictHandler) ResolveWorkspaceByPath(ctx echo.Context, params ResolveWorkspaceByPathParams) error {
+	var request ResolveWorkspaceByPathRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ResolveWorkspaceByPath(ctx.Request().Context(), request.(ResolveWorkspaceByPathRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResolveWorkspaceByPath")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ResolveWorkspaceByPathResponseObject); ok {
+		return validResponse.VisitResolveWorkspaceByPathResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -3650,6 +4322,120 @@ func (sh *strictHandler) ReopenIssue(ctx echo.Context, workspaceID WorkspaceID, 
 	return nil
 }
 
+// ListWorkspacePaths operation middleware
+func (sh *strictHandler) ListWorkspacePaths(ctx echo.Context, workspaceID WorkspaceID) error {
+	var request ListWorkspacePathsRequestObject
+
+	request.WorkspaceID = workspaceID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWorkspacePaths(ctx.Request().Context(), request.(ListWorkspacePathsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWorkspacePaths")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListWorkspacePathsResponseObject); ok {
+		return validResponse.VisitListWorkspacePathsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateWorkspacePath operation middleware
+func (sh *strictHandler) CreateWorkspacePath(ctx echo.Context, workspaceID WorkspaceID) error {
+	var request CreateWorkspacePathRequestObject
+
+	request.WorkspaceID = workspaceID
+
+	var body CreateWorkspacePathJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWorkspacePath(ctx.Request().Context(), request.(CreateWorkspacePathRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWorkspacePath")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateWorkspacePathResponseObject); ok {
+		return validResponse.VisitCreateWorkspacePathResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteWorkspacePath operation middleware
+func (sh *strictHandler) DeleteWorkspacePath(ctx echo.Context, workspaceID WorkspaceID, pathID WorkspacePathID) error {
+	var request DeleteWorkspacePathRequestObject
+
+	request.WorkspaceID = workspaceID
+	request.PathID = pathID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteWorkspacePath(ctx.Request().Context(), request.(DeleteWorkspacePathRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteWorkspacePath")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteWorkspacePathResponseObject); ok {
+		return validResponse.VisitDeleteWorkspacePathResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateWorkspacePath operation middleware
+func (sh *strictHandler) UpdateWorkspacePath(ctx echo.Context, workspaceID WorkspaceID, pathID WorkspacePathID) error {
+	var request UpdateWorkspacePathRequestObject
+
+	request.WorkspaceID = workspaceID
+	request.PathID = pathID
+
+	var body UpdateWorkspacePathJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWorkspacePath(ctx.Request().Context(), request.(UpdateWorkspacePathRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWorkspacePath")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateWorkspacePathResponseObject); ok {
+		return validResponse.VisitUpdateWorkspacePathResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetReadyWork operation middleware
 func (sh *strictHandler) GetReadyWork(ctx echo.Context, workspaceID WorkspaceID, params GetReadyWorkParams) error {
 	var request GetReadyWorkRequestObject
@@ -3730,72 +4516,88 @@ func (sh *strictHandler) GetTeamContext(ctx echo.Context, workspaceID WorkspaceI
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"1T8CAAD//ynsKuXeagAA",
+	"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",
+	"KFHEn8hrsXn/8f7/AwAA//8SzBH684UAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -20,6 +20,7 @@ CREATE TABLE workspace_paths (
     label TEXT,
     hostname TEXT,
     git_remote TEXT,
+    path_type TEXT NOT NULL DEFAULT 'canonical',
     last_accessed_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

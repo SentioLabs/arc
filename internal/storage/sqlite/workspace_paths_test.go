@@ -300,6 +300,108 @@ func TestResolveWorkspaceByPath_DualPathVariants(t *testing.T) {
 	}
 }
 
+func TestCreateWorkspacePath_WithPathType(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	// Create a canonical path
+	canonical := &types.WorkspacePath{
+		WorkspaceID: ws.ID,
+		Path:        "/Volumes/ExternalSSD/devspace/project",
+		Label:       "project",
+		PathType:    "canonical",
+	}
+	if err := store.CreateWorkspacePath(ctx, canonical); err != nil {
+		t.Fatalf("CreateWorkspacePath(canonical) failed: %v", err)
+	}
+
+	got, err := store.GetWorkspacePath(ctx, canonical.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspacePath failed: %v", err)
+	}
+	if got.PathType != "canonical" {
+		t.Errorf("PathType = %q, want %q", got.PathType, "canonical")
+	}
+
+	// Create a symlink path
+	symlink := &types.WorkspacePath{
+		WorkspaceID: ws.ID,
+		Path:        "/Users/dev/devspace/project",
+		Label:       "project",
+		PathType:    "symlink",
+	}
+	if err := store.CreateWorkspacePath(ctx, symlink); err != nil {
+		t.Fatalf("CreateWorkspacePath(symlink) failed: %v", err)
+	}
+
+	got2, err := store.GetWorkspacePath(ctx, symlink.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspacePath failed: %v", err)
+	}
+	if got2.PathType != "symlink" {
+		t.Errorf("PathType = %q, want %q", got2.PathType, "symlink")
+	}
+}
+
+func TestCreateWorkspacePath_DefaultPathType(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	// Create a path without setting PathType — should default to "canonical"
+	wp := &types.WorkspacePath{
+		WorkspaceID: ws.ID,
+		Path:        "/home/user/projects/myapp",
+	}
+	if err := store.CreateWorkspacePath(ctx, wp); err != nil {
+		t.Fatalf("CreateWorkspacePath failed: %v", err)
+	}
+
+	got, err := store.GetWorkspacePath(ctx, wp.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspacePath failed: %v", err)
+	}
+	if got.PathType != "canonical" {
+		t.Errorf("PathType = %q, want %q", got.PathType, "canonical")
+	}
+}
+
+func TestUpdateWorkspacePath_PathType(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestWorkspace(t, store)
+
+	wp := &types.WorkspacePath{
+		WorkspaceID: ws.ID,
+		Path:        "/home/user/projects/myapp",
+		PathType:    "canonical",
+	}
+	if err := store.CreateWorkspacePath(ctx, wp); err != nil {
+		t.Fatalf("CreateWorkspacePath failed: %v", err)
+	}
+
+	// Update path_type to symlink
+	wp.PathType = "symlink"
+	if err := store.UpdateWorkspacePath(ctx, wp); err != nil {
+		t.Fatalf("UpdateWorkspacePath failed: %v", err)
+	}
+
+	got, err := store.GetWorkspacePath(ctx, wp.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspacePath failed: %v", err)
+	}
+	if got.PathType != "symlink" {
+		t.Errorf("PathType = %q, want %q", got.PathType, "symlink")
+	}
+}
+
 func TestUpdatePathLastAccessed(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
