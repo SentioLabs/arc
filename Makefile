@@ -157,6 +157,22 @@ vet: ## Run go vet
 check: lint test web-check ## Run all checks (lint, test, frontend)
 
 # ===========================================================================
+# E2E Testing (requires Docker)
+# ===========================================================================
+
+.PHONY: test-integration
+test-integration: ## Run CLI integration tests (requires Docker)
+	scripts/test-e2e.sh integration
+
+.PHONY: test-playwright
+test-playwright: ## Run Playwright E2E tests (requires Docker)
+	scripts/test-e2e.sh playwright
+
+.PHONY: test-e2e
+test-e2e: ## Run all E2E tests (integration + playwright, requires Docker)
+	scripts/test-e2e.sh all
+
+# ===========================================================================
 # Dependencies
 # ===========================================================================
 
