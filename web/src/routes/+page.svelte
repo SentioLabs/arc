@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 	import {
 		deleteWorkspaces,
@@ -15,6 +15,88 @@
 	import FilesystemBrowser from '$lib/components/FilesystemBrowser.svelte';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
+
+	// Workspace insights state (reporting dashboard)
+	let workspacePathsMap = $state<Record<string, WorkspacePath[]>>({});
+	let insightsLoading = $state(false);
+	let insightsLoaded = $state(false);
+
+	// Load paths for all workspaces (for insights)
+	async function loadAllPaths() {
+		if (insightsLoaded || insightsLoading || $workspaces.length === 0) return;
+		insightsLoading = true;
+		try {
+			const results = await Promise.all(
+				$workspaces.map(async (ws) => {
+					const paths = await listWorkspacePaths(ws.id);
+					return [ws.id, paths] as const;
+				})
+			);
+			const map: Record<string, WorkspacePath[]> = {};
+			for (const [id, paths] of results) {
+				map[id] = paths;
+			}
+			workspacePathsMap = map;
+			insightsLoaded = true;
+		} catch (err) {
+			console.error('Failed to load workspace paths:', err);
+		} finally {
+			insightsLoading = false;
+		}
+	}
+
+	onMount(() => {
+		loadAllPaths();
+	});
+
+	// Derived insights
+	const allPaths = $derived(Object.values(workspacePathsMap).flat());
+
+	const orphanedWorkspaces = $derived(
+		$workspaces.filter((ws) => {
+			const paths = workspacePathsMap[ws.id];
+			return paths !== undefined && paths.length === 0;
+		})
+	);
+
+	const mostActivePaths = $derived(
+		[...allPaths]
+			.filter((p) => p.last_accessed_at)
+			.sort((a, b) => {
+				const dateA = new Date(a.last_accessed_at!).getTime();
+				const dateB = new Date(b.last_accessed_at!).getTime();
+				return dateB - dateA;
+			})
+			.slice(0, 5)
+	);
+
+	const hostDistribution = $derived(() => {
+		const counts: Record<string, number> = {};
+		for (const p of allPaths) {
+			const host = p.hostname || 'unknown';
+			counts[host] = (counts[host] || 0) + 1;
+		}
+		return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+	});
+
+	function formatRelativeTime(dateStr: string): string {
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffMins = Math.floor(diffMs / 60000);
+		if (diffMins < 1) return 'just now';
+		if (diffMins < 60) return `${diffMins}m ago`;
+		const diffHours = Math.floor(diffMins / 60);
+		if (diffHours < 24) return `${diffHours}h ago`;
+		const diffDays = Math.floor(diffHours / 24);
+		if (diffDays < 30) return `${diffDays}d ago`;
+		return date.toLocaleDateString();
+	}
+
+	function getWorkspaceName(workspaceId: string): string {
+		const ws = $workspaces.find((w) => w.id === workspaceId);
+		return ws?.name ?? workspaceId;
+	}
 
 	// Search state
 	let searchQuery = $state('');
@@ -608,6 +690,103 @@
 					</a>
 				{/if}
 			{/each}
+		</div>
+	{/if}
+
+	<!-- Workspace Insights Section -->
+	{#if $workspaces.length > 0 && insightsLoaded && !editMode}
+		<section class="mt-12 animate-fade-in">
+			<h2 class="text-2xl font-bold text-text-primary mb-6">Workspace Insights</h2>
+
+			<div class="grid gap-4 sm:grid-cols-3">
+				<!-- Orphaned Workspaces Card -->
+				<div class="card p-6">
+					<div class="flex items-center gap-3 mb-4">
+						<div class="w-8 h-8 bg-status-blocked/20 rounded-lg flex items-center justify-center">
+							<svg class="w-4 h-4 text-status-blocked" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+							</svg>
+						</div>
+						<h3 class="text-sm font-semibold text-text-primary">Orphaned Workspaces</h3>
+					</div>
+					<p class="text-3xl font-bold text-text-primary mb-2">{orphanedWorkspaces.length}</p>
+					{#if orphanedWorkspaces.length === 0}
+						<p class="text-xs text-text-muted">All workspaces have registered paths</p>
+					{:else}
+						<ul class="space-y-1">
+							{#each orphanedWorkspaces as ws}
+								<li class="text-xs text-text-secondary truncate" title={ws.name}>
+									{ws.name}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+
+				<!-- Most Active Paths Card -->
+				<div class="card p-6">
+					<div class="flex items-center gap-3 mb-4">
+						<div class="w-8 h-8 bg-primary-600/20 rounded-lg flex items-center justify-center">
+							<svg class="w-4 h-4 text-primary-400" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+							</svg>
+						</div>
+						<h3 class="text-sm font-semibold text-text-primary">Most Active Paths</h3>
+					</div>
+					{#if mostActivePaths.length === 0}
+						<p class="text-xs text-text-muted">No path activity recorded</p>
+					{:else}
+						<ul class="space-y-2">
+							{#each mostActivePaths as wp}
+								<li class="text-xs">
+									<div class="flex items-center justify-between gap-2">
+										<span class="font-mono text-text-secondary truncate" title={wp.path}>
+											{wp.path.split('/').slice(-2).join('/')}
+										</span>
+										<span class="text-text-muted whitespace-nowrap">
+											{formatRelativeTime(wp.last_accessed_at!)}
+										</span>
+									</div>
+									<span class="text-text-muted">{getWorkspaceName(wp.workspace_id)}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+
+				<!-- Host Distribution Card -->
+				<div class="card p-6">
+					<div class="flex items-center gap-3 mb-4">
+						<div class="w-8 h-8 bg-green-600/20 rounded-lg flex items-center justify-center">
+							<svg class="w-4 h-4 text-green-400" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
+							</svg>
+						</div>
+						<h3 class="text-sm font-semibold text-text-primary">Host Distribution</h3>
+					</div>
+					{#if hostDistribution().length === 0}
+						<p class="text-xs text-text-muted">No host data available</p>
+					{:else}
+						<ul class="space-y-2">
+							{#each hostDistribution() as [host, count]}
+								<li class="flex items-center justify-between gap-2">
+									<span class="text-xs text-text-secondary truncate" title={host}>{host}</span>
+									<div class="flex items-center gap-2">
+										<div class="h-2 bg-primary-600/30 rounded-full" style="width: {Math.max(count * 20, 8)}px"></div>
+										<span class="text-xs font-mono text-text-muted">{count}</span>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</div>
+		</section>
+	{/if}
+
+	{#if insightsLoading && $workspaces.length > 0}
+		<div class="mt-8 text-center">
+			<p class="text-sm text-text-muted">Loading workspace insights...</p>
 		</div>
 	{/if}
 </div>
