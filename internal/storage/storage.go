@@ -19,6 +19,15 @@ type Storage interface {
 	DeleteWorkspace(ctx context.Context, id string) error
 	MergeWorkspaces(ctx context.Context, targetID string, sourceIDs []string, actor string) (*types.MergeResult, error)
 
+	// Workspace Paths
+	CreateWorkspacePath(ctx context.Context, wp *types.WorkspacePath) error
+	GetWorkspacePath(ctx context.Context, id string) (*types.WorkspacePath, error)
+	ListWorkspacePaths(ctx context.Context, workspaceID string) ([]*types.WorkspacePath, error)
+	UpdateWorkspacePath(ctx context.Context, wp *types.WorkspacePath) error
+	DeleteWorkspacePath(ctx context.Context, id string) error
+	ResolveWorkspaceByPath(ctx context.Context, path string) (*types.WorkspacePath, error)
+	UpdatePathLastAccessed(ctx context.Context, id string) error
+
 	// Issues
 	CreateIssue(ctx context.Context, issue *types.Issue, actor string) error
 	GetIssue(ctx context.Context, id string) (*types.Issue, error)

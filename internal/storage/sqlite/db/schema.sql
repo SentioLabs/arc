@@ -13,6 +13,23 @@ CREATE TABLE workspaces (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Workspace paths table (multi-directory support)
+CREATE TABLE workspace_paths (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    path TEXT NOT NULL,
+    label TEXT,
+    hostname TEXT,
+    git_remote TEXT,
+    last_accessed_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(workspace_id, path)
+);
+
+CREATE INDEX idx_workspace_paths_workspace ON workspace_paths(workspace_id);
+CREATE INDEX idx_workspace_paths_path ON workspace_paths(path);
+
 -- Issues table
 CREATE TABLE issues (
     id TEXT PRIMARY KEY,

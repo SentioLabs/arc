@@ -303,6 +303,7 @@ const (
 	EventDependencyRemoved EventType = "dependency_removed"
 	EventLabelAdded        EventType = "label_added"
 	EventLabelRemoved      EventType = "label_removed"
+	EventMerged            EventType = "merged"
 )
 
 // IssueFilter is used to filter issue queries.
@@ -352,6 +353,31 @@ type MergeResult struct {
 	IssuesMoved     int        `json:"issues_moved"`
 	PlansMoved      int        `json:"plans_moved"`
 	SourcesDeleted  []string   `json:"sources_deleted"`
+}
+
+// WorkspacePath represents a directory path associated with a workspace.
+// Multiple paths can be linked to a single workspace to support multi-directory projects.
+type WorkspacePath struct {
+	ID             string     `json:"id"`
+	WorkspaceID    string     `json:"workspace_id"`
+	Path           string     `json:"path"`
+	Label          string     `json:"label,omitempty"`
+	Hostname       string     `json:"hostname,omitempty"`
+	GitRemote      string     `json:"git_remote,omitempty"`
+	LastAccessedAt *time.Time `json:"last_accessed_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+// Validate checks if the workspace path has valid field values.
+func (wp *WorkspacePath) Validate() error {
+	if wp.Path == "" {
+		return errors.New("path is required")
+	}
+	if wp.WorkspaceID == "" {
+		return errors.New("workspace_id is required")
+	}
+	return nil
 }
 
 // OpenChildrenError is returned when attempting to close an issue that has open child issues.

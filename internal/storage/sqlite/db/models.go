@@ -113,3 +113,15 @@ type Workspace struct {
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
+
+type WorkspacePath struct {
+	ID             string         `json:"id"`
+	WorkspaceID    string         `json:"workspace_id"`
+	Path           string         `json:"path"`
+	Label          sql.NullString `json:"label"`
+	Hostname       sql.NullString `json:"hostname"`
+	GitRemote      sql.NullString `json:"git_remote"`
+	LastAccessedAt sql.NullTime   `json:"last_accessed_at"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}

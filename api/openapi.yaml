@@ -29,6 +29,10 @@ tags:
     description: Comments and audit events
   - name: teams
     description: Agent team context and role grouping
+  - name: workspace-paths
+    description: Workspace path management for multi-directory workspaces
+  - name: filesystem
+    description: Filesystem browsing utilities
 
 paths:
   # ====================
@@ -98,6 +102,33 @@ paths:
                 $ref: "#/components/schemas/MergeResult"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Workspace Path Resolution
+  # ====================
+  /workspaces/resolve:
+    get:
+      operationId: resolveWorkspaceByPath
+      tags: [workspace-paths]
+      summary: Resolve a workspace by filesystem path
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: Filesystem path to resolve
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resolved workspace path
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspacePath"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -174,6 +205,124 @@ paths:
                 $ref: "#/components/schemas/Statistics"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Workspace Paths
+  # ====================
+  /workspaces/{workspaceId}/paths:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+
+    get:
+      operationId: listWorkspacePaths
+      tags: [workspace-paths]
+      summary: List paths for a workspace
+      responses:
+        "200":
+          description: List of workspace paths
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspacePath"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createWorkspacePath
+      tags: [workspace-paths]
+      summary: Add a path to a workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspacePathRequest"
+      responses:
+        "201":
+          description: Workspace path created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspacePath"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /workspaces/{workspaceId}/paths/{pathId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/WorkspacePathId"
+
+    patch:
+      operationId: updateWorkspacePath
+      tags: [workspace-paths]
+      summary: Update a workspace path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkspacePathRequest"
+      responses:
+        "200":
+          description: Workspace path updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspacePath"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteWorkspacePath
+      tags: [workspace-paths]
+      summary: Remove a path from a workspace
+      responses:
+        "204":
+          description: Workspace path deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Filesystem
+  # ====================
+  /filesystem/browse:
+    get:
+      operationId: browseFilesystem
+      tags: [filesystem]
+      summary: Browse filesystem directories
+      parameters:
+        - name: dir
+          in: query
+          description: Directory to browse (defaults to home directory)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Directory listing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BrowseEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -886,6 +1035,14 @@ components:
       schema:
         type: string
 
+    WorkspacePathId:
+      name: pathId
+      in: path
+      required: true
+      description: Workspace path ID
+      schema:
+        type: string
+
     ActorHeader:
       name: X-Actor
       in: header
@@ -1107,6 +1264,99 @@ components:
         avg_lead_time_hours:
           type: number
           format: double
+
+    # ====================
+    # Workspace Path Schemas
+    # ====================
+    WorkspacePath:
+      type: object
+      required:
+        - id
+        - workspace_id
+        - path
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique workspace path ID
+        workspace_id:
+          type: string
+          description: ID of the workspace this path belongs to
+        path:
+          type: string
+          description: Filesystem path
+        label:
+          type: string
+          description: Optional human-readable label for this path
+        hostname:
+          type: string
+          description: Hostname where this path is located
+        git_remote:
+          type: string
+          description: Git remote URL associated with this path
+        last_accessed_at:
+          type: string
+          format: date-time
+          description: When this path was last accessed
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateWorkspacePathRequest:
+      type: object
+      required:
+        - path
+      properties:
+        path:
+          type: string
+          description: Filesystem path to associate
+        label:
+          type: string
+          description: Optional human-readable label
+        hostname:
+          type: string
+          description: Hostname where path is located
+        git_remote:
+          type: string
+          description: Git remote URL
+
+    UpdateWorkspacePathRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Updated label
+        hostname:
+          type: string
+          description: Updated hostname
+        git_remote:
+          type: string
+          description: Updated git remote URL
+
+    BrowseEntry:
+      type: object
+      required:
+        - name
+        - path
+        - is_dir
+        - is_git_repo
+      properties:
+        name:
+          type: string
+          description: Entry name
+        path:
+          type: string
+          description: Full path
+        is_dir:
+          type: boolean
+          description: Whether this entry is a directory
+        is_git_repo:
+          type: boolean
+          description: Whether this directory is a git repository
 
     # ====================
     # Issue Schemas

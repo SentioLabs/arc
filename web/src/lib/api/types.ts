@@ -43,6 +43,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve a workspace by filesystem path */
+        get: operations["resolveWorkspaceByPath"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}": {
         parameters: {
             query?: never;
@@ -77,6 +94,67 @@ export interface paths {
         };
         /** Get workspace statistics */
         get: operations["getWorkspaceStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /** List paths for a workspace */
+        get: operations["listWorkspacePaths"];
+        put?: never;
+        /** Add a path to a workspace */
+        post: operations["createWorkspacePath"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/paths/{pathId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Workspace path ID */
+                pathId: components["parameters"]["WorkspacePathId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a path from a workspace */
+        delete: operations["deleteWorkspacePath"];
+        options?: never;
+        head?: never;
+        /** Update a workspace path */
+        patch: operations["updateWorkspacePath"];
+        trace?: never;
+    };
+    "/filesystem/browse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Browse filesystem directories */
+        get: operations["browseFilesystem"];
         put?: never;
         post?: never;
         delete?: never;
@@ -519,6 +597,57 @@ export interface components {
             /** Format: double */
             avg_lead_time_hours?: number;
         };
+        WorkspacePath: {
+            /** @description Unique workspace path ID */
+            id: string;
+            /** @description ID of the workspace this path belongs to */
+            workspace_id: string;
+            /** @description Filesystem path */
+            path: string;
+            /** @description Optional human-readable label for this path */
+            label?: string;
+            /** @description Hostname where this path is located */
+            hostname?: string;
+            /** @description Git remote URL associated with this path */
+            git_remote?: string;
+            /**
+             * Format: date-time
+             * @description When this path was last accessed
+             */
+            last_accessed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateWorkspacePathRequest: {
+            /** @description Filesystem path to associate */
+            path: string;
+            /** @description Optional human-readable label */
+            label?: string;
+            /** @description Hostname where path is located */
+            hostname?: string;
+            /** @description Git remote URL */
+            git_remote?: string;
+        };
+        UpdateWorkspacePathRequest: {
+            /** @description Updated label */
+            label?: string;
+            /** @description Updated hostname */
+            hostname?: string;
+            /** @description Updated git remote URL */
+            git_remote?: string;
+        };
+        BrowseEntry: {
+            /** @description Entry name */
+            name: string;
+            /** @description Full path */
+            path: string;
+            /** @description Whether this entry is a directory */
+            is_dir: boolean;
+            /** @description Whether this directory is a git repository */
+            is_git_repo: boolean;
+        };
         Issue: {
             /** @description Unique issue ID */
             id: string;
@@ -711,6 +840,8 @@ export interface components {
         WorkspaceId: string;
         /** @description Issue ID */
         IssueId: string;
+        /** @description Workspace path ID */
+        WorkspacePathId: string;
         /** @description User performing the action (defaults to "anonymous") */
         ActorHeader: string;
     };
@@ -793,6 +924,31 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    resolveWorkspaceByPath: {
+        parameters: {
+            query: {
+                /** @description Filesystem path to resolve */
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved workspace path */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePath"];
+                };
+            };
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -896,6 +1052,143 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listWorkspacePaths: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of workspace paths */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePath"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createWorkspacePath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkspacePathRequest"];
+            };
+        };
+        responses: {
+            /** @description Workspace path created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePath"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteWorkspacePath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Workspace path ID */
+                pathId: components["parameters"]["WorkspacePathId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workspace path deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateWorkspacePath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Workspace path ID */
+                pathId: components["parameters"]["WorkspacePathId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkspacePathRequest"];
+            };
+        };
+        responses: {
+            /** @description Workspace path updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePath"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    browseFilesystem: {
+        parameters: {
+            query?: {
+                /** @description Directory to browse (defaults to home directory) */
+                dir?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Directory listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowseEntry"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             500: components["responses"]["InternalError"];
         };
     };

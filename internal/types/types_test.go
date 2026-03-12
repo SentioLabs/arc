@@ -672,6 +672,81 @@ func containsSubstring(s, substr string) bool {
 	return false
 }
 
+func TestWorkspacePathValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		wp      WorkspacePath
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid workspace path",
+			wp: WorkspacePath{
+				ID:          "wp-abc123",
+				WorkspaceID: "ws-test",
+				Path:        "/home/user/project",
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing path",
+			wp: WorkspacePath{
+				ID:          "wp-abc123",
+				WorkspaceID: "ws-test",
+				Path:        "",
+			},
+			wantErr: true,
+			errMsg:  "path is required",
+		},
+		{
+			name: "missing workspace_id",
+			wp: WorkspacePath{
+				ID:          "wp-abc123",
+				WorkspaceID: "",
+				Path:        "/home/user/project",
+			},
+			wantErr: true,
+			errMsg:  "workspace_id is required",
+		},
+		{
+			name: "both missing",
+			wp: WorkspacePath{
+				ID: "wp-abc123",
+			},
+			wantErr: true,
+		},
+		{
+			name: "with optional fields",
+			wp: WorkspacePath{
+				ID:          "wp-abc123",
+				WorkspaceID: "ws-test",
+				Path:        "/home/user/project",
+				Label:       "main",
+				Hostname:    "dev-machine",
+				GitRemote:   "git@github.com:user/repo.git",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.wp.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("WorkspacePath.Validate() expected error, got nil")
+				} else if tt.errMsg != "" && err.Error() != tt.errMsg {
+					t.Errorf("WorkspacePath.Validate() error = %q, want %q", err.Error(), tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("WorkspacePath.Validate() unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func TestIssueFilterParentIDField(t *testing.T) {
 	// Verify that IssueFilter has a ParentID field and it works as expected
 	filter := IssueFilter{
