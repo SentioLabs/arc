@@ -103,6 +103,9 @@ func (s *Server) registerRoutes() {
 	v1.DELETE("/workspaces/:id", s.deleteWorkspace)
 	v1.GET("/workspaces/:id/stats", s.getWorkspaceStats)
 
+	// Filesystem browser
+	v1.GET("/filesystem/browse", s.browseFilesystem)
+
 	// Issues (workspace-scoped)
 	ws := v1.Group("/workspaces/:ws")
 	ws.GET("/issues", s.listIssues)
