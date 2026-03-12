@@ -232,21 +232,6 @@ func outputResult(data any) {
 	}
 }
 
-// isSubdirectory returns true if child is the same as or a subdirectory of parent.
-func isSubdirectory(parent, child string) bool {
-	// Clean paths for consistent comparison
-	parent = filepath.Clean(parent)
-	child = filepath.Clean(child)
-
-	// Exact match
-	if parent == child {
-		return true
-	}
-
-	// Check if child starts with parent + separator
-	// This prevents /home/foo/project matching /home/foo/project2
-	return strings.HasPrefix(child, parent+string(filepath.Separator))
-}
 
 // rootCmd is the top-level Cobra command for the arc CLI.
 var rootCmd = &cobra.Command{
@@ -422,7 +407,7 @@ var workspaceCreateCmd = &cobra.Command{
 			prefix = workspace.GeneratePrefixFromName(args[0])
 		}
 
-		ws, err := c.CreateWorkspace(args[0], prefix, path, description)
+		ws, err := c.CreateWorkspace(args[0], prefix, description)
 		if err != nil {
 			return err
 		}

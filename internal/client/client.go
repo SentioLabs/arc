@@ -77,7 +77,7 @@ func (c *Client) ListWorkspaces() ([]*types.Workspace, error) {
 }
 
 // CreateWorkspace creates a new workspace.
-func (c *Client) CreateWorkspace(name, prefix, path, description string) (*types.Workspace, error) {
+func (c *Client) CreateWorkspace(name, prefix, description string) (*types.Workspace, error) {
 	body := map[string]string{
 		"name":        name,
 		"prefix":      prefix,
@@ -607,14 +607,15 @@ func (c *Client) UnlinkIssueFromPlan(wsID, planID, issueID string) error {
 
 // WorkspacePath represents a filesystem path associated with a workspace.
 type WorkspacePath struct {
-	ID          string `json:"id"`
-	WorkspaceID string `json:"workspace_id"`
-	Path        string `json:"path"`
-	Label       string `json:"label,omitempty"`
-	Hostname    string `json:"hostname,omitempty"`
-	GitRemote   string `json:"git_remote,omitempty"`
-	CreatedAt   string `json:"created_at,omitempty"`
-	UpdatedAt   string `json:"updated_at,omitempty"`
+	ID             string `json:"id"`
+	WorkspaceID    string `json:"workspace_id"`
+	Path           string `json:"path"`
+	Label          string `json:"label,omitempty"`
+	Hostname       string `json:"hostname,omitempty"`
+	GitRemote      string `json:"git_remote,omitempty"`
+	LastAccessedAt string `json:"last_accessed_at,omitempty"`
+	CreatedAt      string `json:"created_at,omitempty"`
+	UpdatedAt      string `json:"updated_at,omitempty"`
 }
 
 // CreateWorkspacePathRequest is the request for registering a workspace path.

@@ -70,7 +70,7 @@
 			.slice(0, 5)
 	);
 
-	const hostDistribution = $derived(() => {
+	const hostDistribution = $derived.by(() => {
 		const counts: Record<string, number> = {};
 		for (const p of allPaths) {
 			const host = p.hostname || 'unknown';
@@ -103,7 +103,7 @@
 	let searchFocused = $state(false);
 
 	// Filter workspaces based on search query
-	const filteredWorkspaces = $derived(() => {
+	const filteredWorkspaces = $derived.by(() => {
 		if (!searchQuery.trim()) return $workspaces;
 		const q = searchQuery.toLowerCase().trim();
 		return $workspaces.filter(
@@ -331,7 +331,7 @@
 	}
 
 	// Merge target options: all workspaces except those being merged
-	const mergeTargetOptions = $derived(() => {
+	const mergeTargetOptions = $derived.by(() => {
 		const sourceIds = new Set(workspacesToMerge.map((w) => w.id));
 		return $workspaces
 			.filter((w) => !sourceIds.has(w.id))
@@ -611,7 +611,7 @@
 				<code>arc init my-project</code>
 			</div>
 		</div>
-	{:else if filteredWorkspaces().length === 0}
+	{:else if filteredWorkspaces.length === 0}
 		<!-- No results from search -->
 		<div class="card p-12 text-center">
 			<div
@@ -629,7 +629,7 @@
 		</div>
 	{:else}
 		<div class="grid gap-4 sm:grid-cols-2">
-			{#each filteredWorkspaces() as workspace (workspace.id)}
+			{#each filteredWorkspaces as workspace (workspace.id)}
 				{@const isSelected = selectedIds.has(workspace.id)}
 				{#if editMode}
 					<!-- Edit mode: clickable card for selection -->
@@ -764,11 +764,11 @@
 						</div>
 						<h3 class="text-sm font-semibold text-text-primary">Host Distribution</h3>
 					</div>
-					{#if hostDistribution().length === 0}
+					{#if hostDistribution.length === 0}
 						<p class="text-xs text-text-muted">No host data available</p>
 					{:else}
 						<ul class="space-y-2">
-							{#each hostDistribution() as [host, count]}
+							{#each hostDistribution as [host, count]}
 								<li class="flex items-center justify-between gap-2">
 									<span class="text-xs text-text-secondary truncate" title={host}>{host}</span>
 									<div class="flex items-center gap-2">
@@ -809,7 +809,7 @@
 
 <!-- Merge Dialog -->
 {#if mergeDialogOpen}
-	{@const targetOptions = mergeTargetOptions()}
+	{@const targetOptions = mergeTargetOptions}
 	<dialog
 		class="dialog-modal"
 		open
@@ -966,17 +966,6 @@
 		</p>
 	{:else}
 		<p class="text-sm text-text-muted mb-4">No description</p>
-	{/if}
-
-	{#if workspace.path}
-		<div class="flex items-center gap-2 text-xs text-text-muted font-mono mb-2">
-			<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-				<path
-					d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
-				/>
-			</svg>
-			<span class="truncate">{workspace.path}</span>
-		</div>
 	{/if}
 
 	<!-- Expandable paths section -->

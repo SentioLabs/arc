@@ -68,13 +68,6 @@ func (s *Store) GetWorkspaceByName(ctx context.Context, name string) (*types.Wor
 	return dbWorkspaceToType(row), nil
 }
 
-// GetWorkspaceByPath retrieves a workspace by its file system path.
-// Deprecated: This method is kept for interface compatibility but workspace
-// paths are now managed via the workspace_paths table.
-func (s *Store) GetWorkspaceByPath(ctx context.Context, path string) (*types.Workspace, error) {
-	return nil, fmt.Errorf("workspace not found for path: %s (deprecated: use workspace_paths)", path)
-}
-
 // ListWorkspaces returns all workspaces.
 func (s *Store) ListWorkspaces(ctx context.Context) ([]*types.Workspace, error) {
 	rows, err := s.queries.ListWorkspaces(ctx)

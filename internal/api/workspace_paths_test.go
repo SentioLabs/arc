@@ -107,9 +107,6 @@ func (m *mockWPStore) GetWorkspace(_ context.Context, id string) (*types.Workspa
 func (m *mockWPStore) GetWorkspaceByName(_ context.Context, _ string) (*types.Workspace, error) {
 	panic("not implemented")
 }
-func (m *mockWPStore) GetWorkspaceByPath(_ context.Context, _ string) (*types.Workspace, error) {
-	panic("not implemented")
-}
 func (m *mockWPStore) ListWorkspaces(_ context.Context) ([]*types.Workspace, error) {
 	panic("not implemented")
 }

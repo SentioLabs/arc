@@ -13,7 +13,6 @@ type Storage interface {
 	CreateWorkspace(ctx context.Context, workspace *types.Workspace) error
 	GetWorkspace(ctx context.Context, id string) (*types.Workspace, error)
 	GetWorkspaceByName(ctx context.Context, name string) (*types.Workspace, error)
-	GetWorkspaceByPath(ctx context.Context, path string) (*types.Workspace, error)
 	ListWorkspaces(ctx context.Context) ([]*types.Workspace, error)
 	UpdateWorkspace(ctx context.Context, workspace *types.Workspace) error
 	DeleteWorkspace(ctx context.Context, id string) error

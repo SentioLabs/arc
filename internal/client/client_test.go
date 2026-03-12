@@ -46,7 +46,7 @@ func testClientServer(t *testing.T) (*client.Client, func()) {
 func createTestWorkspaceClient(t *testing.T, c *client.Client) *types.Workspace {
 	t.Helper()
 
-	ws, err := c.CreateWorkspace("Test Workspace", "test", "/tmp/test", "Test description")
+	ws, err := c.CreateWorkspace("Test Workspace", "test", "Test description")
 	if err != nil {
 		t.Fatalf("failed to create workspace: %v", err)
 	}
@@ -412,13 +412,13 @@ func TestClientMergeWorkspaces(t *testing.T) {
 	defer cleanup()
 
 	// Create target workspace
-	target, err := c.CreateWorkspace("Target", "tgt", "/tmp/target", "Target workspace")
+	target, err := c.CreateWorkspace("Target", "tgt", "Target workspace")
 	if err != nil {
 		t.Fatalf("create target workspace: %v", err)
 	}
 
 	// Create source workspace with an issue
-	source, err := c.CreateWorkspace("Source", "src", "/tmp/source", "Source workspace")
+	source, err := c.CreateWorkspace("Source", "src", "Source workspace")
 	if err != nil {
 		t.Fatalf("create source workspace: %v", err)
 	}

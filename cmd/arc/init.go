@@ -137,7 +137,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Create new workspace if not found
 	if ws == nil {
-		newWs, err := c.CreateWorkspace(name, prefix, cwd, description)
+		newWs, err := c.CreateWorkspace(name, prefix, description)
 		if err != nil {
 			return fmt.Errorf("create workspace: %w", err)
 		}
