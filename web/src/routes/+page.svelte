@@ -12,6 +12,7 @@
 		type WorkspacePath
 	} from '$lib/api';
 	import { ConfirmDialog, Select } from '$lib/components';
+	import FilesystemBrowser from '$lib/components/FilesystemBrowser.svelte';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
 
@@ -306,6 +307,28 @@
 			editMode = false;
 		}
 	}
+
+	// Add Path state (filesystem browser)
+	let addPathOpen = $state(false);
+	let addPathMode = $state<'browse' | 'manual'>('browse');
+	let manualPath = $state('');
+	let selectedPath = $state('');
+
+	function toggleAddPath() {
+		addPathOpen = !addPathOpen;
+		if (!addPathOpen) {
+			manualPath = '';
+			selectedPath = '';
+		}
+	}
+
+	function handleBrowseSelect(path: string) {
+		selectedPath = path;
+	}
+
+	function getAddPathValue(): string {
+		return addPathMode === 'browse' ? selectedPath : manualPath;
+	}
 </script>
 
 <div class="p-8 max-w-4xl mx-auto animate-fade-in">
@@ -415,6 +438,73 @@
 					</svg>
 					Delete {selectedCount === 1 ? 'workspace' : `${selectedCount} workspaces`}
 				</button>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Add Path section -->
+	{#if $workspaces.length > 0 && !editMode}
+		<div class="mb-6">
+			<button
+				type="button"
+				class="btn btn-ghost btn-sm"
+				onclick={toggleAddPath}
+			>
+				<svg class="w-4 h-4 transition-transform {addPathOpen ? 'rotate-45' : ''}" viewBox="0 0 24 24" fill="currentColor">
+					<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+				</svg>
+				Add Path
+			</button>
+
+			{#if addPathOpen}
+				<div class="mt-4 card p-6 animate-fade-in">
+					<h3 class="text-sm font-medium text-text-primary mb-4">Add a directory path</h3>
+
+					<!-- Mode toggle -->
+					<div class="flex gap-1 mb-4 p-1 bg-surface-800 rounded-lg w-fit">
+						<button
+							type="button"
+							class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'browse' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
+							onclick={() => (addPathMode = 'browse')}
+						>
+							Browse
+						</button>
+						<button
+							type="button"
+							class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'manual' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
+							onclick={() => (addPathMode = 'manual')}
+						>
+							Manual
+						</button>
+					</div>
+
+					{#if addPathMode === 'browse'}
+						<FilesystemBrowser onSelect={handleBrowseSelect} />
+						{#if selectedPath}
+							<div class="mt-3 flex items-center gap-2 p-2 bg-surface-800 rounded-lg">
+								<svg class="w-4 h-4 text-primary-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+									<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+								</svg>
+								<span class="text-sm font-mono text-text-primary truncate">{selectedPath}</span>
+							</div>
+						{/if}
+					{:else}
+						<input
+							type="text"
+							bind:value={manualPath}
+							placeholder="Enter absolute directory path (e.g. /home/user/projects/my-app)"
+							class="input w-full text-sm font-mono"
+						/>
+					{/if}
+
+					{#if getAddPathValue()}
+						<div class="mt-4 flex justify-end">
+							<p class="text-xs text-text-muted mr-auto self-center">
+								Selected: <span class="font-mono">{getAddPathValue()}</span>
+							</p>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>

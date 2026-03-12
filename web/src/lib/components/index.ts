@@ -17,6 +17,9 @@ export { default as Header } from './Header.svelte';
 // Content components
 export { default as Markdown } from './Markdown.svelte';
 
+// Filesystem components
+export { default as FilesystemBrowser } from './FilesystemBrowser.svelte';
+
 // Utility components
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as Select } from './Select.svelte';

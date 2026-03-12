@@ -348,6 +348,24 @@ export async function getDependencies(
 	return data ?? { dependencies: [], dependents: [] };
 }
 
+// Filesystem Browse API
+export interface BrowseEntry {
+	name: string;
+	path: string;
+	is_dir: boolean;
+	is_git_repo: boolean;
+}
+
+export async function browseFilesystem(dir: string): Promise<BrowseEntry[]> {
+	const response = await fetch(`/api/v1/filesystem/browse?dir=${encodeURIComponent(dir)}`);
+	if (!response.ok) {
+		const body = await response.json().catch(() => ({ error: 'Failed to browse filesystem' }));
+		handleError(body);
+	}
+	const data = await response.json();
+	return data ?? [];
+}
+
 // Team Context APIs
 export async function getTeamContext(
 	workspaceId: string,
