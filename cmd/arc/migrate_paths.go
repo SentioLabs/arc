@@ -123,6 +123,8 @@ func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname st
 		if !isDuplicatePathError(err) {
 			return fmt.Errorf("register path %s: %w", absPath, err)
 		}
+		// Path already exists — ensure path_type is up to date
+		ensurePathType(c, wsID, absPath, absPathType)
 	}
 
 	// Register the resolved path if it differs
@@ -137,6 +139,8 @@ func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname st
 			if !isDuplicatePathError(err) {
 				return fmt.Errorf("register resolved path %s: %w", resolvedPath, err)
 			}
+			// Path already exists — ensure path_type is up to date
+			ensurePathType(c, wsID, resolvedPath, "canonical")
 		}
 	}
 
@@ -244,6 +248,57 @@ func readProjectConfigs(arcHome string) ([]legacyProjectConfig, error) {
 	}
 
 	return configs, nil
+}
+
+// ensurePathType looks up an existing workspace path by filesystem path and updates
+// its path_type if it doesn't match the desired value. This handles the case where
+// paths were created before path_type was introduced (defaulting to "canonical").
+func ensurePathType(c *client.Client, wsID, fsPath, desiredType string) {
+	paths, err := c.ListWorkspacePaths(wsID)
+	if err != nil {
+		return
+	}
+	for _, p := range paths {
+		if p.Path == fsPath && p.PathType != desiredType {
+			_, _ = c.UpdateWorkspacePath(wsID, p.ID, map[string]string{
+				"path_type": desiredType,
+			})
+			return
+		}
+	}
+}
+
+// fixPathTypes scans all paths for a workspace and corrects their path_type
+// based on actual symlink detection. Paths created before path_type was
+// introduced all default to "canonical" but some may actually be symlinks.
+func fixPathTypes(c *client.Client, wsID string) {
+	paths, err := c.ListWorkspacePaths(wsID)
+	if err != nil {
+		return
+	}
+
+	for _, p := range paths {
+		resolved, err := filepath.EvalSymlinks(p.Path)
+		if err != nil {
+			continue // path may not exist on this host
+		}
+
+		// Compare the absolute path (preserving symlinks) with the resolved path.
+		// NormalizePath resolves symlinks, so we use filepath.Abs instead.
+		abs, _ := filepath.Abs(p.Path)
+		var desiredType string
+		if resolved != abs {
+			desiredType = "symlink"
+		} else {
+			desiredType = "canonical"
+		}
+
+		if p.PathType != desiredType {
+			_, _ = c.UpdateWorkspacePath(wsID, p.ID, map[string]string{
+				"path_type": desiredType,
+			})
+		}
+	}
 }
 
 // backupProjectsDir renames projects/ to projects.bak/.

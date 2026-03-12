@@ -165,6 +165,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Fix path_type on any existing paths that were registered before
+	// path_type was introduced (they default to "canonical" but may be symlinks)
+	fixPathTypes(c, ws.ID)
+
 	// Clean up any legacy config for this path
 	arcHome := project.DefaultArcHome()
 	_ = removeLegacyConfig(arcHome, rawCwd)

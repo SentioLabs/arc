@@ -107,14 +107,15 @@
 		const canonicalPaths = paths.filter((p) => p.path_type !== 'symlink');
 		const symlinkPaths = paths.filter((p) => p.path_type === 'symlink');
 
-		type GroupedEntry = { path: string; label: string; isSymlink: boolean };
+		type GroupedEntry = { id: string; path: string; label: string; isSymlink: boolean };
 		const entries: GroupedEntry[] = [];
 
 		for (const cp of canonicalPaths) {
-			entries.push({ path: cp.path, label: cp.label ?? '-', isSymlink: false });
+			entries.push({ id: cp.id, path: cp.path, label: cp.label ?? '-', isSymlink: false });
 			// Find symlinks in the same workspace (all paths are for the same workspace)
 			for (const sp of symlinkPaths) {
 				entries.push({
+					id: sp.id,
 					path: sp.path,
 					label: '(symlink)',
 					isSymlink: true
@@ -128,7 +129,7 @@
 
 		// Any remaining symlinks without a canonical counterpart
 		for (const sp of symlinkPaths) {
-			entries.push({ path: sp.path, label: '(symlink)', isSymlink: true });
+			entries.push({ id: sp.id, path: sp.path, label: '(symlink)', isSymlink: true });
 		}
 
 		return entries;
@@ -372,38 +373,30 @@
 					{#if managingPaths}
 						<div class="mt-3 animate-fade-in">
 							<div class="card p-5">
-								<!-- Editable path list with delete buttons -->
+								<!-- Editable path list with delete buttons — terminal-style -->
 								{#if paths.length > 0}
-									<div class="border border-border-subtle rounded-md overflow-hidden mb-4">
-										<table class="w-full text-xs">
-											<thead>
-												<tr class="bg-surface-800">
-													<th class="text-left px-3 py-2 text-text-muted font-medium">Path</th>
-													<th class="text-left px-3 py-2 text-text-muted font-medium">Label</th>
-													<th class="w-10 px-3 py-2"></th>
-												</tr>
-											</thead>
-											<tbody>
-												{#each paths as wp (wp.id)}
-													<tr class="border-t border-border-subtle hover:bg-surface-800/50">
-														<td class="px-3 py-2 font-mono text-text-primary truncate max-w-[280px]" title={wp.path}>{wp.path}</td>
-														<td class="px-3 py-2 text-text-secondary">{wp.label ?? '-'}</td>
-														<td class="px-3 py-2">
-															<button
-																type="button"
-																class="text-text-muted hover:text-status-blocked transition-colors"
-																title="Delete path"
-																onclick={() => confirmDeletePathAction(wp.id, wp.path)}
-															>
-																<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-																	<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z" />
-																</svg>
-															</button>
-														</td>
-													</tr>
+									<div class="bg-surface-900 border border-border-subtle rounded-md overflow-x-auto mb-4">
+										<div class="flex">
+											<pre class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre flex-1"><span class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  LABEL</span>
+<span class="text-text-muted/50">{makeSeparator(pathColumns.pathW)}  {makeSeparator(pathColumns.labelW)}</span>
+{#each groupedPaths as entry, i}{#if i > 0}{'\n'}{/if}{#if entry.isSymlink}<span class="text-text-muted">  {padRight('\u2192 ' + entry.path, pathColumns.pathW - 2)}  {entry.label}</span>{:else}{padRight(entry.path, pathColumns.pathW)}  <span class="text-text-secondary">{entry.label}</span>{/if}{/each}</pre>
+											<div class="flex flex-col pt-4 pr-3" style="padding-top: calc(1rem + 2lh);">
+												{#each groupedPaths as entry (entry.id)}
+													<div class="flex items-center justify-center" style="height: 1lh;">
+														<button
+															type="button"
+															class="text-text-muted hover:text-status-blocked transition-colors"
+															title="Delete {entry.path}"
+															onclick={() => confirmDeletePathAction(entry.id, entry.path)}
+														>
+															<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+																<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z" />
+															</svg>
+														</button>
+													</div>
 												{/each}
-											</tbody>
-										</table>
+											</div>
+										</div>
 									</div>
 								{/if}
 
