@@ -159,7 +159,7 @@ export async function addLabelToIssue(
 	wsId: string,
 	issueId: string,
 	labelName: string,
-): Promise<Record<string, unknown>> {
+): Promise<void> {
 	const res = await fetch(`${API_BASE}/workspaces/${wsId}/issues/${issueId}/labels`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -168,7 +168,6 @@ export async function addLabelToIssue(
 	if (!res.ok) {
 		throw new Error(`addLabelToIssue failed: ${res.status} ${await res.text()}`);
 	}
-	return res.json();
 }
 
 // ── Playwright fixture: auto-creates a workspace per test ──

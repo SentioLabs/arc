@@ -1,7 +1,11 @@
 import {
 	test,
 	expect,
-	uniqueName
+	uniqueName,
+	createTestLabel,
+	deleteTestLabel,
+	createTestIssue,
+	addLabelToIssue
 } from './fixtures';
 
 test.describe('Labels E2E', () => {
@@ -10,7 +14,7 @@ test.describe('Labels E2E', () => {
 		await expect(page.getByRole('button', { name: 'New Label' })).toBeVisible();
 	});
 
-	test('create label via UI', async ({ page, deleteTestLabel }) => {
+	test('create label via UI', async ({ page }) => {
 		const labelName = uniqueName('label');
 		await page.goto('/labels');
 
@@ -30,7 +34,7 @@ test.describe('Labels E2E', () => {
 		await deleteTestLabel(labelName);
 	});
 
-	test('edit label description', async ({ page, createTestLabel }) => {
+	test('edit label description', async ({ page }) => {
 		const label = await createTestLabel();
 		await page.goto('/labels');
 
@@ -50,10 +54,10 @@ test.describe('Labels E2E', () => {
 		await page.getByRole('button', { name: 'Update' }).click();
 
 		// Verify description is shown on the card
-		await expect(page.getByText(desc)).toBeVisible();
+		await expect(card.getByText(desc)).toBeVisible();
 	});
 
-	test('delete label', async ({ page, createTestLabel }) => {
+	test('delete label', async ({ page }) => {
 		const label = await createTestLabel();
 		await page.goto('/labels');
 
@@ -73,7 +77,7 @@ test.describe('Labels E2E', () => {
 		await expect(page.locator('.card').filter({ hasText: label.name })).not.toBeVisible();
 	});
 
-	test('add label to issue', async ({ page, testWorkspace, createTestLabel, createTestIssue }) => {
+	test('add label to issue', async ({ page, testWorkspace }) => {
 		const label = await createTestLabel();
 		const issue = await createTestIssue(testWorkspace.id);
 
@@ -96,16 +100,10 @@ test.describe('Labels E2E', () => {
 		await expect(page.getByText(label.name)).toBeVisible();
 	});
 
-	test('remove label from issue', async ({
-		page,
-		testWorkspace,
-		createTestLabel,
-		createTestIssue,
-		addLabelToIssue
-	}) => {
+	test('remove label from issue', async ({ page, testWorkspace }) => {
 		const label = await createTestLabel();
 		const issue = await createTestIssue(testWorkspace.id);
-		await addLabelToIssue(testWorkspace.id, issue.id, label.name);
+		await addLabelToIssue(testWorkspace.id, issue.id, label.name as string);
 
 		// Navigate to the issue detail page
 		await page.goto(`/${testWorkspace.id}/issues/${issue.id}`);
@@ -121,16 +119,10 @@ test.describe('Labels E2E', () => {
 		await expect(page.getByLabel(`Remove label ${label.name}`)).not.toBeVisible();
 	});
 
-	test('label visible in issue list', async ({
-		page,
-		testWorkspace,
-		createTestLabel,
-		createTestIssue,
-		addLabelToIssue
-	}) => {
+	test('label visible in issue list', async ({ page, testWorkspace }) => {
 		const label = await createTestLabel();
 		const issue = await createTestIssue(testWorkspace.id);
-		await addLabelToIssue(testWorkspace.id, issue.id, label.name);
+		await addLabelToIssue(testWorkspace.id, issue.id, label.name as string);
 
 		// Navigate to the workspace issues list
 		await page.goto(`/${testWorkspace.id}/issues`);
