@@ -8,8 +8,8 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// createWorkspacePathRequest is the request body for creating a workspace path.
-type createWorkspacePathRequest struct {
+// createWorkspaceRequest is the request body for creating a workspace (directory path).
+type createWorkspaceRequest struct {
 	Path      string `json:"path"`
 	Label     string `json:"label,omitempty"`
 	Hostname  string `json:"hostname,omitempty"`
@@ -17,37 +17,37 @@ type createWorkspacePathRequest struct {
 	PathType  string `json:"path_type,omitempty"`
 }
 
-// updateWorkspacePathRequest is the request body for updating a workspace path.
-type updateWorkspacePathRequest struct {
+// updateWorkspaceRequest is the request body for updating a workspace (directory path).
+type updateWorkspaceRequest struct {
 	Label     string `json:"label,omitempty"`
 	Hostname  string `json:"hostname,omitempty"`
 	GitRemote string `json:"git_remote,omitempty"`
 	PathType  string `json:"path_type,omitempty"`
 }
 
-// listWorkspacePaths returns all paths for a workspace.
-func (s *Server) listWorkspacePaths(c echo.Context) error {
-	wsID := c.Param("id")
+// listWorkspaces returns all workspaces (directory paths) for a project.
+func (s *Server) listWorkspaces(c echo.Context) error {
+	projectID := c.Param("id")
 	ctx := c.Request().Context()
 
-	paths, err := s.store.ListWorkspacePaths(ctx, wsID)
+	workspaces, err := s.store.ListWorkspaces(ctx, projectID)
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	if paths == nil {
-		paths = []*types.WorkspacePath{}
+	if workspaces == nil {
+		workspaces = []*types.Workspace{}
 	}
 
-	return successJSON(c, paths)
+	return successJSON(c, workspaces)
 }
 
-// createWorkspacePath registers a new path for a workspace.
-func (s *Server) createWorkspacePath(c echo.Context) error {
-	wsID := c.Param("id")
+// createWorkspace registers a new workspace (directory path) for a project.
+func (s *Server) createWorkspace(c echo.Context) error {
+	projectID := c.Param("id")
 	ctx := c.Request().Context()
 
-	var req createWorkspacePathRequest
+	var req createWorkspaceRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
@@ -56,74 +56,74 @@ func (s *Server) createWorkspacePath(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "path is required")
 	}
 
-	wp := &types.WorkspacePath{
-		WorkspaceID: wsID,
-		Path:        req.Path,
-		Label:       req.Label,
-		Hostname:    req.Hostname,
-		GitRemote:   req.GitRemote,
-		PathType:    req.PathType,
+	ws := &types.Workspace{
+		ProjectID: projectID,
+		Path:      req.Path,
+		Label:     req.Label,
+		Hostname:  req.Hostname,
+		GitRemote: req.GitRemote,
+		PathType:  req.PathType,
 	}
 
-	if err := s.store.CreateWorkspacePath(ctx, wp); err != nil {
+	if err := s.store.CreateWorkspace(ctx, ws); err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			return errorJSON(c, http.StatusConflict, err.Error())
 		}
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return createdJSON(c, wp)
+	return createdJSON(c, ws)
 }
 
-// updateWorkspacePath updates a workspace path's metadata.
-func (s *Server) updateWorkspacePath(c echo.Context) error {
-	pathID := c.Param("pathId")
+// updateWorkspace updates a workspace's metadata.
+func (s *Server) updateWorkspace(c echo.Context) error {
+	wsID := c.Param("pathId")
 	ctx := c.Request().Context()
 
-	var req updateWorkspacePathRequest
+	var req updateWorkspaceRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	wp, err := s.store.GetWorkspacePath(ctx, pathID)
+	ws, err := s.store.GetWorkspace(ctx, wsID)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
 	if req.Label != "" {
-		wp.Label = req.Label
+		ws.Label = req.Label
 	}
 	if req.Hostname != "" {
-		wp.Hostname = req.Hostname
+		ws.Hostname = req.Hostname
 	}
 	if req.GitRemote != "" {
-		wp.GitRemote = req.GitRemote
+		ws.GitRemote = req.GitRemote
 	}
 	if req.PathType != "" {
-		wp.PathType = req.PathType
+		ws.PathType = req.PathType
 	}
 
-	if err := s.store.UpdateWorkspacePath(ctx, wp); err != nil {
+	if err := s.store.UpdateWorkspace(ctx, ws); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, wp)
+	return successJSON(c, ws)
 }
 
-// deleteWorkspacePath removes a path from a workspace.
-func (s *Server) deleteWorkspacePath(c echo.Context) error {
-	pathID := c.Param("pathId")
+// deleteWorkspace removes a workspace (directory path) from a project.
+func (s *Server) deleteWorkspace(c echo.Context) error {
+	wsID := c.Param("pathId")
 	ctx := c.Request().Context()
 
-	if err := s.store.DeleteWorkspacePath(ctx, pathID); err != nil {
+	if err := s.store.DeleteWorkspace(ctx, wsID); err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
 
-// resolveWorkspace finds the workspace associated with a filesystem path.
-func (s *Server) resolveWorkspace(c echo.Context) error {
+// resolveProject finds the project associated with a filesystem path.
+func (s *Server) resolveProject(c echo.Context) error {
 	path := c.QueryParam("path")
 	ctx := c.Request().Context()
 
@@ -131,23 +131,23 @@ func (s *Server) resolveWorkspace(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "path query parameter is required")
 	}
 
-	wp, err := s.store.ResolveWorkspaceByPath(ctx, path)
+	ws, err := s.store.ResolveProjectByPath(ctx, path)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
 	// Update last_accessed_at (best-effort)
-	_ = s.store.UpdatePathLastAccessed(ctx, wp.ID)
+	_ = s.store.UpdateWorkspaceLastAccessed(ctx, ws.ID)
 
-	// Look up workspace name for the response
-	wsName := ""
-	if ws, err := s.store.GetWorkspace(ctx, wp.WorkspaceID); err == nil {
-		wsName = ws.Name
+	// Look up project name for the response
+	projectName := ""
+	if p, err := s.store.GetProject(ctx, ws.ProjectID); err == nil {
+		projectName = p.Name
 	}
 
-	return successJSON(c, types.WorkspaceResolution{
-		WorkspaceID:   wp.WorkspaceID,
-		WorkspaceName: wsName,
-		PathID:        wp.ID,
+	return successJSON(c, types.ProjectResolution{
+		ProjectID:   ws.ProjectID,
+		ProjectName: projectName,
+		PathID:      ws.ID,
 	})
 }

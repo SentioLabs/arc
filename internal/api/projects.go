@@ -1,11 +1,10 @@
 package api
 
 import (
-	"log"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -27,12 +26,12 @@ type updateProjectRequest struct {
 // listProjects returns all projects registered in the system.
 // Projects are the top-level containers for organizing issues.
 func (s *Server) listProjects(c echo.Context) error {
-	workspaces, err := s.store.ListWorkspaces(c.Request().Context())
+	projects, err := s.store.ListProjects(c.Request().Context())
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, workspaces)
+	return successJSON(c, projects)
 }
 
 // createProject creates a new project with the specified name and prefix.
@@ -43,33 +42,32 @@ func (s *Server) createProject(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	ws := &types.Workspace{
+	p := &types.Project{
 		Name:        req.Name,
-		Path:        req.Path,
 		Description: req.Description,
 		Prefix:      req.Prefix,
 	}
 
-	if err := s.store.CreateWorkspace(c.Request().Context(), ws); err != nil {
+	if err := s.store.CreateProject(c.Request().Context(), p); err != nil {
 		return errorJSON(c, http.StatusBadRequest, err.Error())
 	}
 
-	return createdJSON(c, ws)
+	return createdJSON(c, p)
 }
 
 // getProject retrieves a project by ID.
 func (s *Server) getProject(c echo.Context) error {
 	id := c.Param("id")
 
-	ws, err := s.store.GetWorkspace(c.Request().Context(), id)
+	p, err := s.store.GetProject(c.Request().Context(), id)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
-	return successJSON(c, ws)
+	return successJSON(c, p)
 }
 
-// updateProject updates a project's name, path, or description.
+// updateProject updates a project's name or description.
 // Only non-empty fields in the request body are applied.
 func (s *Server) updateProject(c echo.Context) error {
 	id := c.Param("id")
@@ -79,46 +77,67 @@ func (s *Server) updateProject(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	ws, err := s.store.GetWorkspace(c.Request().Context(), id)
+	p, err := s.store.GetProject(c.Request().Context(), id)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
 	if req.Name != "" {
-		ws.Name = req.Name
-	}
-	if req.Path != "" {
-		ws.Path = req.Path
+		p.Name = req.Name
 	}
 	if req.Description != "" {
-		ws.Description = req.Description
+		p.Description = req.Description
 	}
 
-	if err := s.store.UpdateWorkspace(c.Request().Context(), ws); err != nil {
+	if err := s.store.UpdateProject(c.Request().Context(), p); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, ws)
+	return successJSON(c, p)
 }
 
-// deleteProject deletes a project and performs best-effort cleanup
-// of any project configs that reference the deleted project.
+// deleteProject deletes a project.
 func (s *Server) deleteProject(c echo.Context) error {
 	id := c.Param("id")
 
-	if err := s.store.DeleteWorkspace(c.Request().Context(), id); err != nil {
+	if err := s.store.DeleteProject(c.Request().Context(), id); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	// Best-effort cleanup of project configs referencing this project
-	arcHome := project.DefaultArcHome()
-	if removed, err := project.CleanupWorkspaceConfigs(arcHome, id); err != nil {
-		log.Printf("Warning: failed to clean up project configs for project %s: %v", id, err)
-	} else if removed > 0 {
-		log.Printf("Cleaned up %d project config(s) for deleted project %s", removed, id)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// mergeProjectsRequest is the request body for merging projects.
+type mergeProjectsRequest struct {
+	TargetID  string   `json:"target_id"`
+	SourceIDs []string `json:"source_ids"`
+}
+
+// mergeProjects merges one or more source projects into a target project.
+// All issues and plans from the source projects are moved to the target,
+// and the source projects are deleted.
+func (s *Server) mergeProjects(c echo.Context) error {
+	var req mergeProjectsRequest
+	if err := c.Bind(&req); err != nil {
+		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	}
+	if req.TargetID == "" {
+		return errorJSON(c, http.StatusBadRequest, "target_id is required")
+	}
+	if len(req.SourceIDs) == 0 {
+		return errorJSON(c, http.StatusBadRequest, "at least one source_id is required")
 	}
 
-	return c.NoContent(http.StatusNoContent)
+	result, err := s.store.MergeProjects(c.Request().Context(), req.TargetID, req.SourceIDs, getActor(c))
+	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "not found") {
+			return errorJSON(c, http.StatusNotFound, errMsg)
+		}
+		return errorJSON(c, http.StatusInternalServerError, errMsg)
+	}
+
+	return successJSON(c, result)
 }
 
 // getProjectStats returns statistics for a project.

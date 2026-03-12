@@ -95,12 +95,24 @@ func (s *Server) registerRoutes() {
 	v1 := s.echo.Group("/api/v1")
 
 	// Projects (top-level containers)
+	v1.POST("/projects/merge", s.mergeProjects)
+	// Resolve must be registered before :id to avoid "resolve" being captured as an ID
+	v1.GET("/projects/resolve", s.resolveProject)
 	v1.GET("/projects", s.listProjects)
 	v1.POST("/projects", s.createProject)
 	v1.GET("/projects/:id", s.getProject)
 	v1.PUT("/projects/:id", s.updateProject)
 	v1.DELETE("/projects/:id", s.deleteProject)
 	v1.GET("/projects/:id/stats", s.getProjectStats)
+
+	// Filesystem browser
+	v1.GET("/filesystem/browse", s.browseFilesystem)
+
+	// Workspaces (directory paths for a project)
+	v1.GET("/projects/:id/workspaces", s.listWorkspaces)
+	v1.POST("/projects/:id/workspaces", s.createWorkspace)
+	v1.PATCH("/projects/:id/workspaces/:pathId", s.updateWorkspace)
+	v1.DELETE("/projects/:id/workspaces/:pathId", s.deleteWorkspace)
 
 	// Issues (project-scoped)
 	ws := v1.Group("/projects/:ws")
@@ -130,7 +142,7 @@ func (s *Server) registerRoutes() {
 	v1.PUT("/labels/:name", s.updateLabel)
 	v1.DELETE("/labels/:name", s.deleteLabel)
 
-	// Issue-label associations (workspace-scoped)
+	// Issue-label associations (project-scoped)
 	ws.POST("/issues/:id/labels", s.addLabelToIssue)
 	ws.DELETE("/issues/:id/labels/:label", s.removeLabelFromIssue)
 
@@ -276,7 +288,7 @@ func (s *Server) getIssueInWorkspace(c echo.Context, issueID string) (*types.Iss
 		return nil, err
 	}
 
-	if issue.WorkspaceID != wsID {
+	if issue.ProjectID != wsID {
 		return nil, errWorkspaceMismatch
 	}
 

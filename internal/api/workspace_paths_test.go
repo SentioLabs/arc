@@ -14,109 +14,109 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// mockWPStore implements storage.Storage for workspace path tests.
-// Only workspace path methods are implemented; all others panic.
+// mockWPStore implements storage.Storage for workspace (directory path) tests.
+// Only workspace methods are implemented; all others panic.
 type mockWPStore struct {
-	paths   []*types.WorkspacePath
-	touched string // last path ID touched
+	workspaces []*types.Workspace
+	touched    string // last workspace ID touched
 }
 
 func newMockWPStore() *mockWPStore {
 	return &mockWPStore{
-		paths: []*types.WorkspacePath{},
+		workspaces: []*types.Workspace{},
 	}
 }
 
-// Workspace path methods - the ones under test
+// Workspace methods - the ones under test
 
-func (m *mockWPStore) CreateWorkspacePath(_ context.Context, wp *types.WorkspacePath) error {
-	for _, existing := range m.paths {
-		if existing.Path == wp.Path && existing.WorkspaceID == wp.WorkspaceID {
-			return fmt.Errorf("workspace path already exists: %s", wp.Path)
+func (m *mockWPStore) CreateWorkspace(_ context.Context, ws *types.Workspace) error {
+	for _, existing := range m.workspaces {
+		if existing.Path == ws.Path && existing.ProjectID == ws.ProjectID {
+			return fmt.Errorf("workspace already exists: %s", ws.Path)
 		}
 	}
-	wp.ID = fmt.Sprintf("p-%d", len(m.paths)+1)
-	wp.CreatedAt = time.Now()
-	wp.UpdatedAt = time.Now()
-	m.paths = append(m.paths, wp)
+	ws.ID = fmt.Sprintf("p-%d", len(m.workspaces)+1)
+	ws.CreatedAt = time.Now()
+	ws.UpdatedAt = time.Now()
+	m.workspaces = append(m.workspaces, ws)
 	return nil
 }
 
-func (m *mockWPStore) GetWorkspacePath(_ context.Context, id string) (*types.WorkspacePath, error) {
-	for _, p := range m.paths {
-		if p.ID == id {
-			return p, nil
+func (m *mockWPStore) GetWorkspace(_ context.Context, id string) (*types.Workspace, error) {
+	for _, ws := range m.workspaces {
+		if ws.ID == id {
+			return ws, nil
 		}
 	}
-	return nil, fmt.Errorf("workspace path not found: %s", id)
+	return nil, fmt.Errorf("workspace not found: %s", id)
 }
 
-func (m *mockWPStore) ListWorkspacePaths(_ context.Context, workspaceID string) ([]*types.WorkspacePath, error) {
-	var result []*types.WorkspacePath
-	for _, p := range m.paths {
-		if p.WorkspaceID == workspaceID {
-			result = append(result, p)
+func (m *mockWPStore) ListWorkspaces(_ context.Context, projectID string) ([]*types.Workspace, error) {
+	var result []*types.Workspace
+	for _, ws := range m.workspaces {
+		if ws.ProjectID == projectID {
+			result = append(result, ws)
 		}
 	}
 	return result, nil
 }
 
-func (m *mockWPStore) UpdateWorkspacePath(_ context.Context, wp *types.WorkspacePath) error {
-	for i, p := range m.paths {
-		if p.ID == wp.ID {
-			wp.UpdatedAt = time.Now()
-			m.paths[i] = wp
+func (m *mockWPStore) UpdateWorkspace(_ context.Context, ws *types.Workspace) error {
+	for i, existing := range m.workspaces {
+		if existing.ID == ws.ID {
+			ws.UpdatedAt = time.Now()
+			m.workspaces[i] = ws
 			return nil
 		}
 	}
-	return fmt.Errorf("workspace path not found: %s", wp.ID)
+	return fmt.Errorf("workspace not found: %s", ws.ID)
 }
 
-func (m *mockWPStore) DeleteWorkspacePath(_ context.Context, id string) error {
-	for i, p := range m.paths {
-		if p.ID == id {
-			m.paths = append(m.paths[:i], m.paths[i+1:]...)
+func (m *mockWPStore) DeleteWorkspace(_ context.Context, id string) error {
+	for i, ws := range m.workspaces {
+		if ws.ID == id {
+			m.workspaces = append(m.workspaces[:i], m.workspaces[i+1:]...)
 			return nil
 		}
 	}
-	return fmt.Errorf("workspace path not found: %s", id)
+	return fmt.Errorf("workspace not found: %s", id)
 }
 
-func (m *mockWPStore) ResolveWorkspaceByPath(_ context.Context, path string) (*types.WorkspacePath, error) {
-	for _, p := range m.paths {
-		if p.Path == path {
-			return p, nil
+func (m *mockWPStore) ResolveProjectByPath(_ context.Context, path string) (*types.Workspace, error) {
+	for _, ws := range m.workspaces {
+		if ws.Path == path {
+			return ws, nil
 		}
 	}
-	return nil, fmt.Errorf("no workspace found for path: %s", path)
+	return nil, fmt.Errorf("no project found for path: %s", path)
 }
 
-func (m *mockWPStore) UpdatePathLastAccessed(_ context.Context, id string) error {
+func (m *mockWPStore) UpdateWorkspaceLastAccessed(_ context.Context, id string) error {
 	m.touched = id
 	return nil
 }
 
-// Stub methods to satisfy storage.Storage interface - these are not called in workspace path tests.
+// Stub methods to satisfy storage.Storage interface - these are not called in workspace tests.
 
-func (m *mockWPStore) CreateWorkspace(_ context.Context, _ *types.Workspace) error {
+func (m *mockWPStore) CreateProject(_ context.Context, _ *types.Project) error {
 	panic("not implemented")
 }
-func (m *mockWPStore) GetWorkspace(_ context.Context, id string) (*types.Workspace, error) {
-	return &types.Workspace{ID: id, Name: "test-workspace"}, nil
+func (m *mockWPStore) GetProject(_ context.Context, id string) (*types.Project, error) {
+	return &types.Project{ID: id, Name: "test-project"}, nil
 }
-func (m *mockWPStore) GetWorkspaceByName(_ context.Context, _ string) (*types.Workspace, error) {
+func (m *mockWPStore) GetProjectByName(_ context.Context, _ string) (*types.Project, error) {
 	panic("not implemented")
 }
-func (m *mockWPStore) ListWorkspaces(_ context.Context) ([]*types.Workspace, error) {
+func (m *mockWPStore) ListProjects(_ context.Context) ([]*types.Project, error) {
 	panic("not implemented")
 }
-func (m *mockWPStore) UpdateWorkspace(_ context.Context, _ *types.Workspace) error {
+func (m *mockWPStore) UpdateProject(_ context.Context, _ *types.Project) error {
 	panic("not implemented")
 }
-func (m *mockWPStore) DeleteWorkspace(_ context.Context, _ string) error {
+func (m *mockWPStore) DeleteProject(_ context.Context, _ string) error {
 	panic("not implemented")
 }
-func (m *mockWPStore) MergeWorkspaces(_ context.Context, _ string, _ []string, _ string) (*types.MergeResult, error) {
+func (m *mockWPStore) MergeProjects(_ context.Context, _ string, _ []string, _ string) (*types.MergeResult, error) {
 	panic("not implemented")
 }
 func (m *mockWPStore) CreateIssue(_ context.Context, _ *types.Issue, _ string) error {
@@ -243,10 +243,10 @@ func (m *mockWPStore) GetEvents(_ context.Context, _ string, _ int) ([]*types.Ev
 func (m *mockWPStore) GetStatistics(_ context.Context, _ string) (*types.Statistics, error) {
 	panic("not implemented")
 }
-func (m *mockWPStore) Close() error  { return nil }
-func (m *mockWPStore) Path() string  { return "" }
+func (m *mockWPStore) Close() error { return nil }
+func (m *mockWPStore) Path() string { return "" }
 
-func setupWorkspacePathTest(t *testing.T) (*echo.Echo, *mockWPStore) {
+func setupWorkspaceTest(t *testing.T) (*echo.Echo, *mockWPStore) {
 	t.Helper()
 	store := newMockWPStore()
 	srv := New(Config{
@@ -256,18 +256,18 @@ func setupWorkspacePathTest(t *testing.T) (*echo.Echo, *mockWPStore) {
 	return srv.Echo(), store
 }
 
-func TestListWorkspacePaths(t *testing.T) {
-	e, store := setupWorkspacePathTest(t)
+func TestListWorkspaces(t *testing.T) {
+	e, store := setupWorkspaceTest(t)
 
-	// Seed a path
-	store.paths = append(store.paths, &types.WorkspacePath{
-		ID:          "p-1",
-		WorkspaceID: "ws-abc",
-		Path:        "/home/user/project",
-		Label:       "main",
+	// Seed a workspace
+	store.workspaces = append(store.workspaces, &types.Workspace{
+		ID:        "p-1",
+		ProjectID: "proj-abc",
+		Path:      "/home/user/project",
+		Label:     "main",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/ws-abc/paths", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/proj-abc/workspaces", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -275,23 +275,23 @@ func TestListWorkspacePaths(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var paths []*types.WorkspacePath
-	if err := json.Unmarshal(rec.Body.Bytes(), &paths); err != nil {
+	var workspaces []*types.Workspace
+	if err := json.Unmarshal(rec.Body.Bytes(), &workspaces); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if len(paths) != 1 {
-		t.Fatalf("expected 1 path, got %d", len(paths))
+	if len(workspaces) != 1 {
+		t.Fatalf("expected 1 workspace, got %d", len(workspaces))
 	}
-	if paths[0].ID != "p-1" {
-		t.Errorf("expected ID p-1, got %s", paths[0].ID)
+	if workspaces[0].ID != "p-1" {
+		t.Errorf("expected ID p-1, got %s", workspaces[0].ID)
 	}
 }
 
-func TestCreateWorkspacePath(t *testing.T) {
-	e, _ := setupWorkspacePathTest(t)
+func TestCreateWorkspace(t *testing.T) {
+	e, _ := setupWorkspaceTest(t)
 
 	body := `{"path":"/home/user/project","label":"main","hostname":"dev-machine","git_remote":"git@github.com:user/repo.git"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/ws-abc/paths", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-abc/workspaces", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -300,39 +300,39 @@ func TestCreateWorkspacePath(t *testing.T) {
 		t.Fatalf("expected status 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var wp types.WorkspacePath
-	if err := json.Unmarshal(rec.Body.Bytes(), &wp); err != nil {
+	var ws types.Workspace
+	if err := json.Unmarshal(rec.Body.Bytes(), &ws); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if wp.Path != "/home/user/project" {
-		t.Errorf("expected path /home/user/project, got %s", wp.Path)
+	if ws.Path != "/home/user/project" {
+		t.Errorf("expected path /home/user/project, got %s", ws.Path)
 	}
-	if wp.Label != "main" {
-		t.Errorf("expected label main, got %s", wp.Label)
+	if ws.Label != "main" {
+		t.Errorf("expected label main, got %s", ws.Label)
 	}
-	if wp.Hostname != "dev-machine" {
-		t.Errorf("expected hostname dev-machine, got %s", wp.Hostname)
+	if ws.Hostname != "dev-machine" {
+		t.Errorf("expected hostname dev-machine, got %s", ws.Hostname)
 	}
-	if wp.GitRemote != "git@github.com:user/repo.git" {
-		t.Errorf("expected git_remote, got %s", wp.GitRemote)
+	if ws.GitRemote != "git@github.com:user/repo.git" {
+		t.Errorf("expected git_remote, got %s", ws.GitRemote)
 	}
-	if wp.WorkspaceID != "ws-abc" {
-		t.Errorf("expected workspace_id ws-abc, got %s", wp.WorkspaceID)
+	if ws.ProjectID != "proj-abc" {
+		t.Errorf("expected project_id proj-abc, got %s", ws.ProjectID)
 	}
 }
 
-func TestCreateWorkspacePath_Duplicate(t *testing.T) {
-	e, store := setupWorkspacePathTest(t)
+func TestCreateWorkspace_Duplicate(t *testing.T) {
+	e, store := setupWorkspaceTest(t)
 
-	// Seed an existing path
-	store.paths = append(store.paths, &types.WorkspacePath{
-		ID:          "p-1",
-		WorkspaceID: "ws-abc",
-		Path:        "/home/user/project",
+	// Seed an existing workspace
+	store.workspaces = append(store.workspaces, &types.Workspace{
+		ID:        "p-1",
+		ProjectID: "proj-abc",
+		Path:      "/home/user/project",
 	})
 
 	body := `{"path":"/home/user/project"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/ws-abc/paths", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-abc/workspaces", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -342,19 +342,19 @@ func TestCreateWorkspacePath_Duplicate(t *testing.T) {
 	}
 }
 
-func TestUpdateWorkspacePath(t *testing.T) {
-	e, store := setupWorkspacePathTest(t)
+func TestUpdateWorkspace(t *testing.T) {
+	e, store := setupWorkspaceTest(t)
 
-	// Seed a path
-	store.paths = append(store.paths, &types.WorkspacePath{
-		ID:          "p-1",
-		WorkspaceID: "ws-abc",
-		Path:        "/home/user/project",
-		Label:       "original",
+	// Seed a workspace
+	store.workspaces = append(store.workspaces, &types.Workspace{
+		ID:        "p-1",
+		ProjectID: "proj-abc",
+		Path:      "/home/user/project",
+		Label:     "original",
 	})
 
 	body := `{"label":"updated-label","hostname":"new-host"}`
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/workspaces/ws-abc/paths/p-1", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/proj-abc/workspaces/p-1", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -363,32 +363,32 @@ func TestUpdateWorkspacePath(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var wp types.WorkspacePath
-	if err := json.Unmarshal(rec.Body.Bytes(), &wp); err != nil {
+	var ws types.Workspace
+	if err := json.Unmarshal(rec.Body.Bytes(), &ws); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if wp.Label != "updated-label" {
-		t.Errorf("expected label updated-label, got %s", wp.Label)
+	if ws.Label != "updated-label" {
+		t.Errorf("expected label updated-label, got %s", ws.Label)
 	}
-	if wp.Hostname != "new-host" {
-		t.Errorf("expected hostname new-host, got %s", wp.Hostname)
+	if ws.Hostname != "new-host" {
+		t.Errorf("expected hostname new-host, got %s", ws.Hostname)
 	}
-	if wp.Path != "/home/user/project" {
-		t.Errorf("expected path unchanged, got %s", wp.Path)
+	if ws.Path != "/home/user/project" {
+		t.Errorf("expected path unchanged, got %s", ws.Path)
 	}
 }
 
-func TestDeleteWorkspacePath(t *testing.T) {
-	e, store := setupWorkspacePathTest(t)
+func TestDeleteWorkspace(t *testing.T) {
+	e, store := setupWorkspaceTest(t)
 
-	// Seed a path
-	store.paths = append(store.paths, &types.WorkspacePath{
-		ID:          "p-1",
-		WorkspaceID: "ws-abc",
-		Path:        "/home/user/project",
+	// Seed a workspace
+	store.workspaces = append(store.workspaces, &types.Workspace{
+		ID:        "p-1",
+		ProjectID: "proj-abc",
+		Path:      "/home/user/project",
 	})
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/workspaces/ws-abc/paths/p-1", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/proj-abc/workspaces/p-1", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -396,22 +396,22 @@ func TestDeleteWorkspacePath(t *testing.T) {
 		t.Fatalf("expected status 204, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	if len(store.paths) != 0 {
-		t.Errorf("expected 0 paths after delete, got %d", len(store.paths))
+	if len(store.workspaces) != 0 {
+		t.Errorf("expected 0 workspaces after delete, got %d", len(store.workspaces))
 	}
 }
 
-func TestResolveWorkspace(t *testing.T) {
-	e, store := setupWorkspacePathTest(t)
+func TestResolveProject(t *testing.T) {
+	e, store := setupWorkspaceTest(t)
 
-	// Seed a path
-	store.paths = append(store.paths, &types.WorkspacePath{
-		ID:          "p-1",
-		WorkspaceID: "ws-abc",
-		Path:        "/home/user/project",
+	// Seed a workspace
+	store.workspaces = append(store.workspaces, &types.Workspace{
+		ID:        "p-1",
+		ProjectID: "proj-abc",
+		Path:      "/home/user/project",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/resolve?path=/home/user/project", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/resolve?path=/home/user/project", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -419,22 +419,22 @@ func TestResolveWorkspace(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var result types.WorkspaceResolution
+	var result types.ProjectResolution
 	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if result.WorkspaceID != "ws-abc" {
-		t.Errorf("expected workspace_id ws-abc, got %s", result.WorkspaceID)
+	if result.ProjectID != "proj-abc" {
+		t.Errorf("expected project_id proj-abc, got %s", result.ProjectID)
 	}
 	if result.PathID != "p-1" {
 		t.Errorf("expected path_id p-1, got %s", result.PathID)
 	}
-	if result.WorkspaceName != "test-workspace" {
-		t.Errorf("expected workspace_name test-workspace, got %s", result.WorkspaceName)
+	if result.ProjectName != "test-project" {
+		t.Errorf("expected project_name test-project, got %s", result.ProjectName)
 	}
 
 	// Verify last_accessed_at was touched
 	if store.touched != "p-1" {
-		t.Errorf("expected UpdatePathLastAccessed called with p-1, got %s", store.touched)
+		t.Errorf("expected UpdateWorkspaceLastAccessed called with p-1, got %s", store.touched)
 	}
 }

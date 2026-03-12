@@ -11,24 +11,24 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-func createNamedWorkspace(t *testing.T, e *echo.Echo, name, prefix string) string {
+func createNamedProject(t *testing.T, e *echo.Echo, name, prefix string) string {
 	t.Helper()
 
 	body := `{"name": "` + name + `", "prefix": "` + prefix + `"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("failed to create workspace %s: %s", name, rec.Body.String())
+		t.Fatalf("failed to create project %s: %s", name, rec.Body.String())
 	}
 
-	var ws types.Workspace
-	if err := json.Unmarshal(rec.Body.Bytes(), &ws); err != nil {
-		t.Fatalf("failed to parse workspace response: %v", err)
+	var p types.Project
+	if err := json.Unmarshal(rec.Body.Bytes(), &p); err != nil {
+		t.Fatalf("failed to parse project response: %v", err)
 	}
-	return ws.ID
+	return p.ID
 }
 
 func TestMergeWorkspaces_Success(t *testing.T) {
@@ -36,13 +36,13 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	targetID := createNamedWorkspace(t, e, "Target", "tgt")
-	sourceID := createNamedWorkspace(t, e, "Source", "src")
+	targetID := createNamedProject(t, e, "Target", "tgt")
+	sourceID := createNamedProject(t, e, "Source", "src")
 
 	// Create an issue in the source workspace
 	issueBody := `{"title": "Source Issue"}`
 	req := httptest.NewRequest(
-		http.MethodPost, "/api/v1/workspaces/"+sourceID+"/issues",
+		http.MethodPost, "/api/v1/projects/"+sourceID+"/issues",
 		bytes.NewBufferString(issueBody),
 	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -54,7 +54,7 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 
 	// Merge source into target
 	mergeBody := `{"target_id": "` + targetID + `", "source_ids": ["` + sourceID + `"]}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/merge", bytes.NewBufferString(mergeBody))
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/projects/merge", bytes.NewBufferString(mergeBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -68,8 +68,8 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 		t.Fatalf("failed to parse merge response: %v", err)
 	}
 
-	if result.TargetWorkspace.ID != targetID {
-		t.Errorf("target_workspace.id = %q, want %q", result.TargetWorkspace.ID, targetID)
+	if result.TargetProject.ID != targetID {
+		t.Errorf("target_workspace.id = %q, want %q", result.TargetProject.ID, targetID)
 	}
 	if result.IssuesMoved != 1 {
 		t.Errorf("issues_moved = %d, want 1", result.IssuesMoved)
@@ -85,7 +85,7 @@ func TestMergeWorkspaces_MissingTargetID(t *testing.T) {
 	e := server.echo
 
 	mergeBody := `{"source_ids": ["some-id"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/merge", bytes.NewBufferString(mergeBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/merge", bytes.NewBufferString(mergeBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -101,7 +101,7 @@ func TestMergeWorkspaces_MissingSourceIDs(t *testing.T) {
 	e := server.echo
 
 	mergeBody := `{"target_id": "some-id"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/merge", bytes.NewBufferString(mergeBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/merge", bytes.NewBufferString(mergeBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -116,10 +116,10 @@ func TestMergeWorkspaces_InvalidTarget(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	sourceID := createNamedWorkspace(t, e, "Source", "src")
+	sourceID := createNamedProject(t, e, "Source", "src")
 
 	mergeBody := `{"target_id": "nonexistent", "source_ids": ["` + sourceID + `"]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/merge", bytes.NewBufferString(mergeBody))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/merge", bytes.NewBufferString(mergeBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)

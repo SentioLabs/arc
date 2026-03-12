@@ -475,8 +475,8 @@ func TestClientMergeWorkspaces(t *testing.T) {
 		t.Fatalf("MergeWorkspaces failed: %v", err)
 	}
 
-	if result.TargetWorkspace.ID != target.ID {
-		t.Errorf("TargetWorkspace.ID = %q, want %q", result.TargetWorkspace.ID, target.ID)
+	if result.TargetProject.ID != target.ID {
+		t.Errorf("TargetWorkspace.ID = %q, want %q", result.TargetProject.ID, target.ID)
 	}
 	if result.IssuesMoved != 1 {
 		t.Errorf("IssuesMoved = %d, want 1", result.IssuesMoved)

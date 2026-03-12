@@ -66,7 +66,7 @@ func (s *Server) fetchEpicChildIssues(
 	if err != nil {
 		return nil, errorJSON(c, http.StatusNotFound, "epic not found")
 	}
-	if epic.WorkspaceID != wsID {
+	if epic.ProjectID != wsID {
 		return nil, errorJSON(c, http.StatusForbidden, "access denied")
 	}
 
@@ -91,7 +91,7 @@ func (s *Server) fetchEpicChildIssues(
 		if err != nil {
 			continue
 		}
-		if child.WorkspaceID == wsID {
+		if child.ProjectID == wsID {
 			issues = append(issues, child)
 		}
 	}
@@ -103,7 +103,7 @@ func (s *Server) fetchNonClosedIssues(
 	ctx context.Context, c echo.Context, wsID string,
 ) ([]*types.Issue, error) {
 	allIssues, err := s.store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: wsID,
+		ProjectID: wsID,
 		Limit:       teamContextIssueLimit,
 	})
 	if err != nil {

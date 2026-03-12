@@ -9,7 +9,6 @@ import (
 
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
-	"github.com/sentiolabs/arc/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +19,7 @@ const filePermissions = 0o644
 var initCmd = &cobra.Command{
 	Use:   "init [name]",
 	Short: "Initialize arc in the current directory",
-	Long: `Initialize arc in the current directory by creating a workspace.
+	Long: `Initialize arc in the current directory by creating a project.
 
 This command:
 1. Creates a workspace on the server (or connects to existing)
@@ -73,7 +72,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		name = args[0]
 	} else {
 		// Auto-generate: sanitized-basename-hash
-		name, err = workspace.GenerateName(cwd)
+		name, err = project.GenerateName(cwd)
 		if err != nil {
 			return fmt.Errorf("generate workspace name: %w", err)
 		}
@@ -84,12 +83,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	var prefix string
 	if customPrefix != "" {
-		prefix, err = workspace.GeneratePrefixWithCustomName(cwd, customPrefix)
+		prefix, err = project.GeneratePrefixWithCustomName(cwd, customPrefix)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
 	} else {
-		prefix, err = workspace.GeneratePrefix(cwd)
+		prefix, err = project.GeneratePrefix(cwd)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
