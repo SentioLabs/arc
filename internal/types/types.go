@@ -457,3 +457,10 @@ func (pc *PlanContext) HasPlan() bool {
 	}
 	return pc.InlinePlan != nil || pc.ParentPlan != nil || len(pc.SharedPlans) > 0
 }
+
+// WorkspaceResolution contains the result of resolving a workspace by path.
+type WorkspaceResolution struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+	PathID        string `json:"path_id"`
+}

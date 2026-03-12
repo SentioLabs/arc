@@ -98,6 +98,8 @@ func (s *Server) registerRoutes() {
 	v1.GET("/workspaces", s.listWorkspaces)
 	v1.POST("/workspaces", s.createWorkspace)
 	v1.POST("/workspaces/merge", s.mergeWorkspaces)
+	// Resolve must be registered before :id to avoid "resolve" being captured as an ID
+	v1.GET("/workspaces/resolve", s.resolveWorkspace)
 	v1.GET("/workspaces/:id", s.getWorkspace)
 	v1.PUT("/workspaces/:id", s.updateWorkspace)
 	v1.DELETE("/workspaces/:id", s.deleteWorkspace)
@@ -105,6 +107,12 @@ func (s *Server) registerRoutes() {
 
 	// Filesystem browser
 	v1.GET("/filesystem/browse", s.browseFilesystem)
+
+	// Workspace paths (multi-directory support)
+	v1.GET("/workspaces/:id/paths", s.listWorkspacePaths)
+	v1.POST("/workspaces/:id/paths", s.createWorkspacePath)
+	v1.PATCH("/workspaces/:id/paths/:pathId", s.updateWorkspacePath)
+	v1.DELETE("/workspaces/:id/paths/:pathId", s.deleteWorkspacePath)
 
 	// Issues (workspace-scoped)
 	ws := v1.Group("/workspaces/:ws")
