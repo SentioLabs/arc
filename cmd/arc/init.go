@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
 	"github.com/sentiolabs/arc/internal/workspace"
@@ -23,7 +26,7 @@ var initCmd = &cobra.Command{
 
 This command:
 1. Creates a workspace on the server (or connects to existing)
-2. Saves project config to ~/.arc/projects/
+2. Registers the current directory path with the server
 3. Creates AGENTS.md with session completion instructions
 
 For Claude Code users: Install the arc plugin for full integration
@@ -169,16 +172,20 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Create project config in ~/.arc/projects/
-	arcHome := project.DefaultArcHome()
-	projectCfg := &project.Config{
-		WorkspaceID:   ws.ID,
-		WorkspaceName: ws.Name,
-		ProjectRoot:   cwd,
+	// Register path on the server
+	hostname, _ := os.Hostname()
+	gitRemote := getGitRemoteURL()
+	label := filepath.Base(cwd)
+
+	pathReq := client.CreateWorkspacePathRequest{
+		Path:      project.NormalizePath(cwd),
+		Label:     label,
+		Hostname:  hostname,
+		GitRemote: gitRemote,
 	}
-	if err := project.WriteConfig(arcHome, cwd, projectCfg); err != nil {
+	if _, err := c.CreateWorkspacePath(ws.ID, pathReq); err != nil {
 		if !quiet {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to create project config: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to register workspace path: %v\n", err)
 		}
 	}
 
@@ -207,6 +214,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// getGitRemoteURL returns the git remote origin URL for the current directory.
+// Returns an empty string if not in a git repo or if the remote is not configured.
+func getGitRemoteURL() string {
+	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // addLandingThePlaneInstructions adds "landing the plane" instructions to AGENTS.md

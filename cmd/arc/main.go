@@ -80,20 +80,14 @@ type Config struct {
 type WorkspaceSource int
 
 const (
-	WorkspaceSourceFlag     WorkspaceSource = iota
-	WorkspaceSourceProject                  // ~/.arc/projects/<path>/config.json
-	WorkspaceSourceWorktree                 // ~/.arc/ config via git worktree main repo
-	WorkspaceSourceServer                   // server path matching (containers/mounts)
+	WorkspaceSourceFlag   WorkspaceSource = iota
+	WorkspaceSourceServer                 // server path matching via resolve-by-path API
 )
 
 func (s WorkspaceSource) String() string {
 	switch s {
 	case WorkspaceSourceFlag:
 		return "command line flag (-w)"
-	case WorkspaceSourceProject:
-		return "~/.arc/projects/ (local)"
-	case WorkspaceSourceWorktree:
-		return "git worktree → main repo config"
 	case WorkspaceSourceServer:
 		return "server path match"
 	default:
@@ -193,8 +187,7 @@ func getWorkspaceID() (string, error) {
 // resolveWorkspace returns the workspace ID, source, and error.
 // Resolution priority:
 //  1. CLI flag (-w/--workspace) - explicit override always works
-//  2. Project config (~/.arc/projects/<path>/config.json)
-//  3. Server path matching (handles containers/mounts without local config)
+//  2. Server resolve-by-path API - queries server with normalized cwd
 //
 // If none is available, an error is returned. There is no global fallback
 // to prevent accidentally operating in the wrong workspace.
@@ -208,28 +201,18 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 	if err != nil {
 		return "", 0, "", fmt.Errorf("get current directory: %w", err)
 	}
-	// Resolve symlinks so path matches the normalized path used by "arc init"
-	cwd = project.NormalizePath(cwd)
 
-	arcHome := project.DefaultArcHome()
+	// Priority 2: Server resolve-by-path
+	normalizedPath := project.NormalizePath(cwd)
 
-	// Priority 2: Find project root and load config from ~/.arc/projects/
-	wsID, source, warning, resolveErr := resolveFromProjectConfig(cwd, arcHome)
-	if resolveErr != nil {
-		return "", 0, "", resolveErr
-	}
-	if wsID != "" {
-		return wsID, source, warning, nil
+	c, err := getClient()
+	if err != nil {
+		return "", 0, "", fmt.Errorf("connect to server: %w", err)
 	}
 
-	// Priority 3: Worktree detection (inherits workspace from main repo)
-	if wtWsID, _, wtErr := resolveFromWorktree(cwd, arcHome); wtErr == nil && wtWsID != "" {
-		return wtWsID, WorkspaceSourceWorktree, "", nil
-	}
-
-	// Priority 4: Server path matching (handles containers/mounts without local config)
-	if serverWsID, serverErr := resolveFromServerPath(cwd); serverErr == nil && serverWsID != "" {
-		return serverWsID, WorkspaceSourceServer, "", nil
+	resolution, err := c.ResolveWorkspaceByPath(normalizedPath)
+	if err == nil && resolution.WorkspaceID != "" {
+		return resolution.WorkspaceID, WorkspaceSourceServer, "", nil
 	}
 
 	return "", 0, "", errors.New(
@@ -237,89 +220,6 @@ func resolveWorkspace() (wsID string, source WorkspaceSource, warning string, er
 			"  Run 'arc init' to set up a workspace, or use '-w <workspace>' to specify one")
 }
 
-// resolveFromServerPath queries the server for a workspace whose path matches cwd.
-// Compares both raw and symlink-resolved paths to handle mounts and symlinks.
-func resolveFromServerPath(cwd string) (string, error) {
-	c, err := getClient()
-	if err != nil {
-		return "", err
-	}
-
-	workspaces, err := c.ListWorkspaces()
-	if err != nil {
-		return "", err
-	}
-
-	normalizedCwd := project.NormalizePath(cwd)
-
-	for _, ws := range workspaces {
-		// Direct match (handles containers where paths are identical)
-		if ws.Path == cwd {
-			return ws.ID, nil
-		}
-		// Normalized match (handles symlinks like ~/devspace → /Volumes/ExternalSamsung/devspace)
-		if project.NormalizePath(ws.Path) == normalizedCwd {
-			return ws.ID, nil
-		}
-	}
-
-	return "", nil
-}
-
-// resolveFromProjectConfig attempts to resolve workspace from ~/.arc/projects/ config.
-// Returns empty wsID if no config is found (without error).
-func resolveFromProjectConfig(cwd, arcHome string) (wsID string, source WorkspaceSource, warning string, err error) {
-	projectRoot, rootErr := project.FindProjectRootWithArcHome(cwd, arcHome)
-	if rootErr != nil {
-		return "", 0, "", nil //nolint:nilerr // no project root means no config; fall through to next resolver
-	}
-
-	cfg, cfgErr := project.LoadConfig(arcHome, projectRoot)
-	if cfgErr != nil || cfg.WorkspaceID == "" {
-		return "", 0, "", nil //nolint:nilerr // missing or empty config; fall through to next resolver
-	}
-
-	if err := validateWorkspaceOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
-		return "", 0, "", err
-	}
-
-	return cfg.WorkspaceID, WorkspaceSourceProject, "", nil
-}
-
-// resolveFromWorktree attempts to resolve workspace by detecting if cwd is a git worktree
-// and loading the project config for the main repo. Returns empty wsID if not a worktree.
-func resolveFromWorktree(cwd, arcHome string) (wsID string, mainRepo string, err error) {
-	mainRepo, err = project.DetectWorktreeMainRepo(cwd)
-	if err != nil || mainRepo == "" {
-		return "", "", nil //nolint:nilerr // not a worktree; fall through
-	}
-
-	cfg, cfgErr := project.LoadConfig(arcHome, mainRepo)
-	if cfgErr != nil || cfg.WorkspaceID == "" {
-		return "", "", nil //nolint:nilerr // no config for main repo; fall through
-	}
-
-	if err := validateWorkspaceOnServer(cfg.WorkspaceID, cfg.WorkspaceName); err != nil {
-		return "", "", err
-	}
-
-	return cfg.WorkspaceID, mainRepo, nil
-}
-
-// validateWorkspaceOnServer checks that the workspace exists on the server.
-func validateWorkspaceOnServer(wsID, wsName string) error {
-	c, clientErr := getClient()
-	if clientErr != nil {
-		return nil //nolint:nilerr // server unreachable; skip validation, work offline
-	}
-
-	if _, wsErr := c.GetWorkspace(wsID); wsErr != nil {
-		return fmt.Errorf("workspace '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
-			wsName, wsID)
-	}
-
-	return nil
-}
 
 // outputResult writes data as indented JSON to stdout when --json is set.
 func outputResult(data any) {
@@ -357,10 +257,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(
-		&serverURL, "server", "s", "",
-		"Server URL (env: ARC_SERVER, default: http://localhost:7432)",
-	)
+	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "Server URL (env: ARC_SERVER, default: http://localhost:7432)")
 	rootCmd.PersistentFlags().StringVarP(&workspaceID, "workspace", "w", "", "Workspace ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
@@ -392,9 +289,6 @@ func init() {
 	workspaceCmd.AddCommand(workspaceListCmd)
 	workspaceCmd.AddCommand(workspaceCreateCmd)
 	workspaceCmd.AddCommand(workspaceDeleteCmd)
-	workspaceCmd.AddCommand(workspaceMergeCmd)
-	workspaceMergeCmd.Flags().String("into", "", "Target workspace name or ID (required)")
-	workspaceMergeCmd.MarkFlagRequired("into") //nolint:errcheck
 }
 
 // whichCmd shows the active workspace and how it was resolved.
@@ -405,8 +299,7 @@ var whichCmd = &cobra.Command{
 
 This helps debug workspace resolution issues by showing:
 - The active workspace ID and name
-- Where the workspace was resolved from (flag or project config)
-- The project config file path
+- Where the workspace was resolved from (flag or server path match)
 - Any warnings about the configuration`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wsID, source, warning, err := resolveWorkspace()
@@ -446,20 +339,6 @@ This helps debug workspace resolution issues by showing:
 		}
 		fmt.Printf("Source: %s\n", source)
 
-		if source == WorkspaceSourceProject {
-			whichCwd := project.NormalizePath(func() string { d, _ := os.Getwd(); return d }())
-			arcHome := project.DefaultArcHome()
-			if root, err := project.FindProjectRootWithArcHome(whichCwd, arcHome); err == nil {
-				fmt.Printf("Config: ~/.arc/projects/%s/config.json\n", project.PathToProjectDir(root))
-			}
-		}
-
-		if source == WorkspaceSourceWorktree {
-			whichCwd := project.NormalizePath(func() string { d, _ := os.Getwd(); return d }())
-			if mainRepo, err := project.DetectWorktreeMainRepo(whichCwd); err == nil && mainRepo != "" {
-				fmt.Printf("Main repo: %s\n", mainRepo)
-			}
-		}
 
 		if warning != "" {
 			_, _ = fmt.Fprintln(os.Stderr)
@@ -590,77 +469,6 @@ var workspaceDeleteCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Deleted workspace: %s\n", args[0])
-		return nil
-	},
-}
-
-// workspaceMergeCmd merges one or more source workspaces into a target workspace.
-var workspaceMergeCmd = &cobra.Command{
-	Use:   "merge <source> [source2...]",
-	Short: "Merge workspaces into a target workspace",
-	Long: `Merge one or more source workspaces into a target workspace.
-
-All issues and plans from the source workspace(s) are moved to the target.
-Source workspaces are deleted after the merge. Issue IDs are preserved.
-
-Examples:
-  arc workspace merge --into my-project old-workspace-1
-  arc workspace merge --into my-project old-ws-1 old-ws-2 old-ws-3`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		into, _ := cmd.Flags().GetString("into")
-
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-
-		// List all workspaces to resolve names to IDs
-		workspaces, err := c.ListWorkspaces()
-		if err != nil {
-			return fmt.Errorf("list workspaces: %w", err)
-		}
-
-		// Build name-to-ID and ID-to-name lookup maps
-		nameToID := make(map[string]string, len(workspaces))
-		idToName := make(map[string]string, len(workspaces))
-		for _, ws := range workspaces {
-			nameToID[ws.Name] = ws.ID
-			idToName[ws.ID] = ws.Name
-		}
-
-		// Resolve target
-		targetID := into
-		if id, ok := nameToID[into]; ok {
-			targetID = id
-		}
-		targetName := into
-		if name, ok := idToName[targetID]; ok {
-			targetName = name
-		}
-
-		// Resolve sources
-		sourceIDs := make([]string, len(args))
-		for i, arg := range args {
-			if id, ok := nameToID[arg]; ok {
-				sourceIDs[i] = id
-			} else {
-				sourceIDs[i] = arg
-			}
-		}
-
-		result, err := c.MergeWorkspaces(targetID, sourceIDs)
-		if err != nil {
-			return err
-		}
-
-		if outputJSON {
-			outputResult(result)
-			return nil
-		}
-
-		fmt.Printf("Merged %d workspace(s) into '%s': %d issues moved, %d plans moved\n",
-			len(result.SourcesDeleted), targetName, result.IssuesMoved, result.PlansMoved)
 		return nil
 	},
 }
@@ -1302,26 +1110,18 @@ func formatBlockedIssue(id, issueType string, priority int, title string, labels
 		icon, id, priorityStr, issueType, labelStr, title, blockedByCount)
 }
 
-// Priority level constants for color-coding.
-const (
-	priorityCritical = 0
-	priorityHigh     = 1
-	priorityNormal   = 2
-	priorityLow      = 3
-)
-
 // colorPriority returns a color-coded priority string.
 // P0=red (critical), P1=yellow (high), P2=cyan (normal), P3=blue (low), P4=dim (minimal).
 func colorPriority(priority int) string {
 	label := fmt.Sprintf("P%d", priority)
 	switch priority {
-	case priorityCritical:
+	case 0:
 		return color.New(color.FgRed, color.Bold).Sprint(label)
-	case priorityHigh:
+	case 1:
 		return color.New(color.FgYellow).Sprint(label)
-	case priorityNormal:
+	case 2:
 		return color.New(color.FgCyan).Sprint(label)
-	case priorityLow:
+	case 3:
 		return color.New(color.FgBlue).Sprint(label)
 	default:
 		return color.New(color.FgMagenta).Sprint(label)
