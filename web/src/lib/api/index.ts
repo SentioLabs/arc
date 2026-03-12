@@ -21,6 +21,8 @@ export type TeamContextRole = components['schemas']['TeamContextRole'];
 export type TeamContextEpic = components['schemas']['TeamContextEpic'];
 export type AddCommentRequest = components['schemas']['AddCommentRequest'];
 export type AddLabelToIssueRequest = components['schemas']['AddLabelToIssueRequest'];
+export type WorkspacePath = components['schemas']['WorkspacePath'];
+export type CreateWorkspacePathRequest = components['schemas']['CreateWorkspacePathRequest'];
 
 // Error helper - extracts message from API error response { error: "message" }
 function handleError(error: unknown): never {
@@ -77,6 +79,35 @@ export async function mergeWorkspaces(targetId: string, sourceIds: string[]): Pr
 	if (error) handleError(error);
 	if (!data) throw new Error('Failed to merge workspaces');
 	return data;
+}
+
+// Workspace Path APIs
+export async function listWorkspacePaths(workspaceId: string): Promise<WorkspacePath[]> {
+	const { data, error } = await api.GET('/workspaces/{workspaceId}/paths', {
+		params: { path: { workspaceId } }
+	});
+	if (error) handleError(error);
+	return data ?? [];
+}
+
+export async function createWorkspacePath(
+	workspaceId: string,
+	request: CreateWorkspacePathRequest
+): Promise<WorkspacePath> {
+	const { data, error } = await api.POST('/workspaces/{workspaceId}/paths', {
+		params: { path: { workspaceId } },
+		body: request
+	});
+	if (error) handleError(error);
+	if (!data) throw new Error('Failed to create workspace path');
+	return data;
+}
+
+export async function deleteWorkspacePath(workspaceId: string, pathId: string): Promise<void> {
+	const { error } = await api.DELETE('/workspaces/{workspaceId}/paths/{pathId}', {
+		params: { path: { workspaceId, pathId } }
+	});
+	if (error) handleError(error);
 }
 
 // Issue APIs

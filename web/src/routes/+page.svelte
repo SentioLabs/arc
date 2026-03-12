@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { deleteWorkspaces, mergeWorkspaces, type Workspace, type MergeResult } from '$lib/api';
+	import {
+		deleteWorkspaces,
+		mergeWorkspaces,
+		listWorkspacePaths,
+		createWorkspacePath,
+		deleteWorkspacePath,
+		type Workspace,
+		type MergeResult,
+		type WorkspacePath
+	} from '$lib/api';
 	import { ConfirmDialog, Select } from '$lib/components';
 
 	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
@@ -39,6 +48,128 @@
 	let merging = $state(false);
 	let workspacesToMerge: Workspace[] = $state([]);
 	let mergeResult: MergeResult | null = $state(null);
+
+	// Workspace paths state
+	let expandedPaths = $state<Set<string>>(new Set());
+	let workspacePaths = $state<Record<string, WorkspacePath[]>>({});
+	let pathsLoading = $state<Set<string>>(new Set());
+	let pathCounts = $state<Record<string, number>>({});
+	let addingPathFor = $state<string | null>(null);
+	let newPathValue = $state('');
+	let newPathLabel = $state('');
+	let addingPath = $state(false);
+	let deletePathConfirm = $state<{ workspaceId: string; pathId: string; pathValue: string } | null>(null);
+	let deletingPath = $state(false);
+
+	function togglePaths(workspaceId: string, event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		const newSet = new Set(expandedPaths);
+		if (newSet.has(workspaceId)) {
+			newSet.delete(workspaceId);
+		} else {
+			newSet.add(workspaceId);
+		}
+		expandedPaths = newSet;
+	}
+
+	$effect(() => {
+		for (const workspaceId of expandedPaths) {
+			if (!workspacePaths[workspaceId] && !pathsLoading.has(workspaceId)) {
+				loadPaths(workspaceId);
+			}
+		}
+	});
+
+	async function loadPaths(workspaceId: string) {
+		const newLoading = new Set(pathsLoading);
+		newLoading.add(workspaceId);
+		pathsLoading = newLoading;
+		try {
+			const paths = await listWorkspacePaths(workspaceId);
+			workspacePaths = { ...workspacePaths, [workspaceId]: paths };
+			pathCounts = { ...pathCounts, [workspaceId]: paths.length };
+		} catch (err) {
+			console.error('Failed to load paths for workspace', workspaceId, err);
+			workspacePaths = { ...workspacePaths, [workspaceId]: [] };
+		} finally {
+			const done = new Set(pathsLoading);
+			done.delete(workspaceId);
+			pathsLoading = done;
+		}
+	}
+
+	function startAddPath(workspaceId: string, event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		addingPathFor = workspaceId;
+		newPathValue = '';
+		newPathLabel = '';
+	}
+
+	function cancelAddPath(event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		addingPathFor = null;
+		newPathValue = '';
+		newPathLabel = '';
+	}
+
+	async function submitAddPath(event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		if (!addingPathFor || !newPathValue.trim()) return;
+		addingPath = true;
+		try {
+			const created = await createWorkspacePath(addingPathFor, {
+				path: newPathValue.trim(),
+				label: newPathLabel.trim() || undefined
+			});
+			const existing = workspacePaths[addingPathFor] ?? [];
+			workspacePaths = { ...workspacePaths, [addingPathFor]: [...existing, created] };
+			pathCounts = { ...pathCounts, [addingPathFor]: (pathCounts[addingPathFor] ?? 0) + 1 };
+			addingPathFor = null;
+			newPathValue = '';
+			newPathLabel = '';
+		} catch (err) {
+			console.error('Failed to add path:', err);
+		} finally {
+			addingPath = false;
+		}
+	}
+
+	function confirmDeletePath(workspaceId: string, pathId: string, pathValue: string, event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		deletePathConfirm = { workspaceId, pathId, pathValue };
+	}
+
+	async function executeDeletePath() {
+		if (!deletePathConfirm) return;
+		deletingPath = true;
+		const { workspaceId, pathId } = deletePathConfirm;
+		try {
+			await deleteWorkspacePath(workspaceId, pathId);
+			const existing = workspacePaths[workspaceId] ?? [];
+			workspacePaths = { ...workspacePaths, [workspaceId]: existing.filter((p) => p.id !== pathId) };
+			pathCounts = { ...pathCounts, [workspaceId]: Math.max(0, (pathCounts[workspaceId] ?? 1) - 1) };
+			deletePathConfirm = null;
+		} catch (err) {
+			console.error('Failed to delete path:', err);
+		} finally {
+			deletingPath = false;
+		}
+	}
+
+	function cancelDeletePath() {
+		deletePathConfirm = null;
+	}
+
+	function formatDate(dateStr?: string): string {
+		if (!dateStr) return '-';
+		const date = new Date(dateStr);
+		return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+	}
 
 	// Derived state
 	const selectedCount = $derived(selectedIds.size);
@@ -516,6 +647,17 @@
 	</dialog>
 {/if}
 
+<!-- Delete Path Confirmation -->
+<ConfirmDialog
+	open={deletePathConfirm !== null}
+	title="Delete path?"
+	message="Remove this path from the workspace: {deletePathConfirm?.pathValue ?? ''}"
+	confirmLabel="Delete Path"
+	loading={deletingPath}
+	onconfirm={executeDeletePath}
+	oncancel={cancelDeletePath}
+/>
+
 {#snippet workspaceContent(workspace: Workspace)}
 	<div class="flex items-start justify-between mb-4">
 		<div
@@ -536,9 +678,18 @@
 		{/if}
 	</div>
 
-	<h3 class="text-lg font-semibold text-text-primary group-hover:text-white transition-colors mb-1">
-		{workspace.name}
-	</h3>
+	<div class="flex items-center gap-2 mb-1">
+		<h3 class="text-lg font-semibold text-text-primary group-hover:text-white transition-colors">
+			{workspace.name}
+		</h3>
+		{#if pathCounts[workspace.id] !== undefined && pathCounts[workspace.id] > 0}
+			<span
+				class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-600/20 text-primary-400"
+			>
+				{pathCounts[workspace.id]} {pathCounts[workspace.id] === 1 ? 'path' : 'paths'}
+			</span>
+		{/if}
+	</div>
 
 	{#if workspace.description}
 		<p class="text-sm text-text-secondary line-clamp-2 mb-4">
@@ -549,7 +700,7 @@
 	{/if}
 
 	{#if workspace.path}
-		<div class="flex items-center gap-2 text-xs text-text-muted font-mono">
+		<div class="flex items-center gap-2 text-xs text-text-muted font-mono mb-2">
 			<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
 				<path
 					d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
@@ -558,4 +709,129 @@
 			<span class="truncate">{workspace.path}</span>
 		</div>
 	{/if}
+
+	<!-- Expandable paths section -->
+	<div class="mt-2">
+		<button
+			type="button"
+			class="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors"
+			onclick={(e) => togglePaths(workspace.id, e)}
+		>
+			<svg
+				class="w-3 h-3 transition-transform {expandedPaths.has(workspace.id) ? 'rotate-90' : ''}"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+			>
+				<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+			</svg>
+			{expandedPaths.has(workspace.id) ? 'Hide paths' : 'Show paths'}
+		</button>
+
+		{#if expandedPaths.has(workspace.id)}
+			<div class="mt-2 animate-fade-in">
+				{#if pathsLoading.has(workspace.id)}
+					<div class="flex items-center gap-2 text-xs text-text-muted py-2">
+						<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
+						Loading paths...
+					</div>
+				{:else if (workspacePaths[workspace.id] ?? []).length === 0}
+					<p class="text-xs text-text-muted py-2">No paths configured</p>
+				{:else}
+					<div class="border border-border-subtle rounded-md overflow-hidden">
+						<table class="w-full text-xs">
+							<thead>
+								<tr class="bg-surface-800">
+									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Path</th>
+									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Label</th>
+									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Host</th>
+									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Last Accessed</th>
+									<th class="w-8 px-2 py-1.5"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each workspacePaths[workspace.id] ?? [] as wp (wp.id)}
+									<tr class="border-t border-border-subtle hover:bg-surface-800/50">
+										<td class="px-2 py-1.5 font-mono text-text-primary truncate max-w-[200px]" title={wp.path}>{wp.path}</td>
+										<td class="px-2 py-1.5 text-text-secondary">{wp.label ?? '-'}</td>
+										<td class="px-2 py-1.5 text-text-secondary">{wp.hostname ?? '-'}</td>
+										<td class="px-2 py-1.5 text-text-secondary">{formatDate(wp.last_accessed_at)}</td>
+										<td class="px-2 py-1.5">
+											<button
+												type="button"
+												class="text-text-muted hover:text-status-blocked transition-colors"
+												title="Delete path"
+												onclick={(e) => confirmDeletePath(workspace.id, wp.id, wp.path, e)}
+											>
+												<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+													<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z" />
+												</svg>
+											</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{/if}
+
+				<!-- Add path form -->
+				{#if addingPathFor === workspace.id}
+					<div class="mt-2 p-2 bg-surface-800 border border-border-subtle rounded-md" onclick={(e) => e.stopPropagation()}>
+						<div class="flex flex-col gap-2">
+							<input
+								type="text"
+								placeholder="Filesystem path (e.g., /home/user/project)"
+								bind:value={newPathValue}
+								class="input text-xs px-2 py-1.5"
+								onclick={(e) => e.stopPropagation()}
+							/>
+							<input
+								type="text"
+								placeholder="Label (optional)"
+								bind:value={newPathLabel}
+								class="input text-xs px-2 py-1.5"
+								onclick={(e) => e.stopPropagation()}
+							/>
+							<div class="flex items-center gap-2 justify-end">
+								<button
+									type="button"
+									class="btn btn-ghost btn-sm text-xs"
+									onclick={cancelAddPath}
+									disabled={addingPath}
+								>
+									Cancel
+								</button>
+								<button
+									type="button"
+									class="btn btn-primary btn-sm text-xs"
+									onclick={submitAddPath}
+									disabled={addingPath || !newPathValue.trim()}
+								>
+									{#if addingPath}
+										Adding...
+									{:else}
+										Add Path
+									{/if}
+								</button>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<button
+						type="button"
+						class="mt-2 flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 transition-colors"
+						onclick={(e) => startAddPath(workspace.id, e)}
+					>
+						<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+						</svg>
+						Add Path
+					</button>
+				{/if}
+			</div>
+		{/if}
+	</div>
 {/snippet}
