@@ -12,15 +12,15 @@ Key Differences:
 
 ## Features
 
-- **Central Server**: Single server managing multiple workspaces
+- **Central Server**: Single server managing multiple projects
 - **Web UI**: Svelte client app embedded in Go server
 - **REST API**: Clean JSON API for all operations
-- **Workspaces**: First-class workspace management (replaces per-repo concept)
+- **Projects**: First-class project management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
 - **Plans**: Inline plans on issues, shared plans linkable to multiple issues
 - **Ready Work**: Find issues with no blockers
 - **Agent Teams**: Coordinate multi-agent workflows with `teammate:*` labels and team context
-- **Statistics**: Aggregate metrics per workspace
+- **Statistics**: Aggregate metrics per project
 
 ## Installation
 
@@ -76,13 +76,13 @@ The server stores data in `~/.arc/data.db` by default.
 #### Getting Started
 
 ```bash
-# Initialize arc in your project directory (creates workspace + config)
+# Initialize arc in your project directory (creates project + config)
 cd your-project
-arc init                        # Uses directory name as workspace
-arc init my-project             # Custom workspace name
+arc init                        # Uses directory name as project
+arc init my-project             # Custom project name
 arc init --prefix mp            # Custom issue prefix (e.g., mp-a3f2)
 
-# Check which workspace is active
+# Check which project is active
 arc which
 ```
 
@@ -177,14 +177,14 @@ arc quickstart                  # Quick start guide
 arc self update                 # Update to latest version
 ```
 
-#### Advanced: Workspace Management
+#### Advanced: Project Management
 
 ```bash
-# For multi-project setups or manual workspace control
-arc workspace create my-project --path /path/to/project
-arc workspace use my-project    # Set default workspace
-arc workspace list
-arc workspace delete ws-abc123
+# For multi-project setups or manual project control
+arc project create my-project --path /path/to/project
+arc project use my-project      # Set default project
+arc project list
+arc project delete ws-abc123
 ```
 
 ### Claude Code Integration
@@ -249,7 +249,7 @@ brainstorm → plan → implement → review → finish
 # 1. Start the server (if not running)
 arc server start
 
-# 2. Initialize workspace in your project
+# 2. Initialize project in your directory
 cd your-project
 arc init
 
@@ -268,7 +268,7 @@ and a setup command to install it into your repo.
 # 1. Start the server (if not running)
 arc server start
 
-# 2. Initialize workspace in your project
+# 2. Initialize project in your directory
 cd your-project
 arc init
 
@@ -286,7 +286,7 @@ arc setup codex
 # Health check
 curl http://localhost:7432/health
 
-# Create workspace
+# Create project
 curl -X POST http://localhost:7432/api/v1/workspaces \
   -H "Content-Type: application/json" \
   -d '{"name": "my-project", "prefix": "mp"}'
@@ -308,13 +308,13 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 ```mermaid
 flowchart TB
     subgraph server["Central Server"]
-        subgraph workspaces["Workspaces"]
-            ws1["Workspace A"]
-            ws2["Workspace B"]
-            ws3["Workspace C"]
+        subgraph projects["Projects"]
+            ws1["Project A"]
+            ws2["Project B"]
+            ws3["Project C"]
         end
         db[("SQLite DB<br/>~/.arc/data.db")]
-        workspaces --> db
+        projects --> db
     end
 
     api{{"REST API<br/>localhost:7432"}}
@@ -333,7 +333,7 @@ flowchart TB
 
 ## Data Model
 
-### Workspace
+### Project
 
 - ID (e.g., "ws-a1b2")
 - Name, description, path
@@ -358,7 +358,7 @@ flowchart TB
 ### Label
 
 - Name, color, description
-- Global scope (shared across workspaces)
+- Global scope (shared across projects)
 
 ### Comment
 
@@ -372,19 +372,19 @@ flowchart TB
 ### Plan (Shared)
 
 - ID (e.g., "plan.xxxxx"), title, content
-- Scoped to workspace, linkable to multiple issues
+- Scoped to project, linkable to multiple issues
 
 ## Configuration
 
 Arc uses three configuration layers (highest priority wins):
 
-1. **CLI config** (`~/.arc/cli-config.json`) — server URL, default workspace
-2. **Project config** (`~/.arc/projects/<path>/config.json`) — per-project workspace binding
+1. **CLI config** (`~/.arc/cli-config.json`) — server URL, default project
+2. **Project config** (`~/.arc/projects/<path>/config.json`) — per-directory project binding
 
 ```json
 {
   "server_url": "http://localhost:7432",
-  "default_workspace": "ws-abc123"
+  "default_project": "ws-abc123"
 }
 ```
 
@@ -412,13 +412,13 @@ make docker-up
 
 ## API Reference
 
-### Workspaces
+### Projects
 
-- `GET /api/v1/workspaces` - List workspaces
-- `POST /api/v1/workspaces` - Create workspace
-- `GET /api/v1/workspaces/:id` - Get workspace
-- `PUT /api/v1/workspaces/:id` - Update workspace
-- `DELETE /api/v1/workspaces/:id` - Delete workspace
+- `GET /api/v1/workspaces` - List projects
+- `POST /api/v1/workspaces` - Create project
+- `GET /api/v1/workspaces/:id` - Get project
+- `PUT /api/v1/workspaces/:id` - Update project
+- `DELETE /api/v1/workspaces/:id` - Delete project
 - `GET /api/v1/workspaces/:id/stats` - Get statistics
 
 ### Issues

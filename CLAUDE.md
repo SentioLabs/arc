@@ -41,7 +41,7 @@ make docker-up
 
 2. **API Layer** (`internal/api/`)
    - Echo framework for HTTP routing
-   - REST endpoints for workspaces, issues, dependencies, labels, comments
+   - REST endpoints for projects, issues, dependencies, labels, comments
 
 3. **CLI Layer** (`cmd/arc/`)
    - Cobra commands (commands defined in main.go + separate files)
@@ -56,7 +56,7 @@ CLI (arc) → HTTP Client → REST API → Storage → SQLite
 ## Key Data Types
 
 See `internal/types/types.go`:
-- **Workspace**: Top-level container for issues
+- **Project**: Top-level container for issues
 - **Issue**: Core work item (title, status, priority 0-4, type, labels)
 - **Dependency**: Four types (blocks, related, parent-child, discovered-from)
 - **Status**: Open, InProgress, Blocked, Deferred, Closed
@@ -66,10 +66,10 @@ See `internal/types/types.go`:
 
 The project includes Claude Code integration:
 
-- **`arc init`**: Creates workspace and sets up AGENTS.md
+- **`arc init`**: Creates project and sets up AGENTS.md
 - **`arc prime`**: Outputs AI workflow context for hooks
 - **`arc setup claude`**: Installs SessionStart/PreCompact hooks
-- **`arc onboard`**: Gets workspace orientation
+- **`arc onboard`**: Gets project orientation
 
 ### Hooks
 

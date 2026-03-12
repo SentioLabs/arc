@@ -1,28 +1,28 @@
 ---
-description: Manage workspaces
+description: Manage projects
 argument-hint: list|create|use|delete
 ---
 
-Manage arc workspaces.
+Manage arc projects.
 
-**List workspaces:**
+**List projects:**
 ```bash
-arc workspace list
+arc project list
 ```
 
-**Create workspace:**
+**Create project:**
 ```bash
-arc workspace create my-project --path /path/to/project
+arc project create my-project --path /path/to/project
 ```
 
-**Set default workspace:**
+**Set default project:**
 ```bash
-arc workspace use my-project
+arc project use my-project
 ```
 
-**Delete workspace:**
+**Delete project:**
 ```bash
-arc workspace delete <id>
+arc project delete <id>
 ```
 
-Each project typically has its own workspace. Use `arc init` in a project directory to create and configure a workspace automatically.
+Each directory typically has its own project. Use `arc init` in a project directory to create and configure a project automatically.

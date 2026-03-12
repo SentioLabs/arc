@@ -3,7 +3,7 @@ info:
   title: Arc Issue Tracker API
   description: |
     Central issue tracking server for AI-assisted coding workflows.
-    Arc provides workspace-scoped issue management with dependency tracking,
+    Arc provides project-scoped issue management with dependency tracking,
     labels, comments, and audit trails.
   version: 1.0.0
   contact:
@@ -16,7 +16,7 @@ servers:
 
 tags:
   - name: workspaces
-    description: Workspace management
+    description: Project management
   - name: issues
     description: Issue CRUD and lifecycle operations
   - name: ready
@@ -32,16 +32,16 @@ tags:
 
 paths:
   # ====================
-  # Workspaces
+  # Projects
   # ====================
   /workspaces:
     get:
       operationId: listWorkspaces
       tags: [workspaces]
-      summary: List all workspaces
+      summary: List all projects
       responses:
         "200":
-          description: List of workspaces
+          description: List of projects
           content:
             application/json:
               schema:
@@ -54,7 +54,7 @@ paths:
     post:
       operationId: createWorkspace
       tags: [workspaces]
-      summary: Create a new workspace
+      summary: Create a new project
       requestBody:
         required: true
         content:
@@ -63,7 +63,7 @@ paths:
               $ref: "#/components/schemas/CreateWorkspaceRequest"
       responses:
         "201":
-          description: Workspace created
+          description: Project created
           content:
             application/json:
               schema:
@@ -80,10 +80,10 @@ paths:
     get:
       operationId: getWorkspace
       tags: [workspaces]
-      summary: Get workspace by ID
+      summary: Get project by ID
       responses:
         "200":
-          description: Workspace details
+          description: Project details
           content:
             application/json:
               schema:
@@ -96,7 +96,7 @@ paths:
     put:
       operationId: updateWorkspace
       tags: [workspaces]
-      summary: Update workspace
+      summary: Update project
       requestBody:
         required: true
         content:
@@ -105,7 +105,7 @@ paths:
               $ref: "#/components/schemas/UpdateWorkspaceRequest"
       responses:
         "200":
-          description: Workspace updated
+          description: Project updated
           content:
             application/json:
               schema:
@@ -120,10 +120,10 @@ paths:
     delete:
       operationId: deleteWorkspace
       tags: [workspaces]
-      summary: Delete workspace
+      summary: Delete project
       responses:
         "204":
-          description: Workspace deleted
+          description: Project deleted
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -136,10 +136,10 @@ paths:
     get:
       operationId: getWorkspaceStats
       tags: [workspaces]
-      summary: Get workspace statistics
+      summary: Get project statistics
       responses:
         "200":
-          description: Workspace statistics
+          description: Project statistics
           content:
             application/json:
               schema:
@@ -159,7 +159,7 @@ paths:
     get:
       operationId: listIssues
       tags: [issues]
-      summary: List issues in workspace
+      summary: List issues in project
       parameters:
         - name: status
           in: query
@@ -476,7 +476,7 @@ paths:
         Returns issues grouped by their `teammate:*` labels. When an epic_id is
         provided, only children of that epic (via parent-child dependency) are
         included. Without epic_id, all non-closed issues with teammate labels
-        in the workspace are returned.
+        in the project are returned.
       parameters:
         - name: epic_id
           in: query
@@ -658,7 +658,7 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ====================
-  # Issue-Label Associations (workspace-scoped)
+  # Issue-Label Associations (project-scoped)
   # ====================
   /workspaces/{workspaceId}/issues/{issueId}/labels:
     parameters:
@@ -846,7 +846,7 @@ components:
       name: workspaceId
       in: path
       required: true
-      description: Workspace ID
+      description: Project ID
       schema:
         type: string
 
@@ -941,7 +941,7 @@ components:
         - label_removed
 
     # ====================
-    # Workspace Schemas
+    # Project Schemas
     # ====================
     Workspace:
       type: object
@@ -954,7 +954,7 @@ components:
       properties:
         id:
           type: string
-          description: Unique workspace ID (e.g., "ws-a1b2")
+          description: Unique project ID (e.g., "ws-a1b2")
         name:
           type: string
           description: Display name
@@ -964,7 +964,7 @@ components:
           description: Optional associated directory path
         description:
           type: string
-          description: Workspace description
+          description: Project description
         prefix:
           type: string
           description: Issue ID prefix (e.g., "bd")
@@ -991,7 +991,7 @@ components:
           description: Optional associated directory path
         description:
           type: string
-          description: Workspace description
+          description: Project description
         prefix:
           type: string
           description: Issue ID prefix
@@ -1162,7 +1162,7 @@ components:
       properties:
         workspace:
           type: string
-          description: Workspace ID
+          description: Project ID
         epic:
           $ref: "#/components/schemas/TeamContextEpic"
         roles:

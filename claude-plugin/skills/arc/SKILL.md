@@ -12,13 +12,13 @@ Track complex, multi-session work with a central issue tracking system.
 **For Claude Code users** (recommended):
 1. Install the arc plugin (provides hooks, skills, agents)
 2. Run `arc onboard` in any project - it will:
-   - Detect existing workspace from project config (`~/.arc/projects/`)
-   - Or recover workspace from server if local config is missing
+   - Detect existing project from project config (`~/.arc/projects/`)
+   - Or recover project from server if local config is missing
    - Or prompt you to run `arc init` for new projects
 
 **For non-Claude users**:
 ```bash
-arc init                    # Initialize workspace
+arc init                    # Initialize project
 ```
 
 The plugin is the single source of truth for Claude integration. It provides:
@@ -70,9 +70,9 @@ After `plan`, choose:
 
 ## Quick Start
 
-Run `arc onboard` at session start to get workspace context and available issues.
+Run `arc onboard` at session start to get project context and available issues.
 
-**Workspace Recovery**: If project config is missing but the workspace exists on the server (by directory path), `arc onboard` will automatically restore the local configuration. The server is the source of truth.
+**Project Recovery**: If project config is missing but the project exists on the server (by directory path), `arc onboard` will automatically restore the local configuration. The server is the source of truth.
 
 ## CLI Reference
 
@@ -86,7 +86,7 @@ Run `arc prime` for full workflow context, or `arc <command> --help` for specifi
 - `arc show` - View details
 - `arc dep` - Manage dependencies
 - `arc plan` - Manage plans (inline, shared)
-- `arc which` - Show active workspace
+- `arc which` - Show active project
 
 ## Deep Dive Documentation
 
@@ -149,13 +149,13 @@ Plans are shown automatically in `arc show <id>`. Run `arc docs plans` for full 
 
 ## Labels
 
-Labels are global (shared across all workspaces) and support colors and descriptions. Use labels for cross-cutting categorization like `security`, `performance`, `tech-debt`.
+Labels are global (shared across all projects) and support colors and descriptions. Use labels for cross-cutting categorization like `security`, `performance`, `tech-debt`.
 
 ## Session Protocol
 
 **At session start:**
 ```bash
-arc onboard  # Get context, recover workspace if needed
+arc onboard  # Get context, recover project if needed
 ```
 
 **Before ending any session:**
@@ -174,7 +174,7 @@ EOF
 
 ### Starting Work
 ```bash
-arc onboard                         # Get context (recovers workspace if needed)
+arc onboard                         # Get context (recovers project if needed)
 arc ready                           # Find available work
 arc show <id>                       # View details
 arc update <id> --status in_progress  # Claim work
