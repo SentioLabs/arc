@@ -8,17 +8,17 @@
 		listIssues,
 		listLabels,
 		updateIssue,
-		type Workspace,
+		type Workspace as Project,
 		type Issue,
 		type Label,
 		type IssueFilters,
 		type UpdateIssueRequest
 	} from '$lib/api';
 
-	// Get workspace from context
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
-	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+	// Get project from context
+	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projectId = $derived($page.params.projectId);
+	const project = $derived($projects.find((p) => p.id === projectId));
 
 	// Local state
 	let issues = $state<Issue[]>([]);
@@ -43,7 +43,7 @@
 
 	// Load issues when filters change
 	$effect(() => {
-		if (workspaceId) {
+		if (projectId) {
 			loadIssues();
 			loadLabelMap();
 		}
@@ -59,11 +59,11 @@
 	}
 
 	async function loadIssues() {
-		if (!workspaceId) return;
+		if (!projectId) return;
 		loading = true;
 		error = null;
 		try {
-			const result = await listIssues(workspaceId, filters);
+			const result = await listIssues(projectId, filters);
 			issues = result.data ?? [];
 			total = result.total ?? issues.length;
 		} catch (err) {
@@ -115,12 +115,12 @@
 	}
 
 	function clearFilters() {
-		goto(`/${workspaceId}/issues`);
+		goto(`/${projectId}/issues`);
 	}
 
 	async function handleStatusChange(issueId: string, newStatus: string) {
-		if (!workspaceId) return;
-		await updateIssue(workspaceId, issueId, { status: newStatus } as UpdateIssueRequest);
+		if (!projectId) return;
+		await updateIssue(projectId, issueId, { status: newStatus } as UpdateIssueRequest);
 		await loadIssues();
 	}
 
@@ -129,8 +129,8 @@
 	);
 </script>
 
-{#if workspace}
-	<Header {workspace} title="Issues" />
+{#if project}
+	<Header workspace={project} title="Issues" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Filters -->
@@ -199,7 +199,7 @@
 		{:else}
 			<div class="space-y-3">
 				{#each issues as issue (issue.id)}
-					<IssueCard {issue} {labelMap} href="/{workspaceId}/issues/{issue.id}" onStatusChange={handleStatusChange} />
+					<IssueCard {issue} {labelMap} href="/{projectId}/issues/{issue.id}" onStatusChange={handleStatusChange} />
 				{/each}
 			</div>
 

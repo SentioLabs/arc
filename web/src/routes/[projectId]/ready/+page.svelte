@@ -3,11 +3,11 @@
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { getReadyWork, listLabels, type Workspace, type Issue, type Label } from '$lib/api';
+	import { getReadyWork, listLabels, type Workspace as Project, type Issue, type Label } from '$lib/api';
 
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
-	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projectId = $derived($page.params.projectId);
+	const project = $derived($projects.find((p) => p.id === projectId));
 
 	let issues = $state<Issue[]>([]);
 	let loading = $state(true);
@@ -15,7 +15,7 @@
 	let labelMap = $state(new Map<string, Label>());
 
 	$effect(() => {
-		if (workspaceId) {
+		if (projectId) {
 			loadIssues();
 			loadLabelMap();
 		}
@@ -31,11 +31,11 @@
 	}
 
 	async function loadIssues() {
-		if (!workspaceId) return;
+		if (!projectId) return;
 		loading = true;
 		error = null;
 		try {
-			issues = await getReadyWork(workspaceId, { limit: 50 });
+			issues = await getReadyWork(projectId, { limit: 50 });
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load ready work';
 		} finally {
@@ -44,8 +44,8 @@
 	}
 </script>
 
-{#if workspace}
-	<Header {workspace} title="Ready Work" />
+{#if project}
+	<Header workspace={project} title="Ready Work" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<header class="mb-6">
@@ -90,7 +90,7 @@
 		{:else}
 			<div class="space-y-3">
 				{#each issues as issue (issue.id)}
-					<IssueCard {issue} {labelMap} href="/{workspaceId}/issues/{issue.id}" />
+					<IssueCard {issue} {labelMap} href="/{projectId}/issues/{issue.id}" />
 				{/each}
 			</div>
 		{/if}

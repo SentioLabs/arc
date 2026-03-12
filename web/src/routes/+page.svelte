@@ -5,38 +5,38 @@
 		deleteWorkspaces,
 		mergeWorkspaces,
 		listWorkspacePaths,
-		type Workspace,
+		type Workspace as Project,
 		type MergeResult,
 		type WorkspacePath
 	} from '$lib/api';
 	import { ConfirmDialog, Select } from '$lib/components';
 
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
+	const projects = getContext<Writable<Project[]>>('workspaces');
 
-	// Workspace insights state (reporting dashboard)
-	let workspacePathsMap = $state<Record<string, WorkspacePath[]>>({});
+	// Project insights state (reporting dashboard)
+	let projectPathsMap = $state<Record<string, WorkspacePath[]>>({});
 	let insightsLoading = $state(false);
 	let insightsLoaded = $state(false);
 
-	// Load paths for all workspaces (for insights)
+	// Load paths for all projects (for insights)
 	async function loadAllPaths() {
-		if (insightsLoaded || insightsLoading || $workspaces.length === 0) return;
+		if (insightsLoaded || insightsLoading || $projects.length === 0) return;
 		insightsLoading = true;
 		try {
 			const results = await Promise.all(
-				$workspaces.map(async (ws) => {
-					const paths = await listWorkspacePaths(ws.id);
-					return [ws.id, paths] as const;
+				$projects.map(async (p) => {
+					const paths = await listWorkspacePaths(p.id);
+					return [p.id, paths] as const;
 				})
 			);
 			const map: Record<string, WorkspacePath[]> = {};
 			for (const [id, paths] of results) {
 				map[id] = paths;
 			}
-			workspacePathsMap = map;
+			projectPathsMap = map;
 			insightsLoaded = true;
 		} catch (err) {
-			console.error('Failed to load workspace paths:', err);
+			console.error('Failed to load project paths:', err);
 		} finally {
 			insightsLoading = false;
 		}
@@ -47,11 +47,11 @@
 	});
 
 	// Derived insights
-	const allPaths = $derived(Object.values(workspacePathsMap).flat());
+	const allPaths = $derived(Object.values(projectPathsMap).flat());
 
-	const orphanedWorkspaces = $derived(
-		$workspaces.filter((ws) => {
-			const paths = workspacePathsMap[ws.id];
+	const orphanedProjects = $derived(
+		$projects.filter((ws) => {
+			const paths = projectPathsMap[ws.id];
 			return paths !== undefined && paths.length === 0;
 		})
 	);
@@ -90,20 +90,20 @@
 		return date.toLocaleDateString();
 	}
 
-	function getWorkspaceName(workspaceId: string): string {
-		const ws = $workspaces.find((w) => w.id === workspaceId);
-		return ws?.name ?? workspaceId;
+	function getProjectName(projectId: string): string {
+		const p = $projects.find((proj) => proj.id === projectId);
+		return p?.name ?? projectId;
 	}
 
 	// Search state
 	let searchQuery = $state('');
 	let searchFocused = $state(false);
 
-	// Filter workspaces based on search query
-	const filteredWorkspaces = $derived.by(() => {
-		if (!searchQuery.trim()) return $workspaces;
+	// Filter projects based on search query
+	const filteredProjects = $derived.by(() => {
+		if (!searchQuery.trim()) return $projects;
 		const q = searchQuery.toLowerCase().trim();
-		return $workspaces.filter(
+		return $projects.filter(
 			(w) =>
 				w.name.toLowerCase().includes(q) ||
 				w.prefix.toLowerCase().includes(q) ||
@@ -120,55 +120,55 @@
 	let selectedIds = $state<Set<string>>(new Set());
 	let deleteDialogOpen = $state(false);
 	let deleting = $state(false);
-	let workspacesToDelete = $state<Workspace[]>([]);
+	let projectsToDelete = $state<Project[]>([]);
 
 	// Merge state
 	let mergeDialogOpen = $state(false);
 	let mergeTargetId = $state('');
 	let merging = $state(false);
-	let workspacesToMerge: Workspace[] = $state([]);
+	let projectsToMerge: Project[] = $state([]);
 	let mergeResult: MergeResult | null = $state(null);
 
-	// Workspace paths state (read-only expansion)
+	// Workspace paths state (directory paths, read-only expansion)
 	let expandedPaths = $state<Set<string>>(new Set());
 	let workspacePaths = $state<Record<string, WorkspacePath[]>>({});
 	let pathsLoading = $state<Set<string>>(new Set());
 	let pathCounts = $state<Record<string, number>>({});
 
-	function togglePaths(workspaceId: string, event: MouseEvent) {
+	function togglePaths(projectId: string, event: MouseEvent) {
 		event.preventDefault();
 		event.stopPropagation();
 		const newSet = new Set(expandedPaths);
-		if (newSet.has(workspaceId)) {
-			newSet.delete(workspaceId);
+		if (newSet.has(projectId)) {
+			newSet.delete(projectId);
 		} else {
-			newSet.add(workspaceId);
+			newSet.add(projectId);
 		}
 		expandedPaths = newSet;
 	}
 
 	$effect(() => {
-		for (const workspaceId of expandedPaths) {
-			if (!workspacePaths[workspaceId] && !pathsLoading.has(workspaceId)) {
-				loadPaths(workspaceId);
+		for (const pid of expandedPaths) {
+			if (!workspacePaths[pid] && !pathsLoading.has(pid)) {
+				loadPaths(pid);
 			}
 		}
 	});
 
-	async function loadPaths(workspaceId: string) {
+	async function loadPaths(projectId: string) {
 		const newLoading = new Set(pathsLoading);
-		newLoading.add(workspaceId);
+		newLoading.add(projectId);
 		pathsLoading = newLoading;
 		try {
-			const paths = await listWorkspacePaths(workspaceId);
-			workspacePaths = { ...workspacePaths, [workspaceId]: paths };
-			pathCounts = { ...pathCounts, [workspaceId]: paths.length };
+			const paths = await listWorkspacePaths(projectId);
+			workspacePaths = { ...workspacePaths, [projectId]: paths };
+			pathCounts = { ...pathCounts, [projectId]: paths.length };
 		} catch (err) {
-			console.error('Failed to load paths for workspace', workspaceId, err);
-			workspacePaths = { ...workspacePaths, [workspaceId]: [] };
+			console.error('Failed to load paths for project', projectId, err);
+			workspacePaths = { ...workspacePaths, [projectId]: [] };
 		} finally {
 			const done = new Set(pathsLoading);
-			done.delete(workspaceId);
+			done.delete(projectId);
 			pathsLoading = done;
 		}
 	}
@@ -181,8 +181,8 @@
 
 	// Derived state
 	const selectedCount = $derived(selectedIds.size);
-	const allSelected = $derived($workspaces.length > 0 && selectedIds.size === $workspaces.length);
-	const someSelected = $derived(selectedIds.size > 0 && selectedIds.size < $workspaces.length);
+	const allSelected = $derived($projects.length > 0 && selectedIds.size === $projects.length);
+	const someSelected = $derived(selectedIds.size > 0 && selectedIds.size < $projects.length);
 
 	function toggleEditMode() {
 		editMode = !editMode;
@@ -207,39 +207,39 @@
 		if (allSelected) {
 			selectedIds = new Set();
 		} else {
-			selectedIds = new Set($workspaces.map((w) => w.id));
+			selectedIds = new Set($projects.map((w) => w.id));
 		}
 	}
 
 	function handleDeleteSelected() {
-		workspacesToDelete = $workspaces.filter((w) => selectedIds.has(w.id));
+		projectsToDelete = $projects.filter((w) => selectedIds.has(w.id));
 		deleteDialogOpen = true;
 	}
 
-	function handleDeleteSingle(workspace: Workspace) {
-		workspacesToDelete = [workspace];
+	function handleDeleteSingle(proj: Project) {
+		projectsToDelete = [proj];
 		deleteDialogOpen = true;
 	}
 
 	async function confirmDelete() {
-		if (workspacesToDelete.length === 0) return;
+		if (projectsToDelete.length === 0) return;
 
 		deleting = true;
 		try {
-			const idsToDelete = workspacesToDelete.map((w) => w.id);
+			const idsToDelete = projectsToDelete.map((w) => w.id);
 			await deleteWorkspaces(idsToDelete);
 
-			workspaces.update((current) => current.filter((w) => !idsToDelete.includes(w.id)));
+			projects.update((current) => current.filter((w) => !idsToDelete.includes(w.id)));
 
 			selectedIds = new Set();
-			workspacesToDelete = [];
+			projectsToDelete = [];
 			deleteDialogOpen = false;
 
-			if ($workspaces.length === 0) {
+			if ($projects.length === 0) {
 				editMode = false;
 			}
 		} catch (err) {
-			console.error('Failed to delete workspaces:', err);
+			console.error('Failed to delete projects:', err);
 		} finally {
 			deleting = false;
 		}
@@ -247,34 +247,34 @@
 
 	function cancelDelete() {
 		deleteDialogOpen = false;
-		workspacesToDelete = [];
+		projectsToDelete = [];
 	}
 
-	// Merge target options: all workspaces except those being merged
+	// Merge target options: all projects except those being merged
 	const mergeTargetOptions = $derived.by(() => {
-		const sourceIds = new Set(workspacesToMerge.map((w) => w.id));
-		return $workspaces
+		const sourceIds = new Set(projectsToMerge.map((w) => w.id));
+		return $projects
 			.filter((w) => !sourceIds.has(w.id))
 			.map((w) => ({ value: w.id, label: w.name }));
 	});
 
 	function handleMerge() {
-		workspacesToMerge = $workspaces.filter((w) => selectedIds.has(w.id));
+		projectsToMerge = $projects.filter((w) => selectedIds.has(w.id));
 		mergeTargetId = '';
 		mergeResult = null;
 		mergeDialogOpen = true;
 	}
 
 	async function confirmMerge() {
-		if (!mergeTargetId || workspacesToMerge.length === 0) return;
+		if (!mergeTargetId || projectsToMerge.length === 0) return;
 
 		merging = true;
 		try {
-			const sourceIds = workspacesToMerge.map((w) => w.id);
+			const sourceIds = projectsToMerge.map((w) => w.id);
 			const result = await mergeWorkspaces(mergeTargetId, sourceIds);
 			mergeResult = result;
 
-			workspaces.update((current) =>
+			projects.update((current) =>
 				current
 					.filter((w) => !result.sources_deleted.includes(w.id))
 					.map((w) => (w.id === result.target_workspace.id ? result.target_workspace : w))
@@ -282,7 +282,7 @@
 
 			selectedIds = new Set();
 		} catch (err) {
-			console.error('Failed to merge workspaces:', err);
+			console.error('Failed to merge projects:', err);
 		} finally {
 			merging = false;
 		}
@@ -290,18 +290,18 @@
 
 	function cancelMerge() {
 		mergeDialogOpen = false;
-		workspacesToMerge = [];
+		projectsToMerge = [];
 		mergeResult = null;
 		mergeTargetId = '';
 	}
 
 	function closeMergeAfterSuccess() {
 		mergeDialogOpen = false;
-		workspacesToMerge = [];
+		projectsToMerge = [];
 		mergeResult = null;
 		mergeTargetId = '';
 
-		if ($workspaces.length <= 1) {
+		if ($projects.length <= 1) {
 			editMode = false;
 		}
 	}
@@ -310,8 +310,8 @@
 <div class="p-8 max-w-4xl mx-auto animate-fade-in">
 	<header class="mb-8">
 		<div class="flex items-center justify-between gap-4 mb-3">
-			<h1 class="text-4xl font-bold text-text-primary">Workspaces</h1>
-			{#if $workspaces.length > 0}
+			<h1 class="text-4xl font-bold text-text-primary">Projects</h1>
+			{#if $projects.length > 0}
 				<button
 					class="btn {editMode ? 'btn-primary' : 'btn-ghost'} btn-sm"
 					onclick={toggleEditMode}
@@ -332,10 +332,10 @@
 				</button>
 			{/if}
 		</div>
-		<p class="text-lg text-text-secondary">Select a workspace to view and manage issues</p>
+		<p class="text-lg text-text-secondary">Select a project to view and manage issues</p>
 
 		<!-- Search box (hidden in edit mode) -->
-		{#if $workspaces.length > 0 && !editMode}
+		{#if $projects.length > 0 && !editMode}
 			<div
 				class="mt-6 relative transition-all duration-200 {searchFocused ? 'max-w-md' : 'max-w-sm'}"
 			>
@@ -350,7 +350,7 @@
 				</svg>
 				<input
 					type="text"
-					placeholder="Search workspaces..."
+					placeholder="Search projects..."
 					bind:value={searchQuery}
 					onfocus={() => (searchFocused = true)}
 					onblur={() => (searchFocused = false)}
@@ -375,7 +375,7 @@
 	</header>
 
 	<!-- Select all / batch actions bar -->
-	{#if editMode && $workspaces.length > 0}
+	{#if editMode && $projects.length > 0}
 		<div
 			class="flex items-center justify-between gap-4 mb-6 p-3 bg-surface-800 border border-border rounded-lg animate-fade-in"
 		>
@@ -398,7 +398,7 @@
 
 			{#if selectedCount > 0}
 				<div class="flex items-center gap-2">
-					{#if $workspaces.length > selectedCount}
+					{#if $projects.length > selectedCount}
 						<button class="btn btn-primary btn-sm" onclick={handleMerge}>
 							<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
 								<path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z" />
@@ -412,14 +412,14 @@
 							d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"
 						/>
 					</svg>
-					Delete {selectedCount === 1 ? 'workspace' : `${selectedCount} workspaces`}
+					Delete {selectedCount === 1 ? 'project' : `${selectedCount} projects`}
 				</button>
 				</div>
 			{/if}
 		</div>
 	{/if}
 
-	{#if $workspaces.length === 0}
+	{#if $projects.length === 0}
 		<div class="card p-12 text-center">
 			<div
 				class="w-16 h-16 bg-surface-700 rounded-2xl flex items-center justify-center mx-auto mb-4"
@@ -430,15 +430,15 @@
 					/>
 				</svg>
 			</div>
-			<h2 class="text-xl font-semibold text-text-primary mb-2">No workspaces yet</h2>
-			<p class="text-text-secondary mb-6">Create a workspace using the CLI to get started</p>
+			<h2 class="text-xl font-semibold text-text-primary mb-2">No projects yet</h2>
+			<p class="text-text-secondary mb-6">Create a project using the CLI to get started</p>
 			<div
 				class="bg-surface-800 rounded-lg p-4 font-mono text-sm text-text-secondary text-left inline-block"
 			>
 				<code>arc init my-project</code>
 			</div>
 		</div>
-	{:else if filteredWorkspaces.length === 0}
+	{:else if filteredProjects.length === 0}
 		<!-- No results from search -->
 		<div class="card p-12 text-center">
 			<div
@@ -450,14 +450,14 @@
 					/>
 				</svg>
 			</div>
-			<h2 class="text-xl font-semibold text-text-primary mb-2">No matching workspaces</h2>
-			<p class="text-text-secondary mb-4">No workspaces match "{searchQuery}"</p>
+			<h2 class="text-xl font-semibold text-text-primary mb-2">No matching projects</h2>
+			<p class="text-text-secondary mb-4">No projects match "{searchQuery}"</p>
 			<button type="button" class="btn btn-primary" onclick={clearSearch}> Clear search </button>
 		</div>
 	{:else}
 		<div class="grid gap-4 sm:grid-cols-2">
-			{#each filteredWorkspaces as workspace (workspace.id)}
-				{@const isSelected = selectedIds.has(workspace.id)}
+			{#each filteredProjects as project (project.id)}
+				{@const isSelected = selectedIds.has(project.id)}
 				{#if editMode}
 					<!-- Edit mode: clickable card for selection -->
 					<button
@@ -465,7 +465,7 @@
 						class="card p-6 transition-all duration-200 group relative text-left cursor-pointer {isSelected
 							? 'border-primary-500 bg-primary-600/5'
 							: 'hover:border-border-focus/50'}"
-						onclick={() => toggleSelection(workspace.id)}
+						onclick={() => toggleSelection(project.id)}
 					>
 						<!-- Selection checkbox -->
 						<div class="absolute top-4 right-4 z-10">
@@ -474,12 +474,12 @@
 								class="checkbox"
 								checked={isSelected}
 								onclick={(e) => e.stopPropagation()}
-								onchange={() => toggleSelection(workspace.id)}
+								onchange={() => toggleSelection(project.id)}
 							/>
 						</div>
 
 						<div class="pr-8">
-							{@render workspaceContent(workspace)}
+							{@render projectContent(project)}
 						</div>
 
 						<!-- Delete button (on hover) -->
@@ -487,16 +487,16 @@
 							class="absolute bottom-4 right-4 btn btn-ghost btn-icon btn-sm opacity-0 group-hover:opacity-100 transition-opacity text-text-muted hover:text-status-blocked hover:bg-status-blocked/10 hover:border-status-blocked/30"
 							role="button"
 							tabindex={0}
-							title="Delete workspace"
+							title="Delete project"
 							onclick={(e) => {
 								e.stopPropagation();
-								handleDeleteSingle(workspace);
+								handleDeleteSingle(project);
 							}}
 							onkeydown={(e) => {
 								if (e.key === 'Enter' || e.key === ' ') {
 									e.preventDefault();
 									e.stopPropagation();
-									handleDeleteSingle(workspace);
+									handleDeleteSingle(project);
 								}
 							}}
 						>
@@ -508,25 +508,25 @@
 						</span>
 					</button>
 				{:else}
-					<!-- Normal mode: link to workspace -->
+					<!-- Normal mode: link to project -->
 					<a
-						href="/{workspace.id}"
+						href="/{project.id}"
 						class="card p-6 transition-all duration-200 group hover:border-border-focus/50 block"
 					>
-						{@render workspaceContent(workspace)}
+						{@render projectContent(project)}
 					</a>
 				{/if}
 			{/each}
 		</div>
 	{/if}
 
-	<!-- Workspace Insights Section -->
-	{#if $workspaces.length > 0 && insightsLoaded && !editMode}
+	<!-- Project Insights Section -->
+	{#if $projects.length > 0 && insightsLoaded && !editMode}
 		<section class="mt-12 animate-fade-in">
-			<h2 class="text-2xl font-bold text-text-primary mb-6">Workspace Insights</h2>
+			<h2 class="text-2xl font-bold text-text-primary mb-6">Project Insights</h2>
 
 			<div class="grid gap-4 sm:grid-cols-3">
-				<!-- Orphaned Workspaces Card -->
+				<!-- Orphaned Projects Card -->
 				<div class="card p-6">
 					<div class="flex items-center gap-3 mb-4">
 						<div class="w-8 h-8 bg-status-blocked/20 rounded-lg flex items-center justify-center">
@@ -534,14 +534,14 @@
 								<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
 							</svg>
 						</div>
-						<h3 class="text-sm font-semibold text-text-primary">Orphaned Workspaces</h3>
+						<h3 class="text-sm font-semibold text-text-primary">Orphaned Projects</h3>
 					</div>
-					<p class="text-3xl font-bold text-text-primary mb-2">{orphanedWorkspaces.length}</p>
-					{#if orphanedWorkspaces.length === 0}
-						<p class="text-xs text-text-muted">All workspaces have registered paths</p>
+					<p class="text-3xl font-bold text-text-primary mb-2">{orphanedProjects.length}</p>
+					{#if orphanedProjects.length === 0}
+						<p class="text-xs text-text-muted">All projects have registered paths</p>
 					{:else}
 						<ul class="space-y-1">
-							{#each orphanedWorkspaces as ws}
+							{#each orphanedProjects as ws}
 								<li class="text-xs text-text-secondary truncate" title={ws.name}>
 									{ws.name}
 								</li>
@@ -574,7 +574,7 @@
 											{formatRelativeTime(wp.last_accessed_at!)}
 										</span>
 									</div>
-									<span class="text-text-muted">{getWorkspaceName(wp.workspace_id)}</span>
+									<span class="text-text-muted">{getProjectName(wp.workspace_id)}</span>
 								</li>
 							{/each}
 						</ul>
@@ -611,9 +611,9 @@
 		</section>
 	{/if}
 
-	{#if insightsLoading && $workspaces.length > 0}
+	{#if insightsLoading && $projects.length > 0}
 		<div class="mt-8 text-center">
-			<p class="text-sm text-text-muted">Loading workspace insights...</p>
+			<p class="text-sm text-text-muted">Loading project insights...</p>
 		</div>
 	{/if}
 </div>
@@ -621,14 +621,14 @@
 <!-- Confirmation Dialog -->
 <ConfirmDialog
 	open={deleteDialogOpen}
-	title={workspacesToDelete.length === 1
-		? 'Delete workspace?'
-		: `Delete ${workspacesToDelete.length} workspaces?`}
-	message="All issues, labels, and data within {workspacesToDelete.length === 1
-		? 'this workspace'
-		: 'these workspaces'} will be permanently deleted."
-	items={workspacesToDelete.map((w) => w.name)}
-	confirmLabel={workspacesToDelete.length === 1 ? 'Delete Workspace' : 'Delete Workspaces'}
+	title={projectsToDelete.length === 1
+		? 'Delete project?'
+		: `Delete ${projectsToDelete.length} projects?`}
+	message="All issues, labels, and data within {projectsToDelete.length === 1
+		? 'this project'
+		: 'these projects'} will be permanently deleted."
+	items={projectsToDelete.map((w) => w.name)}
+	confirmLabel={projectsToDelete.length === 1 ? 'Delete Project' : 'Delete Projects'}
 	loading={deleting}
 	onconfirm={confirmDelete}
 	oncancel={cancelDelete}
@@ -674,20 +674,20 @@
 						</svg>
 					</div>
 					<div class="flex-1 min-w-0">
-						<h2 class="text-lg font-semibold text-text-primary">Merge workspaces</h2>
+						<h2 class="text-lg font-semibold text-text-primary">Merge projects</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Move all issues and plans from the selected workspaces into a target workspace. The source workspaces will be deleted.
+							Move all issues and plans from the selected projects into a target project. The source projects will be deleted.
 						</p>
 					</div>
 				</div>
 
-				<!-- Source workspaces list -->
+				<!-- Source projects list -->
 				<div class="mb-4">
 					<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
-						{workspacesToMerge.length === 1 ? 'Workspace to merge' : `${workspacesToMerge.length} workspaces to merge`}
+						{projectsToMerge.length === 1 ? 'Project to merge' : `${projectsToMerge.length} projects to merge`}
 					</div>
 					<div class="bg-surface-900 border border-border-subtle rounded-md max-h-40 overflow-y-auto">
-						{#each workspacesToMerge as ws (ws.id)}
+						{#each projectsToMerge as ws (ws.id)}
 							<div class="px-3 py-2 text-sm font-mono text-text-primary border-b border-border-subtle last:border-b-0">
 								{ws.name}
 							</div>
@@ -695,7 +695,7 @@
 					</div>
 				</div>
 
-				<!-- Target workspace select -->
+				<!-- Target project select -->
 				<div class="mb-6">
 					<label class="block text-xs font-medium text-text-muted uppercase tracking-wider mb-2" for="merge-target">
 						Merge into
@@ -703,7 +703,7 @@
 					<Select
 						options={targetOptions}
 						value={mergeTargetId}
-						placeholder="Select target workspace..."
+						placeholder="Select target project..."
 						onchange={(v) => { mergeTargetId = v; }}
 					/>
 				</div>
@@ -713,7 +713,7 @@
 					<svg class="w-4 h-4 text-priority-high shrink-0" viewBox="0 0 24 24" fill="currentColor">
 						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
 					</svg>
-					<span class="text-xs text-priority-high">Source workspaces will be permanently deleted after merge</span>
+					<span class="text-xs text-priority-high">Source projects will be permanently deleted after merge</span>
 				</div>
 
 				<!-- Actions -->
@@ -734,7 +734,7 @@
 							</svg>
 							Merging...
 						{:else}
-							Merge {workspacesToMerge.length === 1 ? 'workspace' : 'workspaces'}
+							Merge {projectsToMerge.length === 1 ? 'project' : 'projects'}
 						{/if}
 					</button>
 				</div>
@@ -743,13 +743,13 @@
 	</dialog>
 {/if}
 
-{#snippet workspaceContent(workspace: Workspace)}
+{#snippet projectContent(project: Project)}
 	<div class="flex items-start justify-between mb-4">
 		<div
 			class="w-10 h-10 bg-primary-600/20 rounded-lg flex items-center justify-center group-hover:bg-primary-600/30 transition-colors"
 		>
 			<span class="font-mono font-bold text-primary-400 text-sm uppercase">
-				{workspace.prefix}
+				{project.prefix}
 			</span>
 		</div>
 		{#if !editMode}
@@ -765,20 +765,20 @@
 
 	<div class="flex items-center gap-2 mb-1">
 		<h3 class="text-lg font-semibold text-text-primary group-hover:text-white transition-colors">
-			{workspace.name}
+			{project.name}
 		</h3>
-		{#if pathCounts[workspace.id] !== undefined && pathCounts[workspace.id] > 0}
+		{#if pathCounts[project.id] !== undefined && pathCounts[project.id] > 0}
 			<span
 				class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-600/20 text-primary-400"
 			>
-				{pathCounts[workspace.id]} {pathCounts[workspace.id] === 1 ? 'path' : 'paths'}
+				{pathCounts[project.id]} {pathCounts[project.id] === 1 ? 'path' : 'paths'}
 			</span>
 		{/if}
 	</div>
 
-	{#if workspace.description}
+	{#if project.description}
 		<p class="text-sm text-text-secondary line-clamp-2 mb-4">
-			{workspace.description}
+			{project.description}
 		</p>
 	{:else}
 		<p class="text-sm text-text-muted mb-4">No description</p>
@@ -789,21 +789,21 @@
 		<button
 			type="button"
 			class="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors"
-			onclick={(e) => togglePaths(workspace.id, e)}
+			onclick={(e) => togglePaths(project.id, e)}
 		>
 			<svg
-				class="w-3 h-3 transition-transform {expandedPaths.has(workspace.id) ? 'rotate-90' : ''}"
+				class="w-3 h-3 transition-transform {expandedPaths.has(project.id) ? 'rotate-90' : ''}"
 				viewBox="0 0 24 24"
 				fill="currentColor"
 			>
 				<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
 			</svg>
-			{expandedPaths.has(workspace.id) ? 'Hide paths' : 'Show paths'}
+			{expandedPaths.has(project.id) ? 'Hide paths' : 'Show paths'}
 		</button>
 
-		{#if expandedPaths.has(workspace.id)}
+		{#if expandedPaths.has(project.id)}
 			<div class="mt-2 animate-fade-in">
-				{#if pathsLoading.has(workspace.id)}
+				{#if pathsLoading.has(project.id)}
 					<div class="flex items-center gap-2 text-xs text-text-muted py-2">
 						<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
 							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -811,7 +811,7 @@
 						</svg>
 						Loading paths...
 					</div>
-				{:else if (workspacePaths[workspace.id] ?? []).length === 0}
+				{:else if (workspacePaths[project.id] ?? []).length === 0}
 					<p class="text-xs text-text-muted py-2">No paths configured</p>
 				{:else}
 					<div class="border border-border-subtle rounded-md overflow-hidden">
@@ -825,7 +825,7 @@
 								</tr>
 							</thead>
 							<tbody>
-								{#each workspacePaths[workspace.id] ?? [] as wp (wp.id)}
+								{#each workspacePaths[project.id] ?? [] as wp (wp.id)}
 									<tr class="border-t border-border-subtle hover:bg-surface-800/50">
 										<td class="px-2 py-1.5 font-mono text-text-primary truncate max-w-[200px]" title={wp.path}>{wp.path}</td>
 										<td class="px-2 py-1.5 text-text-secondary">{wp.label ?? '-'}</td>

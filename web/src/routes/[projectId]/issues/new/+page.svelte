@@ -4,11 +4,11 @@
 	import { goto } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { createIssue, type Workspace, type CreateIssueRequest } from '$lib/api';
+	import { createIssue, type Workspace as Project, type CreateIssueRequest } from '$lib/api';
 
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
-	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projectId = $derived($page.params.projectId);
+	const project = $derived($projects.find((p) => p.id === projectId));
 
 	let title = $state('');
 	let description = $state('');
@@ -36,7 +36,7 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!workspaceId || !title.trim()) return;
+		if (!projectId || !title.trim()) return;
 
 		submitting = true;
 		error = null;
@@ -50,8 +50,8 @@
 				assignee: assignee.trim() || undefined
 			};
 
-			const issue = await createIssue(workspaceId, request);
-			goto(`/${workspaceId}/issues/${issue.id}`);
+			const issue = await createIssue(projectId, request);
+			goto(`/${projectId}/issues/${issue.id}`);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create issue';
 		} finally {
@@ -60,22 +60,22 @@
 	}
 
 	function handleCancel() {
-		goto(`/${workspaceId}/issues`);
+		goto(`/${projectId}/issues`);
 	}
 </script>
 
 <svelte:head>
-	<title>New Issue - {workspace?.name ?? 'Arc'}</title>
+	<title>New Issue - {project?.name ?? 'Arc'}</title>
 </svelte:head>
 
-{#if workspace}
-	<Header {workspace} title="New Issue" />
+{#if project}
+	<Header workspace={project} title="New Issue" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<div class="max-w-2xl mx-auto">
 			<header class="mb-8">
 				<h1 class="text-2xl font-bold text-text-primary mb-2">Create New Issue</h1>
-				<p class="text-text-secondary">Add a new issue to {workspace.name}</p>
+				<p class="text-text-secondary">Add a new issue to {project.name}</p>
 			</header>
 
 			{#if error}

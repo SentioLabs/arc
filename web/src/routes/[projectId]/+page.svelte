@@ -9,16 +9,16 @@
 		createWorkspacePath,
 		deleteWorkspacePath,
 		mergeWorkspaces,
-		type Workspace,
+		type Workspace as Project,
 		type Statistics,
 		type WorkspacePath,
 		type MergeResult
 	} from '$lib/api';
 
-	// Get workspaces from context
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
-	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+	// Get projects from context
+	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projectId = $derived($page.params.projectId);
+	const project = $derived($projects.find((p) => p.id === projectId));
 
 	// Local state for stats
 	let stats = $state<Statistics | null>(null);
@@ -49,7 +49,7 @@
 	const headerActions = [
 		{
 			id: 'merge',
-			label: 'Merge Into This Workspace',
+			label: 'Merge Into This Project',
 			icon: '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z"/></svg>'
 		}
 	];
@@ -61,27 +61,27 @@
 		}
 	}
 
-	// Merge source options: all workspaces except current
+	// Merge source options: all projects except current
 	const mergeSourceOptions = $derived.by(() => {
-		return $workspaces
-			.filter((w) => w.id !== workspaceId)
-			.map((w) => ({ value: w.id, label: w.name }));
+		return $projects
+			.filter((p) => p.id !== projectId)
+			.map((p) => ({ value: p.id, label: p.name }));
 	});
 
-	// Load stats when workspace changes
+	// Load stats when project changes
 	$effect(() => {
-		if (workspaceId) {
+		if (projectId) {
 			loadStats();
 			loadPaths();
 		}
 	});
 
 	async function loadStats() {
-		if (!workspaceId) return;
+		if (!projectId) return;
 		loading = true;
 		error = null;
 		try {
-			stats = await getWorkspaceStats(workspaceId);
+			stats = await getWorkspaceStats(projectId);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load stats';
 		} finally {
@@ -90,10 +90,10 @@
 	}
 
 	async function loadPaths() {
-		if (!workspaceId) return;
+		if (!projectId) return;
 		pathsLoading = true;
 		try {
-			paths = await listWorkspacePaths(workspaceId);
+			paths = await listWorkspacePaths(projectId);
 		} catch (err) {
 			console.error('Failed to load paths:', err);
 			paths = [];
@@ -170,10 +170,10 @@
 
 	async function submitAddPath() {
 		const pathValue = getAddPathValue();
-		if (!pathValue.trim() || !workspaceId) return;
+		if (!pathValue.trim() || !projectId) return;
 		addingPath = true;
 		try {
-			const created = await createWorkspacePath(workspaceId, {
+			const created = await createWorkspacePath(projectId, {
 				path: pathValue.trim(),
 				label: newPathLabel.trim() || undefined
 			});
@@ -191,11 +191,11 @@
 	}
 
 	async function executeDeletePath() {
-		if (!deletePathConfirm || !workspaceId) return;
+		if (!deletePathConfirm || !projectId) return;
 		deletingPath = true;
 		const { pathId } = deletePathConfirm;
 		try {
-			await deleteWorkspacePath(workspaceId, pathId);
+			await deleteWorkspacePath(projectId, pathId);
 			paths = paths.filter((p) => p.id !== pathId);
 			deletePathConfirm = null;
 		} catch (err) {
@@ -221,13 +221,13 @@
 	}
 
 	async function confirmMerge() {
-		if (selectedMergeSources.length === 0 || !workspaceId) return;
+		if (selectedMergeSources.length === 0 || !projectId) return;
 		merging = true;
 		try {
-			const result = await mergeWorkspaces(workspaceId, selectedMergeSources);
+			const result = await mergeWorkspaces(projectId, selectedMergeSources);
 			mergeResult = result;
 
-			workspaces.update((current) =>
+			projects.update((current) =>
 				current
 					.filter((w) => !result.sources_deleted.includes(w.id))
 					.map((w) => (w.id === result.target_workspace.id ? result.target_workspace : w))
@@ -236,7 +236,7 @@
 			loadStats();
 			loadPaths();
 		} catch (err) {
-			console.error('Failed to merge workspaces:', err);
+			console.error('Failed to merge projects:', err);
 		} finally {
 			merging = false;
 		}
@@ -269,16 +269,16 @@
 	);
 </script>
 
-{#if workspace}
-	<Header {workspace} actions={headerActions} onaction={handleHeaderAction} />
+{#if project}
+	<Header workspace={project} actions={headerActions} onaction={handleHeaderAction} />
 
 	<div class="flex-1 p-8 animate-fade-in">
 		<header class="mb-8">
 			<h1 class="text-3xl font-bold text-text-primary mb-2">
-				{workspace.name}
+				{project.name}
 			</h1>
-			{#if workspace.description}
-				<p class="text-text-secondary">{workspace.description}</p>
+			{#if project.description}
+				<p class="text-text-secondary">{project.description}</p>
 			{/if}
 		</header>
 
@@ -502,7 +502,7 @@
 			<!-- Quick Actions -->
 			<div class="grid md:grid-cols-3 gap-4 mb-8">
 				<a
-					href="/{workspace.id}/issues"
+					href="/{project.id}/issues"
 					class="card p-6 hover:border-border-focus/50 transition-all group"
 				>
 					<div class="flex items-center gap-4">
@@ -527,7 +527,7 @@
 				</a>
 
 				<a
-					href="/{workspace.id}/ready"
+					href="/{project.id}/ready"
 					class="card p-6 hover:border-border-focus/50 transition-all group"
 				>
 					<div class="flex items-center gap-4">
@@ -552,7 +552,7 @@
 				</a>
 
 				<a
-					href="/{workspace.id}/blocked"
+					href="/{project.id}/blocked"
 					class="card p-6 hover:border-border-focus/50 transition-all group"
 				>
 					<div class="flex items-center gap-4">
@@ -629,7 +629,7 @@
 					<div class="flex-1 min-w-0">
 						<h2 class="text-lg font-semibold text-text-primary">Merge complete</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{workspace?.name}</strong>.
+							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{project?.name}</strong>.
 						</p>
 					</div>
 				</div>
@@ -648,17 +648,17 @@
 						</svg>
 					</div>
 					<div class="flex-1 min-w-0">
-						<h2 class="text-lg font-semibold text-text-primary">Merge into {workspace?.name}</h2>
+						<h2 class="text-lg font-semibold text-text-primary">Merge into {project?.name}</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Select workspaces to merge into this one. All issues and plans will be moved here. The source workspaces will be deleted.
+							Select projects to merge into this one. All issues and plans will be moved here. The source projects will be deleted.
 						</p>
 					</div>
 				</div>
 
-				<!-- Source workspace selection -->
+				<!-- Source project selection -->
 				<div class="mb-6">
 					<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
-						Select workspaces to merge
+						Select projects to merge
 					</div>
 					<div class="bg-surface-900 border border-border-subtle rounded-md max-h-60 overflow-y-auto">
 						{#each mergeSourceOptions as option (option.value)}
@@ -680,7 +680,7 @@
 						{/each}
 					</div>
 					{#if selectedMergeSources.length > 0}
-						<p class="text-xs text-text-muted mt-2">{selectedMergeSources.length} workspace{selectedMergeSources.length === 1 ? '' : 's'} selected</p>
+						<p class="text-xs text-text-muted mt-2">{selectedMergeSources.length} project{selectedMergeSources.length === 1 ? '' : 's'} selected</p>
 					{/if}
 				</div>
 
@@ -690,7 +690,7 @@
 						<svg class="w-4 h-4 text-priority-high shrink-0" viewBox="0 0 24 24" fill="currentColor">
 							<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
 						</svg>
-						<span class="text-xs text-priority-high">Selected workspaces will be permanently deleted after merge</span>
+						<span class="text-xs text-priority-high">Selected projects will be permanently deleted after merge</span>
 					</div>
 				{/if}
 
@@ -712,7 +712,7 @@
 							</svg>
 							Merging...
 						{:else}
-							Merge {selectedMergeSources.length} workspace{selectedMergeSources.length === 1 ? '' : 's'}
+							Merge {selectedMergeSources.length} project{selectedMergeSources.length === 1 ? '' : 's'}
 						{/if}
 					</button>
 				</div>

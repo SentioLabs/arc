@@ -4,26 +4,26 @@
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import { getBlockedIssues, type Workspace, type BlockedIssue } from '$lib/api';
+	import { getBlockedIssues, type Workspace as Project, type BlockedIssue } from '$lib/api';
 
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
-	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projectId = $derived($page.params.projectId);
+	const project = $derived($projects.find((p) => p.id === projectId));
 
 	let issues = $state<BlockedIssue[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
 	$effect(() => {
-		if (workspaceId) loadIssues();
+		if (projectId) loadIssues();
 	});
 
 	async function loadIssues() {
-		if (!workspaceId) return;
+		if (!projectId) return;
 		loading = true;
 		error = null;
 		try {
-			issues = await getBlockedIssues(workspaceId, 50);
+			issues = await getBlockedIssues(projectId, 50);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load blocked issues';
 		} finally {
@@ -32,8 +32,8 @@
 	}
 </script>
 
-{#if workspace}
-	<Header {workspace} title="Blocked Issues" />
+{#if project}
+	<Header workspace={project} title="Blocked Issues" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<header class="mb-6">
@@ -77,7 +77,7 @@
 			<div class="space-y-3">
 				{#each issues as issue (issue.id)}
 					<a
-						href="/{workspaceId}/issues/{issue.id}"
+						href="/{projectId}/issues/{issue.id}"
 						class="card p-4 block hover:border-border-focus/50 transition-all duration-200 group"
 					>
 						<div class="flex items-start gap-4">

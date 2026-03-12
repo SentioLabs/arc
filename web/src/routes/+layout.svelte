@@ -1,37 +1,37 @@
 <script lang="ts">
 	import '../app.css';
 	import { Sidebar } from '$lib/components';
-	import { listWorkspaces, type Workspace } from '$lib/api';
+	import { listWorkspaces, type Workspace as Project } from '$lib/api';
 	import { page } from '$app/stores';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 
-	// Create stores for workspaces that can be accessed by child components
-	const workspacesStore = writable<Workspace[]>([]);
+	// Create stores for projects that can be accessed by child components
+	const projectsStore = writable<Project[]>([]);
 	const loadingStore = writable(true);
 	const errorStore = writable<string | null>(null);
 
-	setContext('workspaces', workspacesStore);
+	setContext('workspaces', projectsStore);
 	setContext('workspacesLoading', loadingStore);
 	setContext('workspacesError', errorStore);
 
-	// Current workspace from URL
-	const currentWorkspaceId = $derived($page.params.workspaceId);
-	const currentWorkspace = $derived($workspacesStore.find((ws) => ws.id === currentWorkspaceId));
+	// Current project from URL
+	const currentProjectId = $derived($page.params.projectId);
+	const currentProject = $derived($projectsStore.find((p) => p.id === currentProjectId));
 
-	// Load workspaces on mount
+	// Load projects on mount
 	$effect(() => {
-		loadWorkspaces();
+		loadProjects();
 	});
 
-	async function loadWorkspaces() {
+	async function loadProjects() {
 		loadingStore.set(true);
 		errorStore.set(null);
 		try {
-			const workspaces = await listWorkspaces();
-			workspacesStore.set(workspaces);
+			const projects = await listWorkspaces();
+			projectsStore.set(projects);
 		} catch (err) {
-			errorStore.set(err instanceof Error ? err.message : 'Failed to load workspaces');
+			errorStore.set(err instanceof Error ? err.message : 'Failed to load projects');
 		} finally {
 			loadingStore.set(false);
 		}
@@ -46,7 +46,7 @@
 </svelte:head>
 
 <div class="flex min-h-screen bg-surface-900">
-	<Sidebar workspaces={$workspacesStore} {currentWorkspace} />
+	<Sidebar workspaces={$projectsStore} currentWorkspace={currentProject} />
 
 	<main class="flex-1 min-w-0 flex flex-col">
 		{#if $loadingStore}
@@ -67,7 +67,7 @@
 					</div>
 					<h2 class="text-lg font-semibold text-text-primary mb-2">Connection Error</h2>
 					<p class="text-sm text-text-secondary mb-4">{$errorStore}</p>
-					<button class="btn btn-primary" onclick={loadWorkspaces}>Retry</button>
+					<button class="btn btn-primary" onclick={loadProjects}>Retry</button>
 				</div>
 			</div>
 		{:else}

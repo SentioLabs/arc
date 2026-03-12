@@ -8,14 +8,14 @@
 	import {
 		getTeamContext,
 		listIssues,
-		type Workspace,
+		type Workspace as Project,
 		type Issue,
 		type TeamContext
 	} from '$lib/api';
 
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId ?? '');
-	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projectId = $derived($page.params.projectId ?? '');
+	const project = $derived($projects.find((p) => p.id === projectId));
 
 	// Epic selection via URL param
 	const epicId = $derived($page.url.searchParams.get('epic_id') ?? '');
@@ -49,24 +49,24 @@
 		return `hsl(${hue}, 65%, 55%)`;
 	}
 
-	// Load epics on workspace change
+	// Load epics on project change
 	$effect(() => {
-		if (workspaceId) {
+		if (projectId) {
 			loadEpics();
 		}
 	});
 
 	// Load team context when epic changes or on initial load
 	$effect(() => {
-		if (workspaceId) {
+		if (projectId) {
 			loadTeamContext();
 		}
 	});
 
 	async function loadEpics() {
-		if (!workspaceId) return;
+		if (!projectId) return;
 		try {
-			const result = await listIssues(workspaceId, { type: 'epic', status: 'open', limit: 100 });
+			const result = await listIssues(projectId, { type: 'epic', status: 'open', limit: 100 });
 			epics = result.data ?? [];
 		} catch {
 			/* epics are optional */
@@ -74,11 +74,11 @@
 	}
 
 	async function loadTeamContext() {
-		if (!workspaceId) return;
+		if (!projectId) return;
 		loading = true;
 		error = null;
 		try {
-			teamContext = await getTeamContext(workspaceId, epicId || undefined);
+			teamContext = await getTeamContext(projectId, epicId || undefined);
 		} catch (err: unknown) {
 			error = err instanceof Error ? err.message : 'Failed to load team context';
 		} finally {
@@ -93,7 +93,7 @@
 		} else {
 			params.delete('epic_id');
 		}
-		goto(`/${workspaceId}/teams?${params}`, { noScroll: true });
+		goto(`/${projectId}/teams?${params}`, { noScroll: true });
 	}
 
 	const roles = $derived(teamContext ? Object.entries(teamContext.roles) : []);
@@ -107,8 +107,8 @@
 	]);
 </script>
 
-{#if workspace}
-	<Header {workspace} title="Teams" showSearch={false} />
+{#if project}
+	<Header workspace={project} title="Teams" showSearch={false} />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Page header -->
@@ -200,7 +200,7 @@
 			<!-- Role lanes -->
 			<div class="flex gap-4 overflow-x-auto pb-4">
 				{#each roles as [role, data] (role)}
-					<RoleLane {role} issues={data.issues} {workspaceId} color={getRoleColor(role)} />
+					<RoleLane {role} issues={data.issues} workspaceId={projectId} color={getRoleColor(role)} />
 				{/each}
 
 				<!-- Unassigned lane (only when filtering by epic) -->
@@ -208,7 +208,7 @@
 					<RoleLane
 						role="unassigned"
 						issues={teamContext.unassigned}
-						{workspaceId}
+						workspaceId={projectId}
 						color="#6b7280"
 					/>
 				{/if}

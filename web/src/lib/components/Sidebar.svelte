@@ -76,11 +76,11 @@
 		</a>
 	</div>
 
-	<!-- Workspace List with Search (only when viewing a workspace) -->
+	<!-- Project List with Search (only when viewing a project) -->
 	{#if workspaces.length > 0 && currentWorkspace}
 		<div class="p-3 border-b border-border">
 			<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
-				Workspaces
+				Projects
 			</div>
 			<!-- Search input -->
 			<div class="relative mb-2">
@@ -144,7 +144,7 @@
 						{/if}
 					</button>
 				{:else}
-					<p class="text-xs text-text-muted px-2 py-1">No matching workspaces</p>
+					<p class="text-xs text-text-muted px-2 py-1">No matching projects</p>
 				{/each}
 			</div>
 		</div>
@@ -193,7 +193,7 @@
 	{:else}
 		<nav class="flex-1 p-3 flex flex-col overflow-hidden">
 			<div class="text-xs font-medium text-text-muted uppercase tracking-wider px-2 mb-3">
-				Workspaces
+				Projects
 			</div>
 			{#if workspaces.length > 0}
 				<!-- Search input -->
@@ -209,7 +209,7 @@
 					</svg>
 					<input
 						type="text"
-						placeholder="Search workspaces..."
+						placeholder="Search projects..."
 						bind:value={searchQuery}
 						class="w-full input pl-8 pr-7 py-1.5 text-sm"
 					/>
@@ -238,11 +238,11 @@
 							{ws.name}
 						</a>
 					{:else}
-						<p class="text-sm text-text-muted px-2">No matching workspaces</p>
+						<p class="text-sm text-text-muted px-2">No matching projects</p>
 					{/each}
 				</div>
 			{:else}
-				<p class="text-sm text-text-muted px-2">No workspaces yet</p>
+				<p class="text-sm text-text-muted px-2">No projects yet</p>
 			{/if}
 
 			<!-- Global section -->

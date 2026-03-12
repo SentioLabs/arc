@@ -14,7 +14,7 @@
 		addLabelToIssue,
 		removeLabelFromIssue,
 		listLabels,
-		type Workspace,
+		type Workspace as Project,
 		type Issue,
 		type Comment,
 		type Event,
@@ -23,10 +23,10 @@
 		type UpdateIssueRequest
 	} from '$lib/api';
 
-	const workspaces = getContext<Writable<Workspace[]>>('workspaces');
-	const workspaceId = $derived($page.params.workspaceId);
+	const projects = getContext<Writable<Project[]>>('workspaces');
+	const projectId = $derived($page.params.projectId);
 	const issueId = $derived($page.params.issueId);
-	const workspace = $derived($workspaces.find((ws) => ws.id === workspaceId));
+	const project = $derived($projects.find((p) => p.id === projectId));
 
 	let issue = $state<Issue | null>(null);
 	let comments = $state<Comment[]>([]);
@@ -37,19 +37,19 @@
 	let allLabels = $state<Label[]>([]);
 
 	$effect(() => {
-		if (workspaceId && issueId) loadData();
+		if (projectId && issueId) loadData();
 	});
 
 	async function loadData() {
-		if (!workspaceId || !issueId) return;
+		if (!projectId || !issueId) return;
 		loading = true;
 		error = null;
 		try {
 			const [issueData, commentsData, eventsData, depsData, labelsData] = await Promise.all([
-				getIssue(workspaceId, issueId, true),
-				getComments(workspaceId, issueId),
-				getEvents(workspaceId, issueId, 50),
-				getDependencies(workspaceId, issueId),
+				getIssue(projectId, issueId, true),
+				getComments(projectId, issueId),
+				getEvents(projectId, issueId, 50),
+				getDependencies(projectId, issueId),
 				listLabels()
 			]);
 			issue = issueData;
@@ -65,42 +65,42 @@
 	}
 
 	async function handleUpdateField(field: keyof UpdateIssueRequest, value: string | number) {
-		if (!workspaceId || !issueId) return;
-		const updated = await updateIssue(workspaceId, issueId, { [field]: value } as UpdateIssueRequest);
+		if (!projectId || !issueId) return;
+		const updated = await updateIssue(projectId, issueId, { [field]: value } as UpdateIssueRequest);
 		issue = updated;
 	}
 
 	async function handleAddLabel(labelName: string) {
-		if (!workspaceId || !issueId) return;
-		await addLabelToIssue(workspaceId, issueId, labelName);
+		if (!projectId || !issueId) return;
+		await addLabelToIssue(projectId, issueId, labelName);
 		await loadData();
 	}
 
 	async function handleRemoveLabel(labelName: string) {
-		if (!workspaceId || !issueId) return;
-		await removeLabelFromIssue(workspaceId, issueId, labelName);
+		if (!projectId || !issueId) return;
+		await removeLabelFromIssue(projectId, issueId, labelName);
 		await loadData();
 	}
 
 	async function handleAddComment(text: string) {
-		if (!workspaceId || !issueId) return;
-		await createComment(workspaceId, issueId, text);
+		if (!projectId || !issueId) return;
+		await createComment(projectId, issueId, text);
 		await loadData();
 	}
 </script>
 
 <svelte:head>
-	<title>{issue?.title ?? 'Issue'} - {workspace?.name ?? 'Arc'} - Arc</title>
+	<title>{issue?.title ?? 'Issue'} - {project?.name ?? 'Arc'} - Arc</title>
 </svelte:head>
 
-{#if workspace}
+{#if project}
 	{#if loading}
-		<Header {workspace} title="Loading..." />
+		<Header workspace={project} title="Loading..." />
 		<div class="flex-1 flex items-center justify-center">
 			<div class="text-text-muted animate-pulse">Loading issue...</div>
 		</div>
 	{:else if error}
-		<Header {workspace} title="Error" />
+		<Header workspace={project} title="Error" />
 		<div class="flex-1 flex items-center justify-center p-8">
 			<div class="card p-8 text-center">
 				<p class="text-status-blocked mb-4">{error}</p>
@@ -108,7 +108,7 @@
 			</div>
 		</div>
 	{:else if issue}
-		<Header {workspace} title={issue.id} />
+		<Header workspace={project} title={issue.id} />
 
 		<div class="flex-1 p-6 animate-fade-in">
 			<div class="max-w-4xl mx-auto">
@@ -297,7 +297,7 @@
 								<div class="space-y-2">
 									{#each dependencies.dependencies as dep (dep.depends_on_id)}
 										<a
-											href="/{workspaceId}/issues/{dep.depends_on_id}"
+											href="/{projectId}/issues/{dep.depends_on_id}"
 											class="block p-2 bg-surface-700 rounded hover:bg-surface-600 transition-colors"
 										>
 											<div class="flex items-center justify-between">
@@ -323,7 +323,7 @@
 								<div class="space-y-2">
 									{#each dependencies.dependents as dep (dep.issue_id)}
 										<a
-											href="/{workspaceId}/issues/{dep.issue_id}"
+											href="/{projectId}/issues/{dep.issue_id}"
 											class="block p-2 bg-surface-700 rounded hover:bg-surface-600 transition-colors"
 										>
 											<div class="flex items-center justify-between">
