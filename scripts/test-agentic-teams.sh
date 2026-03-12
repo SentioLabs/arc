@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-agentic-teams.sh - Synthetic E2E test for the agentic teams pipeline.
 #
-# Validates the full workflow: workspace creation, epic with children (--parent),
+# Validates the full workflow: project creation, epic with children (--parent),
 # teammate labels, team context, prime role filtering, ready state, and lifecycle.
 #
 # Prerequisites:
@@ -48,13 +48,13 @@ cleanup() {
   echo ""
   echo "── Cleanup ──────────────────────────────"
   if [ -n "$WS_ID" ]; then
-    if arc workspace delete "$WS_ID" >/dev/null 2>&1; then
-      echo "  Deleted test workspace $WS_ID"
+    if arc project delete "$WS_ID" >/dev/null 2>&1; then
+      echo "  Deleted test project $WS_ID"
     else
-      echo "  Warning: could not delete workspace $WS_ID"
+      echo "  Warning: could not delete project $WS_ID"
     fi
   fi
-  # Clean up labels we created (global, not workspace-scoped)
+  # Clean up labels we created (global, not project-scoped)
   curl -sf -X DELETE "${API}/labels/teammate:backend" >/dev/null 2>&1 || true
   curl -sf -X DELETE "${API}/labels/teammate:tests" >/dev/null 2>&1 || true
   echo "  Cleaned up teammate labels"
@@ -82,27 +82,27 @@ if ! curl -sf "${API}/workspaces" >/dev/null 2>&1; then
 fi
 pass "arc server reachable at ${ARC_SERVER}"
 
-# ── Step 1: Create temporary test workspace ────────────────────────────────────
+# ── Step 1: Create temporary test project ──────────────────────────────────────
 
 echo ""
-echo "── Step 1: Create test workspace ──────────"
+echo "── Step 1: Create test project ──────────"
 
-WS_JSON=$(arc workspace create "e2e-agentic-teams-test" --json 2>&1)
+WS_JSON=$(arc project create "e2e-agentic-teams-test" --json 2>&1)
 WS_ID=$(echo "$WS_JSON" | jq -r '.id')
 
 if [ -z "$WS_ID" ] || [ "$WS_ID" = "null" ]; then
-  echo "FATAL: Could not create test workspace"
+  echo "FATAL: Could not create test project"
   echo "       Response: $WS_JSON"
   exit 2
 fi
-pass "Created workspace: $WS_ID"
+pass "Created project: $WS_ID"
 
 # ── Step 2: Create teammate labels ────────────────────────────────────────────
 
 echo ""
 echo "── Step 2: Create teammate labels ─────────"
 
-# Labels are global (not workspace-scoped), created via REST API.
+# Labels are global (not project-scoped), created via REST API.
 # Ignore errors if they already exist.
 LABEL_BACKEND=$(curl -sf -X POST "${API}/labels" \
   -H "Content-Type: application/json" \
@@ -131,7 +131,7 @@ fi
 echo ""
 echo "── Step 3: Create epic with plan ──────────"
 
-EPIC_JSON=$(arc create "Calculator API" --type=epic --priority=1 -w "$WS_ID" --json 2>&1)
+EPIC_JSON=$(arc create "Calculator API" --type=epic --priority=1 -p "$WS_ID" --json 2>&1)
 EPIC_ID=$(echo "$EPIC_JSON" | jq -r '.id')
 
 if [ -z "$EPIC_ID" ] || [ "$EPIC_ID" = "null" ]; then
@@ -142,8 +142,8 @@ fi
 
 # Set a plan on the epic
 PLAN_TEXT="Build a calculator API with add/subtract/multiply/divide endpoints. Backend implements the API server. Tests teammate writes integration tests."
-echo "$PLAN_TEXT" | arc plan set "$EPIC_ID" --stdin -w "$WS_ID" 2>&1
-PLAN_OUT=$(arc plan show "$EPIC_ID" -w "$WS_ID" 2>&1)
+echo "$PLAN_TEXT" | arc plan set "$EPIC_ID" --stdin -p "$WS_ID" 2>&1
+PLAN_OUT=$(arc plan show "$EPIC_ID" -p "$WS_ID" 2>&1)
 
 if echo "$PLAN_OUT" | grep -q "calculator" 2>/dev/null; then
   pass "Epic plan set successfully"
@@ -157,7 +157,7 @@ echo ""
 echo "── Step 4: Create child tasks ─────────────"
 
 # Child 1: Backend task
-BACKEND_JSON=$(arc create "Implement calculator endpoints" --type=task --parent="$EPIC_ID" -w "$WS_ID" --json 2>&1)
+BACKEND_JSON=$(arc create "Implement calculator endpoints" --type=task --parent="$EPIC_ID" -p "$WS_ID" --json 2>&1)
 BACKEND_ID=$(echo "$BACKEND_JSON" | jq -r '.id')
 
 if [ -z "$BACKEND_ID" ] || [ "$BACKEND_ID" = "null" ]; then
@@ -167,7 +167,7 @@ else
 fi
 
 # Child 2: Tests task
-TESTS_JSON=$(arc create "Write integration tests" --type=task --parent="$EPIC_ID" -w "$WS_ID" --json 2>&1)
+TESTS_JSON=$(arc create "Write integration tests" --type=task --parent="$EPIC_ID" -p "$WS_ID" --json 2>&1)
 TESTS_ID=$(echo "$TESTS_JSON" | jq -r '.id')
 
 if [ -z "$TESTS_ID" ] || [ "$TESTS_ID" = "null" ]; then
@@ -192,8 +192,8 @@ pass "Added teammate:tests label to $TESTS_ID"
 echo ""
 echo "── Step 5: Set dependency ─────────────────"
 
-arc dep add "$TESTS_ID" "$BACKEND_ID" --type=blocks -w "$WS_ID" 2>&1
-SHOW_TESTS=$(arc show "$TESTS_ID" -w "$WS_ID" --json 2>&1)
+arc dep add "$TESTS_ID" "$BACKEND_ID" --type=blocks -p "$WS_ID" 2>&1
+SHOW_TESTS=$(arc show "$TESTS_ID" -p "$WS_ID" --json 2>&1)
 
 if echo "$SHOW_TESTS" | jq -e '.dependencies[]? | select(.depends_on_id == "'"$BACKEND_ID"'" and .type == "blocks")' >/dev/null 2>&1; then
   pass "Dependency set: $TESTS_ID blocked by $BACKEND_ID"
@@ -206,7 +206,7 @@ fi
 echo ""
 echo "── Step 6: Verify list --parent ───────────"
 
-CHILDREN_JSON=$(arc list --parent="$EPIC_ID" -w "$WS_ID" --json 2>&1)
+CHILDREN_JSON=$(arc list --parent="$EPIC_ID" -p "$WS_ID" --json 2>&1)
 CHILDREN_COUNT=$(echo "$CHILDREN_JSON" | jq 'length')
 CHILDREN_IDS=$(echo "$CHILDREN_JSON" | jq -r '.[].id' | sort)
 
@@ -286,7 +286,7 @@ echo "{\"workspace_id\":\"${WS_ID}\",\"workspace_name\":\"test\",\"project_root\
 # Also need .git so FindProjectRoot can find the root
 mkdir -p "${TMPDIR_PRIME}/.git"
 
-PRIME_OUT=$(cd "$TMPDIR_PRIME" && ARC_TEAMMATE_ROLE=backend arc prime -w "$WS_ID" 2>&1)
+PRIME_OUT=$(cd "$TMPDIR_PRIME" && ARC_TEAMMATE_ROLE=backend arc prime -p "$WS_ID" 2>&1)
 rm -rf "$TMPDIR_PRIME"
 rm -rf "${HOME}/.arc/projects/${ARC_PROJECT_DIR}"
 
@@ -307,7 +307,7 @@ fi
 echo ""
 echo "── Step 9: Verify ready state ─────────────"
 
-READY_JSON=$(arc ready -w "$WS_ID" --json 2>&1)
+READY_JSON=$(arc ready -p "$WS_ID" --json 2>&1)
 
 # Backend task should be ready (no blockers)
 if echo "$READY_JSON" | jq -e '.[] | select(.id == "'"$BACKEND_ID"'")' >/dev/null 2>&1; then
@@ -329,8 +329,8 @@ echo ""
 echo "── Step 10: Test lifecycle ────────────────"
 
 # Close the backend task
-arc close "$BACKEND_ID" -r "Implementation complete" -w "$WS_ID" >/dev/null 2>&1
-BACKEND_STATUS=$(arc show "$BACKEND_ID" -w "$WS_ID" --json 2>&1 | jq -r '.status')
+arc close "$BACKEND_ID" -r "Implementation complete" -p "$WS_ID" >/dev/null 2>&1
+BACKEND_STATUS=$(arc show "$BACKEND_ID" -p "$WS_ID" --json 2>&1 | jq -r '.status')
 
 if [ "$BACKEND_STATUS" = "closed" ]; then
   pass "Backend task closed successfully"
@@ -339,7 +339,7 @@ else
 fi
 
 # Now the tests task should be unblocked and appear in ready
-READY_AFTER=$(arc ready -w "$WS_ID" --json 2>&1)
+READY_AFTER=$(arc ready -p "$WS_ID" --json 2>&1)
 
 if echo "$READY_AFTER" | jq -e '.[] | select(.id == "'"$TESTS_ID"'")' >/dev/null 2>&1; then
   pass "Tests task ($TESTS_ID) now ready after backend closed"

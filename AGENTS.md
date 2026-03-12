@@ -8,7 +8,7 @@ arc is a central issue tracking server for AI-assisted coding workflows. It prov
 
 - **REST API** - Central server at `localhost:7432`
 - **CLI** (`arc`) - Command-line interface for issue management
-- **SQLite Storage** - Workspace-isolated issue storage
+- **SQLite Storage** - Project-isolated issue storage
 - **Claude Integration** - Hooks and skills for Claude Code
 
 ## Architecture
@@ -17,7 +17,7 @@ arc is a central issue tracking server for AI-assisted coding workflows. It prov
 ┌─────────────────────────────────────────────────────────┐
 │                    Central Server                        │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ Workspace A │  │ Workspace B │  │ Workspace C │     │
+│  │  Project A  │  │  Project B  │  │  Project C  │     │
 │  └─────────────┘  └─────────────┘  └─────────────┘     │
 │                         │                               │
 │                    SQLite DB                            │
@@ -72,7 +72,7 @@ make docker-up
 ### Storage Layer
 - Interface in `storage/storage.go`
 - SQLite implementation with sqlc-generated queries
-- Workspace isolation for multi-tenant support
+- Project isolation for multi-tenant support
 
 ### API Layer
 - Echo framework for HTTP routing
@@ -101,7 +101,7 @@ go test -cover ./...
 
 Use Conventional Commits so tooling like goreleaser can generate changelogs:
 
-- `feat: add workspace recovery`
+- `feat: add project recovery`
 - `fix: handle missing config`
 - `chore: update deps`
 - `docs: clarify setup`
