@@ -1,4 +1,4 @@
-package workspace //nolint:testpackage // tests verify internal normalization helpers
+package project //nolint:testpackage // tests verify internal normalization helpers
 
 import (
 	"strings"
@@ -20,8 +20,8 @@ func TestSanitizeBasename(t *testing.T) {
 		{"multiple hyphens collapsed", "my--project", "my-project"},
 		{"leading/trailing hyphens trimmed", "-my-project-", "my-project"},
 		{"long name truncated", "this-is-a-very-long-project-name", "this-is-a-very-long-"},
-		{"empty string fallback", "", "workspace"},
-		{"only special chars fallback", "!!!@@@", "workspace"},
+		{"empty string fallback", "", "project"},
+		{"only special chars fallback", "!!!@@@", "project"},
 		{"numbers preserved", "project123", "project123"},
 		{"hyphens preserved", "my-cool-project", "my-cool-project"},
 	}
@@ -113,6 +113,33 @@ func TestGenerateIssueID(t *testing.T) {
 	}
 
 	// Verify the suffix contains only base36 chars
+	for _, c := range suffix {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
+			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
+		}
+	}
+}
+
+func TestGenerateProjectID(t *testing.T) {
+	// Test that project IDs follow the format prefix-xxxxxx (6 base36 chars with hyphen separator)
+	id1 := GenerateProjectID("proj", "Test project")
+
+	// Should use hyphen separator
+	if !strings.Contains(id1, "-") {
+		t.Errorf("GenerateProjectID should use hyphen separator, got %q", id1)
+	}
+
+	// Should start with "proj-"
+	if id1[:5] != "proj-" {
+		t.Errorf("Expected ID to start with 'proj-', got %q", id1)
+	}
+
+	// Suffix should be 6 base36 chars
+	suffix := id1[5:]
+	if len(suffix) != 6 {
+		t.Errorf("Expected 6-char base36 suffix, got %q (len %d)", suffix, len(suffix))
+	}
+
 	for _, c := range suffix {
 		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 			t.Errorf("Suffix %q contains invalid base36 char: %c", suffix, c)
@@ -215,7 +242,6 @@ func TestGeneratePrefixUniqueness(t *testing.T) {
 
 func TestGeneratePrefixTruncation(t *testing.T) {
 	// Long basename should be truncated to 10 alphanumeric chars before hash
-	// "my-very-long-project-name" -> "myverylongprojectname" -> "myverylong"
 	prefix, err := GeneratePrefix("/tmp/my-very-long-project-name")
 	if err != nil {
 		t.Fatalf("GeneratePrefix failed: %v", err)
@@ -396,5 +422,18 @@ func TestGeneratePrefixWithCustomName(t *testing.T) {
 	}
 	if len(prefix5) > MaxPrefixLength {
 		t.Errorf("Prefix should be max %d chars, got %q (len %d)", MaxPrefixLength, prefix5, len(prefix5))
+	}
+}
+
+func TestNormalizeForPrefixFallback(t *testing.T) {
+	// The normalizeForPrefix fallback should be "proj" (not "ws")
+	result := normalizeForPrefix("")
+	if result != "proj" {
+		t.Errorf("normalizeForPrefix(\"\") = %q, want %q", result, "proj")
+	}
+
+	result = normalizeForPrefix("!!!@@@")
+	if result != "proj" {
+		t.Errorf("normalizeForPrefix(\"!!!@@@\") = %q, want %q", result, "proj")
 	}
 }

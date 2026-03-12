@@ -16,20 +16,20 @@ func TestPlanValidate(t *testing.T) {
 		{
 			name: "valid plan",
 			plan: Plan{
-				ID:          "plan.abc123",
-				WorkspaceID: "ws-test",
-				Title:       "Test Plan",
-				Content:     "Plan content here",
+				ID:        "plan.abc123",
+				ProjectID: "proj-test",
+				Title:     "Test Plan",
+				Content:   "Plan content here",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing title",
 			plan: Plan{
-				ID:          "plan.abc123",
-				WorkspaceID: "ws-test",
-				Title:       "",
-				Content:     "Plan content",
+				ID:        "plan.abc123",
+				ProjectID: "proj-test",
+				Title:     "",
+				Content:   "Plan content",
 			},
 			wantErr: true,
 			errMsg:  "plan title is required",
@@ -37,32 +37,32 @@ func TestPlanValidate(t *testing.T) {
 		{
 			name: "title too long",
 			plan: Plan{
-				ID:          "plan.abc123",
-				WorkspaceID: "ws-test",
-				Title:       string(make([]byte, 201)), // 201 chars
-				Content:     "Content",
+				ID:        "plan.abc123",
+				ProjectID: "proj-test",
+				Title:     string(make([]byte, 201)), // 201 chars
+				Content:   "Content",
 			},
 			wantErr: true,
 			errMsg:  "plan title must be 200 characters or less",
 		},
 		{
-			name: "missing workspace_id",
+			name: "missing project_id",
 			plan: Plan{
-				ID:          "plan.abc123",
-				WorkspaceID: "",
-				Title:       "Test Plan",
-				Content:     "Content",
+				ID:        "plan.abc123",
+				ProjectID: "",
+				Title:     "Test Plan",
+				Content:   "Content",
 			},
 			wantErr: true,
-			errMsg:  "workspace_id is required",
+			errMsg:  "project_id is required",
 		},
 		{
 			name: "empty content is valid",
 			plan: Plan{
-				ID:          "plan.abc123",
-				WorkspaceID: "ws-test",
-				Title:       "Test Plan",
-				Content:     "",
+				ID:        "plan.abc123",
+				ProjectID: "proj-test",
+				Title:     "Test Plan",
+				Content:   "",
 			},
 			wantErr: false,
 		},
@@ -307,92 +307,92 @@ func TestIssueValidate(t *testing.T) {
 		{
 			name: "valid open issue",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "ws-test",
-				Status:      StatusOpen,
-				Priority:    2,
-				IssueType:   TypeTask,
+				Title:     "Test Issue",
+				ProjectID: "proj-test",
+				Status:    StatusOpen,
+				Priority:  2,
+				IssueType: TypeTask,
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid closed issue",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "ws-test",
-				Status:      StatusClosed,
-				Priority:    2,
-				IssueType:   TypeTask,
-				ClosedAt:    &now,
+				Title:     "Test Issue",
+				ProjectID: "proj-test",
+				Status:    StatusClosed,
+				Priority:  2,
+				IssueType: TypeTask,
+				ClosedAt:  &now,
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing title",
 			issue: Issue{
-				Title:       "",
-				WorkspaceID: "ws-test",
-				Status:      StatusOpen,
-				Priority:    2,
-				IssueType:   TypeTask,
+				Title:     "",
+				ProjectID: "proj-test",
+				Status:    StatusOpen,
+				Priority:  2,
+				IssueType: TypeTask,
 			},
 			wantErr: true,
 			errMsg:  "title is required",
 		},
 		{
-			name: "missing workspace_id",
+			name: "missing project_id",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "",
-				Status:      StatusOpen,
-				Priority:    2,
-				IssueType:   TypeTask,
+				Title:     "Test Issue",
+				ProjectID: "",
+				Status:    StatusOpen,
+				Priority:  2,
+				IssueType: TypeTask,
 			},
 			wantErr: true,
-			errMsg:  "workspace_id is required",
+			errMsg:  "project_id is required",
 		},
 		{
 			name: "invalid priority too low",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "ws-test",
-				Status:      StatusOpen,
-				Priority:    -1,
-				IssueType:   TypeTask,
+				Title:     "Test Issue",
+				ProjectID: "proj-test",
+				Status:    StatusOpen,
+				Priority:  -1,
+				IssueType: TypeTask,
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid priority too high",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "ws-test",
-				Status:      StatusOpen,
-				Priority:    5,
-				IssueType:   TypeTask,
+				Title:     "Test Issue",
+				ProjectID: "proj-test",
+				Status:    StatusOpen,
+				Priority:  5,
+				IssueType: TypeTask,
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid status",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "ws-test",
-				Status:      Status("invalid"),
-				Priority:    2,
-				IssueType:   TypeTask,
+				Title:     "Test Issue",
+				ProjectID: "proj-test",
+				Status:    Status("invalid"),
+				Priority:  2,
+				IssueType: TypeTask,
 			},
 			wantErr: true,
 		},
 		{
 			name: "closed without closed_at",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "ws-test",
-				Status:      StatusClosed,
-				Priority:    2,
-				IssueType:   TypeTask,
-				ClosedAt:    nil,
+				Title:     "Test Issue",
+				ProjectID: "proj-test",
+				Status:    StatusClosed,
+				Priority:  2,
+				IssueType: TypeTask,
+				ClosedAt:  nil,
 			},
 			wantErr: true,
 			errMsg:  "closed issues must have closed_at timestamp",
@@ -400,12 +400,12 @@ func TestIssueValidate(t *testing.T) {
 		{
 			name: "not closed but has closed_at",
 			issue: Issue{
-				Title:       "Test Issue",
-				WorkspaceID: "ws-test",
-				Status:      StatusOpen,
-				Priority:    2,
-				IssueType:   TypeTask,
-				ClosedAt:    &now,
+				Title:     "Test Issue",
+				ProjectID: "proj-test",
+				Status:    StatusOpen,
+				Priority:  2,
+				IssueType: TypeTask,
+				ClosedAt:  &now,
 			},
 			wantErr: true,
 			errMsg:  "non-closed issues cannot have closed_at timestamp",
@@ -432,8 +432,8 @@ func TestIssueValidate(t *testing.T) {
 
 func TestIssueSetDefaults(t *testing.T) {
 	issue := Issue{
-		Title:       "Test Issue",
-		WorkspaceID: "ws-test",
+		Title:     "Test Issue",
+		ProjectID: "proj-test",
 	}
 
 	issue.SetDefaults()
@@ -449,71 +449,71 @@ func TestIssueSetDefaults(t *testing.T) {
 	}
 }
 
-func TestWorkspaceValidate(t *testing.T) {
+func TestProjectValidate(t *testing.T) {
 	tests := []struct {
 		name    string
-		ws      Workspace
+		proj    Project
 		wantErr bool
 		errMsg  string
 	}{
 		{
-			name: "valid workspace",
-			ws: Workspace{
-				Name:   "Test Workspace",
+			name: "valid project",
+			proj: Project{
+				Name:   "Test Project",
 				Prefix: "test",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing name",
-			ws: Workspace{
+			proj: Project{
 				Name:   "",
 				Prefix: "test",
 			},
 			wantErr: true,
-			errMsg:  "workspace name is required",
+			errMsg:  "project name is required",
 		},
 		{
 			name: "name too long",
-			ws: Workspace{
+			proj: Project{
 				Name:   string(make([]byte, 101)),
 				Prefix: "test",
 			},
 			wantErr: true,
-			errMsg:  "workspace name must be 100 characters or less",
+			errMsg:  "project name must be 100 characters or less",
 		},
 		{
 			name: "missing prefix",
-			ws: Workspace{
+			proj: Project{
 				Name:   "Test",
 				Prefix: "",
 			},
 			wantErr: true,
-			errMsg:  "workspace prefix is required",
+			errMsg:  "project prefix is required",
 		},
 		{
 			name: "prefix too long",
-			ws: Workspace{
+			proj: Project{
 				Name:   "Test",
 				Prefix: "thisprefixtoolong",
 			},
 			wantErr: true,
-			errMsg:  fmt.Sprintf("workspace prefix must be %d characters or less", MaxPrefixLength),
+			errMsg:  fmt.Sprintf("project prefix must be %d characters or less", MaxPrefixLength),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.ws.Validate()
+			err := tt.proj.Validate()
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("Workspace.Validate() expected error, got nil")
+					t.Errorf("Project.Validate() expected error, got nil")
 				} else if tt.errMsg != "" && err.Error() != tt.errMsg {
-					t.Errorf("Workspace.Validate() error = %q, want %q", err.Error(), tt.errMsg)
+					t.Errorf("Project.Validate() error = %q, want %q", err.Error(), tt.errMsg)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("Workspace.Validate() unexpected error: %v", err)
+					t.Errorf("Project.Validate() unexpected error: %v", err)
 				}
 			}
 		})
@@ -672,58 +672,58 @@ func containsSubstring(s, substr string) bool {
 	return false
 }
 
-func TestWorkspacePathValidate(t *testing.T) {
+func TestWorkspaceValidate(t *testing.T) {
 	tests := []struct {
 		name    string
-		wp      WorkspacePath
+		ws      Workspace
 		wantErr bool
 		errMsg  string
 	}{
 		{
-			name: "valid workspace path",
-			wp: WorkspacePath{
-				ID:          "wp-abc123",
-				WorkspaceID: "ws-test",
-				Path:        "/home/user/project",
+			name: "valid workspace",
+			ws: Workspace{
+				ID:        "ws-abc123",
+				ProjectID: "proj-test",
+				Path:      "/home/user/project",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing path",
-			wp: WorkspacePath{
-				ID:          "wp-abc123",
-				WorkspaceID: "ws-test",
-				Path:        "",
+			ws: Workspace{
+				ID:        "ws-abc123",
+				ProjectID: "proj-test",
+				Path:      "",
 			},
 			wantErr: true,
 			errMsg:  "path is required",
 		},
 		{
-			name: "missing workspace_id",
-			wp: WorkspacePath{
-				ID:          "wp-abc123",
-				WorkspaceID: "",
-				Path:        "/home/user/project",
+			name: "missing project_id",
+			ws: Workspace{
+				ID:        "ws-abc123",
+				ProjectID: "",
+				Path:      "/home/user/project",
 			},
 			wantErr: true,
-			errMsg:  "workspace_id is required",
+			errMsg:  "project_id is required",
 		},
 		{
 			name: "both missing",
-			wp: WorkspacePath{
-				ID: "wp-abc123",
+			ws: Workspace{
+				ID: "ws-abc123",
 			},
 			wantErr: true,
 		},
 		{
 			name: "with optional fields",
-			wp: WorkspacePath{
-				ID:          "wp-abc123",
-				WorkspaceID: "ws-test",
-				Path:        "/home/user/project",
-				Label:       "main",
-				Hostname:    "dev-machine",
-				GitRemote:   "git@github.com:user/repo.git",
+			ws: Workspace{
+				ID:        "ws-abc123",
+				ProjectID: "proj-test",
+				Path:      "/home/user/project",
+				Label:     "main",
+				Hostname:  "dev-machine",
+				GitRemote: "git@github.com:user/repo.git",
 			},
 			wantErr: false,
 		},
@@ -731,16 +731,16 @@ func TestWorkspacePathValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.wp.Validate()
+			err := tt.ws.Validate()
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("WorkspacePath.Validate() expected error, got nil")
+					t.Errorf("Workspace.Validate() expected error, got nil")
 				} else if tt.errMsg != "" && err.Error() != tt.errMsg {
-					t.Errorf("WorkspacePath.Validate() error = %q, want %q", err.Error(), tt.errMsg)
+					t.Errorf("Workspace.Validate() error = %q, want %q", err.Error(), tt.errMsg)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("WorkspacePath.Validate() unexpected error: %v", err)
+					t.Errorf("Workspace.Validate() unexpected error: %v", err)
 				}
 			}
 		})
@@ -748,10 +748,10 @@ func TestWorkspacePathValidate(t *testing.T) {
 }
 
 func TestIssueFilterParentIDField(t *testing.T) {
-	// Verify that IssueFilter has a ParentID field and it works as expected
+	// Verify that IssueFilter has a ProjectID field and it works as expected
 	filter := IssueFilter{
-		WorkspaceID: "ws-test",
-		ParentID:    "arc-abc123",
+		ProjectID: "proj-test",
+		ParentID:  "arc-abc123",
 	}
 
 	if filter.ParentID != "arc-abc123" {
@@ -760,9 +760,57 @@ func TestIssueFilterParentIDField(t *testing.T) {
 
 	// Verify empty ParentID is the zero value
 	emptyFilter := IssueFilter{
-		WorkspaceID: "ws-test",
+		ProjectID: "proj-test",
 	}
 	if emptyFilter.ParentID != "" {
 		t.Errorf("IssueFilter.ParentID should be empty by default, got %q", emptyFilter.ParentID)
+	}
+}
+
+func TestMergeResultTargetProject(t *testing.T) {
+	// Verify MergeResult uses TargetProject (not TargetWorkspace)
+	result := MergeResult{
+		TargetProject:  &Project{ID: "proj-1", Name: "Test"},
+		IssuesMoved:    5,
+		PlansMoved:     2,
+		SourcesDeleted: []string{"proj-2"},
+	}
+
+	if result.TargetProject == nil {
+		t.Fatal("MergeResult.TargetProject should not be nil")
+	}
+	if result.TargetProject.ID != "proj-1" {
+		t.Errorf("MergeResult.TargetProject.ID = %q, want %q", result.TargetProject.ID, "proj-1")
+	}
+}
+
+func TestProjectResolution(t *testing.T) {
+	// Verify ProjectResolution type exists with correct fields
+	res := ProjectResolution{
+		ProjectID:   "proj-test",
+		ProjectName: "test-project",
+		PathID:      "ws-abc123",
+	}
+
+	if res.ProjectID != "proj-test" {
+		t.Errorf("ProjectResolution.ProjectID = %q, want %q", res.ProjectID, "proj-test")
+	}
+	if res.ProjectName != "test-project" {
+		t.Errorf("ProjectResolution.ProjectName = %q, want %q", res.ProjectName, "test-project")
+	}
+	if res.PathID != "ws-abc123" {
+		t.Errorf("ProjectResolution.PathID = %q, want %q", res.PathID, "ws-abc123")
+	}
+}
+
+func TestStatisticsProjectID(t *testing.T) {
+	// Verify Statistics uses ProjectID
+	stats := Statistics{
+		ProjectID:   "proj-test",
+		TotalIssues: 10,
+	}
+
+	if stats.ProjectID != "proj-test" {
+		t.Errorf("Statistics.ProjectID = %q, want %q", stats.ProjectID, "proj-test")
 	}
 }

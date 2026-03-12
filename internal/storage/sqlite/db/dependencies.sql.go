@@ -86,29 +86,29 @@ func (q *Queries) DeleteDependenciesByIssue(ctx context.Context, arg DeleteDepen
 	return err
 }
 
-const getBlockedIssuesInWorkspace = `-- name: GetBlockedIssuesInWorkspace :many
-SELECT i.id, i.workspace_id, i.title, i.description,
+const getBlockedIssuesInProject = `-- name: GetBlockedIssuesInProject :many
+SELECT i.id, i.project_id, i.title, i.description,
        i.status, i.priority, i.issue_type, i.assignee, i.external_ref,
        i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason,
        COUNT(blocker.id) as blocked_by_count
 FROM issues i
 JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
-WHERE i.workspace_id = ?
+WHERE i.project_id = ?
   AND i.status != 'closed'
 GROUP BY i.id
 ORDER BY i.priority ASC
 LIMIT ?
 `
 
-type GetBlockedIssuesInWorkspaceParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	Limit       int64  `json:"limit"`
+type GetBlockedIssuesInProjectParams struct {
+	ProjectID string `json:"project_id"`
+	Limit     int64  `json:"limit"`
 }
 
-type GetBlockedIssuesInWorkspaceRow struct {
+type GetBlockedIssuesInProjectRow struct {
 	ID             string         `json:"id"`
-	WorkspaceID    string         `json:"workspace_id"`
+	ProjectID      string         `json:"project_id"`
 	Title          string         `json:"title"`
 	Description    sql.NullString `json:"description"`
 	Status         string         `json:"status"`
@@ -125,18 +125,18 @@ type GetBlockedIssuesInWorkspaceRow struct {
 }
 
 // Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
-func (q *Queries) GetBlockedIssuesInWorkspace(ctx context.Context, arg GetBlockedIssuesInWorkspaceParams) ([]*GetBlockedIssuesInWorkspaceRow, error) {
-	rows, err := q.db.QueryContext(ctx, getBlockedIssuesInWorkspace, arg.WorkspaceID, arg.Limit)
+func (q *Queries) GetBlockedIssuesInProject(ctx context.Context, arg GetBlockedIssuesInProjectParams) ([]*GetBlockedIssuesInProjectRow, error) {
+	rows, err := q.db.QueryContext(ctx, getBlockedIssuesInProject, arg.ProjectID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*GetBlockedIssuesInWorkspaceRow{}
+	items := []*GetBlockedIssuesInProjectRow{}
 	for rows.Next() {
-		var i GetBlockedIssuesInWorkspaceRow
+		var i GetBlockedIssuesInProjectRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.WorkspaceID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Description,
 			&i.Status,
@@ -165,7 +165,7 @@ func (q *Queries) GetBlockedIssuesInWorkspace(ctx context.Context, arg GetBlocke
 }
 
 const getBlockingIssues = `-- name: GetBlockingIssues :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
   AND d.type = 'blocks'
@@ -185,7 +185,7 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 		var i Issue
 		if err := rows.Scan(
 			&i.ID,
-			&i.WorkspaceID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Description,
 			&i.Status,
@@ -213,7 +213,7 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 }
 
 const getDependencies = `-- name: GetDependencies :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
 ORDER BY i.priority ASC
@@ -230,7 +230,7 @@ func (q *Queries) GetDependencies(ctx context.Context, issueID string) ([]*Issue
 		var i Issue
 		if err := rows.Scan(
 			&i.ID,
-			&i.WorkspaceID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Description,
 			&i.Status,
@@ -324,7 +324,7 @@ func (q *Queries) GetDependentRecords(ctx context.Context, dependsOnID string) (
 }
 
 const getDependents = `-- name: GetDependents :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.issue_id
 WHERE d.depends_on_id = ?
 ORDER BY i.priority ASC
@@ -341,7 +341,7 @@ func (q *Queries) GetDependents(ctx context.Context, dependsOnID string) ([]*Iss
 		var i Issue
 		if err := rows.Scan(
 			&i.ID,
-			&i.WorkspaceID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Description,
 			&i.Status,
@@ -369,7 +369,7 @@ func (q *Queries) GetDependents(ctx context.Context, dependsOnID string) ([]*Iss
 }
 
 const getOpenChildIssues = `-- name: GetOpenChildIssues :many
-SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON d.issue_id = i.id
 WHERE d.depends_on_id = ?
   AND d.type = 'parent-child'
@@ -389,7 +389,7 @@ func (q *Queries) GetOpenChildIssues(ctx context.Context, dependsOnID string) ([
 		var i Issue
 		if err := rows.Scan(
 			&i.ID,
-			&i.WorkspaceID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Description,
 			&i.Status,

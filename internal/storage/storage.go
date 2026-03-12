@@ -9,23 +9,23 @@ import (
 
 //nolint:interfacebloat // Storage interface intentionally covers all operations as a single contract
 type Storage interface {
-	// Workspaces
-	CreateWorkspace(ctx context.Context, workspace *types.Workspace) error
-	GetWorkspace(ctx context.Context, id string) (*types.Workspace, error)
-	GetWorkspaceByName(ctx context.Context, name string) (*types.Workspace, error)
-	ListWorkspaces(ctx context.Context) ([]*types.Workspace, error)
-	UpdateWorkspace(ctx context.Context, workspace *types.Workspace) error
-	DeleteWorkspace(ctx context.Context, id string) error
-	MergeWorkspaces(ctx context.Context, targetID string, sourceIDs []string, actor string) (*types.MergeResult, error)
+	// Projects
+	CreateProject(ctx context.Context, project *types.Project) error
+	GetProject(ctx context.Context, id string) (*types.Project, error)
+	GetProjectByName(ctx context.Context, name string) (*types.Project, error)
+	ListProjects(ctx context.Context) ([]*types.Project, error)
+	UpdateProject(ctx context.Context, project *types.Project) error
+	DeleteProject(ctx context.Context, id string) error
+	MergeProjects(ctx context.Context, targetID string, sourceIDs []string, actor string) (*types.MergeResult, error)
 
-	// Workspace Paths
-	CreateWorkspacePath(ctx context.Context, wp *types.WorkspacePath) error
-	GetWorkspacePath(ctx context.Context, id string) (*types.WorkspacePath, error)
-	ListWorkspacePaths(ctx context.Context, workspaceID string) ([]*types.WorkspacePath, error)
-	UpdateWorkspacePath(ctx context.Context, wp *types.WorkspacePath) error
-	DeleteWorkspacePath(ctx context.Context, id string) error
-	ResolveWorkspaceByPath(ctx context.Context, path string) (*types.WorkspacePath, error)
-	UpdatePathLastAccessed(ctx context.Context, id string) error
+	// Workspaces
+	CreateWorkspace(ctx context.Context, ws *types.Workspace) error
+	GetWorkspace(ctx context.Context, id string) (*types.Workspace, error)
+	ListWorkspaces(ctx context.Context, projectID string) ([]*types.Workspace, error)
+	UpdateWorkspace(ctx context.Context, ws *types.Workspace) error
+	DeleteWorkspace(ctx context.Context, id string) error
+	ResolveProjectByPath(ctx context.Context, path string) (*types.Workspace, error)
+	UpdateWorkspaceLastAccessed(ctx context.Context, id string) error
 
 	// Issues
 	CreateIssue(ctx context.Context, issue *types.Issue, actor string) error
@@ -69,7 +69,7 @@ type Storage interface {
 	// Plans (shared plans)
 	CreatePlan(ctx context.Context, plan *types.Plan) error
 	GetPlan(ctx context.Context, id string) (*types.Plan, error)
-	ListPlans(ctx context.Context, workspaceID string) ([]*types.Plan, error)
+	ListPlans(ctx context.Context, projectID string) ([]*types.Plan, error)
 	UpdatePlan(ctx context.Context, id, title, content string) error
 	DeletePlan(ctx context.Context, id string) error
 	LinkIssueToPlan(ctx context.Context, issueID, planID string) error
@@ -87,7 +87,7 @@ type Storage interface {
 	GetEvents(ctx context.Context, issueID string, limit int) ([]*types.Event, error)
 
 	// Statistics
-	GetStatistics(ctx context.Context, workspaceID string) (*types.Statistics, error)
+	GetStatistics(ctx context.Context, projectID string) (*types.Statistics, error)
 
 	// Lifecycle
 	Close() error

@@ -11,16 +11,16 @@ import (
 )
 
 const deleteConfig = `-- name: DeleteConfig :exec
-DELETE FROM config WHERE workspace_id = ? AND key = ?
+DELETE FROM config WHERE project_id = ? AND key = ?
 `
 
 type DeleteConfigParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	Key         string `json:"key"`
+	ProjectID string `json:"project_id"`
+	Key       string `json:"key"`
 }
 
 func (q *Queries) DeleteConfig(ctx context.Context, arg DeleteConfigParams) error {
-	_, err := q.db.ExecContext(ctx, deleteConfig, arg.WorkspaceID, arg.Key)
+	_, err := q.db.ExecContext(ctx, deleteConfig, arg.ProjectID, arg.Key)
 	return err
 }
 
@@ -34,7 +34,7 @@ func (q *Queries) DeleteGlobalConfig(ctx context.Context, key string) error {
 }
 
 const getAllConfig = `-- name: GetAllConfig :many
-SELECT key, value FROM config WHERE workspace_id = ?
+SELECT key, value FROM config WHERE project_id = ?
 `
 
 type GetAllConfigRow struct {
@@ -42,8 +42,8 @@ type GetAllConfigRow struct {
 	Value sql.NullString `json:"value"`
 }
 
-func (q *Queries) GetAllConfig(ctx context.Context, workspaceID string) ([]*GetAllConfigRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllConfig, workspaceID)
+func (q *Queries) GetAllConfig(ctx context.Context, projectID string) ([]*GetAllConfigRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllConfig, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -93,16 +93,16 @@ func (q *Queries) GetAllGlobalConfig(ctx context.Context) ([]*GlobalConfig, erro
 }
 
 const getConfig = `-- name: GetConfig :one
-SELECT value FROM config WHERE workspace_id = ? AND key = ?
+SELECT value FROM config WHERE project_id = ? AND key = ?
 `
 
 type GetConfigParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	Key         string `json:"key"`
+	ProjectID string `json:"project_id"`
+	Key       string `json:"key"`
 }
 
 func (q *Queries) GetConfig(ctx context.Context, arg GetConfigParams) (sql.NullString, error) {
-	row := q.db.QueryRowContext(ctx, getConfig, arg.WorkspaceID, arg.Key)
+	row := q.db.QueryRowContext(ctx, getConfig, arg.ProjectID, arg.Key)
 	var value sql.NullString
 	err := row.Scan(&value)
 	return value, err
@@ -120,19 +120,19 @@ func (q *Queries) GetGlobalConfig(ctx context.Context, key string) (sql.NullStri
 }
 
 const setConfig = `-- name: SetConfig :exec
-INSERT INTO config (workspace_id, key, value)
+INSERT INTO config (project_id, key, value)
 VALUES (?, ?, ?)
-ON CONFLICT(workspace_id, key) DO UPDATE SET value = excluded.value
+ON CONFLICT(project_id, key) DO UPDATE SET value = excluded.value
 `
 
 type SetConfigParams struct {
-	WorkspaceID string         `json:"workspace_id"`
-	Key         string         `json:"key"`
-	Value       sql.NullString `json:"value"`
+	ProjectID string         `json:"project_id"`
+	Key       string         `json:"key"`
+	Value     sql.NullString `json:"value"`
 }
 
 func (q *Queries) SetConfig(ctx context.Context, arg SetConfigParams) error {
-	_, err := q.db.ExecContext(ctx, setConfig, arg.WorkspaceID, arg.Key, arg.Value)
+	_, err := q.db.ExecContext(ctx, setConfig, arg.ProjectID, arg.Key, arg.Value)
 	return err
 }
 

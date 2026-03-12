@@ -4,74 +4,38 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sentiolabs/arc/internal/core"
 	"github.com/sentiolabs/arc/internal/project"
 )
 
-func TestNormalizePath(t *testing.T) {
-	// NormalizePath should resolve symlinks and return canonical absolute paths.
-	// For a non-existent path, it should fall back to filepath.Abs.
-	tmpDir := t.TempDir()
+// TestWrappersDelegateToCore verifies the backward-compatibility wrappers
+// in the project package delegate to core correctly.
+func TestWrappersDelegateToCore(t *testing.T) {
+	t.Run("DefaultArcHome delegates to core", func(t *testing.T) {
+		if project.DefaultArcHome() != core.DefaultArcHome() {
+			t.Error("project.DefaultArcHome() != core.DefaultArcHome()")
+		}
+	})
 
-	result := project.NormalizePath(tmpDir)
-	if result == "" {
-		t.Fatal("NormalizePath returned empty string")
-	}
+	t.Run("NormalizePath delegates to core", func(t *testing.T) {
+		dir := t.TempDir()
+		if project.NormalizePath(dir) != core.NormalizePath(dir) {
+			t.Error("project.NormalizePath() != core.NormalizePath()")
+		}
+	})
 
-	// The result should be an absolute path
-	if result[0] != '/' {
-		t.Errorf("NormalizePath(%q) = %q, expected absolute path", tmpDir, result)
-	}
-}
+	t.Run("NormalizePathPair delegates to core", func(t *testing.T) {
+		realDir := t.TempDir()
+		symlinkDir := t.TempDir() + "/link"
+		if err := os.Symlink(realDir, symlinkDir); err != nil {
+			t.Skipf("cannot create symlink: %v", err)
+		}
+		t.Cleanup(func() { os.Remove(symlinkDir) })
 
-func TestNormalizePathPair(t *testing.T) {
-	// Create a real directory and a symlink to it.
-	realDir := t.TempDir()
-	symlinkDir := t.TempDir() + "/link"
-	if err := os.Symlink(realDir, symlinkDir); err != nil {
-		t.Skipf("cannot create symlink: %v", err)
-	}
-	t.Cleanup(func() { os.Remove(symlinkDir) })
-
-	absPath, resolvedPath := project.NormalizePathPair(symlinkDir)
-
-	// absPath should be the symlink path (what user sees)
-	if absPath != symlinkDir {
-		t.Errorf("absPath = %q, want %q", absPath, symlinkDir)
-	}
-
-	// resolvedPath should be the real directory (symlink resolved)
-	// On macOS, TempDir may itself be behind /private symlink
-	realResolved := project.NormalizePath(realDir)
-	if resolvedPath != realResolved {
-		t.Errorf("resolvedPath = %q, want %q", resolvedPath, realResolved)
-	}
-
-	// When they differ, both should be non-empty
-	if absPath == resolvedPath {
-		t.Error("expected absPath and resolvedPath to differ for symlinked path")
-	}
-}
-
-func TestNormalizePathPair_NoSymlink(t *testing.T) {
-	// For a real (non-symlinked) directory, both should be the same.
-	dir := t.TempDir()
-	resolved := project.NormalizePath(dir) // canonical form
-
-	absPath, resolvedPath := project.NormalizePathPair(resolved)
-	if absPath != resolvedPath {
-		t.Errorf("expected same paths for non-symlinked dir, got abs=%q resolved=%q", absPath, resolvedPath)
-	}
-}
-
-func TestDefaultArcHome(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Skipf("cannot get user home dir: %v", err)
-	}
-
-	result := project.DefaultArcHome()
-	expected := home + "/.arc"
-	if result != expected {
-		t.Errorf("DefaultArcHome() = %q, want %q", result, expected)
-	}
+		pAbs, pRes := project.NormalizePathPair(symlinkDir)
+		cAbs, cRes := core.NormalizePathPair(symlinkDir)
+		if pAbs != cAbs || pRes != cRes {
+			t.Error("project.NormalizePathPair() != core.NormalizePathPair()")
+		}
+	})
 }

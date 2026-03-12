@@ -15,21 +15,57 @@ SELECT AVG(
     (julianday(closed_at) - julianday(created_at)) * 24
 ) as avg_lead_time_hours
 FROM issues
-WHERE workspace_id = ?
+WHERE project_id = ?
   AND status = 'closed'
   AND closed_at IS NOT NULL
 `
 
-func (q *Queries) GetAverageLeadTime(ctx context.Context, workspaceID string) (sql.NullFloat64, error) {
-	row := q.db.QueryRowContext(ctx, getAverageLeadTime, workspaceID)
+func (q *Queries) GetAverageLeadTime(ctx context.Context, projectID string) (sql.NullFloat64, error) {
+	row := q.db.QueryRowContext(ctx, getAverageLeadTime, projectID)
 	var avg_lead_time_hours sql.NullFloat64
 	err := row.Scan(&avg_lead_time_hours)
 	return avg_lead_time_hours, err
 }
 
+const getProjectStats = `-- name: GetProjectStats :one
+SELECT
+    ?1 as project_id,
+    (SELECT COUNT(*) FROM issues WHERE issues.project_id = ?1) as total_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.project_id = ?1 AND issues.status = 'open') as open_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.project_id = ?1 AND issues.status = 'in_progress') as in_progress_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.project_id = ?1 AND issues.status = 'closed') as closed_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.project_id = ?1 AND issues.status = 'blocked') as blocked_issues,
+    (SELECT COUNT(*) FROM issues WHERE issues.project_id = ?1 AND issues.status = 'deferred') as deferred_issues
+`
+
+type GetProjectStatsRow struct {
+	ProjectID        interface{} `json:"project_id"`
+	TotalIssues      int64       `json:"total_issues"`
+	OpenIssues       int64       `json:"open_issues"`
+	InProgressIssues int64       `json:"in_progress_issues"`
+	ClosedIssues     int64       `json:"closed_issues"`
+	BlockedIssues    int64       `json:"blocked_issues"`
+	DeferredIssues   int64       `json:"deferred_issues"`
+}
+
+func (q *Queries) GetProjectStats(ctx context.Context, projectID string) (*GetProjectStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getProjectStats, projectID)
+	var i GetProjectStatsRow
+	err := row.Scan(
+		&i.ProjectID,
+		&i.TotalIssues,
+		&i.OpenIssues,
+		&i.InProgressIssues,
+		&i.ClosedIssues,
+		&i.BlockedIssues,
+		&i.DeferredIssues,
+	)
+	return &i, err
+}
+
 const getReadyIssueCount = `-- name: GetReadyIssueCount :one
 SELECT COUNT(*) as count FROM issues i
-WHERE i.workspace_id = ?
+WHERE i.project_id = ?
   AND i.status IN ('open', 'in_progress')
   AND NOT EXISTS (
     SELECT 1 FROM dependencies d
@@ -41,45 +77,9 @@ WHERE i.workspace_id = ?
 `
 
 // Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
-func (q *Queries) GetReadyIssueCount(ctx context.Context, workspaceID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getReadyIssueCount, workspaceID)
+func (q *Queries) GetReadyIssueCount(ctx context.Context, projectID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getReadyIssueCount, projectID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
-}
-
-const getWorkspaceStats = `-- name: GetWorkspaceStats :one
-SELECT
-    ?1 as workspace_id,
-    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1) as total_issues,
-    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'open') as open_issues,
-    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'in_progress') as in_progress_issues,
-    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'closed') as closed_issues,
-    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'blocked') as blocked_issues,
-    (SELECT COUNT(*) FROM issues WHERE issues.workspace_id = ?1 AND issues.status = 'deferred') as deferred_issues
-`
-
-type GetWorkspaceStatsRow struct {
-	WorkspaceID      interface{} `json:"workspace_id"`
-	TotalIssues      int64       `json:"total_issues"`
-	OpenIssues       int64       `json:"open_issues"`
-	InProgressIssues int64       `json:"in_progress_issues"`
-	ClosedIssues     int64       `json:"closed_issues"`
-	BlockedIssues    int64       `json:"blocked_issues"`
-	DeferredIssues   int64       `json:"deferred_issues"`
-}
-
-func (q *Queries) GetWorkspaceStats(ctx context.Context, workspaceID string) (*GetWorkspaceStatsRow, error) {
-	row := q.db.QueryRowContext(ctx, getWorkspaceStats, workspaceID)
-	var i GetWorkspaceStatsRow
-	err := row.Scan(
-		&i.WorkspaceID,
-		&i.TotalIssues,
-		&i.OpenIssues,
-		&i.InProgressIssues,
-		&i.ClosedIssues,
-		&i.BlockedIssues,
-		&i.DeferredIssues,
-	)
-	return &i, err
 }

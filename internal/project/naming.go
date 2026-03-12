@@ -1,5 +1,4 @@
-// Package workspace provides utilities for workspace management.
-package workspace
+package project
 
 import (
 	"crypto/sha256"
@@ -21,7 +20,7 @@ const (
 	hashIDSuffixLen = 6
 	// prefixSuffixLen is the length of the base36 hash suffix for prefixes.
 	prefixSuffixLen = 4
-	// maxSanitizedNameLen is the maximum length for a sanitized workspace basename.
+	// maxSanitizedNameLen is the maximum length for a sanitized project basename.
 	maxSanitizedNameLen = 20
 )
 
@@ -55,7 +54,7 @@ func Base36Encode(data []byte) string {
 
 // GenerateIssueID creates an issue ID from content.
 // Format: prefix.{6-char-base36-hash}
-// Uses period separator to distinguish from workspace prefixes which use hyphens.
+// Uses period separator to distinguish from project prefixes which use hyphens.
 func GenerateIssueID(prefix, title string) string {
 	return generateHashID(prefix, title, ".")
 }
@@ -67,10 +66,10 @@ func GeneratePlanID(title string) string {
 	return generateHashID("plan", title, ".")
 }
 
-// GenerateWorkspaceID creates a workspace ID from content.
+// GenerateProjectID creates a project ID from content.
 // Format: prefix-{6-char-base36-hash}
-// Uses hyphen separator consistent with workspace naming conventions.
-func GenerateWorkspaceID(prefix, name string) string {
+// Uses hyphen separator consistent with project naming conventions.
+func GenerateProjectID(prefix, name string) string {
 	return generateHashID(prefix, name, "-")
 }
 
@@ -93,7 +92,7 @@ func generateHashID(prefix, content, separator string) string {
 	return prefix + separator + encoded
 }
 
-// GenerateName creates a workspace name from a directory path.
+// GenerateName creates a project name from a directory path.
 // Format: {sanitized-basename}-{6-char-hex-hash}
 // The hash is derived from the full absolute path, making it deterministic.
 func GenerateName(dirPath string) (string, error) {
@@ -200,9 +199,9 @@ func GeneratePrefixWithCustomName(dirPath, customName string) (string, error) {
 	return basename + "-" + suffix, nil
 }
 
-// GeneratePrefixFromName creates an issue prefix from a workspace name (without path).
+// GeneratePrefixFromName creates an issue prefix from a project name (without path).
 // Format: {alphanumeric-name-truncated}-{4-char-base36-hash}
-// Used when creating a workspace without an associated directory path.
+// Used when creating a project without an associated directory path.
 // Includes timestamp for uniqueness when same name is used multiple times.
 func GeneratePrefixFromName(name string) string {
 	// Normalize to alphanumeric only and truncate
@@ -239,13 +238,13 @@ func normalizeForPrefix(name string) string {
 
 	// Fallback for empty result
 	if name == "" {
-		name = "ws"
+		name = "proj"
 	}
 
 	return name
 }
 
-// SanitizeBasename normalizes a directory name for use in workspace names.
+// SanitizeBasename normalizes a directory name for use in project names.
 func SanitizeBasename(name string) string {
 	// Lowercase
 	name = strings.ToLower(name)
@@ -272,7 +271,7 @@ func SanitizeBasename(name string) string {
 
 	// Fallback for empty result
 	if name == "" {
-		name = "workspace"
+		name = "project"
 	}
 
 	return name
