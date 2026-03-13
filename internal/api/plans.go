@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sentiolabs/arc/internal/types"
 	"github.com/sentiolabs/arc/internal/project"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 // --- Request/Response types ---
@@ -135,10 +135,10 @@ func (s *Server) createPlan(c echo.Context) error {
 	}
 
 	plan := &types.Plan{
-		ID:          project.GeneratePlanID(req.Title),
+		ID:        project.GeneratePlanID(req.Title),
 		ProjectID: wsID,
-		Title:       req.Title,
-		Content:     req.Content,
+		Title:     req.Title,
+		Content:   req.Content,
 	}
 
 	if err := s.store.CreatePlan(c.Request().Context(), plan); err != nil {

@@ -39,7 +39,7 @@ func TestListIssuesByParentFilter(t *testing.T) {
 	// Use ListIssues with ParentID filter
 	issues, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		ParentID:    parent.ID,
+		ParentID:  parent.ID,
 	})
 	if err != nil {
 		t.Fatalf("ListIssues with ParentID failed: %v", err)
@@ -241,8 +241,8 @@ func TestListIssuesByParentAndStatusFilter(t *testing.T) {
 	openStatus := types.StatusOpen
 	issues, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		ParentID:    parent.ID,
-		Status:      &openStatus,
+		ParentID:  parent.ID,
+		Status:    &openStatus,
 	})
 	if err != nil {
 		t.Fatalf("ListIssues with ParentID+Status failed: %v", err)
@@ -269,7 +269,7 @@ func TestListIssuesByParentFilterEmpty(t *testing.T) {
 	// Use ListIssues with ParentID filter - should return empty
 	issues, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		ParentID:    parent.ID,
+		ParentID:  parent.ID,
 	})
 	if err != nil {
 		t.Fatalf("ListIssues with ParentID failed: %v", err)

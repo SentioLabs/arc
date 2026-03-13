@@ -132,8 +132,8 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 		// Find teammate:* label
 		role := ""
 		for _, l := range issue.Labels {
-			if strings.HasPrefix(l, "teammate:") {
-				role = strings.TrimPrefix(l, "teammate:")
+			if after, ok := strings.CutPrefix(l, "teammate:"); ok {
+				role = after
 				break
 			}
 		}

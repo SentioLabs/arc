@@ -54,7 +54,7 @@ func TestFTSSearchBasic(t *testing.T) {
 
 	for _, iss := range issues {
 		issue := &types.Issue{
-			ProjectID: ws.ID,
+			ProjectID:   ws.ID,
 			Title:       iss.title,
 			Description: iss.description,
 			Status:      types.StatusOpen,
@@ -69,7 +69,7 @@ func TestFTSSearchBasic(t *testing.T) {
 	// Search for "auth" — should match issues with authentication
 	results, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		Query:       "auth",
+		Query:     "auth",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
@@ -104,7 +104,7 @@ func TestFTSSearchTitleRanksHigher(t *testing.T) {
 
 	// Issue with "deploy" in title
 	titleIssue := &types.Issue{
-		ProjectID: ws.ID,
+		ProjectID:   ws.ID,
 		Title:       "Deploy the application",
 		Description: "Standard deployment task",
 		Status:      types.StatusOpen,
@@ -117,7 +117,7 @@ func TestFTSSearchTitleRanksHigher(t *testing.T) {
 
 	// Issue with "deploy" only in description
 	descIssue := &types.Issue{
-		ProjectID: ws.ID,
+		ProjectID:   ws.ID,
 		Title:       "Update infrastructure",
 		Description: "Need to deploy new version of the service",
 		Status:      types.StatusOpen,
@@ -130,7 +130,7 @@ func TestFTSSearchTitleRanksHigher(t *testing.T) {
 
 	results, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		Query:       "deploy",
+		Query:     "deploy",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
@@ -160,7 +160,7 @@ func TestFTSPrefixSearch(t *testing.T) {
 	// "dep" should prefix-match both "dependencies" and "deployment"
 	results, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		Query:       "dep",
+		Query:     "dep",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
@@ -187,7 +187,7 @@ func TestFTSStemming(t *testing.T) {
 	// "run" should match "running" via Porter stemming
 	results, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		Query:       "run",
+		Query:     "run",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
@@ -306,7 +306,7 @@ func TestFTSNoResults(t *testing.T) {
 
 	results, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		Query:       "xyznonexistent",
+		Query:     "xyznonexistent",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
@@ -329,7 +329,7 @@ func TestFTSDeletedIssueNotSearchable(t *testing.T) {
 	// Verify it's searchable
 	results, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		Query:       "uniqueword",
+		Query:     "uniqueword",
 	})
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
@@ -346,7 +346,7 @@ func TestFTSDeletedIssueNotSearchable(t *testing.T) {
 	// Verify it's no longer searchable
 	results, err = store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
-		Query:       "uniqueword",
+		Query:     "uniqueword",
 	})
 	if err != nil {
 		t.Fatalf("search failed after delete: %v", err)

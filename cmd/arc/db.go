@@ -1,3 +1,5 @@
+// Database management commands for the arc CLI.
+// Provides backup and maintenance operations for the SQLite database.
 package main
 
 import (
@@ -9,11 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// dbCmd is the parent command for database management operations.
 var dbCmd = &cobra.Command{
 	Use:   "db",
 	Short: "Database management commands",
 }
 
+// dbBackupCmd creates a compressed backup of the arc database.
 var dbBackupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Create a compressed backup of the database",
@@ -48,6 +52,7 @@ Example:
 	},
 }
 
+// init registers the db command tree with the root command.
 func init() {
 	dbBackupCmd.Flags().String("db", "", "Database path (default: ~/.arc/data.db)")
 	dbCmd.AddCommand(dbBackupCmd)

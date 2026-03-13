@@ -21,8 +21,8 @@ const MaxPrefixLength = 15
 // Project represents a project that contains issues.
 // Previously named Workspace; renamed to clarify that this is the issue container.
 type Project struct {
-	ID          string    `json:"id"`             // Short hash ID (e.g., "proj-a1b2")
-	Name        string    `json:"name"`           // Display name
+	ID          string    `json:"id"`   // Short hash ID (e.g., "proj-a1b2")
+	Name        string    `json:"name"` // Display name
 	Description string    `json:"description,omitempty"`
 	Prefix      string    `json:"prefix"` // Issue ID prefix (e.g., "bd")
 	CreatedAt   time.Time `json:"created_at"`

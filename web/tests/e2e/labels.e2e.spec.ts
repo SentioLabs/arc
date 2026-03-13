@@ -11,7 +11,7 @@ import {
 test.describe('Labels E2E', () => {
 	test('labels page loads', async ({ page }) => {
 		await page.goto('/labels');
-		await expect(page.getByRole('button', { name: 'New Label' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Create Label' })).toBeVisible();
 	});
 
 	test('create label via UI', async ({ page }) => {
@@ -19,7 +19,7 @@ test.describe('Labels E2E', () => {
 		await page.goto('/labels');
 
 		// Click "New Label" to show the form
-		await page.getByRole('button', { name: 'New Label' }).click();
+		await page.getByRole('button', { name: 'Create Label' }).click();
 
 		// Fill in the name
 		await page.locator('#label-name').fill(labelName);
@@ -97,7 +97,7 @@ test.describe('Labels E2E', () => {
 		await page.locator('li[role="option"]').filter({ hasText: label.name }).click();
 
 		// Verify label pill appears
-		await expect(page.getByText(label.name)).toBeVisible();
+		await expect(page.getByText(label.name).first()).toBeVisible();
 	});
 
 	test('remove label from issue', async ({ page, testWorkspace }) => {

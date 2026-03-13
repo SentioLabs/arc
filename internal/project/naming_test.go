@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const defaultPrefixFallback = "proj"
+
 func TestSanitizeBasename(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -428,12 +430,12 @@ func TestGeneratePrefixWithCustomName(t *testing.T) {
 func TestNormalizeForPrefixFallback(t *testing.T) {
 	// The normalizeForPrefix fallback should be "proj" (not "ws")
 	result := normalizeForPrefix("")
-	if result != "proj" {
-		t.Errorf("normalizeForPrefix(\"\") = %q, want %q", result, "proj")
+	if result != defaultPrefixFallback {
+		t.Errorf("normalizeForPrefix(\"\") = %q, want %q", result, defaultPrefixFallback)
 	}
 
 	result = normalizeForPrefix("!!!@@@")
-	if result != "proj" {
-		t.Errorf("normalizeForPrefix(\"!!!@@@\") = %q, want %q", result, "proj")
+	if result != defaultPrefixFallback {
+		t.Errorf("normalizeForPrefix(\"!!!@@@\") = %q, want %q", result, defaultPrefixFallback)
 	}
 }

@@ -21,9 +21,9 @@ func (s *Store) CreatePlan(ctx context.Context, plan *types.Plan) error {
 		ID:        plan.ID,
 		ProjectID: plan.ProjectID,
 		Title:     plan.Title,
-		Content:     plan.Content,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		Content:   plan.Content,
+		CreatedAt: now,
+		UpdatedAt: now,
 	})
 	if err != nil {
 		return fmt.Errorf("create plan: %w", err)
@@ -241,9 +241,9 @@ func dbPlanToType(row *db.Plan) *types.Plan {
 		ID:        row.ID,
 		ProjectID: row.ProjectID,
 		Title:     row.Title,
-		Content:     row.Content,
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
+		Content:   row.Content,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
 	}
 }
 

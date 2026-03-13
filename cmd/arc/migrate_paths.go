@@ -12,6 +12,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// pathTypeCanonical is the path type for canonical (non-symlink) paths.
+	pathTypeCanonical = "canonical"
+	// pathTypeSymlink is the path type for symlink paths.
+	pathTypeSymlink = "symlink"
+)
+
 // legacyProjectConfig is the old per-project config format used before
 // workspace paths were managed server-side.
 type legacyProjectConfig struct {
@@ -74,7 +81,9 @@ Each successfully migrated project config directory is removed individually.`,
 			}
 
 			if err := removeLegacyConfig(arcHome, cfg.ProjectRoot); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Warning: migrated %s but failed to clean up old config: %v\n", cfg.ProjectRoot, err)
+				_, _ = fmt.Fprintf(os.Stderr,
+					"Warning: migrated %s but failed to clean up old config: %v\n",
+					cfg.ProjectRoot, err)
 			}
 
 			if absPath != resolvedPath {
@@ -107,9 +116,9 @@ func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname st
 	label := filepath.Base(absPath)
 
 	// Determine path type for the absolute path
-	absPathType := "canonical"
+	absPathType := pathTypeCanonical
 	if absPath != resolvedPath {
-		absPathType = "symlink"
+		absPathType = pathTypeSymlink
 	}
 
 	// Register the absolute path (what user sees / cwd reports)
@@ -133,14 +142,14 @@ func registerPathPair(c *client.Client, wsID, absPath, resolvedPath, hostname st
 			Path:     resolvedPath,
 			Label:    label + " (resolved)",
 			Hostname: hostname,
-			PathType: "canonical",
+			PathType: pathTypeCanonical,
 		}
 		if _, err := c.CreateWorkspace(wsID, resolvedReq); err != nil {
 			if !isDuplicatePathError(err) {
 				return fmt.Errorf("register resolved path %s: %w", resolvedPath, err)
 			}
 			// Path already exists — ensure path_type is up to date
-			ensurePathType(c, wsID, resolvedPath, "canonical")
+			ensurePathType(c, wsID, resolvedPath, pathTypeCanonical)
 		}
 	}
 
@@ -173,7 +182,7 @@ func readLegacyConfig(arcHome, path string) (*legacyProjectConfig, error) {
 			return &cfg, nil
 		}
 	}
-	return nil, nil
+	return nil, nil //nolint:nilnil // no matching config is a valid non-error result
 }
 
 // removeLegacyConfig removes the legacy project config directory for a given path.
@@ -264,39 +273,6 @@ func ensurePathType(c *client.Client, wsID, fsPath, desiredType string) {
 				"path_type": desiredType,
 			})
 			return
-		}
-	}
-}
-
-// fixPathTypes scans all paths for a workspace and corrects their path_type
-// based on actual symlink detection. Paths created before path_type was
-// introduced all default to "canonical" but some may actually be symlinks.
-func fixPathTypes(c *client.Client, wsID string) {
-	paths, err := c.ListWorkspaces(wsID)
-	if err != nil {
-		return
-	}
-
-	for _, p := range paths {
-		resolved, err := filepath.EvalSymlinks(p.Path)
-		if err != nil {
-			continue // path may not exist on this host
-		}
-
-		// Compare the absolute path (preserving symlinks) with the resolved path.
-		// NormalizePath resolves symlinks, so we use filepath.Abs instead.
-		abs, _ := filepath.Abs(p.Path)
-		var desiredType string
-		if resolved != abs {
-			desiredType = "symlink"
-		} else {
-			desiredType = "canonical"
-		}
-
-		if p.PathType != desiredType {
-			_, _ = c.UpdateWorkspace(wsID, p.ID, map[string]string{
-				"path_type": desiredType,
-			})
 		}
 	}
 }

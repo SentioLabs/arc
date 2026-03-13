@@ -38,10 +38,10 @@ func MigrationVersion(db *sql.DB) (int64, error) {
 	return goose.GetDBVersion(db)
 }
 
-// backupDatabase creates a copy of the database file for safe migration rollback.
+// backupForMigration creates a copy of the database file for safe migration rollback.
 // Checkpoints the WAL first to ensure the backup is self-contained.
 // Returns the backup path, or "" if no backup was needed (file doesn't exist or is empty).
-func backupDatabase(sqlDB *sql.DB, dbPath string) (string, error) {
+func backupForMigration(sqlDB *sql.DB, dbPath string) (string, error) {
 	info, statErr := os.Stat(dbPath)
 	if statErr != nil || info.Size() == 0 {
 		return "", nil //nolint:nilerr // stat error means no file to back up

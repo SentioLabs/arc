@@ -1,3 +1,5 @@
+// Package api provides HTTP handlers for the arc REST API.
+// This file contains workspace path (directory registration) endpoints.
 package api
 
 import (
@@ -75,7 +77,7 @@ func (s *Server) createWorkspace(c echo.Context) error {
 	return createdJSON(c, ws)
 }
 
-// updateWorkspace updates a workspace's metadata.
+// updateWorkspace updates a workspace's metadata (label, hostname, git remote, path type).
 func (s *Server) updateWorkspace(c echo.Context) error {
 	wsID := c.Param("pathId")
 	ctx := c.Request().Context()
@@ -110,7 +112,7 @@ func (s *Server) updateWorkspace(c echo.Context) error {
 	return successJSON(c, ws)
 }
 
-// deleteWorkspace removes a workspace (directory path) from a project.
+// deleteWorkspace removes a workspace (directory path) from a project by its ID.
 func (s *Server) deleteWorkspace(c echo.Context) error {
 	wsID := c.Param("pathId")
 	ctx := c.Request().Context()
@@ -123,6 +125,7 @@ func (s *Server) deleteWorkspace(c echo.Context) error {
 }
 
 // resolveProject finds the project associated with a filesystem path.
+// It also updates the workspace's last_accessed_at timestamp.
 func (s *Server) resolveProject(c echo.Context) error {
 	path := c.QueryParam("path")
 	ctx := c.Request().Context()

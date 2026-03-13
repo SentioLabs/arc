@@ -1,3 +1,6 @@
+// Workspace path management commands for the arc CLI.
+// Paths associate filesystem directories with projects so that arc can
+// resolve the current project from the working directory.
 package main
 
 import (
@@ -33,6 +36,7 @@ When run without a subcommand, lists paths for the current project.`,
 }
 
 // pathsAddCmd registers a new path to the current project.
+// Normalizes the directory path and detects git remote and symlink status.
 var pathsAddCmd = &cobra.Command{
 	Use:   "add <dir>",
 	Short: "Register a path to the current project",
@@ -41,6 +45,7 @@ var pathsAddCmd = &cobra.Command{
 }
 
 // pathsRemoveCmd unregisters a path from the current project.
+// Accepts either a filesystem path or a path ID.
 var pathsRemoveCmd = &cobra.Command{
 	Use:   "remove <path-or-id>",
 	Short: "Unregister a path from the current project",
@@ -55,6 +60,7 @@ var pathsListCmd = &cobra.Command{
 	RunE:  runPathsListCmd,
 }
 
+// init registers the paths command tree and its flags with the root command.
 func init() {
 	rootCmd.AddCommand(pathsCmd)
 
@@ -125,6 +131,7 @@ func runPathsList(cmd *cobra.Command, args []string) error {
 }
 
 // runPathsAdd registers a new path to the current project.
+// It auto-detects git remotes, hostname, and symlink status.
 func runPathsAdd(cmd *cobra.Command, args []string) error {
 	dir := args[0]
 
@@ -181,6 +188,7 @@ func runPathsAdd(cmd *cobra.Command, args []string) error {
 }
 
 // runPathsRemove unregisters a path from the current project.
+// It resolves filesystem paths to their registered path ID before deletion.
 func runPathsRemove(cmd *cobra.Command, args []string) error {
 	arg := args[0]
 
@@ -228,6 +236,7 @@ func runPathsRemove(cmd *cobra.Command, args []string) error {
 }
 
 // runPathsListCmd lists paths, optionally across all projects.
+// With --all, it aggregates paths from every project into a single table.
 func runPathsListCmd(cmd *cobra.Command, args []string) error {
 	if !pathsListAll {
 		return runPathsList(cmd, args)
@@ -297,6 +306,7 @@ func runPathsListCmd(cmd *cobra.Command, args []string) error {
 }
 
 // detectGitRemote attempts to get the git remote URL for a directory.
+// Returns an empty string if the directory is not a git repo or has no origin.
 func detectGitRemote(dir string) string {
 	cmd := exec.Command("git", "-C", dir, "remote", "get-url", "origin")
 	out, err := cmd.Output()

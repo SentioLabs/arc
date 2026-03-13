@@ -162,6 +162,12 @@ vet: ## Run go vet
 .PHONY: check
 check: lint test web-check ## Run all checks (lint, test, frontend)
 
+.PHONY: ci
+ci: deps test lint ## Run CI pipeline locally (unit tests + lint)
+
+.PHONY: ci-all
+ci-all: ci test-integration test-playwright ## Run full CI pipeline (unit tests + lint + integration + playwright)
+
 # ===========================================================================
 # E2E Testing (requires Docker)
 # ===========================================================================

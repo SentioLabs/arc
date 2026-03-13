@@ -57,7 +57,7 @@ func loadOnboardConfig() (*legacyProjectConfig, error) {
 		return nil, err
 	}
 	if cfg == nil {
-		return nil, fmt.Errorf("no legacy config found")
+		return nil, errors.New("no legacy config found")
 	}
 	return cfg, nil
 }

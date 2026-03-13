@@ -1,3 +1,4 @@
+// Package api provides HTTP handlers for the arc REST API.
 package api
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// browseEntry represents a directory entry returned by the filesystem browser.
 type browseEntry struct {
 	Name      string `json:"name"`
 	Path      string `json:"path"`
@@ -16,6 +18,7 @@ type browseEntry struct {
 	IsGitRepo bool   `json:"is_git_repo"`
 }
 
+// browseFilesystem lists subdirectories of the given directory path.
 func (s *Server) browseFilesystem(c echo.Context) error {
 	dir := c.QueryParam("dir")
 	if dir == "" {
@@ -61,6 +64,7 @@ func (s *Server) browseFilesystem(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// isGitRepository checks if a directory contains a .git entry.
 func isGitRepository(path string) bool {
 	gitPath := filepath.Join(path, ".git")
 	_, err := os.Stat(gitPath)

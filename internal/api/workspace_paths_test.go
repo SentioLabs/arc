@@ -1,4 +1,4 @@
-package api
+package api //nolint:testpackage // tests use internal mock store types
 
 import (
 	"context"
@@ -13,6 +13,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/types"
 )
+
+const testPathID = "p-1"
 
 // mockWPStore implements storage.Storage for workspace (directory path) tests.
 // Only workspace methods are implemented; all others panic.
@@ -101,42 +103,55 @@ func (m *mockWPStore) UpdateWorkspaceLastAccessed(_ context.Context, id string) 
 func (m *mockWPStore) CreateProject(_ context.Context, _ *types.Project) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetProject(_ context.Context, id string) (*types.Project, error) {
 	return &types.Project{ID: id, Name: "test-project"}, nil
 }
+
 func (m *mockWPStore) GetProjectByName(_ context.Context, _ string) (*types.Project, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) ListProjects(_ context.Context) ([]*types.Project, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) UpdateProject(_ context.Context, _ *types.Project) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) DeleteProject(_ context.Context, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) MergeProjects(_ context.Context, _ string, _ []string, _ string) (*types.MergeResult, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) CreateIssue(_ context.Context, _ *types.Issue, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetIssue(_ context.Context, _ string) (*types.Issue, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetIssueByExternalRef(_ context.Context, _ string) (*types.Issue, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) ListIssues(_ context.Context, _ types.IssueFilter) ([]*types.Issue, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) UpdateIssue(_ context.Context, _ string, _ map[string]any, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) CloseIssue(_ context.Context, _ string, _ string, _ bool, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) ReopenIssue(_ context.Context, _ string, _ string) error {
 	panic("not implemented")
 }
@@ -144,36 +159,47 @@ func (m *mockWPStore) DeleteIssue(_ context.Context, _ string) error { panic("no
 func (m *mockWPStore) GetIssueDetails(_ context.Context, _ string) (*types.IssueDetails, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetReadyWork(_ context.Context, _ types.WorkFilter) ([]*types.Issue, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetBlockedIssues(_ context.Context, _ types.WorkFilter) ([]*types.BlockedIssue, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) IsBlocked(_ context.Context, _ string) (bool, []string, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) AddDependency(_ context.Context, _ *types.Dependency, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) RemoveDependency(_ context.Context, _, _ string, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetDependencies(_ context.Context, _ string) ([]*types.Dependency, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetDependents(_ context.Context, _ string) ([]*types.Dependency, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) CreateLabel(_ context.Context, _ *types.Label) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetLabel(_ context.Context, _ string) (*types.Label, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) ListLabels(_ context.Context) ([]*types.Label, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) UpdateLabel(_ context.Context, _ *types.Label) error {
 	panic("not implemented")
 }
@@ -181,21 +207,27 @@ func (m *mockWPStore) DeleteLabel(_ context.Context, _ string) error { panic("no
 func (m *mockWPStore) AddLabelToIssue(_ context.Context, _, _, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) RemoveLabelFromIssue(_ context.Context, _, _, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetIssueLabels(_ context.Context, _ string) ([]string, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetLabelsForIssues(_ context.Context, _ []string) (map[string][]string, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) AddComment(_ context.Context, _, _, _ string) (*types.Comment, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetComments(_ context.Context, _ string) ([]*types.Comment, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) UpdateComment(_ context.Context, _ int64, _ string) error {
 	panic("not implemented")
 }
@@ -203,12 +235,15 @@ func (m *mockWPStore) DeleteComment(_ context.Context, _ int64) error { panic("n
 func (m *mockWPStore) CreatePlan(_ context.Context, _ *types.Plan) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetPlan(_ context.Context, _ string) (*types.Plan, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) ListPlans(_ context.Context, _ string) ([]*types.Plan, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) UpdatePlan(_ context.Context, _, _, _ string) error {
 	panic("not implemented")
 }
@@ -216,30 +251,39 @@ func (m *mockWPStore) DeletePlan(_ context.Context, _ string) error { panic("not
 func (m *mockWPStore) LinkIssueToPlan(_ context.Context, _, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) UnlinkIssueFromPlan(_ context.Context, _, _ string) error {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetLinkedPlans(_ context.Context, _ string) ([]*types.Plan, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetLinkedIssues(_ context.Context, _ string) ([]string, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) SetInlinePlan(_ context.Context, _, _, _ string) (*types.Comment, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetInlinePlan(_ context.Context, _ string) (*types.Comment, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetPlanHistory(_ context.Context, _ string) ([]*types.Comment, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetPlanContext(_ context.Context, _ string) (*types.PlanContext, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetEvents(_ context.Context, _ string, _ int) ([]*types.Event, error) {
 	panic("not implemented")
 }
+
 func (m *mockWPStore) GetStatistics(_ context.Context, _ string) (*types.Statistics, error) {
 	panic("not implemented")
 }
@@ -282,15 +326,16 @@ func TestListWorkspaces(t *testing.T) {
 	if len(workspaces) != 1 {
 		t.Fatalf("expected 1 workspace, got %d", len(workspaces))
 	}
-	if workspaces[0].ID != "p-1" {
-		t.Errorf("expected ID p-1, got %s", workspaces[0].ID)
+	if workspaces[0].ID != testPathID {
+		t.Errorf("expected ID %s, got %s", testPathID, workspaces[0].ID)
 	}
 }
 
 func TestCreateWorkspace(t *testing.T) {
 	e, _ := setupWorkspaceTest(t)
 
-	body := `{"path":"/home/user/project","label":"main","hostname":"dev-machine","git_remote":"git@github.com:user/repo.git"}`
+	body := `{"path":"/home/user/project","label":"main",` +
+		`"hostname":"dev-machine","git_remote":"git@github.com:user/repo.git"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-abc/workspaces", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

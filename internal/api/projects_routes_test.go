@@ -92,7 +92,8 @@ func TestProjectScopedIssueRoutes(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("POST /api/v1/projects/:ws/issues returned %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+		t.Fatalf("POST /api/v1/projects/:ws/issues returned %d, want %d: %s",
+			rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
 	var issue types.Issue

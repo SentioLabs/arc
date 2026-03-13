@@ -1,4 +1,5 @@
-// Package client provides an API client for the arc server.
+// Package client provides an HTTP API client for the arc server.
+// It wraps REST endpoints for projects, issues, plans, and workspace paths.
 package client
 
 import (
@@ -30,6 +31,7 @@ type Client struct {
 }
 
 // New creates a new API client configured to connect to the given base URL.
+// The client defaults to a 30-second timeout and "cli" as the actor identity.
 func New(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
@@ -45,7 +47,7 @@ func (c *Client) SetActor(actor string) {
 	c.actor = actor
 }
 
-// Health checks the server health.
+// Health checks the server health by sending a GET /health request.
 func (c *Client) Health() error {
 	resp, err := c.get("/health")
 	if err != nil {
@@ -326,7 +328,7 @@ func (c *Client) CloseIssue(projID, id, reason string, cascade bool) (*types.Iss
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G107: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -692,7 +694,7 @@ func (c *Client) DeleteWorkspace(projID, wsID string) error {
 
 // ResolveProjectByPath finds the project associated with a filesystem path.
 func (c *Client) ResolveProjectByPath(fsPath string) (*types.ProjectResolution, error) {
-	path := fmt.Sprintf("/api/v1/projects/resolve?path=%s", url.QueryEscape(fsPath))
+	path := "/api/v1/projects/resolve?path=" + url.QueryEscape(fsPath)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -718,7 +720,7 @@ func (c *Client) get(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G107: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -754,7 +756,7 @@ func (c *Client) delete(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G107: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -781,7 +783,7 @@ func (c *Client) doJSON(method, path string, body any) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // G107: URL is built from user-configured arc server base URL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -795,7 +797,8 @@ func (c *Client) doJSON(method, path string, body any) (*http.Response, error) {
 }
 
 // checkError inspects the HTTP response status and returns an error for non-2xx codes.
-// It attempts to parse the error message from the JSON response body.
+// It reads the response body and attempts to extract a structured error message.
+// Falls back to including the raw body text when JSON parsing fails.
 func (c *Client) checkError(resp *http.Response) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil

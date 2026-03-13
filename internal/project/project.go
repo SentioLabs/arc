@@ -14,4 +14,6 @@ func NormalizePath(path string) string { return core.NormalizePath(path) }
 
 // NormalizePathPair returns both the absolute path and the symlink-resolved path.
 // Delegates to core.NormalizePathPair; kept for backward compatibility.
-func NormalizePathPair(path string) (string, string) { return core.NormalizePathPair(path) }
+func NormalizePathPair(path string) (absPath, resolvedPath string) {
+	return core.NormalizePathPair(path)
+}

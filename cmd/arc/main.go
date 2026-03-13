@@ -54,6 +54,11 @@ const (
 
 	// statusIconClosed is the icon displayed for closed issues.
 	statusIconClosed = "\u25cf" // ●
+
+	// priorityNormal is the priority level for normal/default issues (P2).
+	priorityNormal = 2
+	// priorityLow is the priority level for low-importance issues (P3).
+	priorityLow = 3
 )
 
 // Global CLI flags shared across all commands.
@@ -261,22 +266,27 @@ func resolveFromServer(cwd string) (string, error) {
 		}
 	}
 
-	// Fall back to subdirectory matching — check if cwd is inside a registered path
+	// Fall back to subdirectory matching
+	return resolveBySubdirectory(c, cwd, normalizedCwd)
+}
+
+// resolveBySubdirectory checks if cwd is inside any registered workspace path.
+func resolveBySubdirectory(c *client.Client, cwd, normalizedCwd string) (string, error) {
 	projects, listErr := c.ListProjects()
-	if listErr == nil {
-		for _, proj := range projects {
-			workspaces, wsErr := c.ListWorkspaces(proj.ID)
-			if wsErr != nil {
-				continue
-			}
-			for _, ws := range workspaces {
-				if isSubdirectory(ws.Path, cwd) || isSubdirectory(ws.Path, normalizedCwd) {
-					return proj.ID, nil
-				}
+	if listErr != nil {
+		return "", listErr //nolint:wrapcheck // caller wraps
+	}
+	for _, proj := range projects {
+		workspaces, wsErr := c.ListWorkspaces(proj.ID)
+		if wsErr != nil {
+			continue
+		}
+		for _, ws := range workspaces {
+			if isSubdirectory(ws.Path, cwd) || isSubdirectory(ws.Path, normalizedCwd) {
+				return proj.ID, nil
 			}
 		}
 	}
-
 	return "", nil
 }
 
@@ -317,7 +327,10 @@ func detectGitMainWorktree(dir string) string {
 // and cleans up the legacy config directory.
 func resolveFromLegacyConfig(cwd, arcHome string) (wsID string, source ProjectSource, warning string, err error) {
 	cfg, cfgErr := readLegacyConfig(arcHome, cwd)
-	if cfgErr != nil || cfg == nil || cfg.WorkspaceID == "" {
+	if cfgErr != nil {
+		return "", 0, "", cfgErr
+	}
+	if cfg == nil || cfg.WorkspaceID == "" {
 		return "", 0, "", nil
 	}
 
@@ -328,7 +341,8 @@ func resolveFromLegacyConfig(cwd, arcHome string) (wsID string, source ProjectSo
 	}
 
 	if _, wsErr := c.GetProject(cfg.WorkspaceID); wsErr != nil {
-		return "", 0, "", fmt.Errorf("project '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
+		return "", 0, "", fmt.Errorf(
+			"project '%s' (%s) not found on server\n  Run 'arc init' to reconfigure this directory",
 			cfg.WorkspaceName, cfg.WorkspaceID)
 	}
 
@@ -379,7 +393,9 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "", "Server URL (env: ARC_SERVER, default: http://localhost:7432)")
+	rootCmd.PersistentFlags().StringVarP(
+		&serverURL, "server", "s", "",
+		"Server URL (env: ARC_SERVER, default: http://localhost:7432)")
 	rootCmd.PersistentFlags().StringVar(&projectID, "project", "", "Project ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
@@ -1233,9 +1249,9 @@ func colorPriority(priority int) string {
 		return color.New(color.FgRed, color.Bold).Sprint(label)
 	case 1:
 		return color.New(color.FgYellow).Sprint(label)
-	case 2:
+	case priorityNormal:
 		return color.New(color.FgCyan).Sprint(label)
-	case 3:
+	case priorityLow:
 		return color.New(color.FgBlue).Sprint(label)
 	default:
 		return color.New(color.FgMagenta).Sprint(label)

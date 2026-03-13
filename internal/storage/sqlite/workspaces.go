@@ -1,3 +1,5 @@
+// Package sqlite implements the storage.Storage interface using SQLite.
+// This file contains workspace (directory path registration) operations.
 package sqlite
 
 import (
@@ -49,7 +51,8 @@ func (s *Store) CreateWorkspace(ctx context.Context, ws *types.Workspace) error 
 	return nil
 }
 
-// GetWorkspace retrieves a workspace by ID.
+// GetWorkspace retrieves a workspace by its unique ID.
+// Returns an error if no workspace exists with the given ID.
 func (s *Store) GetWorkspace(ctx context.Context, id string) (*types.Workspace, error) {
 	row, err := s.queries.GetWorkspace(ctx, id)
 	if err != nil {

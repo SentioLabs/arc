@@ -15,9 +15,15 @@ func TestBrowseFilesystem(t *testing.T) {
 
 	// Create temp dir with subdirectories
 	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "projectA"), 0o755)
-	os.MkdirAll(filepath.Join(tmpDir, "projectB"), 0o755)
-	os.MkdirAll(filepath.Join(tmpDir, "projectC"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "projectA"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmpDir, "projectB"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmpDir, "projectC"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/filesystem/browse?dir="+tmpDir, nil)
 	rec := httptest.NewRecorder()
@@ -67,9 +73,13 @@ func TestBrowseFilesystem_DetectsGitRepo(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Create a child dir that is a git repo
 	gitProject := filepath.Join(tmpDir, "myrepo")
-	os.MkdirAll(filepath.Join(gitProject, ".git"), 0o755)
+	if err := os.MkdirAll(filepath.Join(gitProject, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	// Create a child dir that is NOT a git repo
-	os.MkdirAll(filepath.Join(tmpDir, "notrepo"), 0o755)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "notrepo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/filesystem/browse?dir="+tmpDir, nil)
 	rec := httptest.NewRecorder()
@@ -118,7 +128,8 @@ func TestBrowseFilesystem_InvalidDir(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/filesystem/browse?dir=/nonexistent/path/that/does/not/exist", nil)
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/v1/filesystem/browse?dir=/nonexistent/path/that/does/not/exist", nil)
 	rec := httptest.NewRecorder()
 	server.echo.ServeHTTP(rec, req)
 
@@ -133,9 +144,15 @@ func TestBrowseFilesystem_OnlyDirectories(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	// Create mix of files and directories
-	os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0o755)
-	os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("hello"), 0o644)
-	os.WriteFile(filepath.Join(tmpDir, "another.go"), []byte("package main"), 0o644)
+	if err := os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "another.go"), []byte("package main"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/filesystem/browse?dir="+tmpDir, nil)
 	rec := httptest.NewRecorder()

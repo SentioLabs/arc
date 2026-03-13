@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-const mockWorkspaces = [
+const mockProjects = [
 	{
 		id: 'ws-test1',
-		name: 'Test Workspace',
+		name: 'Test Project',
 		prefix: 'TW',
-		path: '/tmp/test-workspace',
-		description: 'Test workspace',
+		description: 'Test project',
 		created_at: '2024-01-01T00:00:00Z',
 		updated_at: '2024-01-01T00:00:00Z'
 	}
@@ -14,7 +13,7 @@ const mockWorkspaces = [
 
 const mockIssue = {
 	id: 'TW-1',
-	workspace_id: 'ws-test1',
+	project_id: 'ws-test1',
 	title: 'Test Issue Title',
 	description: 'Some **markdown** description',
 	status: 'open',
@@ -37,30 +36,19 @@ const mockLabels = [
 
 test.describe('Issue Detail - Inline Editing', () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock workspace list
-		await page.route('**/api/v1/workspaces', async (route) => {
+		// Mock project list (root layout)
+		await page.route('**/api/v1/projects', async (route) => {
 			if (route.request().method() === 'GET') {
 				await route.fulfill({
 					status: 200,
 					contentType: 'application/json',
-					body: JSON.stringify(mockWorkspaces)
+					body: JSON.stringify(mockProjects)
 				});
 			}
 		});
 
-		// Mock single workspace
-		await page.route('**/api/v1/workspaces/ws-test1', async (route) => {
-			if (route.request().method() === 'GET') {
-				await route.fulfill({
-					status: 200,
-					contentType: 'application/json',
-					body: JSON.stringify(mockWorkspaces[0])
-				});
-			}
-		});
-
-		// Mock issue endpoint
-		await page.route('**/api/v1/workspaces/ws-test1/issues/TW-1*', async (route) => {
+		// Mock issue endpoint and sub-resources
+		await page.route('**/api/v1/projects/ws-test1/issues/TW-1**', async (route) => {
 			const url = route.request().url();
 			if (url.includes('/comments')) {
 				await route.fulfill({
@@ -117,7 +105,7 @@ test.describe('Issue Detail - Inline Editing', () => {
 		await page.goto('/ws-test1/issues/TW-1');
 
 		// Wait for issue to load
-		await expect(page.getByText('TW-1')).toBeVisible();
+		await expect(page.getByText('TW-1').first()).toBeVisible();
 
 		// The badges should be inside buttons (InlineSelect renders a button trigger)
 		// TypeBadge should be clickable
@@ -151,7 +139,7 @@ test.describe('Issue Detail - Inline Editing', () => {
 		await page.goto('/ws-test1/issues/TW-1');
 
 		// Description heading should be visible
-		await expect(page.getByText('Description')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Description' })).toBeVisible();
 
 		// The description markdown should be rendered
 		await expect(page.getByText('markdown')).toBeVisible();
@@ -180,7 +168,7 @@ test.describe('Issue Detail - Inline Editing', () => {
 		await page.goto('/ws-test1/issues/TW-1');
 
 		// Wait for the page to load
-		await expect(page.getByText('Comments')).toBeVisible();
+		await expect(page.getByRole('heading', { name: /Comments/ })).toBeVisible();
 
 		// CommentForm has a textarea with placeholder "Add a comment..."
 		await expect(page.getByPlaceholder('Add a comment...')).toBeVisible();
@@ -191,7 +179,7 @@ test.describe('Issue Detail - Inline Editing', () => {
 
 	test('clicking type badge opens dropdown with options', async ({ page }) => {
 		await page.goto('/ws-test1/issues/TW-1');
-		await expect(page.getByText('TW-1')).toBeVisible();
+		await expect(page.getByText('TW-1').first()).toBeVisible();
 
 		// Click the type badge
 		const typeBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /task/i });

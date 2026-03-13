@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -26,7 +27,7 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		into, _ := cmd.Flags().GetString("into")
 		if into == "" {
-			return fmt.Errorf("--into flag is required")
+			return errors.New("--into flag is required")
 		}
 
 		c, err := getClient()

@@ -44,7 +44,7 @@ func BackupDatabase(dbPath string) (*BackupResult, error) {
 func BackupDatabaseConn(sqlDB *sql.DB, dbPath string) (*BackupResult, error) {
 	info, err := os.Stat(dbPath)
 	if err != nil || info.Size() == 0 {
-		return nil, nil //nolint:nilerr // no file to back up
+		return nil, nil //nolint:nilerr,nilnil // no file to back up
 	}
 
 	originalSize := info.Size()

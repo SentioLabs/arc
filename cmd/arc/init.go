@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
 	"github.com/sentiolabs/arc/internal/types"
@@ -116,14 +117,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Also check server-side path resolution
 	if proj == nil {
-		if res, resolveErr := c.ResolveProjectByPath(cwd); resolveErr == nil && res.ProjectID != "" {
-			if existing, getErr := c.GetProject(res.ProjectID); getErr == nil {
-				proj = existing
-				if !quiet {
-					fmt.Printf("Using existing project: %s (%s)\n", proj.Name, proj.ID)
-				}
-			}
-		}
+		proj = resolveExistingProject(c, cwd, quiet)
 	}
 
 	// Create new project if not found
@@ -213,6 +207,7 @@ func addLandingThePlaneInstructions(verbose bool) error {
 	}
 	newContent += landingSection
 
+	//nolint:gosec // filename is a hardcoded constant ("AGENTS.md")
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
@@ -295,6 +290,7 @@ func updateClaudeMdReference(verbose bool) error {
 		newContent += "\n" + reference
 	}
 
+	//nolint:gosec // filename is a hardcoded constant ("CLAUDE.md")
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
@@ -326,4 +322,20 @@ func replaceSectionUntilNextHeader(content, header, replacement string) string {
 	}
 
 	return content[:start] + replacement + content[end:]
+}
+
+// resolveExistingProject checks server-side path resolution for an existing project.
+func resolveExistingProject(c *client.Client, cwd string, quiet bool) *types.Project {
+	res, resolveErr := c.ResolveProjectByPath(cwd)
+	if resolveErr != nil || res.ProjectID == "" {
+		return nil
+	}
+	existing, getErr := c.GetProject(res.ProjectID)
+	if getErr != nil {
+		return nil
+	}
+	if !quiet {
+		fmt.Printf("Using existing project: %s (%s)\n", existing.Name, existing.ID)
+	}
+	return existing
 }

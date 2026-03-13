@@ -39,17 +39,17 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 	case types.SortPolicyPriority:
 		rows, err = s.queries.GetReadyIssuesPriority(ctx, db.GetReadyIssuesPriorityParams{
 			ProjectID: filter.ProjectID,
-			Limit:       int64(limit),
+			Limit:     int64(limit),
 		})
 	case types.SortPolicyOldest:
 		rows, err = s.queries.GetReadyIssuesOldest(ctx, db.GetReadyIssuesOldestParams{
 			ProjectID: filter.ProjectID,
-			Limit:       int64(limit),
+			Limit:     int64(limit),
 		})
 	default: // SortPolicyHybrid
 		rows, err = s.queries.GetReadyIssuesHybrid(ctx, db.GetReadyIssuesHybridParams{
 			ProjectID: filter.ProjectID,
-			Limit:       int64(limit),
+			Limit:     int64(limit),
 		})
 	}
 
@@ -112,7 +112,7 @@ func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) (
 		blocked := &types.BlockedIssue{
 			Issue: types.Issue{
 				ID:          row.ID,
-				ProjectID: row.ProjectID,
+				ProjectID:   row.ProjectID,
 				Title:       row.Title,
 				Description: fromNullString(row.Description),
 				Status:      types.Status(row.Status),

@@ -7,11 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testPathsCmd = "paths"
+
 func TestPathsCommandExists(t *testing.T) {
 	// pathsCmd should be registered as a subcommand of rootCmd
 	found := false
 	for _, cmd := range rootCmd.Commands() {
-		if cmd.Use == "paths" {
+		if cmd.Use == testPathsCmd {
 			found = true
 			break
 		}
@@ -23,7 +25,7 @@ func TestPathsSubcommands(t *testing.T) {
 	// Find the paths command
 	var pathsCmdFound *struct{}
 	for _, cmd := range rootCmd.Commands() {
-		if cmd.Use == "paths" {
+		if cmd.Use == testPathsCmd {
 			// Check subcommands: add, remove, list
 			subNames := make(map[string]bool)
 			for _, sub := range cmd.Commands() {
@@ -42,7 +44,7 @@ func TestPathsSubcommands(t *testing.T) {
 func TestPathsAddFlags(t *testing.T) {
 	// The add subcommand should have --label and --hostname flags
 	for _, cmd := range rootCmd.Commands() {
-		if cmd.Use == "paths" {
+		if cmd.Use == testPathsCmd {
 			for _, sub := range cmd.Commands() {
 				if sub.Name() == "add" {
 					labelFlag := sub.Flags().Lookup("label")
@@ -61,7 +63,7 @@ func TestPathsAddFlags(t *testing.T) {
 func TestPathsListAllFlag(t *testing.T) {
 	// The list subcommand should have --all flag
 	for _, cmd := range rootCmd.Commands() {
-		if cmd.Use == "paths" {
+		if cmd.Use == testPathsCmd {
 			for _, sub := range cmd.Commands() {
 				if sub.Name() == "list" {
 					allFlag := sub.Flags().Lookup("all")

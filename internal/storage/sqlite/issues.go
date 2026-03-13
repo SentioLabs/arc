@@ -109,8 +109,8 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 	issue.UpdatedAt = now
 
 	err = s.queries.CreateIssue(ctx, db.CreateIssueParams{
-		ID:        issue.ID,
-		ProjectID: issue.ProjectID,
+		ID:          issue.ID,
+		ProjectID:   issue.ProjectID,
 		Title:       issue.Title,
 		Description: toNullString(issue.Description),
 		Status:      string(issue.Status),
@@ -193,8 +193,8 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 	// nil means "skip this filter", non-nil means "apply this filter".
 	params := db.ListIssuesFilteredParams{
 		ProjectID: filter.ProjectID,
-		Limit:       int64(limit),
-		Offset:      int64(offset),
+		Limit:     int64(limit),
+		Offset:    int64(offset),
 	}
 	if filter.Status != nil {
 		params.Status = string(*filter.Status)
@@ -461,8 +461,8 @@ func (s *Store) GetIssueDetails(ctx context.Context, id string) (*types.IssueDet
 // dbIssueToType converts a database issue to a types.Issue.
 func dbIssueToType(row *db.Issue) *types.Issue {
 	return &types.Issue{
-		ID:        row.ID,
-		ProjectID: row.ProjectID,
+		ID:          row.ID,
+		ProjectID:   row.ProjectID,
 		Title:       row.Title,
 		Description: fromNullString(row.Description),
 		Status:      types.Status(row.Status),

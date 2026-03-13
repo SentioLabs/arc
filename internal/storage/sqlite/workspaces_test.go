@@ -9,6 +9,8 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+const testPathTypeSymlink = "symlink"
+
 func TestCreateWorkspace(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
@@ -331,7 +333,7 @@ func TestCreateWorkspace_WithPathType(t *testing.T) {
 		ProjectID: proj.ID,
 		Path:      "/Users/dev/devspace/project",
 		Label:     "project",
-		PathType:  "symlink",
+		PathType:  testPathTypeSymlink,
 	}
 	if err := store.CreateWorkspace(ctx, symlink); err != nil {
 		t.Fatalf("CreateWorkspace(symlink) failed: %v", err)
@@ -341,8 +343,8 @@ func TestCreateWorkspace_WithPathType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetWorkspace failed: %v", err)
 	}
-	if got2.PathType != "symlink" {
-		t.Errorf("PathType = %q, want %q", got2.PathType, "symlink")
+	if got2.PathType != testPathTypeSymlink {
+		t.Errorf("PathType = %q, want %q", got2.PathType, testPathTypeSymlink)
 	}
 }
 
@@ -388,7 +390,7 @@ func TestUpdateWorkspace_PathType(t *testing.T) {
 	}
 
 	// Update path_type to symlink
-	ws.PathType = "symlink"
+	ws.PathType = testPathTypeSymlink
 	if err := store.UpdateWorkspace(ctx, ws); err != nil {
 		t.Fatalf("UpdateWorkspace failed: %v", err)
 	}
@@ -397,8 +399,8 @@ func TestUpdateWorkspace_PathType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetWorkspace failed: %v", err)
 	}
-	if got.PathType != "symlink" {
-		t.Errorf("PathType = %q, want %q", got.PathType, "symlink")
+	if got.PathType != testPathTypeSymlink {
+		t.Errorf("PathType = %q, want %q", got.PathType, testPathTypeSymlink)
 	}
 }
 

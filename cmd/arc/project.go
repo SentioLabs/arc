@@ -1,3 +1,4 @@
+// Project management commands for the arc CLI.
 package main
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// projectRenameCmd renames the current project.
 var projectRenameCmd = &cobra.Command{
 	Use:   "rename <new-name>",
 	Short: "Rename the current project",
@@ -21,10 +23,12 @@ Examples:
 	RunE: runProjectRename,
 }
 
+// init registers the rename subcommand under the project command.
 func init() {
 	projectCmd.AddCommand(projectRenameCmd)
 }
 
+// runProjectRename executes the project rename operation.
 func runProjectRename(_ *cobra.Command, args []string) error {
 	newName := args[0]
 

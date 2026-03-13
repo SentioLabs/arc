@@ -1,4 +1,4 @@
-package client
+package client_test
 
 import (
 	"encoding/json"
@@ -7,12 +7,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+const testProjectID = "p-1"
+
 func TestListWorkspaces(t *testing.T) {
 	expected := []*types.Workspace{
-		{ID: "p-1", ProjectID: "proj-abc", Path: "/home/user/project"},
+		{ID: testProjectID, ProjectID: "proj-abc", Path: "/home/user/project"},
 		{ID: "p-2", ProjectID: "proj-abc", Path: "/tmp/worktree"},
 	}
 
@@ -24,11 +27,11 @@ func TestListWorkspaces(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expected)
+		_ = json.NewEncoder(w).Encode(expected)
 	}))
 	defer server.Close()
 
-	c := New(server.URL)
+	c := client.New(server.URL)
 	paths, err := c.ListWorkspaces("proj-abc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -36,7 +39,7 @@ func TestListWorkspaces(t *testing.T) {
 	if len(paths) != 2 {
 		t.Fatalf("expected 2 paths, got %d", len(paths))
 	}
-	if paths[0].ID != "p-1" {
+	if paths[0].ID != testProjectID {
 		t.Errorf("expected ID p-1, got %s", paths[0].ID)
 	}
 	if paths[1].Path != "/tmp/worktree" {
@@ -63,7 +66,7 @@ func TestCreateWorkspace(t *testing.T) {
 		}
 
 		body, _ := io.ReadAll(r.Body)
-		var req CreateWorkspaceRequest
+		var req client.CreateWorkspaceRequest
 		if err := json.Unmarshal(body, &req); err != nil {
 			t.Fatalf("failed to decode request body: %v", err)
 		}
@@ -82,12 +85,12 @@ func TestCreateWorkspace(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(expected)
+		_ = json.NewEncoder(w).Encode(expected)
 	}))
 	defer server.Close()
 
-	c := New(server.URL)
-	result, err := c.CreateWorkspace("proj-abc", CreateWorkspaceRequest{
+	c := client.New(server.URL)
+	result, err := c.CreateWorkspace("proj-abc", client.CreateWorkspaceRequest{
 		Path:      "/home/user/project",
 		Label:     "main",
 		Hostname:  "dev-machine",
@@ -116,8 +119,8 @@ func TestDeleteWorkspace(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New(server.URL)
-	err := c.DeleteWorkspace("proj-abc", "p-1")
+	c := client.New(server.URL)
+	err := c.DeleteWorkspace("proj-abc", testProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,7 +130,7 @@ func TestResolveProjectByPath(t *testing.T) {
 	expected := &types.ProjectResolution{
 		ProjectID:   "proj-abc",
 		ProjectName: "my-project",
-		PathID:      "p-1",
+		PathID:      testProjectID,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,11 +146,11 @@ func TestResolveProjectByPath(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expected)
+		_ = json.NewEncoder(w).Encode(expected)
 	}))
 	defer server.Close()
 
-	c := New(server.URL)
+	c := client.New(server.URL)
 	result, err := c.ResolveProjectByPath("/home/user/project")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -158,14 +161,14 @@ func TestResolveProjectByPath(t *testing.T) {
 	if result.ProjectName != "my-project" {
 		t.Errorf("expected project name my-project, got %s", result.ProjectName)
 	}
-	if result.PathID != "p-1" {
+	if result.PathID != testProjectID {
 		t.Errorf("expected path ID p-1, got %s", result.PathID)
 	}
 }
 
 func TestUpdateWorkspace(t *testing.T) {
 	expected := &types.Workspace{
-		ID:        "p-1",
+		ID:        testProjectID,
 		ProjectID: "proj-abc",
 		Path:      "/home/user/project",
 		Label:     "updated-label",
@@ -189,16 +192,16 @@ func TestUpdateWorkspace(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expected)
+		_ = json.NewEncoder(w).Encode(expected)
 	}))
 	defer server.Close()
 
-	c := New(server.URL)
-	result, err := c.UpdateWorkspace("proj-abc", "p-1", map[string]string{"label": "updated-label"})
+	c := client.New(server.URL)
+	result, err := c.UpdateWorkspace("proj-abc", testProjectID, map[string]string{"label": "updated-label"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "p-1" {
+	if result.ID != testProjectID {
 		t.Errorf("expected ID p-1, got %s", result.ID)
 	}
 	if result.Label != "updated-label" {

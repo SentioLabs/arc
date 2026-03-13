@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -174,9 +174,9 @@ func TestRemoveLegacyConfig_NoProjectsDir(t *testing.T) {
 
 func TestIsDuplicatePathError(t *testing.T) {
 	assert.False(t, isDuplicatePathError(nil))
-	assert.True(t, isDuplicatePathError(fmt.Errorf("path already registered")))
-	assert.True(t, isDuplicatePathError(fmt.Errorf("UNIQUE constraint failed")))
-	assert.True(t, isDuplicatePathError(fmt.Errorf("duplicate entry")))
-	assert.True(t, isDuplicatePathError(fmt.Errorf("conflict on path")))
-	assert.False(t, isDuplicatePathError(fmt.Errorf("connection refused")))
+	assert.True(t, isDuplicatePathError(errors.New("path already registered")))
+	assert.True(t, isDuplicatePathError(errors.New("UNIQUE constraint failed")))
+	assert.True(t, isDuplicatePathError(errors.New("duplicate entry")))
+	assert.True(t, isDuplicatePathError(errors.New("conflict on path")))
+	assert.False(t, isDuplicatePathError(errors.New("connection refused")))
 }
