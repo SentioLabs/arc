@@ -117,6 +117,7 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 		Priority:    int64(issue.Priority),
 		IssueType:   string(issue.IssueType),
 		Assignee:    toNullString(issue.Assignee),
+		AiSessionID: toNullString(issue.AISessionID),
 		ExternalRef: toNullString(issue.ExternalRef),
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -208,6 +209,9 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 	if filter.Priority != nil {
 		params.Priority = *filter.Priority
 	}
+	if filter.AISessionID != nil {
+		params.AiSessionID = *filter.AISessionID
+	}
 	if filter.ParentID != "" {
 		params.ParentID = filter.ParentID
 	}
@@ -269,6 +273,12 @@ func (s *Store) UpdateIssue(ctx context.Context, id string, updates map[string]a
 				Assignee:  toNullString(value.(string)),
 				UpdatedAt: now,
 				ID:        id,
+			})
+		case "ai_session_id":
+			err = s.queries.UpdateIssueAISessionID(ctx, db.UpdateIssueAISessionIDParams{
+				AiSessionID: toNullString(value.(string)),
+				UpdatedAt:   now,
+				ID:          id,
 			})
 		case "external_ref":
 			err = s.queries.UpdateIssueExternalRef(ctx, db.UpdateIssueExternalRefParams{
@@ -470,6 +480,7 @@ func dbIssueToType(row *db.Issue) *types.Issue {
 		Rank:        int(row.Rank),
 		IssueType:   types.IssueType(row.IssueType),
 		Assignee:    fromNullString(row.Assignee),
+		AISessionID: fromNullString(row.AiSessionID),
 		ExternalRef: fromNullString(row.ExternalRef),
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,
