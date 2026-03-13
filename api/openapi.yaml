@@ -34,9 +34,9 @@ paths:
   # ====================
   # Projects
   # ====================
-  /workspaces:
+  /projects:
     get:
-      operationId: listWorkspaces
+      operationId: listProjects
       tags: [projects]
       summary: List all projects
       responses:
@@ -47,12 +47,12 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Workspace"
+                  $ref: "#/components/schemas/Project"
         "500":
           $ref: "#/components/responses/InternalError"
 
     post:
-      operationId: createWorkspace
+      operationId: createProject
       tags: [projects]
       summary: Create a new project
       requestBody:
@@ -60,25 +60,25 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateWorkspaceRequest"
+              $ref: "#/components/schemas/CreateProjectRequest"
       responses:
         "201":
           description: Project created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Workspace"
+                $ref: "#/components/schemas/Project"
         "400":
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}:
+  /projects/{projectId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
-      operationId: getWorkspace
+      operationId: getProject
       tags: [projects]
       summary: Get project by ID
       responses:
@@ -87,14 +87,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Workspace"
+                $ref: "#/components/schemas/Project"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 
     put:
-      operationId: updateWorkspace
+      operationId: updateProject
       tags: [projects]
       summary: Update project
       requestBody:
@@ -102,14 +102,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateWorkspaceRequest"
+              $ref: "#/components/schemas/UpdateProjectRequest"
       responses:
         "200":
           description: Project updated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Workspace"
+                $ref: "#/components/schemas/Project"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -118,7 +118,7 @@ paths:
           $ref: "#/components/responses/InternalError"
 
     delete:
-      operationId: deleteWorkspace
+      operationId: deleteProject
       tags: [projects]
       summary: Delete project
       responses:
@@ -129,12 +129,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/stats:
+  /projects/{projectId}/stats:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
-      operationId: getWorkspaceStats
+      operationId: getProjectStats
       tags: [projects]
       summary: Get project statistics
       responses:
@@ -152,9 +152,9 @@ paths:
   # ====================
   # Issues
   # ====================
-  /workspaces/{workspaceId}/issues:
+  /projects/{projectId}/issues:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: listIssues
@@ -243,9 +243,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}:
+  /projects/{projectId}/issues/{issueId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -311,9 +311,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/close:
+  /projects/{projectId}/issues/{issueId}/close:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     post:
@@ -341,9 +341,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/reopen:
+  /projects/{projectId}/issues/{issueId}/reopen:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     post:
@@ -369,9 +369,9 @@ paths:
   # ====================
   # Ready & Blocked
   # ====================
-  /workspaces/{workspaceId}/ready:
+  /projects/{projectId}/ready:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: getReadyWork
@@ -432,9 +432,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/blocked:
+  /projects/{projectId}/blocked:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: getBlockedIssues
@@ -464,9 +464,9 @@ paths:
   # ====================
   # Team Context
   # ====================
-  /workspaces/{workspaceId}/team-context:
+  /projects/{projectId}/team-context:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
 
     get:
       operationId: getTeamContext
@@ -498,9 +498,9 @@ paths:
   # ====================
   # Dependencies
   # ====================
-  /workspaces/{workspaceId}/issues/{issueId}/deps:
+  /projects/{projectId}/issues/{issueId}/deps:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -545,9 +545,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/deps/{dependsOnId}:
+  /projects/{projectId}/issues/{issueId}/deps/{dependsOnId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
       - name: dependsOnId
         in: path
@@ -660,9 +660,9 @@ paths:
   # ====================
   # Issue-Label Associations (project-scoped)
   # ====================
-  /workspaces/{workspaceId}/issues/{issueId}/labels:
+  /projects/{projectId}/issues/{issueId}/labels:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     post:
@@ -687,9 +687,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}:
+  /projects/{projectId}/issues/{issueId}/labels/{labelName}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
       - name: labelName
         in: path
@@ -715,9 +715,9 @@ paths:
   # ====================
   # Comments & Events
   # ====================
-  /workspaces/{workspaceId}/issues/{issueId}/comments:
+  /projects/{projectId}/issues/{issueId}/comments:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -764,9 +764,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/comments/{commentId}:
+  /projects/{projectId}/issues/{issueId}/comments/{commentId}:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
       - name: commentId
         in: path
@@ -808,9 +808,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /workspaces/{workspaceId}/issues/{issueId}/events:
+  /projects/{projectId}/issues/{issueId}/events:
     parameters:
-      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
@@ -842,8 +842,8 @@ paths:
 
 components:
   parameters:
-    WorkspaceId:
-      name: workspaceId
+    ProjectId:
+      name: projectId
       in: path
       required: true
       description: Project ID
@@ -943,7 +943,7 @@ components:
     # ====================
     # Project Schemas
     # ====================
-    Workspace:
+    Project:
       type: object
       required:
         - id
@@ -954,7 +954,7 @@ components:
       properties:
         id:
           type: string
-          description: Unique project ID (e.g., "ws-a1b2")
+          description: Unique project ID (e.g., "proj-a1b2")
         name:
           type: string
           description: Display name
@@ -976,7 +976,7 @@ components:
           type: string
           format: date-time
 
-    CreateWorkspaceRequest:
+    CreateProjectRequest:
       type: object
       required:
         - name
@@ -997,7 +997,7 @@ components:
           description: Issue ID prefix
           maxLength: 10
 
-    UpdateWorkspaceRequest:
+    UpdateProjectRequest:
       type: object
       properties:
         name:
@@ -1014,7 +1014,7 @@ components:
     Statistics:
       type: object
       required:
-        - workspace_id
+        - project_id
         - total_issues
         - open_issues
         - in_progress_issues
@@ -1023,7 +1023,7 @@ components:
         - deferred_issues
         - ready_issues
       properties:
-        workspace_id:
+        project_id:
           type: string
         total_issues:
           type: integer
@@ -1050,7 +1050,7 @@ components:
       type: object
       required:
         - id
-        - workspace_id
+        - project_id
         - title
         - status
         - priority
@@ -1061,7 +1061,7 @@ components:
         id:
           type: string
           description: Unique issue ID
-        workspace_id:
+        project_id:
           type: string
         title:
           type: string
@@ -1156,11 +1156,11 @@ components:
     TeamContext:
       type: object
       required:
-        - workspace
+        - project
         - roles
         - unassigned
       properties:
-        workspace:
+        project:
           type: string
           description: Project ID
         epic:

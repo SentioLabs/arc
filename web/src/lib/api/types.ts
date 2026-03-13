@@ -22,44 +22,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/merge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Merge source projects into a target project
-         * @description Moves all issues and plans from the source projects into the target
-         *     project, then deletes the source projects.
-         */
-        post: operations["mergeProjects"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Resolve a project by filesystem path */
-        get: operations["resolveProjectByPath"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/projects/{projectId}": {
         parameters: {
             query?: never;
@@ -94,67 +56,6 @@ export interface paths {
         };
         /** Get project statistics */
         get: operations["getProjectStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{projectId}/workspaces": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID */
-                projectId: components["parameters"]["ProjectId"];
-            };
-            cookie?: never;
-        };
-        /** List workspaces for a project */
-        get: operations["listWorkspaces"];
-        put?: never;
-        /** Add a workspace to a project */
-        post: operations["createWorkspace"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{projectId}/workspaces/{pathId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID */
-                projectId: components["parameters"]["ProjectId"];
-                /** @description Workspace ID */
-                pathId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a workspace from a project */
-        delete: operations["deleteWorkspace"];
-        options?: never;
-        head?: never;
-        /** Update a workspace */
-        patch: operations["updateWorkspace"];
-        trace?: never;
-    };
-    "/filesystem/browse": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Browse filesystem directories */
-        get: operations["browseFilesystem"];
         put?: never;
         post?: never;
         delete?: never;
@@ -307,7 +208,7 @@ export interface paths {
          * @description Returns issues grouped by their `teammate:*` labels. When an epic_id is
          *     provided, only children of that epic (via parent-child dependency) are
          *     included. Without epic_id, all non-closed issues with teammate labels
-         *     in the workspace are returned.
+         *     in the project are returned.
          */
         get: operations["getTeamContext"];
         put?: never;
@@ -537,10 +438,12 @@ export interface components {
         /** @enum {string} */
         EventType: "created" | "updated" | "status_changed" | "commented" | "closed" | "reopened" | "dependency_added" | "dependency_removed" | "label_added" | "label_removed";
         Project: {
-            /** @description Unique project ID (e.g., "ws-a1b2") */
+            /** @description Unique project ID (e.g., "proj-a1b2") */
             id: string;
             /** @description Display name */
             name: string;
+            /** @description Optional associated directory path */
+            path?: string;
             /** @description Project description */
             description?: string;
             /** @description Issue ID prefix (e.g., "bd") */
@@ -553,6 +456,8 @@ export interface components {
         CreateProjectRequest: {
             /** @description Display name */
             name: string;
+            /** @description Optional associated directory path */
+            path?: string;
             /** @description Project description */
             description?: string;
             /** @description Issue ID prefix */
@@ -561,23 +466,10 @@ export interface components {
         UpdateProjectRequest: {
             /** @description New display name */
             name?: string;
+            /** @description New associated directory path */
+            path?: string;
             /** @description New description */
             description?: string;
-        };
-        MergeProjectsRequest: {
-            /** @description ID of the project to merge into */
-            target_id: string;
-            /** @description IDs of projects to merge from (will be deleted) */
-            source_ids: string[];
-        };
-        MergeResult: {
-            target_project: components["schemas"]["Project"];
-            /** @description Number of issues moved to the target project */
-            issues_moved: number;
-            /** @description Number of plans moved to the target project */
-            plans_moved: number;
-            /** @description IDs of source projects that were deleted */
-            sources_deleted: string[];
         };
         Statistics: {
             project_id: string;
@@ -590,63 +482,6 @@ export interface components {
             ready_issues: number;
             /** Format: double */
             avg_lead_time_hours?: number;
-        };
-        Workspace: {
-            /** @description Unique workspace ID */
-            id: string;
-            /** @description ID of the project this workspace belongs to */
-            project_id: string;
-            /** @description Filesystem path */
-            path: string;
-            /** @description Optional human-readable label for this path */
-            label?: string;
-            /** @description Hostname where this path is located */
-            hostname?: string;
-            /** @description Git remote URL associated with this path */
-            git_remote?: string;
-            /** @description Type of path - canonical (resolved real path) or symlink (alias) */
-            path_type?: string;
-            /**
-             * Format: date-time
-             * @description When this path was last accessed
-             */
-            last_accessed_at?: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        CreateWorkspaceRequest: {
-            /** @description Filesystem path to associate */
-            path: string;
-            /** @description Optional human-readable label */
-            label?: string;
-            /** @description Hostname where path is located */
-            hostname?: string;
-            /** @description Git remote URL */
-            git_remote?: string;
-            /** @description Type of path - canonical or symlink */
-            path_type?: string;
-        };
-        UpdateWorkspaceRequest: {
-            /** @description Updated label */
-            label?: string;
-            /** @description Updated hostname */
-            hostname?: string;
-            /** @description Updated git remote URL */
-            git_remote?: string;
-            /** @description Updated path type */
-            path_type?: string;
-        };
-        BrowseEntry: {
-            /** @description Entry name */
-            name: string;
-            /** @description Full path */
-            path: string;
-            /** @description Whether this entry is a directory */
-            is_dir: boolean;
-            /** @description Whether this directory is a git repository */
-            is_git_repo: boolean;
         };
         Issue: {
             /** @description Unique issue ID */
@@ -689,7 +524,7 @@ export interface components {
         };
         TeamContext: {
             /** @description Project ID */
-            workspace: string;
+            project: string;
             epic?: components["schemas"]["TeamContextEpic"];
             /** @description Issues grouped by teammate role name */
             roles: {
@@ -840,8 +675,6 @@ export interface components {
         ProjectId: string;
         /** @description Issue ID */
         IssueId: string;
-        /** @description Workspace ID */
-        WorkspaceId: string;
         /** @description User performing the action (defaults to "anonymous") */
         ActorHeader: string;
     };
@@ -860,7 +693,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of workspaces */
+            /** @description List of projects */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -885,7 +718,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Workspace created */
+            /** @description Project created */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -895,60 +728,6 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    mergeProjects: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description User performing the action (defaults to "anonymous") */
-                "X-Actor"?: components["parameters"]["ActorHeader"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MergeProjectsRequest"];
-            };
-        };
-        responses: {
-            /** @description Merge completed successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MergeResult"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    resolveProjectByPath: {
-        parameters: {
-            query: {
-                /** @description Filesystem path to resolve */
-                path: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Resolved project workspace */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"];
-                };
-            };
-            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -993,7 +772,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Workspace updated */
+            /** @description Project updated */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1019,7 +798,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Workspace deleted */
+            /** @description Project deleted */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -1042,7 +821,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Workspace statistics */
+            /** @description Project statistics */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1052,143 +831,6 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    listWorkspaces: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID */
-                projectId: components["parameters"]["ProjectId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of workspace paths */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"][];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    createWorkspace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID */
-                projectId: components["parameters"]["ProjectId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateWorkspaceRequest"];
-            };
-        };
-        responses: {
-            /** @description Workspace path created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    deleteWorkspace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID */
-                projectId: components["parameters"]["ProjectId"];
-                /** @description Workspace ID */
-                pathId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Workspace path deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    updateWorkspace: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project ID */
-                projectId: components["parameters"]["ProjectId"];
-                /** @description Workspace ID */
-                pathId: components["parameters"]["WorkspaceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateWorkspaceRequest"];
-            };
-        };
-        responses: {
-            /** @description Workspace path updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Workspace"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    browseFilesystem: {
-        parameters: {
-            query?: {
-                /** @description Directory to browse (defaults to home directory) */
-                dir?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Directory listing */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BrowseEntry"][];
-                };
-            };
-            400: components["responses"]["BadRequest"];
             500: components["responses"]["InternalError"];
         };
     };
