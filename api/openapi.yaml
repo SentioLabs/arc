@@ -183,6 +183,11 @@ paths:
           description: Filter by assignee
           schema:
             type: string
+        - name: ai_session_id
+          in: query
+          description: Filter by AI session ID
+          schema:
+            type: string
         - name: parent_id
           in: query
           required: false
@@ -393,6 +398,11 @@ paths:
         - name: assignee
           in: query
           description: Filter by assignee
+          schema:
+            type: string
+        - name: ai_session_id
+          in: query
+          description: Filter by AI session ID
           schema:
             type: string
         - name: unassigned
@@ -1082,6 +1092,9 @@ components:
           $ref: "#/components/schemas/IssueType"
         assignee:
           type: string
+        ai_session_id:
+          type: string
+          description: AI coding session UUID (e.g., Claude Code session ID)
         created_at:
           type: string
           format: date-time
@@ -1251,6 +1264,9 @@ components:
           $ref: "#/components/schemas/IssueType"
         assignee:
           type: string
+        ai_session_id:
+          type: string
+          description: AI coding session UUID
         external_ref:
           type: string
 
@@ -1272,6 +1288,9 @@ components:
           $ref: "#/components/schemas/IssueType"
         assignee:
           type: string
+        ai_session_id:
+          type: string
+          description: AI coding session UUID
         external_ref:
           type: string
 

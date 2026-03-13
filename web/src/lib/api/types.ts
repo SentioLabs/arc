@@ -496,6 +496,8 @@ export interface components {
             rank?: number;
             issue_type: components["schemas"]["IssueType"];
             assignee?: string;
+            /** @description AI coding session UUID (e.g., Claude Code session ID) */
+            ai_session_id?: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -561,6 +563,8 @@ export interface components {
             priority: number;
             issue_type?: components["schemas"]["IssueType"];
             assignee?: string;
+            /** @description AI coding session UUID */
+            ai_session_id?: string;
             external_ref?: string;
         };
         UpdateIssueRequest: {
@@ -570,6 +574,8 @@ export interface components {
             priority?: number;
             issue_type?: components["schemas"]["IssueType"];
             assignee?: string;
+            /** @description AI coding session UUID */
+            ai_session_id?: string;
             external_ref?: string;
         };
         CloseIssueRequest: {
@@ -845,6 +851,8 @@ export interface operations {
                 priority?: number;
                 /** @description Filter by assignee */
                 assignee?: string;
+                /** @description Filter by AI session ID */
+                ai_session_id?: string;
                 /** @description Filter by parent issue ID (returns children via parent-child dependency) */
                 parent_id?: string;
                 /** @description Full-text search query */
@@ -1072,6 +1080,8 @@ export interface operations {
                 priority?: number;
                 /** @description Filter by assignee */
                 assignee?: string;
+                /** @description Filter by AI session ID */
+                ai_session_id?: string;
                 /** @description Filter for unassigned issues only */
                 unassigned?: boolean;
                 /** @description Maximum results to return */
