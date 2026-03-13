@@ -39,12 +39,15 @@ Add `ai_session_id TEXT` to the `issues` table definition.
 
 ### sqlc Queries (`db/queries/issues.sql`)
 
-- Add `ai_session_id` to `CreateIssue` INSERT column list
+- Add `ai_session_id` to `CreateIssue` INSERT column list and VALUES
+- Add `i.ai_session_id` to the `ListIssuesFiltered` SELECT column list (it uses explicit columns, not `SELECT *`)
+- Add filter clause to `ListIssuesFiltered`: `AND (sqlc.narg('ai_session_id') IS NULL OR i.ai_session_id = sqlc.narg('ai_session_id'))`
+- `GetIssue` and `SearchIssues` use `SELECT *` so they pick up the new column automatically
+- `GetReadyIssuesHybrid`, `GetReadyIssuesPriority`, `GetReadyIssuesOldest` use `SELECT i.*` — verify after `make gen` that the generated code includes the new column
 - Add new query `UpdateIssueAISessionID`:
   ```sql
   UPDATE issues SET ai_session_id = ?, updated_at = ? WHERE id = ?;
   ```
-- `ListIssuesFiltered` and `GetIssue` use `SELECT *` so they pick up the new column automatically
 
 ### Types (`internal/types/types.go`)
 
@@ -53,9 +56,13 @@ Add to `Issue` struct:
 AISessionID string `json:"ai_session_id,omitempty"`
 ```
 
+Add `AISessionID *string` to `IssueFilter` only (not `WorkFilter` — ready-work queries don't need session filtering).
+
 ### Storage (`internal/storage/sqlite/issues.go`)
 
-Handle `"ai_session_id"` key in the `UpdateIssue` switch statement, calling the new `UpdateIssueAISessionID` query.
+- Handle `"ai_session_id"` key in the `UpdateIssue` switch statement, calling the new `UpdateIssueAISessionID` query
+- Update `dbIssueToType` mapping function to copy `row.AiSessionID` to `types.Issue.AISessionID`
+- Update `CreateIssue` call site to populate the new `AiSessionID` field in `CreateIssueParams`
 
 ## API Layer
 
@@ -71,9 +78,9 @@ Handle `"ai_session_id"` key in the `UpdateIssue` switch statement, calling the 
 - Handle `"ai_session_id"` in the update map
 - Read `ai_session_id` query param for list filtering
 
-### Filter types (`internal/types/types.go`)
+### Filter types
 
-- Add `AISessionID *string` to `IssueFilter` and `ReadyFilter`
+Handled in the Types section above — `AISessionID *string` on `IssueFilter` only.
 
 ## CLI Layer
 
@@ -100,10 +107,13 @@ Display `AI Session: <uuid>` when `ai_session_id` is set in the issue detail out
 
 On startup:
 1. Check if stdin is a pipe (not TTY) via `os.Stdin.Stat()` — check for absence of `os.ModeCharDevice`
-2. If piped, read stdin with short timeout, parse as JSON
+2. If piped, read all of stdin (it's a small JSON blob), parse as JSON. Use a 2-second read deadline to avoid hanging on a pipe that never closes.
 3. Extract `session_id` from payload
-4. If `$CLAUDE_ENV_FILE` is set and `session_id` is present, append `export ARC_SESSION_ID=<session_id>` to that file
-5. If parsing fails or stdin is TTY, silently continue
+4. Validate `session_id` matches UUID format (`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`) before writing to env file — prevents shell injection via malformed session IDs
+5. If `$CLAUDE_ENV_FILE` is set and `session_id` is valid, write `export ARC_SESSION_ID=<session_id>` to that file. Use write (not append) or check for existing `ARC_SESSION_ID` line to ensure idempotency — `arc prime` may be called on both SessionStart and PreCompact in the same session
+6. If parsing fails or stdin is TTY, silently continue
+
+**Assumption:** Claude Code creates independent stdin pipes per hook command. If another hook in the same event consumes stdin first, `arc prime` will get empty input and silently fall back to `$ARC_SESSION_ID` from the environment (which would already be set if SessionStart succeeded).
 
 ### `arc prime` output
 
