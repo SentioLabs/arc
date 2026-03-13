@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.12.0](https://github.com/SentioLabs/arc/compare/v0.11.2...v0.12.0) (2026-03-13)
+
+
+### Features
+
+* add arc db backup command with semver-aware pre-update backups ([23a71e5](https://github.com/SentioLabs/arc/commit/23a71e54f9a5aac56b940129459211de38d963bf))
+* add workspace merge CLI command and git worktree detection ([7bbd0c7](https://github.com/SentioLabs/arc/commit/7bbd0c7973e82d6639ac0071ad32a05e594ec399))
+* **api:** add filesystem browse endpoint for web UI path picker ([71ea3d7](https://github.com/SentioLabs/arc/commit/71ea3d7fec81a305e3ad89dd255c46b4b78f1017))
+* **api:** add workspace merge endpoint ([23ebb2e](https://github.com/SentioLabs/arc/commit/23ebb2e2290068f78767c5ed6b0fcb504e3e8acb))
+* **api:** add workspace paths REST endpoints ([035e1bd](https://github.com/SentioLabs/arc/commit/035e1bd7103ee6df9a09f1c4f0b1199865beeac4))
+* **ci:** add GitHub Actions test workflow ([bdd5d5b](https://github.com/SentioLabs/arc/commit/bdd5d5b6519751e588bfd23ec3a043793508c008))
+* **cli:** add arc migrate-paths for one-time path migration ([cda98ba](https://github.com/SentioLabs/arc/commit/cda98ba4597f38acc4c7046f92ab9679e58b9deb))
+* **cli:** add arc paths command for path management ([73ed6f9](https://github.com/SentioLabs/arc/commit/73ed6f9320d8ef7823f4c076fa685466abd72449))
+* **cli:** add workspace merge command ([760a5f0](https://github.com/SentioLabs/arc/commit/760a5f0abd7113c6524ab1cc99e864187d24e1da))
+* **cli:** add worktree auto-detection to workspace resolution ([af6156f](https://github.com/SentioLabs/arc/commit/af6156fd62223dcab23512091eb24b25dfceff9b))
+* **cli:** color-code priority badges instead of ambiguous filled/empty dots ([2e600d3](https://github.com/SentioLabs/arc/commit/2e600d39c79fdd559108a356b40742b83572ad29))
+* **client:** add workspace paths client methods ([a4ea0a5](https://github.com/SentioLabs/arc/commit/a4ea0a5c246120c50fdb62ed95a424c52ded4955))
+* **cli:** support name-based workspace lookup in arc init ([cef2103](https://github.com/SentioLabs/arc/commit/cef2103bd6d9c1874cfaf30b527c35c2ee144e53))
+* **cli:** use server-side path registration and resolution ([1289cd1](https://github.com/SentioLabs/arc/commit/1289cd142d54903d72cab69836eaa97f42f2cf4e))
+* **plugin:** add eval suite and optimize skill descriptions ([5dc5d9e](https://github.com/SentioLabs/arc/commit/5dc5d9ec2c7d2c22e727b2d4283da2a583cea40a))
+* **plugin:** add gate check phase to arc-implementer agent ([3e9d776](https://github.com/SentioLabs/arc/commit/3e9d776ec5361cbb35c6b88e61d3dcf61add409c))
+* **plugin:** add integration test checkpoint to implement skill ([24c843b](https://github.com/SentioLabs/arc/commit/24c843b0a147eb8c29c5ad1da578e01de3457301))
+* **plugin:** add quality gate to arc-implementer agent ([29db89e](https://github.com/SentioLabs/arc/commit/29db89e37e649ead0aff82b24bc9c6413492792e))
+* project rename, dashboard card redesign, and list view two-line layout ([ed9c18b](https://github.com/SentioLabs/arc/commit/ed9c18b006ec0e6665789978d2d26dbe37a0738c))
+* **project:** add DetectWorktreeMainRepo for git worktree detection ([6b1f593](https://github.com/SentioLabs/arc/commit/6b1f59363e29b89556f413cf370a9ca13c4cd459))
+* **storage:** add workspace merge with transaction safety ([4420cd5](https://github.com/SentioLabs/arc/commit/4420cd5c3832802304995ada05a484b0ea0c0321))
+* **storage:** implement workspace paths SQLite storage ([d77563c](https://github.com/SentioLabs/arc/commit/d77563c43aa91afab485783c97a1173f908d84c8))
+* symlink-aware path resolution with three-tier workspace lookup ([2908262](https://github.com/SentioLabs/arc/commit/290826244c7a929dacbe391c9f37927d3f6e8823))
+* **test:** add docker compose test profile and orchestration script ([e68b19e](https://github.com/SentioLabs/arc/commit/e68b19ee04861c76622d512e6aff131cb7a969c9))
+* **test:** add Go integration test helpers and initial CLI tests ([e90ff9f](https://github.com/SentioLabs/arc/commit/e90ff9fe5ca044ae0d958e2116447d2d28da2866))
+* **test:** add Playwright E2E config and smoke test ([c99b97b](https://github.com/SentioLabs/arc/commit/c99b97b2f73e81d9a70f40385e81d487762146f4))
+* **web:** add filesystem browser for path selection ([77996fc](https://github.com/SentioLabs/arc/commit/77996fc4a143cdb7104ac14cdb23059d185b5921))
+* **web:** add workspace merge UI ([3500c79](https://github.com/SentioLabs/arc/commit/3500c79250a4758e99789cf2d7c42b3a97f86217))
+* **web:** add workspace paths display and management to workspace cards ([2bcc15b](https://github.com/SentioLabs/arc/commit/2bcc15b15deb6c563f8ee6a5a9901f378efccafc))
+* **web:** add workspace paths reporting dashboard ([b223b55](https://github.com/SentioLabs/arc/commit/b223b552d95e076ce06b2238edcd76c5c7e92bd2))
+* **web:** redesign workspace detail with paths section and actions menu ([77cff68](https://github.com/SentioLabs/arc/commit/77cff683df2f0bff4fa054f66a3a93360665161a))
+* **workspace-paths:** add path_type column to distinguish symlinks from canonical paths ([3db00f8](https://github.com/SentioLabs/arc/commit/3db00f81acb4dc031522fc5f44ec1da3f4a8c5b9))
+* **workspace-paths:** add shared contracts, migration, and code generation for multi-directory workspaces ([fc79b5c](https://github.com/SentioLabs/arc/commit/fc79b5c331c3a12a9aa91c765b0bcd03a7ea2ba9))
+
+
+### Bug Fixes
+
+* address code review findings from CLAUDE_REVIEW.md ([6e5b3e3](https://github.com/SentioLabs/arc/commit/6e5b3e35aac33810ea0e3031be21a39e44520a08))
+* **ci:** bump golangci-lint to v2.11.2 to match local version ([c4720e9](https://github.com/SentioLabs/arc/commit/c4720e96807a3104f9faa10ff811740ddd5b7d94))
+* **ci:** upgrade golangci-lint-action to v7 for v2.x support ([c1a8ee7](https://github.com/SentioLabs/arc/commit/c1a8ee7e68f2affaa35744a1b046c7d62a2aaecd))
+* **ci:** upgrade setup-go to v6 and golangci-lint to v2.1 with goinstall ([a7c0627](https://github.com/SentioLabs/arc/commit/a7c0627936b9fda2dfa5363d56bc6faaf0bd7b9d))
+* **ci:** use golangci-lint v2.10.1 binary instead of goinstall ([8e1db07](https://github.com/SentioLabs/arc/commit/8e1db071d46ad24734ad4d557e5dadba48f392db))
+* **cli:** normalize symlinks and add server fallback for workspace resolution ([e6104e1](https://github.com/SentioLabs/arc/commit/e6104e101e077fea01830fe06903c303dbb4ed46))
+* correct path_type on existing paths and align manage paths UI ([2bbff27](https://github.com/SentioLabs/arc/commit/2bbff27557dbda7daf70d66701c9b95d56f9e093))
+* **e2e:** add sync points to workspace CRUD tests to prevent flaky failures ([a61644f](https://github.com/SentioLabs/arc/commit/a61644f940478cc7be89e5848a7f4df38c8f31dd))
+* **e2e:** fix labels tests to use shared fixtures API ([0f4491c](https://github.com/SentioLabs/arc/commit/0f4491c357d915239ef2d6a7d202f9e71df191cc))
+* **e2e:** fix Playwright test infrastructure ([af1cf96](https://github.com/SentioLabs/arc/commit/af1cf9622996d5094ff3e8f662c3a9d3163c44d2))
+* **integration:** fix test isolation and assertion issues ([94960ea](https://github.com/SentioLabs/arc/commit/94960ea6693f8a46c1e5a5c94f2f46406b564bb1))
+* **lint:** resolve all golangci-lint warnings ([2e10639](https://github.com/SentioLabs/arc/commit/2e106390002c28b99d6a1855b0577ac8a8744149))
+* remove deprecated project references and fix test imports ([e92279b](https://github.com/SentioLabs/arc/commit/e92279bf50f835fe868d060ee3db664f2bc4c606))
+* remove language key ([6488d11](https://github.com/SentioLabs/arc/commit/6488d112ead4ffaba00194ce9be2644f67158050))
+* remove leftover project.CleanupWorkspaceConfigs reference in merge handler ([6126ab3](https://github.com/SentioLabs/arc/commit/6126ab313918b8d4769d8c48e2c7d687c0a473db))
+* remove old workspace_ops_test.go (renamed to project_ops_test.go) ([46c6341](https://github.com/SentioLabs/arc/commit/46c63417bac6987f4cade9af2168026b6e38be54))
+* resolve all golangci-lint errors across codebase ([852efbb](https://github.com/SentioLabs/arc/commit/852efbb15ba404f48e3a7693814caf3355c645c5))
+* resolve flag collision, add worktree detection, update docs ([3aa39fe](https://github.com/SentioLabs/arc/commit/3aa39fe825d0750d192a42357e3ce64f0566be76))
+* **web:** resolve all check and lint errors ([cc88a5c](https://github.com/SentioLabs/arc/commit/cc88a5c1efcf2d89f2241a526351646decbd9099))
+* **workspace:** normalize cwd in resolveWorkspace to handle symlinks ([ce1970e](https://github.com/SentioLabs/arc/commit/ce1970ef58f00a9ef86d99857c0e1f4d6d8896ff))
+
+
+### Refactoring
+
+* **api:** complete workspace→project rename in API layer (T2) ([7f8dfad](https://github.com/SentioLabs/arc/commit/7f8dfad6e93d9a0a6d9f23f692a74f0971e6d017))
+* **api:** rename routes from /workspaces/ to /projects/ ([776fd18](https://github.com/SentioLabs/arc/commit/776fd18e444e066f4f19ecac3f38620483c92110))
+* **cli:** complete workspace→project rename in CLI layer (T4) ([eee5e5f](https://github.com/SentioLabs/arc/commit/eee5e5fa62ef7624ee3a19af71f52d046ef277c8))
+* **client:** rename methods and routes workspace→project ([034d647](https://github.com/SentioLabs/arc/commit/034d647d3a37c85c358b0a7351436eb279c9230a))
+* **cli:** rename commands and flags workspace→project ([c168f89](https://github.com/SentioLabs/arc/commit/c168f89f9c6f4590125b5f0abae24a7169e6fb97))
+* code review cleanup for workspace paths feature ([3c33f98](https://github.com/SentioLabs/arc/commit/3c33f980a1896e1e69e285ec27d2d53560f511fe))
+* rename workspace-&gt;project types, interface, and schema (T0 foundation) ([c359ca2](https://github.com/SentioLabs/arc/commit/c359ca27d8609d36e49ddbc48c2ae053f2ca93af))
+* rename workspace→project in OpenAPI spec and regenerate ([14f6df5](https://github.com/SentioLabs/arc/commit/14f6df547bd4bf3e3a0acf1aaea46db4dfddf6b3))
+* **storage:** rename sqlite implementation workspace-&gt;project ([15ef805](https://github.com/SentioLabs/arc/commit/15ef80571320889608820dd6dd96451c9a69273e))
+* **tests:** rename workspace to project terminology in integration tests ([0669715](https://github.com/SentioLabs/arc/commit/066971545b4684e744dff1e1115961b88490b214))
+* **web:** fix remaining workspace→project label in ConfirmDialog (T5) ([a71a30a](https://github.com/SentioLabs/arc/commit/a71a30a1863c4984201167cf288c7e06095f1f4a))
+* **web:** rename workspace to project in SvelteKit frontend ([cd4dc58](https://github.com/SentioLabs/arc/commit/cd4dc584922bc3d144297104f5001ee79563d8c5))
+* **web:** rename workspace-&gt;project in SvelteKit frontend ([4c6b576](https://github.com/SentioLabs/arc/commit/4c6b5760bfdee06f4bf900866ea614f55bf46aa4))
+
 ## [0.11.2](https://github.com/SentioLabs/arc/compare/v0.11.1...v0.11.2) (2026-03-10)
 
 
