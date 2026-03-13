@@ -47,14 +47,20 @@ Workflow customization:
 		}
 		normalizedCwd := project.NormalizePath(cwd)
 
-		c, err := getClient()
-		if err != nil {
-			os.Exit(0)
+		// Try server-based resolution first, fall back to legacy config
+		arcConfigured := false
+		c, clientErr := getClient()
+		if clientErr == nil {
+			if _, err := c.ResolveProjectByPath(normalizedCwd); err == nil {
+				arcConfigured = true
+			}
 		}
-		if _, err := c.ResolveProjectByPath(normalizedCwd); err != nil {
-			// Not in an arc project - silent exit with success
-			// This enables cross-platform hook integration
-			os.Exit(0)
+		if !arcConfigured {
+			// Fall back to legacy config check (works offline)
+			arcHome := project.DefaultArcHome()
+			if cfg, err := readLegacyConfig(arcHome, cwd); err != nil || cfg == nil {
+				os.Exit(0)
+			}
 		}
 
 		// Check for custom PRIME.md override

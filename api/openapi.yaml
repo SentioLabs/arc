@@ -15,7 +15,7 @@ servers:
     description: API v1
 
 tags:
-  - name: workspaces
+  - name: projects
     description: Project management
   - name: issues
     description: Issue CRUD and lifecycle operations
@@ -37,7 +37,7 @@ paths:
   /workspaces:
     get:
       operationId: listWorkspaces
-      tags: [workspaces]
+      tags: [projects]
       summary: List all projects
       responses:
         "200":
@@ -53,7 +53,7 @@ paths:
 
     post:
       operationId: createWorkspace
-      tags: [workspaces]
+      tags: [projects]
       summary: Create a new project
       requestBody:
         required: true
@@ -79,7 +79,7 @@ paths:
 
     get:
       operationId: getWorkspace
-      tags: [workspaces]
+      tags: [projects]
       summary: Get project by ID
       responses:
         "200":
@@ -95,7 +95,7 @@ paths:
 
     put:
       operationId: updateWorkspace
-      tags: [workspaces]
+      tags: [projects]
       summary: Update project
       requestBody:
         required: true
@@ -119,7 +119,7 @@ paths:
 
     delete:
       operationId: deleteWorkspace
-      tags: [workspaces]
+      tags: [projects]
       summary: Delete project
       responses:
         "204":
@@ -135,7 +135,7 @@ paths:
 
     get:
       operationId: getWorkspaceStats
-      tags: [workspaces]
+      tags: [projects]
       summary: Get project statistics
       responses:
         "200":

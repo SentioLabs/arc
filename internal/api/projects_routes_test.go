@@ -29,7 +29,7 @@ func TestProjectRoutes(t *testing.T) {
 		t.Fatalf("POST /api/v1/projects returned %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	var ws types.Workspace
+	var ws types.Project
 	if err := json.Unmarshal(rec.Body.Bytes(), &ws); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestProjectScopedIssueRoutes(t *testing.T) {
 		t.Fatalf("failed to create project: %s", rec.Body.String())
 	}
 
-	var ws types.Workspace
+	var ws types.Project
 	if err := json.Unmarshal(rec.Body.Bytes(), &ws); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}

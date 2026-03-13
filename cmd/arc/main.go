@@ -190,8 +190,8 @@ func getProjectID() (string, error) {
 // resolveProject returns the project ID, source, and error.
 // Resolution priority:
 //  1. CLI flag (--project) - explicit override always works
-//  2. Project config (~/.arc/projects/<path>/config.json)
-//  3. Server path matching (handles containers/mounts without local config)
+//  2. Server path matching (exact, normalized, worktree, then subdirectory)
+//  3. Legacy config fallback (~/.arc/projects/ configs from before server-side paths)
 //
 // If none is available, an error is returned. There is no global fallback
 // to prevent accidentally operating in the wrong project.
@@ -228,7 +228,7 @@ func resolveProject() (wsID string, source ProjectSource, warning string, err er
 }
 
 // resolveFromServer attempts to resolve the project by querying the server.
-// Tries the cwd, then normalized path, then git worktree main repo path.
+// Tries exact path, normalized path, git worktree, then subdirectory matching.
 func resolveFromServer(cwd string) (string, error) {
 	c, err := getClient()
 	if err != nil {
@@ -257,6 +257,22 @@ func resolveFromServer(cwd string) (string, error) {
 		if normalizedRepo != mainRepo {
 			if res, resolveErr := c.ResolveProjectByPath(normalizedRepo); resolveErr == nil && res.ProjectID != "" {
 				return res.ProjectID, nil
+			}
+		}
+	}
+
+	// Fall back to subdirectory matching — check if cwd is inside a registered path
+	projects, listErr := c.ListProjects()
+	if listErr == nil {
+		for _, proj := range projects {
+			workspaces, wsErr := c.ListWorkspaces(proj.ID)
+			if wsErr != nil {
+				continue
+			}
+			for _, ws := range workspaces {
+				if isSubdirectory(ws.Path, cwd) || isSubdirectory(ws.Path, normalizedCwd) {
+					return proj.ID, nil
+				}
 			}
 		}
 	}

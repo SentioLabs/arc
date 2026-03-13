@@ -66,8 +66,8 @@ func (s *Server) createWorkspace(c echo.Context) error {
 	}
 
 	if err := s.store.CreateWorkspace(ctx, ws); err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			return errorJSON(c, http.StatusConflict, err.Error())
+		if strings.Contains(err.Error(), "UNIQUE constraint") || strings.Contains(err.Error(), "already exists") {
+			return errorJSON(c, http.StatusConflict, "path already exists for this project")
 		}
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}

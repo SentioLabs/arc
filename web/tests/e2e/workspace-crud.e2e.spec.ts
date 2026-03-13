@@ -149,7 +149,7 @@ test.describe('Workspace CRUD', () => {
 			).toBeVisible();
 
 			// Type the test workspace name in search (scope to main to avoid sidebar search)
-			const searchInput = main.getByPlaceholder('Search workspaces...');
+			const searchInput = main.getByPlaceholder('Search projects...');
 			await searchInput.fill(testWorkspace.name);
 
 			// testWorkspace should be visible, other should not
@@ -190,8 +190,8 @@ test.describe('Workspace CRUD', () => {
 	});
 
 	test('empty state shows when no workspaces', async ({ page }) => {
-		// First, clean up all workspaces
-		const res = await fetch('http://localhost:7433/api/v1/workspaces');
+		// First, clean up all projects
+		const res = await fetch('http://localhost:7433/api/v1/projects');
 		const allWs = (await res.json()) as { id: string }[];
 		for (const ws of allWs) {
 			await deleteTestWorkspace(ws.id).catch(() => {});
@@ -201,7 +201,7 @@ test.describe('Workspace CRUD', () => {
 		await page.goto('/');
 		const main = page.locator('main');
 		await expect(
-			main.getByRole('heading', { name: 'No workspaces yet' }),
+			main.getByRole('heading', { name: 'No projects yet' }),
 		).toBeVisible({ timeout: 10000 });
 	});
 });

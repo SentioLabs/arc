@@ -151,10 +151,10 @@ func runPathsAdd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Determine path type by checking if the path is a symlink
+	// Determine path type by checking if the original path differs from resolved
 	pathType := "canonical"
 	resolved, evalErr := filepath.EvalSymlinks(dir)
-	if evalErr == nil && resolved != normalizedPath {
+	if evalErr == nil && resolved != dir {
 		pathType = "symlink"
 	}
 
