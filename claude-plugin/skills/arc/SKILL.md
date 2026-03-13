@@ -12,8 +12,8 @@ Track complex, multi-session work with a central issue tracking system.
 **For Claude Code users** (recommended):
 1. Install the arc plugin (provides hooks, skills, agents)
 2. Run `arc onboard` in any project - it will:
-   - Detect existing project from project config (`~/.arc/projects/`)
-   - Or recover project from server if local config is missing
+   - Resolve project from server-side path registration (primary mechanism)
+   - Or detect from local project config (`~/.arc/projects/`)
    - Or prompt you to run `arc init` for new projects
 
 **For non-Claude users**:
@@ -72,7 +72,7 @@ After `plan`, choose:
 
 Run `arc onboard` at session start to get project context and available issues.
 
-**Project Recovery**: If project config is missing but the project exists on the server (by directory path), `arc onboard` will automatically restore the local configuration. The server is the source of truth.
+**Project Recovery**: If local project config is missing, `arc onboard` resolves the project via server-side path registration. The server is the source of truth for project-to-directory mappings.
 
 ## CLI Reference
 
@@ -86,7 +86,11 @@ Run `arc prime` for full workflow context, or `arc <command> --help` for specifi
 - `arc show` - View details
 - `arc dep` - Manage dependencies
 - `arc plan` - Manage plans (inline, shared)
-- `arc which` - Show active project
+- `arc which` - Show active project and resolution source
+- `arc paths` - Manage workspace path registrations
+- `arc project` - Manage projects (list, create, delete, rename, merge)
+- `arc self update` - Update arc CLI to latest version
+- `arc db backup` - Create database backup
 
 ## Deep Dive Documentation
 

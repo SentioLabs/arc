@@ -13,9 +13,10 @@ arc init my-project -p cxsh     # Both custom name and prefix
 ```
 
 This command:
-1. Creates a project on the arc server
-2. Saves project config to `~/.arc/projects/`
-3. Creates AGENTS.md with workflow instructions
+1. Creates a project on the arc server (or connects to existing)
+2. Registers the current directory as a workspace path on the server
+3. Saves project config to `~/.arc/projects/`
+4. Creates AGENTS.md with workflow instructions
 
 **Flags:**
 - `--prefix`, `-p`: Custom issue prefix basename (alphanumeric, max 10 chars). Gets normalized (lowercased, special chars stripped) and combined with a hash suffix for uniqueness.

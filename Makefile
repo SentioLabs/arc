@@ -113,9 +113,15 @@ release-snapshot: ## Build release snapshot locally (no tag required)
 	goreleaser release --snapshot --clean
 
 .PHONY: install
-install: ## Install unified binary to GOPATH/bin
-	@echo "==> Installing arc binary..."
-	$(GO) install ./cmd/arc
+install: build ## Install arc binary to ~/.local/bin (restarts server)
+	@echo "==> Stopping arc server..."
+	-$(CLI_BIN) server stop 2>/dev/null
+	@echo "==> Installing arc binary to ~/.local/bin..."
+	@mkdir -p $(HOME)/.local/bin
+	cp $(CLI_BIN) $(HOME)/.local/bin/arc
+	@echo "==> Starting arc server..."
+	$(HOME)/.local/bin/arc server start
+	@echo "==> Installed: $$($(HOME)/.local/bin/arc --version)"
 
 # ===========================================================================
 # Testing & Quality

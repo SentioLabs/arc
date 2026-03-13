@@ -38,14 +38,20 @@ Arc is a central issue tracking system for AI-assisted coding workflows.
 
 ## Quick Reference
 
-  arc onboard           - Get workspace orientation
+  arc onboard           - Get project orientation
   arc ready             - Find available work
   arc create "title"    - Create new issue
   arc show <id>         - View issue details
   arc close <id>        - Complete an issue
   arc plan set <id>     - Set inline plan on issue
   arc plan show <id>    - View all plans for issue
-  arc which             - Show active workspace
+  arc which             - Show active project
+  arc paths             - Manage workspace path registrations
+  arc project list      - List all projects
+  arc project rename    - Rename current project
+  arc project merge     - Merge projects together
+  arc db backup         - Create database backup
+  arc self update       - Update arc CLI
 
 ## More Help
 
