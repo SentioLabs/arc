@@ -78,9 +78,9 @@ func (q *Queries) CountIssuesByStatus(ctx context.Context, arg CountIssuesByStat
 const createIssue = `-- name: CreateIssue :exec
 INSERT INTO issues (
     id, project_id, title, description,
-    status, priority, issue_type, assignee, external_ref,
+    status, priority, issue_type, assignee, ai_session_id, external_ref,
     created_at, updated_at, closed_at, close_reason
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateIssueParams struct {
@@ -92,6 +92,7 @@ type CreateIssueParams struct {
 	Priority    int64          `json:"priority"`
 	IssueType   string         `json:"issue_type"`
 	Assignee    sql.NullString `json:"assignee"`
+	AiSessionID sql.NullString `json:"ai_session_id"`
 	ExternalRef sql.NullString `json:"external_ref"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
@@ -109,6 +110,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) error 
 		arg.Priority,
 		arg.IssueType,
 		arg.Assignee,
+		arg.AiSessionID,
 		arg.ExternalRef,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -128,7 +130,7 @@ func (q *Queries) DeleteIssue(ctx context.Context, id string) error {
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE id = ?
+SELECT id, project_id, title, description, status, priority, issue_type, assignee, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE id = ?
 `
 
 func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
@@ -143,6 +145,7 @@ func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
 		&i.Priority,
 		&i.IssueType,
 		&i.Assignee,
+		&i.AiSessionID,
 		&i.ExternalRef,
 		&i.Rank,
 		&i.CreatedAt,
@@ -154,7 +157,7 @@ func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
 }
 
 const getIssueByExternalRef = `-- name: GetIssueByExternalRef :one
-SELECT id, project_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE external_ref = ?
+SELECT id, project_id, title, description, status, priority, issue_type, assignee, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE external_ref = ?
 `
 
 func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.NullString) (*Issue, error) {
@@ -169,6 +172,7 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 		&i.Priority,
 		&i.IssueType,
 		&i.Assignee,
+		&i.AiSessionID,
 		&i.ExternalRef,
 		&i.Rank,
 		&i.CreatedAt,
@@ -180,7 +184,7 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 }
 
 const getOpenNonBlockedIssues = `-- name: GetOpenNonBlockedIssues :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.project_id = ?
@@ -214,6 +218,7 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 			&i.Priority,
 			&i.IssueType,
 			&i.Assignee,
+			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
 			&i.CreatedAt,
@@ -235,7 +240,7 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 }
 
 const getReadyIssuesHybrid = `-- name: GetReadyIssuesHybrid :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.project_id = ?
@@ -282,6 +287,7 @@ func (q *Queries) GetReadyIssuesHybrid(ctx context.Context, arg GetReadyIssuesHy
 			&i.Priority,
 			&i.IssueType,
 			&i.Assignee,
+			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
 			&i.CreatedAt,
@@ -303,7 +309,7 @@ func (q *Queries) GetReadyIssuesHybrid(ctx context.Context, arg GetReadyIssuesHy
 }
 
 const getReadyIssuesOldest = `-- name: GetReadyIssuesOldest :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.project_id = ?
@@ -339,6 +345,7 @@ func (q *Queries) GetReadyIssuesOldest(ctx context.Context, arg GetReadyIssuesOl
 			&i.Priority,
 			&i.IssueType,
 			&i.Assignee,
+			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
 			&i.CreatedAt,
@@ -360,7 +367,7 @@ func (q *Queries) GetReadyIssuesOldest(ctx context.Context, arg GetReadyIssuesOl
 }
 
 const getReadyIssuesPriority = `-- name: GetReadyIssuesPriority :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.project_id = ?
@@ -399,6 +406,7 @@ func (q *Queries) GetReadyIssuesPriority(ctx context.Context, arg GetReadyIssues
 			&i.Priority,
 			&i.IssueType,
 			&i.Assignee,
+			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
 			&i.CreatedAt,
@@ -421,7 +429,7 @@ func (q *Queries) GetReadyIssuesPriority(ctx context.Context, arg GetReadyIssues
 
 const listIssuesFiltered = `-- name: ListIssuesFiltered :many
 SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
-       i.issue_type, i.assignee, i.external_ref, i.rank,
+       i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank,
        i.created_at, i.updated_at, i.closed_at, i.close_reason
 FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
@@ -429,21 +437,23 @@ WHERE i.project_id = ?1
   AND (?2 IS NULL OR i.status = ?2)
   AND (?3 IS NULL OR i.issue_type = ?3)
   AND (?4 IS NULL OR i.assignee = ?4)
-  AND (?5 IS NULL OR i.priority = ?5)
-  AND (?6 IS NULL OR d.depends_on_id = ?6)
+  AND (?5 IS NULL OR i.ai_session_id = ?5)
+  AND (?6 IS NULL OR i.priority = ?6)
+  AND (?7 IS NULL OR d.depends_on_id = ?7)
 ORDER BY i.priority ASC, i.updated_at DESC
-LIMIT ?8 OFFSET ?7
+LIMIT ?9 OFFSET ?8
 `
 
 type ListIssuesFilteredParams struct {
-	ProjectID string      `json:"project_id"`
-	Status    interface{} `json:"status"`
-	IssueType interface{} `json:"issue_type"`
-	Assignee  interface{} `json:"assignee"`
-	Priority  interface{} `json:"priority"`
-	ParentID  interface{} `json:"parent_id"`
-	Offset    int64       `json:"offset"`
-	Limit     int64       `json:"limit"`
+	ProjectID   string      `json:"project_id"`
+	Status      interface{} `json:"status"`
+	IssueType   interface{} `json:"issue_type"`
+	Assignee    interface{} `json:"assignee"`
+	AiSessionID interface{} `json:"ai_session_id"`
+	Priority    interface{} `json:"priority"`
+	ParentID    interface{} `json:"parent_id"`
+	Offset      int64       `json:"offset"`
+	Limit       int64       `json:"limit"`
 }
 
 // Composable filter query: all optional params use sqlc.narg so NULL means "skip this filter".
@@ -454,6 +464,7 @@ func (q *Queries) ListIssuesFiltered(ctx context.Context, arg ListIssuesFiltered
 		arg.Status,
 		arg.IssueType,
 		arg.Assignee,
+		arg.AiSessionID,
 		arg.Priority,
 		arg.ParentID,
 		arg.Offset,
@@ -475,6 +486,7 @@ func (q *Queries) ListIssuesFiltered(ctx context.Context, arg ListIssuesFiltered
 			&i.Priority,
 			&i.IssueType,
 			&i.Assignee,
+			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
 			&i.CreatedAt,
@@ -515,7 +527,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, description, status, priority, issue_type, assignee, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, project_id, title, description, status, priority, issue_type, assignee, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
 WHERE project_id = ?
   AND (title LIKE ? OR description LIKE ?)
 ORDER BY priority ASC, updated_at DESC
@@ -554,6 +566,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]*
 			&i.Priority,
 			&i.IssueType,
 			&i.Assignee,
+			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
 			&i.CreatedAt,
@@ -572,6 +585,21 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]*
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateIssueAISessionID = `-- name: UpdateIssueAISessionID :exec
+UPDATE issues SET ai_session_id = ?, updated_at = ? WHERE id = ?
+`
+
+type UpdateIssueAISessionIDParams struct {
+	AiSessionID sql.NullString `json:"ai_session_id"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	ID          string         `json:"id"`
+}
+
+func (q *Queries) UpdateIssueAISessionID(ctx context.Context, arg UpdateIssueAISessionIDParams) error {
+	_, err := q.db.ExecContext(ctx, updateIssueAISessionID, arg.AiSessionID, arg.UpdatedAt, arg.ID)
+	return err
 }
 
 const updateIssueAssignee = `-- name: UpdateIssueAssignee :exec

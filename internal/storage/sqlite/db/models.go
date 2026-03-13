@@ -70,6 +70,7 @@ type Issue struct {
 	Priority    int64          `json:"priority"`
 	IssueType   string         `json:"issue_type"`
 	Assignee    sql.NullString `json:"assignee"`
+	AiSessionID sql.NullString `json:"ai_session_id"`
 	ExternalRef sql.NullString `json:"external_ref"`
 	Rank        int64          `json:"rank"`
 	CreatedAt   time.Time      `json:"created_at"`
