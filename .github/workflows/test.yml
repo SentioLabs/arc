@@ -30,8 +30,7 @@ jobs:
       - name: Run linter
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v2.1
-          install-mode: goinstall
+          version: v2.10.1
 
   integration-tests:
     needs: unit-tests
