@@ -1,7 +1,5 @@
 // Package main provides the plan management commands for the arc CLI.
-// Plans come in three flavours: inline plans attached to a single issue,
-// parent-epic plans inherited through parent-child dependencies, and
-// shared plans that can be linked to multiple issues.
+// Plans are attached to individual issues and support draft/approved/rejected workflow.
 package main
 
 import (
@@ -11,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -18,55 +17,36 @@ import (
 // planSetMinArgs is the minimum number of arguments for the plan set command.
 const planSetMinArgs = 2
 
-// linkArgCount is the minimum number of arguments for plan link/unlink commands
-// (plan ID + at least one issue ID).
-const linkArgCount = 2
-
 // planCmd is the parent command for plan management.
 var planCmd = &cobra.Command{
 	Use:   "plan",
 	Short: "Manage plans",
-	Long: `Manage plans for issues. Arc supports three plan patterns:
+	Long: `Manage plans for issues.
 
-1. Inline Plans - Comment-based plans on individual issues
-   arc plan set <issue-id> "plan text"
-   arc plan show <issue-id>
-
-2. Parent Epic Pattern - Use parent issue with plan, children inherit
-   arc plan set <parent-id> "master plan"
-   arc dep add <child-id> <parent-id> --type=parent-child
-
-3. Shared Plans - Standalone plans linkable to multiple issues
-   arc plan create "Initiative name"
-   arc plan link <plan-id> <issue-1> <issue-2>`,
+Commands:
+  set <issue-id> [text]    Set or update a plan on an issue
+  show <issue-id>          Show the plan for an issue
+  list                     List plans in the project
+  approve <plan-id>        Approve a plan
+  reject <plan-id>         Reject a plan`,
 }
 
 // init registers all plan subcommands under the root planCmd.
 func init() {
 	rootCmd.AddCommand(planCmd)
 
-	// Inline plan subcommands
 	planCmd.AddCommand(planSetCmd)
 	planCmd.AddCommand(planShowCmd)
-	planCmd.AddCommand(planHistoryCmd)
-
-	// Shared plan subcommands
-	planCmd.AddCommand(planCreateCmd)
-	planCmd.AddCommand(planEditCmd)
 	planCmd.AddCommand(planListCmd)
-	planCmd.AddCommand(planDeleteCmd)
-	planCmd.AddCommand(planLinkCmd)
-	planCmd.AddCommand(planUnlinkCmd)
+	planCmd.AddCommand(planApproveCmd)
+	planCmd.AddCommand(planRejectCmd)
 }
 
-// ============ Inline Plan Commands ============
-// These commands manage plans embedded directly on individual issues.
-
-// planSetCmd sets or updates an inline plan on an issue.
+// planSetCmd sets or updates a plan on an issue.
 var planSetCmd = &cobra.Command{
 	Use:   "set <issue-id> [plan text]",
-	Short: "Set or update an inline plan on an issue",
-	Long: `Set or update an inline plan directly on an issue.
+	Short: "Set or update a plan on an issue",
+	Long: `Set or update a plan on an issue.
 If plan text is provided, sets it directly.
 If --editor is used, opens $EDITOR to compose the plan.
 If --stdin is used, reads plan content from stdin.`,
@@ -97,10 +77,10 @@ If --stdin is used, reads plan content from stdin.`,
 		useEditor, _ := cmd.Flags().GetBool("editor")
 		if !useStdin && useEditor {
 			// Get existing plan as starting content
-			existing, _ := c.GetPlanContext(wsID, issueID)
+			existing, _ := c.GetPlanByIssue(wsID, issueID)
 			initialContent := ""
-			if existing != nil && existing.InlinePlan != nil {
-				initialContent = existing.InlinePlan.Text
+			if existing != nil {
+				initialContent = existing.Content
 			}
 
 			editedText, err := editInEditor(initialContent)
@@ -118,183 +98,12 @@ If --stdin is used, reads plan content from stdin.`,
 			return errors.New("plan text cannot be empty")
 		}
 
-		comment, err := c.SetInlinePlan(wsID, issueID, text)
-		if err != nil {
-			return err
+		status, _ := cmd.Flags().GetString("status")
+		if status == "" {
+			status = "draft"
 		}
 
-		if outputJSON {
-			outputResult(comment)
-			return nil
-		}
-
-		_, _ = fmt.Printf("Plan set on %s\n", issueID)
-		return nil
-	},
-}
-
-// init adds the --editor and --stdin flags to the planSetCmd.
-func init() {
-	planSetCmd.Flags().BoolP("editor", "e", false, "Open $EDITOR to compose plan")
-	planSetCmd.Flags().Bool("stdin", false, "Read plan content from stdin")
-}
-
-// planShowCmd displays all plan context for an issue, including inline plans,
-// parent-inherited plans, and linked shared plans.
-var planShowCmd = &cobra.Command{
-	Use:   "show <issue-id>",
-	Short: "Show all plans for an issue",
-	Long: `Show the plan context for an issue, including:
-- Inline plan (if set directly on this issue)
-- Parent plan (inherited from parent-child dependency)
-- Shared plans (linked to this issue)`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
-		pc, err := c.GetPlanContext(wsID, args[0])
-		if err != nil {
-			return err
-		}
-
-		if outputJSON {
-			outputResult(pc)
-			return nil
-		}
-
-		hasPlan := false
-
-		if pc.InlinePlan != nil {
-			hasPlan = true
-			_, _ = fmt.Printf("== Inline Plan ==\n")
-			_, _ = fmt.Printf("Author: %s\n", pc.InlinePlan.Author)
-			_, _ = fmt.Printf("Updated: %s\n", pc.InlinePlan.CreatedAt.Format("2006-01-02 15:04"))
-			_, _ = fmt.Printf("\n%s\n", pc.InlinePlan.Text)
-		}
-
-		if pc.ParentPlan != nil {
-			if hasPlan {
-				_, _ = fmt.Println()
-			}
-			hasPlan = true
-			_, _ = fmt.Printf("== Parent Plan (from %s) ==\n", pc.ParentIssueID)
-			_, _ = fmt.Printf("Author: %s\n", pc.ParentPlan.Author)
-			_, _ = fmt.Printf("Updated: %s\n", pc.ParentPlan.CreatedAt.Format("2006-01-02 15:04"))
-			_, _ = fmt.Printf("\n%s\n", pc.ParentPlan.Text)
-		}
-
-		if len(pc.SharedPlans) > 0 {
-			if hasPlan {
-				_, _ = fmt.Println()
-			}
-			hasPlan = true
-			_, _ = fmt.Printf("== Shared Plans ==\n")
-			for i, plan := range pc.SharedPlans {
-				if i > 0 {
-					_, _ = fmt.Println()
-				}
-				_, _ = fmt.Printf("[%s] %s\n", plan.ID, plan.Title)
-				_, _ = fmt.Printf("Updated: %s\n", plan.UpdatedAt.Format("2006-01-02 15:04"))
-				if plan.Content != "" {
-					_, _ = fmt.Printf("\n%s\n", plan.Content)
-				}
-			}
-		}
-
-		if !hasPlan {
-			_, _ = fmt.Println("No plans found for this issue")
-		}
-
-		return nil
-	},
-}
-
-// planHistoryCmd shows the version history of inline plans for an issue.
-// Each version is displayed with its timestamp, author, and content.
-var planHistoryCmd = &cobra.Command{
-	Use:   "history <issue-id>",
-	Short: "Show plan version history for an issue",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
-		history, err := c.GetPlanHistory(wsID, args[0])
-		if err != nil {
-			return err
-		}
-
-		if outputJSON {
-			outputResult(history)
-			return nil
-		}
-
-		if len(history) == 0 {
-			_, _ = fmt.Println("No plan history for this issue")
-			return nil
-		}
-
-		for i, comment := range history {
-			if i > 0 {
-				_, _ = fmt.Println("\n---")
-			}
-			_, _ = fmt.Printf("Version %d (%s by %s):\n",
-				len(history)-i, comment.CreatedAt.Format("2006-01-02 15:04"), comment.Author)
-			_, _ = fmt.Println(comment.Text)
-		}
-
-		return nil
-	},
-}
-
-// ============ Shared Plan Commands ============
-// Shared plans are standalone plan objects linkable to multiple issues.
-
-// planCreateCmd creates a new shared plan that can be linked to multiple issues.
-// Optionally opens $EDITOR for composing the plan content.
-var planCreateCmd = &cobra.Command{
-	Use:   "create <title>",
-	Short: "Create a new shared plan",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
-		title := args[0]
-		content := ""
-
-		useEditor, _ := cmd.Flags().GetBool("editor")
-		if useEditor {
-			editedContent, err := editInEditor("")
-			if err != nil {
-				return fmt.Errorf("editor: %w", err)
-			}
-			content = editedContent
-		}
-
-		plan, err := c.CreatePlan(wsID, title, content)
+		plan, err := c.SetPlan(wsID, issueID, text, status)
 		if err != nil {
 			return err
 		}
@@ -304,21 +113,22 @@ var planCreateCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("Created plan: %s\n", plan.ID)
+		_, _ = fmt.Printf("Plan saved on %s (status: %s)\n", issueID, plan.Status)
 		return nil
 	},
 }
 
-// init adds the --editor flag to the planCreateCmd.
+// init adds flags to planSetCmd.
 func init() {
-	planCreateCmd.Flags().BoolP("editor", "e", false, "Open $EDITOR to compose content")
+	planSetCmd.Flags().BoolP("editor", "e", false, "Open $EDITOR to compose plan")
+	planSetCmd.Flags().Bool("stdin", false, "Read plan content from stdin")
+	planSetCmd.Flags().String("status", "", "Plan status (draft, approved)")
 }
 
-// planEditCmd opens a shared plan in $EDITOR for editing.
-// It fetches the current plan content, opens it in the editor, and persists changes.
-var planEditCmd = &cobra.Command{
-	Use:   "edit <plan-id>",
-	Short: "Edit a shared plan in $EDITOR",
+// planShowCmd displays the plan for an issue.
+var planShowCmd = &cobra.Command{
+	Use:   "show <issue-id>",
+	Short: "Show the plan for an issue",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -331,41 +141,29 @@ var planEditCmd = &cobra.Command{
 			return err
 		}
 
-		planID := args[0]
-
-		// Get current plan
-		plan, err := c.GetPlan(wsID, planID)
-		if err != nil {
-			return err
-		}
-
-		// Edit in $EDITOR
-		edited, err := editInEditor(plan.Content)
-		if err != nil {
-			return fmt.Errorf("editor: %w", err)
-		}
-
-		// Update
-		updated, err := c.UpdatePlan(wsID, planID, plan.Title, edited)
+		plan, err := c.GetPlanByIssue(wsID, args[0])
 		if err != nil {
 			return err
 		}
 
 		if outputJSON {
-			outputResult(updated)
+			outputResult(plan)
 			return nil
 		}
 
-		fmt.Printf("Updated plan: %s\n", planID)
+		_, _ = fmt.Printf("Plan: %s\n", plan.Title)
+		_, _ = fmt.Printf("Status: %s\n", plan.Status)
+		_, _ = fmt.Printf("Updated: %s\n", plan.UpdatedAt.Format("2006-01-02 15:04"))
+		_, _ = fmt.Printf("\n%s\n", plan.Content)
+
 		return nil
 	},
 }
 
-// planListCmd lists all shared plans in the workspace.
-// Each plan is displayed with its ID, title, and linked issue count.
+// planListCmd lists plans in the project.
 var planListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all shared plans in the workspace",
+	Short: "List plans in the project",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -377,7 +175,9 @@ var planListCmd = &cobra.Command{
 			return err
 		}
 
-		plans, err := c.ListPlans(wsID)
+		status, _ := cmd.Flags().GetString("status")
+
+		plans, err := c.ListPlans(wsID, status)
 		if err != nil {
 			return err
 		}
@@ -388,24 +188,37 @@ var planListCmd = &cobra.Command{
 		}
 
 		if len(plans) == 0 {
-			_, _ = fmt.Println("No shared plans found")
+			_, _ = fmt.Println("No plans found")
 			return nil
 		}
 
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, tabwriterPadding, ' ', 0)
+		_, _ = fmt.Fprintln(w, "ID\tTITLE\tISSUE\tSTATUS\tUPDATED")
+		_, _ = fmt.Fprintln(w, "──\t─────\t─────\t──────\t───────")
+
 		for _, plan := range plans {
-			linkedCount := len(plan.LinkedIssues)
-			fmt.Printf("%s - %s (%d linked)\n", plan.ID, plan.Title, linkedCount)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				plan.ID,
+				plan.Title,
+				plan.IssueID,
+				plan.Status,
+				plan.UpdatedAt.Format("2006-01-02 15:04"),
+			)
 		}
 
-		return nil
+		return w.Flush()
 	},
 }
 
-// planDeleteCmd removes a shared plan and all its issue linkages.
-// This is permanent — linked issues will no longer reference this plan.
-var planDeleteCmd = &cobra.Command{
-	Use:   "delete <plan-id>",
-	Short: "Delete a shared plan",
+// init adds flags to planListCmd.
+func init() {
+	planListCmd.Flags().String("status", "", "Filter by status (draft, approved, rejected)")
+}
+
+// planApproveCmd approves a plan.
+var planApproveCmd = &cobra.Command{
+	Use:   "approve <plan-id>",
+	Short: "Approve a plan",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -418,20 +231,22 @@ var planDeleteCmd = &cobra.Command{
 			return err
 		}
 
-		if err := c.DeletePlan(wsID, args[0]); err != nil {
+		planID := args[0]
+
+		if err := c.UpdatePlanStatus(wsID, planID, "approved"); err != nil {
 			return err
 		}
 
-		fmt.Printf("Deleted plan: %s\n", args[0])
+		_, _ = fmt.Printf("Plan %s approved\n", planID)
 		return nil
 	},
 }
 
-// planLinkCmd links a shared plan to one or more issues.
-var planLinkCmd = &cobra.Command{
-	Use:   "link <plan-id> <issue>...",
-	Short: "Link a plan to one or more issues",
-	Args:  cobra.MinimumNArgs(linkArgCount),
+// planRejectCmd rejects a plan.
+var planRejectCmd = &cobra.Command{
+	Use:   "reject <plan-id>",
+	Short: "Reject a plan",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -444,44 +259,12 @@ var planLinkCmd = &cobra.Command{
 		}
 
 		planID := args[0]
-		issueIDs := args[1:]
 
-		if err := c.LinkIssuesToPlan(wsID, planID, issueIDs); err != nil {
+		if err := c.UpdatePlanStatus(wsID, planID, "rejected"); err != nil {
 			return err
 		}
 
-		fmt.Printf("Linked %s to %d issue(s)\n", planID, len(issueIDs))
-		return nil
-	},
-}
-
-// planUnlinkCmd removes the link between a shared plan and one or more issues.
-var planUnlinkCmd = &cobra.Command{
-	Use:   "unlink <plan-id> <issue>...",
-	Short: "Unlink a plan from one or more issues",
-	Args:  cobra.MinimumNArgs(linkArgCount),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
-		planID := args[0]
-		issueIDs := args[1:]
-
-		for _, issueID := range issueIDs {
-			if err := c.UnlinkIssueFromPlan(wsID, planID, issueID); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Failed to unlink %s: %v\n", issueID, err)
-				continue
-			}
-		}
-
-		fmt.Printf("Unlinked %s from %d issue(s)\n", planID, len(issueIDs))
+		_, _ = fmt.Printf("Plan %s rejected\n", planID)
 		return nil
 	},
 }
@@ -525,7 +308,6 @@ func editInEditor(content string) (string, error) {
 	}
 
 	// Read result
-
 	result, err := os.ReadFile(tmpFile.Name())
 	if err != nil {
 		return "", err

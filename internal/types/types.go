@@ -248,18 +248,17 @@ type Label struct {
 	Description string `json:"description,omitempty"`
 }
 
-// CommentType distinguishes between regular comments and inline plans.
+// CommentType distinguishes between different comment types.
 type CommentType string
 
 const (
 	CommentTypeComment CommentType = "comment"
-	CommentTypePlan    CommentType = "plan"
 )
 
 // IsValid checks if the comment type value is valid.
 func (c CommentType) IsValid() bool {
 	switch c {
-	case CommentTypeComment, CommentTypePlan:
+	case CommentTypeComment:
 		return true
 	}
 	return false
@@ -406,19 +405,25 @@ type IssueDetails struct {
 	Dependencies []*Dependency `json:"dependencies,omitempty"`
 	Dependents   []*Dependency `json:"dependents,omitempty"`
 	Comments     []*Comment    `json:"comments,omitempty"`
-	PlanContext  *PlanContext  `json:"plan_context,omitempty"`
 }
 
-// Plan represents a shared plan that can be linked to multiple issues.
+// Plan status constants.
+const (
+	PlanStatusDraft    = "draft"
+	PlanStatusApproved = "approved"
+	PlanStatusRejected = "rejected"
+)
+
+// Plan represents a plan that can be associated with an issue.
 type Plan struct {
 	ID        string    `json:"id"` // plan.xxxxx format
 	ProjectID string    `json:"project_id"`
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
+	Status    string    `json:"status"`
+	IssueID   string    `json:"issue_id,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	// LinkedIssues contains issue IDs linked to this plan (populated on detail views)
-	LinkedIssues []string `json:"linked_issues,omitempty"`
 }
 
 // Validate checks if the plan has valid field values.
@@ -433,30 +438,6 @@ func (p *Plan) Validate() error {
 		return errors.New("project_id is required")
 	}
 	return nil
-}
-
-// PlanContext aggregates all plans relevant to an issue.
-// It supports three patterns:
-// 1. InlinePlan: A plan comment directly on the issue
-// 2. ParentPlan: A plan inherited from a parent issue (via parent-child dependency)
-// 3. SharedPlans: Standalone plans linked to this issue
-type PlanContext struct {
-	// InlinePlan is a plan comment directly on this issue
-	InlinePlan *Comment `json:"inline_plan,omitempty"`
-	// ParentPlan is a plan inherited from a parent issue
-	ParentPlan *Comment `json:"parent_plan,omitempty"`
-	// ParentIssueID is the ID of the parent issue if ParentPlan is set
-	ParentIssueID string `json:"parent_issue_id,omitempty"`
-	// SharedPlans are standalone plans linked to this issue
-	SharedPlans []*Plan `json:"shared_plans,omitempty"`
-}
-
-// HasPlan returns true if any plan is available in this context.
-func (pc *PlanContext) HasPlan() bool {
-	if pc == nil {
-		return false
-	}
-	return pc.InlinePlan != nil || pc.ParentPlan != nil || len(pc.SharedPlans) > 0
 }
 
 // ProjectResolution contains the result of resolving a project by path.
