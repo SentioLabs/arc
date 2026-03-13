@@ -96,6 +96,19 @@ func arcCmdSuccess(t *testing.T, homeDir string, args ...string) string {
 	return output
 }
 
+// arcCmdSuccessWithEnv runs the arc binary with extra env vars and fails the test on error.
+func arcCmdSuccessWithEnv(t *testing.T, home string, env []string, args ...string) string {
+	t.Helper()
+	baseEnv := append(os.Environ(), "HOME="+home, "ARC_SERVER="+serverURL)
+	cmd := exec.Command(arcBinary, args...)
+	cmd.Env = append(baseEnv, env...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("arc %v failed: %v\noutput: %s", args, err, string(out))
+	}
+	return string(out)
+}
+
 // setupHome creates an isolated temporary directory to serve as HOME for
 // a single test. It writes a minimal arc CLI config pointing at the test
 // server. The directory is cleaned up when the test finishes.

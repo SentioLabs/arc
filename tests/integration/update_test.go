@@ -281,6 +281,54 @@ func TestIssueJsonOutput(t *testing.T) {
 	}
 }
 
+// TestUpdateTake verifies that --take sets ai_session_id and status to in_progress.
+func TestUpdateTake(t *testing.T) {
+	home := setupHome(t)
+
+	arcCmdSuccess(t, home, "init", "update-take-proj", "--server", serverURL)
+
+	createOut := arcCmdSuccess(t, home, "create", "Take test issue", "--type", "task", "--server", serverURL)
+	id, ok := extractID(createOut)
+	if !ok {
+		t.Fatalf("could not extract issue ID from create output: %s", createOut)
+	}
+
+	// Take with explicit session ID via env var
+	arcCmdSuccessWithEnv(t, home, []string{"ARC_SESSION_ID=test-session-abc123"}, "update", id, "--take", "--server", serverURL)
+
+	showOut := arcCmdSuccess(t, home, "show", id, "--json", "--server", serverURL)
+	var issue map[string]interface{}
+	if err := json.Unmarshal([]byte(showOut), &issue); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	if issue["status"] != "in_progress" {
+		t.Errorf("expected status in_progress, got %v", issue["status"])
+	}
+	if issue["ai_session_id"] != "test-session-abc123" {
+		t.Errorf("expected ai_session_id test-session-abc123, got %v", issue["ai_session_id"])
+	}
+}
+
+// TestUpdateTakeNoSession verifies that --take fails without a session ID.
+func TestUpdateTakeNoSession(t *testing.T) {
+	home := setupHome(t)
+
+	arcCmdSuccess(t, home, "init", "take-nosess-proj", "--server", serverURL)
+
+	createOut := arcCmdSuccess(t, home, "create", "No session test", "--type", "task", "--server", serverURL)
+	id, ok := extractID(createOut)
+	if !ok {
+		t.Fatalf("could not extract issue ID from create output: %s", createOut)
+	}
+
+	// Should fail — no ARC_SESSION_ID and no --session-id
+	_, err := arcCmd(t, home, "update", id, "--take", "--server", serverURL)
+	if err == nil {
+		t.Error("expected error when --take used without session ID")
+	}
+}
+
 // keys returns the keys of a map as a sorted slice for diagnostic output.
 func keys(m map[string]interface{}) []string {
 	result := make([]string, 0, len(m))
