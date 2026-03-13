@@ -537,9 +537,6 @@ type GetReadyWorkParams struct {
 	// Assignee Filter by assignee
 	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty"`
 
-	// AiSessionID Filter by AI session ID
-	AiSessionID *string `form:"ai_session_id,omitempty" json:"ai_session_id,omitempty"`
-
 	// Unassigned Filter for unassigned issues only
 	Unassigned *bool `form:"unassigned,omitempty" json:"unassigned,omitempty"`
 
@@ -1554,13 +1551,6 @@ func (w *ServerInterfaceWrapper) GetReadyWork(ctx echo.Context) error {
 	err = runtime.BindQueryParameter("form", true, false, "assignee", ctx.QueryParams(), &params.Assignee)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter assignee: %s", err))
-	}
-
-	// ------------- Optional query parameter "ai_session_id" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "ai_session_id", ctx.QueryParams(), &params.AiSessionID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter ai_session_id: %s", err))
 	}
 
 	// ------------- Optional query parameter "unassigned" -------------
@@ -3825,17 +3815,17 @@ var swaggerSpec = []string{
 	"ubFP/3uUc805noQQZut1Wsw5ywdQ44lcjar1Yp19DBrD7ofHCLtVpw7nON0sptOU/XRv9fGgYgkz37cc",
 	"5v3gn+X98DwqJUynoh1CaovWJ7Ov5sKFJcazCaqHs2V1n+Opjb3fkPS5mvtQ09THevimiFubZSXFxBUH",
 	"vSD7bC4oh01zsKh7CC8OvWNhLJPG4s+c5fvim2FkszbZmEKPdE9mng0p2ixz+x2O49jk6m5InyV+5C2R",
-	"4UxmOqY9ucJ7p8E4CNMe7TSibD73UrSWQTrC9hzlEccSphyyw4l7pwb8zvjd8JLFv0oIX2YJofL2qpYY",
-	"riiL0aytbs/rn7FT3cbzruh7z7hEK5YRFRkyjrSIWGxMbukZWq5nnKTl/6M4naB3kJSVlwKd3Bbj8ffJ",
-	"q/9cniLBuDSNVRzvjTimdzFiWQrcvaE4aAFqbjdqgi6zB7wWeoIaf/////6faY+nPlSdk9TLak4hG69W",
-	"g9CJGWIa6sV6e7b1H0oywIpBTm/bsK7mCyM9MiiJ4rINT/mDJ3Jm7UDDneOEYjtXq/uE32/+Uti5JStb",
-	"HJ5QVpXC+4mH02MVrwuJu+N5O8t7Pe6AVtpr8dVxQ0V4o576mpIHy97vKrXSSwLOz5KqS5Ul2/b/YTAl",
-	"4KTZ6GkJhKN/uOZMk3/7hy3RO0e/L5VTQXVbpilRluCW2hYPaawNQlVSrlNTWJoWTiddBeYIc7ilxBQN",
-	"pufod9sgyq4S6yuhlNEz35mxl0TqLaSEmkZnxBwBMAdrMSA1bSIa3Ov39OpxZcqme3pTN9dKTnVHC/XB",
-	"3zlGYgUJmZME2T6VIb1pNxj1XAs/mDz5Ow8IlHqMLB8ZbDeZhdvuYU945tPRpazRqUI9/ma5U2DoLigh",
-	"Frl8e4PuL8rGKyO8IqP7Cx29WCDaLqdW3VAa/9lJhLK/2pm+evfxWp9zZWQOyTrJAJUMLrb+JVVoFu3F",
-	"G1vzuYAC9FyNO1J2FmNl2kDxktChrdRy5m2Bc+jFspNJy8mx8PrBgMss10/bQ29fLnT1hc/jah7NN5qh",
-	"zL+mcZGJZpzNp80/AwAA///08mSuw2wAAA==",
+	"4UxmOqY9ucJ7p8E4CNMe7TSibD73UrSWQTrC9hzlEccSphyyw4l7pwb8zvjd8JLFv0oI91pCqJywqlOF",
+	"q5ViNGsrp/PaWuxUTvG8C+3eMy7RimVEBWyMI825FhuTW3qGlusZJ2n5byJOJ+gdJGVBpEAnt8V4/H3y",
+	"6j+Xp0gwLk2/E8cSI47pXYxYlgJ3byjCLkDN7UZN0GX2gNdCT1Bju///3/8zXevUh6qhkXpZzSlk49Vq",
+	"EDoxQ0yfu1hvz3bkQ0kGWDHI6W0b1tV8YaRHBiVRXHbHKX/wJMGsHeiDc5wIaecicp/w+00rCju3ZGXn",
+	"wRPKqgp1Px9weqyaciFxd5htZ3mvxx3QeHqdtzoujghv1FPfHvJg2fsVolZ6ScD5WVI1j7Jk2/73CKYy",
+	"mzT7Ly2BcPQP1zNp8m//sJVz5+j3pbL1VHdLmhJlCW6p7byQxtogVJXeOmOEpemsdNJV940wh1tKTC1f",
+	"eo5+t32b7CqxvqlJGT3zfQx7d6Pe2UmoaXSiyhEAc7AWA1LTvaHBvX6rrR4Po+yFpzd1c63kVDeaUB/8",
+	"nWMkVpCQOUmQbR8Z0pt2g1HPbe2DyZO/84BAqcfI8pHBdpNZuG3q9YRHMR3NwxoNJNTjb5Y7BYZuThJi",
+	"kcu3N+j+ouyHMsIrMrq/0EGFBaLtzmjVpKTxD5dEKCmrfdyrdx+v9fFTRuaQrJMMUMngYus/RYVm0c61",
+	"sTWfCyhAz9W4umRnMVamDRQvNxzaSi2V3RbPhl4sG4y0HOgKr00LuIRv/RA89PblQhdF+Dyu5tF8oxnK",
+	"/McYFzBoxtl82vwzAAD//0OcSrFabAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

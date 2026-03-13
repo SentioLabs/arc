@@ -400,11 +400,6 @@ paths:
           description: Filter by assignee
           schema:
             type: string
-        - name: ai_session_id
-          in: query
-          description: Filter by AI session ID
-          schema:
-            type: string
         - name: unassigned
           in: query
           description: Filter for unassigned issues only

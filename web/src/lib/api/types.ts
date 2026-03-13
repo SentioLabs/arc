@@ -1080,8 +1080,6 @@ export interface operations {
                 priority?: number;
                 /** @description Filter by assignee */
                 assignee?: string;
-                /** @description Filter by AI session ID */
-                ai_session_id?: string;
                 /** @description Filter for unassigned issues only */
                 unassigned?: boolean;
                 /** @description Maximum results to return */
