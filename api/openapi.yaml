@@ -29,6 +29,8 @@ tags:
     description: Comments and audit events
   - name: teams
     description: Agent team context and role grouping
+  - name: ai-sessions
+    description: AI session and agent observability
 
 paths:
   # ====================
@@ -495,6 +497,183 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamContext"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # AI Sessions
+  # ====================
+  /ai/sessions:
+    get:
+      operationId: listAISessions
+      tags: [ai-sessions]
+      summary: List AI sessions
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum results to return
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: List of AI sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AISessionResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createAISession
+      tags: [ai-sessions]
+      summary: Create a new AI session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAISessionRequest"
+      responses:
+        "201":
+          description: AI session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AISessionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /ai/sessions/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: AI session ID
+        schema:
+          type: string
+
+    get:
+      operationId: getAISession
+      tags: [ai-sessions]
+      summary: Get AI session by ID
+      responses:
+        "200":
+          description: AI session details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AISessionResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteAISession
+      tags: [ai-sessions]
+      summary: Delete AI session
+      responses:
+        "204":
+          description: AI session deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /ai/sessions/{sessionId}/agents:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: AI session ID
+        schema:
+          type: string
+
+    get:
+      operationId: listAIAgents
+      tags: [ai-sessions]
+      summary: List AI agents for a session
+      responses:
+        "200":
+          description: List of AI agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AIAgentResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createAIAgent
+      tags: [ai-sessions]
+      summary: Create a new AI agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAIAgentRequest"
+      responses:
+        "201":
+          description: AI agent created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIAgentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /ai/sessions/{sessionId}/agents/{agentId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        description: AI session ID
+        schema:
+          type: string
+      - name: agentId
+        in: path
+        required: true
+        description: AI agent ID
+        schema:
+          type: string
+
+    get:
+      operationId: getAIAgent
+      tags: [ai-sessions]
+      summary: Get AI agent by ID
+      responses:
+        "200":
+          description: AI agent details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIAgentResponse"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -1464,3 +1643,116 @@ components:
         created_at:
           type: string
           format: date-time
+
+    # ====================
+    # AI Session Schemas
+    # ====================
+    AISessionResponse:
+      type: object
+      required:
+        - id
+        - transcript_path
+        - started_at
+      properties:
+        id:
+          type: string
+          description: Unique AI session ID
+        transcript_path:
+          type: string
+          description: Path to the session transcript file
+        cwd:
+          type: string
+          description: Working directory for the session
+        started_at:
+          type: string
+          format: date-time
+
+    CreateAISessionRequest:
+      type: object
+      required:
+        - id
+        - transcript_path
+      properties:
+        id:
+          type: string
+          description: AI session ID
+        transcript_path:
+          type: string
+          description: Path to the session transcript file
+        cwd:
+          type: string
+          description: Working directory for the session
+        started_at:
+          type: string
+          format: date-time
+          description: Session start time (defaults to current time)
+
+    AIAgentResponse:
+      type: object
+      required:
+        - id
+        - session_id
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique AI agent ID
+        session_id:
+          type: string
+          description: Parent session ID
+        description:
+          type: string
+          description: Agent task description
+        prompt:
+          type: string
+          description: Agent prompt text
+        agent_type:
+          type: string
+          description: Type of agent (e.g., "task", "code")
+        model:
+          type: string
+          description: AI model used
+        status:
+          type: string
+          description: Agent status (running, completed, error)
+        duration_ms:
+          type: integer
+          description: Duration in milliseconds
+        total_tokens:
+          type: integer
+          description: Total tokens consumed
+        tool_use_count:
+          type: integer
+          description: Number of tool uses
+        created_at:
+          type: string
+          format: date-time
+
+    CreateAIAgentRequest:
+      type: object
+      required:
+        - id
+        - session_id
+      properties:
+        id:
+          type: string
+          description: AI agent ID
+        session_id:
+          type: string
+          description: Parent session ID
+        description:
+          type: string
+          description: Agent task description
+        prompt:
+          type: string
+          description: Agent prompt text
+        agent_type:
+          type: string
+          description: Type of agent
+        model:
+          type: string
+          description: AI model used
+        status:
+          type: string
+          description: Agent status (defaults to "running")

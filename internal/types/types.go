@@ -463,6 +463,29 @@ func (pc *PlanContext) HasPlan() bool {
 	return pc.InlinePlan != nil || pc.ParentPlan != nil || len(pc.SharedPlans) > 0
 }
 
+// AISession represents an AI coding session (e.g., a Claude Code conversation).
+type AISession struct {
+	ID             string    `json:"id"`
+	TranscriptPath string    `json:"transcript_path"`
+	CWD            string    `json:"cwd,omitempty"`
+	StartedAt      time.Time `json:"started_at"`
+}
+
+// AIAgent represents a sub-agent spawned within an AI session.
+type AIAgent struct {
+	ID           string    `json:"id"`
+	SessionID    string    `json:"session_id"`
+	Description  string    `json:"description,omitempty"`
+	Prompt       string    `json:"prompt,omitempty"`
+	AgentType    string    `json:"agent_type,omitempty"`
+	Model        string    `json:"model,omitempty"`
+	Status       string    `json:"status"`
+	DurationMs   *int      `json:"duration_ms,omitempty"`
+	TotalTokens  *int      `json:"total_tokens,omitempty"`
+	ToolUseCount *int      `json:"tool_use_count,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 // ProjectResolution contains the result of resolving a project by path.
 type ProjectResolution struct {
 	ProjectID   string `json:"project_id"`

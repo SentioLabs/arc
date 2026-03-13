@@ -9,6 +9,27 @@ import (
 	"time"
 )
 
+type AiAgent struct {
+	ID           string         `json:"id"`
+	SessionID    string         `json:"session_id"`
+	Description  sql.NullString `json:"description"`
+	Prompt       sql.NullString `json:"prompt"`
+	AgentType    sql.NullString `json:"agent_type"`
+	Model        sql.NullString `json:"model"`
+	Status       string         `json:"status"`
+	DurationMs   sql.NullInt64  `json:"duration_ms"`
+	TotalTokens  sql.NullInt64  `json:"total_tokens"`
+	ToolUseCount sql.NullInt64  `json:"tool_use_count"`
+	CreatedAt    time.Time      `json:"created_at"`
+}
+
+type AiSession struct {
+	ID             string         `json:"id"`
+	TranscriptPath string         `json:"transcript_path"`
+	Cwd            sql.NullString `json:"cwd"`
+	StartedAt      time.Time      `json:"started_at"`
+}
+
 type BlockedIssuesCache struct {
 	IssueID        string         `json:"issue_id"`
 	BlockedByCount int64          `json:"blocked_by_count"`

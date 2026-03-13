@@ -287,6 +287,27 @@ func (m *mockWPStore) GetEvents(_ context.Context, _ string, _ int) ([]*types.Ev
 func (m *mockWPStore) GetStatistics(_ context.Context, _ string) (*types.Statistics, error) {
 	panic("not implemented")
 }
+func (m *mockWPStore) CreateAISession(_ context.Context, _ *types.AISession) error {
+	panic("not implemented")
+}
+func (m *mockWPStore) GetAISession(_ context.Context, _ string) (*types.AISession, error) {
+	panic("not implemented")
+}
+func (m *mockWPStore) ListAISessions(_ context.Context, _, _ int) ([]*types.AISession, error) {
+	panic("not implemented")
+}
+func (m *mockWPStore) DeleteAISession(_ context.Context, _ string) error {
+	panic("not implemented")
+}
+func (m *mockWPStore) CreateAIAgent(_ context.Context, _ *types.AIAgent) error {
+	panic("not implemented")
+}
+func (m *mockWPStore) GetAIAgent(_ context.Context, _ string) (*types.AIAgent, error) {
+	panic("not implemented")
+}
+func (m *mockWPStore) ListAIAgents(_ context.Context, _ string) ([]*types.AIAgent, error) {
+	panic("not implemented")
+}
 func (m *mockWPStore) Close() error { return nil }
 func (m *mockWPStore) Path() string { return "" }
 
