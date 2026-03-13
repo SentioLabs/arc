@@ -72,9 +72,9 @@ func (s *Server) fetchEpicChildIssues(
 
 	resp.Epic = &TeamContextEpic{ID: epic.ID, Title: epic.Title}
 
-	pc, err := s.store.GetPlanContext(ctx, epicID)
-	if err == nil && pc.InlinePlan != nil {
-		resp.Epic.Plan = &pc.InlinePlan.Text
+	epicPlan, err := s.store.GetPlanByIssueID(ctx, epicID)
+	if err == nil && epicPlan != nil {
+		resp.Epic.Plan = &epicPlan.Content
 	}
 
 	dependents, err := s.store.GetDependents(ctx, epicID)
@@ -163,9 +163,9 @@ func (s *Server) buildTeamContextIssue(ctx context.Context, issue *types.Issue) 
 		Type:     string(issue.IssueType),
 	}
 
-	pc, err := s.store.GetPlanContext(ctx, issue.ID)
-	if err == nil && pc.InlinePlan != nil {
-		tci.Plan = &pc.InlinePlan.Text
+	issuePlan, err := s.store.GetPlanByIssueID(ctx, issue.ID)
+	if err == nil && issuePlan != nil {
+		tci.Plan = &issuePlan.Content
 	}
 
 	deps, err := s.store.GetDependencies(ctx, issue.ID)
