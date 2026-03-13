@@ -262,6 +262,9 @@ func outputCLIContext(w io.Writer, sessionID string) error {
 // Using text/template keeps the markdown readable without string concatenation.
 
 var tmplMCP = template.Must(template.New("mcp").Parse(`# Arc Issue Tracker Active
+{{- if .SessionID}}
+> **Session**: ` + "`{{.SessionID}}`" + `
+{{- end}}
 
 # 🚨 SESSION CLOSE PROTOCOL 🚨
 
@@ -292,6 +295,9 @@ You are the **team lead**. You coordinate teammates and verify their work.
 `))
 
 var tmplTeammate = template.Must(template.New("teammate").Parse(`# Arc Teammate Context
+{{- if .SessionID}}
+> **Session**: ` + "`{{.SessionID}}`" + `
+{{- end}}
 
 You are the **{{.Role}}** teammate.
 
@@ -305,6 +311,9 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 
 > **Context Recovery**: Run ` + "`arc prime`" + ` after compaction, clear, or new session
 > Hooks auto-call this in Claude Code when project config detected
+{{- if .SessionID}}
+> **Session**: ` + "`{{.SessionID}}`" + `
+{{- end}}
 
 # 🚨 SESSION CLOSE PROTOCOL 🚨
 
@@ -350,6 +359,7 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
     ` + "`EOF`" + `
 - ` + "`arc update <id> --status=in_progress`" + ` - Claim work
 - ` + "`arc update <id> --assignee=username`" + ` - Assign to someone
+- ` + "`arc update <id> --take`" + ` - Take issue for current AI session (sets session ID + in_progress)
 - ` + "`arc update <id> --title=\"new title\"`" + ` - Update fields
 - ` + "`arc update <id> --stdin <<'EOF'`" + ` - Update description via stdin heredoc
 - ` + "`arc close <id>`" + ` - Mark complete
@@ -375,7 +385,7 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 ` + "```bash" + `
 arc ready           # Find available work
 arc show <id>       # Review issue details
-arc update <id> --status=in_progress  # Claim it
+arc update <id> --take  # Take it (sets session ID + in_progress)
 ` + "```" + `
 
 **Completing work:**
