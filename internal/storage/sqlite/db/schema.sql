@@ -40,6 +40,7 @@ CREATE TABLE issues (
     priority INTEGER NOT NULL DEFAULT 2,
     issue_type TEXT NOT NULL DEFAULT 'task',
     assignee TEXT,
+    ai_session_id TEXT,
     external_ref TEXT,
     rank INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
