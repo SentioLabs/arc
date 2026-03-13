@@ -21,8 +21,28 @@ export type TeamContextRole = components['schemas']['TeamContextRole'];
 export type TeamContextEpic = components['schemas']['TeamContextEpic'];
 export type AddCommentRequest = components['schemas']['AddCommentRequest'];
 export type AddLabelToIssueRequest = components['schemas']['AddLabelToIssueRequest'];
-export type Workspace = components['schemas']['Workspace'];
-export type CreateWorkspaceRequest = components['schemas']['CreateWorkspaceRequest'];
+
+// Workspace path types (not in OpenAPI spec — custom routes)
+export interface Workspace {
+	id: string;
+	project_id: string;
+	path: string;
+	label?: string;
+	hostname?: string;
+	git_remote?: string;
+	path_type?: string;
+	last_accessed_at?: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface CreateWorkspaceRequest {
+	path: string;
+	label?: string;
+	hostname?: string;
+	git_remote?: string;
+	path_type?: string;
+}
 
 // Error helper - extracts message from API error response { error: "message" }
 function handleError(error: unknown): never {
@@ -70,44 +90,60 @@ export async function deleteProjects(projectIds: string[]): Promise<void> {
 	await Promise.all(projectIds.map((id) => deleteProject(id)));
 }
 
-export type MergeResult = components['schemas']['MergeResult'];
-
-export async function mergeProjects(targetId: string, sourceIds: string[]): Promise<MergeResult> {
-	const { data, error } = await api.POST('/projects/merge', {
-		body: { target_id: targetId, source_ids: sourceIds }
-	});
-	if (error) handleError(error);
-	if (!data) throw new Error('Failed to merge projects');
-	return data;
+export interface MergeResult {
+	target_project: Project;
+	issues_moved: number;
+	plans_moved: number;
+	sources_deleted: string[];
 }
 
-// Workspace APIs (directory paths)
-export async function listWorkspaces(projectId: string): Promise<Workspace[]> {
-	const { data, error } = await api.GET('/projects/{projectId}/workspaces', {
-		params: { path: { projectId } }
+export async function mergeProjects(targetId: string, sourceIds: string[]): Promise<MergeResult> {
+	const response = await fetch('/api/v1/projects/merge', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ target_id: targetId, source_ids: sourceIds })
 	});
-	if (error) handleError(error);
-	return data ?? [];
+	if (!response.ok) {
+		const body = await response.json().catch(() => ({ error: 'Failed to merge projects' }));
+		handleError(body);
+	}
+	return response.json();
+}
+
+// Workspace APIs (directory paths — not in OpenAPI spec)
+export async function listWorkspaces(projectId: string): Promise<Workspace[]> {
+	const response = await fetch(`/api/v1/projects/${projectId}/workspaces`);
+	if (!response.ok) {
+		const body = await response.json().catch(() => ({ error: 'Failed to list workspaces' }));
+		handleError(body);
+	}
+	return response.json();
 }
 
 export async function createWorkspace(
 	projectId: string,
 	request: CreateWorkspaceRequest
 ): Promise<Workspace> {
-	const { data, error } = await api.POST('/projects/{projectId}/workspaces', {
-		params: { path: { projectId } },
-		body: request
+	const response = await fetch(`/api/v1/projects/${projectId}/workspaces`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
 	});
-	if (error) handleError(error);
-	if (!data) throw new Error('Failed to create workspace');
-	return data;
+	if (!response.ok) {
+		const body = await response.json().catch(() => ({ error: 'Failed to create workspace' }));
+		handleError(body);
+	}
+	return response.json();
 }
 
 export async function deleteWorkspace(projectId: string, pathId: string): Promise<void> {
-	const { error } = await api.DELETE('/projects/{projectId}/workspaces/{pathId}', {
-		params: { path: { projectId, pathId } }
+	const response = await fetch(`/api/v1/projects/${projectId}/workspaces/${pathId}`, {
+		method: 'DELETE'
 	});
-	if (error) handleError(error);
+	if (!response.ok) {
+		const body = await response.json().catch(() => ({ error: 'Failed to delete workspace' }));
+		handleError(body);
+	}
 }
 
 // Issue APIs
@@ -378,5 +414,5 @@ export async function getTeamContext(
 		}
 	});
 	if (error) handleError(error);
-	return data ?? { workspace: projectId, roles: {}, unassigned: [] };
+	return data ?? { project: projectId, roles: {}, unassigned: [] };
 }

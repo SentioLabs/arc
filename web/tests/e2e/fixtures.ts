@@ -7,7 +7,7 @@ export function uniqueName(prefix = 'test'): string {
 	return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Create a workspace via the API. Returns the created workspace object. */
+/** Create a project via the API. Returns the created project object. */
 export async function createTestWorkspace(
 	name?: string,
 	opts?: { path?: string; prefix?: string; description?: string },
@@ -15,7 +15,7 @@ export async function createTestWorkspace(
 	const wsName = name ?? uniqueName('ws');
 	// Generate a short unique prefix from the name (uppercase, max 4 chars)
 	const defaultPrefix = wsName.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || 'TE';
-	const res = await fetch(`${API_BASE}/workspaces`, {
+	const res = await fetch(`${API_BASE}/projects`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
@@ -31,15 +31,15 @@ export async function createTestWorkspace(
 	return res.json();
 }
 
-/** Delete a workspace by ID. */
+/** Delete a project by ID. */
 export async function deleteTestWorkspace(id: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/workspaces/${id}`, { method: 'DELETE' });
+	const res = await fetch(`${API_BASE}/projects/${id}`, { method: 'DELETE' });
 	if (!res.ok) {
 		throw new Error(`deleteTestWorkspace failed: ${res.status} ${await res.text()}`);
 	}
 }
 
-/** Create an issue in a workspace. Returns the created issue object. */
+/** Create an issue in a project. Returns the created issue object. */
 export async function createTestIssue(
 	wsId: string,
 	opts?: {
@@ -49,8 +49,8 @@ export async function createTestIssue(
 		assignee?: string;
 		description?: string;
 	},
-): Promise<Record<string, unknown>> {
-	const res = await fetch(`${API_BASE}/workspaces/${wsId}/issues`, {
+): Promise<{ id: string; title: string; status: string; priority: number; [key: string]: unknown }> {
+	const res = await fetch(`${API_BASE}/projects/${wsId}/issues`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
@@ -72,8 +72,8 @@ export async function updateTestIssue(
 	wsId: string,
 	issueId: string,
 	fields: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-	const res = await fetch(`${API_BASE}/workspaces/${wsId}/issues/${issueId}`, {
+): Promise<{ id: string; [key: string]: unknown }> {
+	const res = await fetch(`${API_BASE}/projects/${wsId}/issues/${issueId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(fields),
@@ -88,7 +88,7 @@ export async function updateTestIssue(
 export async function createTestLabel(
 	name?: string,
 	opts?: { color?: string; description?: string },
-): Promise<Record<string, unknown>> {
+): Promise<{ name: string; color?: string; description?: string }> {
 	const labelName = name ?? uniqueName('label');
 	const res = await fetch(`${API_BASE}/labels`, {
 		method: 'POST',
@@ -121,8 +121,8 @@ export async function addTestDependency(
 	issueId: string,
 	dependsOnId: string,
 	type?: string,
-): Promise<Record<string, unknown>> {
-	const res = await fetch(`${API_BASE}/workspaces/${wsId}/issues/${issueId}/deps`, {
+): Promise<{ issue_id: string; depends_on_id: string; [key: string]: unknown }> {
+	const res = await fetch(`${API_BASE}/projects/${wsId}/issues/${issueId}/deps`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
@@ -142,8 +142,8 @@ export async function addTestComment(
 	issueId: string,
 	text: string,
 	author?: string,
-): Promise<Record<string, unknown>> {
-	const res = await fetch(`${API_BASE}/workspaces/${wsId}/issues/${issueId}/comments`, {
+): Promise<{ id: number; text: string; [key: string]: unknown }> {
+	const res = await fetch(`${API_BASE}/projects/${wsId}/issues/${issueId}/comments`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ text, author }),
@@ -160,7 +160,7 @@ export async function addLabelToIssue(
 	issueId: string,
 	labelName: string,
 ): Promise<void> {
-	const res = await fetch(`${API_BASE}/workspaces/${wsId}/issues/${issueId}/labels`, {
+	const res = await fetch(`${API_BASE}/projects/${wsId}/issues/${issueId}/labels`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ label: labelName }),
@@ -170,13 +170,14 @@ export async function addLabelToIssue(
 	}
 }
 
-// ── Playwright fixture: auto-creates a workspace per test ──
+// ── Playwright fixture: auto-creates a project per test ──
 
 type TestFixtures = {
 	testWorkspace: { id: string; name: string; prefix: string };
 };
 
 export const test = base.extend<TestFixtures>({
+	// biome-ignore lint/correctness/noEmptyPattern: playwright fixture API requires destructured parameter
 	testWorkspace: async ({}, use) => {
 		const ws = await createTestWorkspace();
 		await use(ws);

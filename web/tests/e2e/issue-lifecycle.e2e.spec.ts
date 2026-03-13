@@ -1,4 +1,4 @@
-import { test, expect, createTestIssue, updateTestIssue } from './fixtures';
+import { test, expect, createTestIssue } from './fixtures';
 
 test.describe('Issue Lifecycle E2E', () => {
 	test('create issue via form', async ({ page, testWorkspace: ws }) => {
@@ -25,7 +25,7 @@ test.describe('Issue Lifecycle E2E', () => {
 	});
 
 	test('issue appears in list', async ({ page, testWorkspace: ws }) => {
-		const issue = await createTestIssue(ws.id, { title: 'List visibility test issue' });
+		await createTestIssue(ws.id, { title: 'List visibility test issue' });
 
 		await page.goto(`/${ws.id}/issues`);
 
@@ -168,9 +168,7 @@ test.describe('Issue Lifecycle E2E', () => {
 		// Click the "Unassigned" placeholder to edit
 		await page.getByText('Unassigned').click();
 
-		// An input should appear - target the one in the assignee area
-		const input = page.locator('.text-text-muted input[type="text"], span:has-text("Assigned to") + * input[type="text"]').first();
-		// Fallback: get any visible text input that appeared after the click
+		// Get any visible text input that appeared after the click
 		const assigneeInput = page.locator('input[type="text"]').last();
 		await assigneeInput.fill('new-user');
 		await assigneeInput.press('Enter');

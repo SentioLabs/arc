@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Header, ConfirmDialog, Select, FilesystemBrowser } from '$lib/components';
+	import { Header, ConfirmDialog, FilesystemBrowser } from '$lib/components';
 	import { page } from '$app/stores';
-	import { getContext, onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
 	import {
 		getProjectStats,

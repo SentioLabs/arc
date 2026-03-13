@@ -21,9 +21,9 @@ test.describe('Workspace CRUD', () => {
 
 	test('stats dashboard shows correct counts', async ({ page, testWorkspace }) => {
 		// Create 2 issues: one open, one closed
-		const issue1 = await createTestIssue(testWorkspace.id, { title: 'Open issue' });
+		await createTestIssue(testWorkspace.id, { title: 'Open issue' });
 		const issue2 = await createTestIssue(testWorkspace.id, { title: 'Closed issue' });
-		await updateTestIssue(testWorkspace.id, issue2.id as string, { status: 'closed' });
+		await updateTestIssue(testWorkspace.id, issue2.id, { status: 'closed' });
 
 		await page.goto(`/${testWorkspace.id}`);
 

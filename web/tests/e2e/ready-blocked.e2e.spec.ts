@@ -2,8 +2,8 @@ import { test, expect, createTestIssue, updateTestIssue, addTestDependency } fro
 
 test.describe('Ready Work page', () => {
 	test('shows unblocked open issues', async ({ page, testWorkspace: ws }) => {
-		const issueA = await createTestIssue(ws.id, { title: 'Ready issue alpha' });
-		const issueB = await createTestIssue(ws.id, { title: 'Ready issue beta' });
+		await createTestIssue(ws.id, { title: 'Ready issue alpha' });
+		await createTestIssue(ws.id, { title: 'Ready issue beta' });
 
 		await page.goto(`/${ws.id}/ready`);
 
@@ -22,7 +22,7 @@ test.describe('Ready Work page', () => {
 	});
 
 	test('excludes closed and blocked issues', async ({ page, testWorkspace: ws }) => {
-		const openIssue = await createTestIssue(ws.id, { title: 'Still open issue' });
+		await createTestIssue(ws.id, { title: 'Still open issue' });
 		const closedIssue = await createTestIssue(ws.id, { title: 'Closed issue' });
 		const blockedIssue = await createTestIssue(ws.id, { title: 'Blocked issue' });
 		const blockerIssue = await createTestIssue(ws.id, { title: 'Blocker for test' });
