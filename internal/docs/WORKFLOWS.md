@@ -23,7 +23,7 @@ Detailed step-by-step workflows for common arc usage patterns with checklists.
 
 **Arc is available when**:
 - Server is running (daemon or standalone)
-- Workspace initialized with `arc init`
+- Project initialized with `arc init`
 
 **Automatic checklist at session start:**
 
@@ -52,7 +52,7 @@ After Compaction:
 - [ ] Run arc list --status in_progress to see active work
 - [ ] Run arc show <issue-id> for each in_progress issue
 - [ ] Read notes field to understand: COMPLETED, IN PROGRESS, BLOCKERS, KEY DECISIONS
-- [ ] Check dependencies: arc dep tree <issue-id> for context
+- [ ] Check dependencies: arc show <issue-id> for dependency context
 - [ ] If notes insufficient, check arc list --status open for related issues
 - [ ] Reconstruct TodoWrite list from notes if needed
 ```

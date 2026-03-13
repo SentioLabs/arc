@@ -12,7 +12,7 @@ Track complex, multi-session work with a central issue tracking system.
 Codex CLI has no lifecycle hooks. Do this at the start of each session:
 
 ```bash
-arc onboard        # Recover workspace, load context
+arc onboard        # Recover project, load context
 arc prime          # Refresh workflow context if stale or after compaction
 ```
 
@@ -50,4 +50,4 @@ Follow the **Landing the Plane** protocol in `AGENTS.md` before ending a session
 ## Notes
 
 - Repo-scoped skill source lives under `.codex/skills/arc/`.
-- If project config is missing but the workspace exists on the server, `arc onboard` will recover it.
+- If project config is missing but the project exists on the server, `arc onboard` will recover it.

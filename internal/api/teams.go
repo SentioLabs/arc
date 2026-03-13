@@ -25,7 +25,7 @@ func (s *Server) getTeamContext(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	resp := TeamContext{
-		Workspace:  wsID,
+		Project:    wsID,
 		Roles:      make(map[string]TeamContextRole),
 		Unassigned: []TeamContextIssue{},
 	}
@@ -46,9 +46,9 @@ func (s *Server) getTeamContext(c echo.Context) error {
 	return successJSON(c, resp)
 }
 
-// fetchTeamContextIssues loads issues for the team context response.
-// When epicID is set, it populates resp.Epic and returns the epic's children.
-// Otherwise it returns all non-closed issues in the workspace.
+// fetchTeamContextIssues loads issues for the team context response. When epicID
+// is set, it populates resp.Epic and returns the epic's children via parent-child
+// dependencies. Otherwise it returns all non-closed issues in the workspace.
 func (s *Server) fetchTeamContextIssues(
 	ctx context.Context, c echo.Context, wsID, epicID string, resp *TeamContext,
 ) ([]*types.Issue, error) {
@@ -66,7 +66,7 @@ func (s *Server) fetchEpicChildIssues(
 	if err != nil {
 		return nil, errorJSON(c, http.StatusNotFound, "epic not found")
 	}
-	if epic.WorkspaceID != wsID {
+	if epic.ProjectID != wsID {
 		return nil, errorJSON(c, http.StatusForbidden, "access denied")
 	}
 
@@ -91,20 +91,21 @@ func (s *Server) fetchEpicChildIssues(
 		if err != nil {
 			continue
 		}
-		if child.WorkspaceID == wsID {
+		if child.ProjectID == wsID {
 			issues = append(issues, child)
 		}
 	}
 	return issues, nil
 }
 
-// fetchNonClosedIssues loads all non-closed issues in the workspace.
+// fetchNonClosedIssues loads all non-closed issues in the workspace,
+// limited to teamContextIssueLimit results.
 func (s *Server) fetchNonClosedIssues(
 	ctx context.Context, c echo.Context, wsID string,
 ) ([]*types.Issue, error) {
 	allIssues, err := s.store.ListIssues(ctx, types.IssueFilter{
-		WorkspaceID: wsID,
-		Limit:       teamContextIssueLimit,
+		ProjectID: wsID,
+		Limit:     teamContextIssueLimit,
 	})
 	if err != nil {
 		return nil, errorJSON(c, http.StatusInternalServerError, err.Error())
@@ -183,8 +184,8 @@ func (s *Server) buildTeamContextIssue(ctx context.Context, issue *types.Issue) 
 // Returns empty string if no teammate label is found.
 func extractTeammateRole(labels []string) string {
 	for _, l := range labels {
-		if strings.HasPrefix(l, teammatePrefix) {
-			return strings.TrimPrefix(l, teammatePrefix)
+		if after, ok := strings.CutPrefix(l, teammatePrefix); ok {
+			return after
 		}
 	}
 	return ""

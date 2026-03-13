@@ -19,22 +19,22 @@ import (
 // onboardLimit is the default number of issues shown per category in onboard output.
 const onboardLimit = 5
 
-// errWorkspaceNotFound is returned when no workspace matches the current directory.
-var errWorkspaceNotFound = errors.New("no workspace found for current directory")
+// errProjectNotFound is returned when no project matches the current directory.
+var errProjectNotFound = errors.New("no project found for current directory")
 
-// onboardCmd displays essential workspace context for new sessions.
+// onboardCmd displays essential project context for new sessions.
 var onboardCmd = &cobra.Command{
 	Use:   "onboard",
-	Short: "Get oriented with the current workspace",
-	Long: `Display essential context about the current workspace and available work.
+	Short: "Get oriented with the current project",
+	Long: `Display essential context about the current project and available work.
 
 This command helps AI agents quickly understand:
-- Current workspace configuration
+- Current project configuration
 - Open issues and their status
 - Ready-to-work items
 - Blocked issues
 
-If no workspace is configured locally but one exists on the server for this
+If no project is configured locally but one exists on the server for this
 directory, the local configuration will be automatically restored.
 
 Run this at the start of a session to get context.`,
@@ -45,83 +45,66 @@ func init() {
 	rootCmd.AddCommand(onboardCmd)
 }
 
-// loadOnboardConfig attempts to load workspace config from ~/.arc/projects/
-func loadOnboardConfig() (*project.Config, error) {
+// loadOnboardConfig attempts to load project config from legacy ~/.arc/projects/ configs.
+func loadOnboardConfig() (*legacyProjectConfig, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 	arcHome := project.DefaultArcHome()
-	projectRoot, err := project.FindProjectRootWithArcHome(cwd, arcHome)
+	cfg, err := readLegacyConfig(arcHome, cwd)
 	if err != nil {
 		return nil, err
 	}
-	return project.LoadConfig(arcHome, projectRoot)
+	if cfg == nil {
+		return nil, errors.New("no legacy config found")
+	}
+	return cfg, nil
 }
 
-// saveOnboardConfig saves workspace info to ~/.arc/projects/
-func saveOnboardConfig(workspaceID, workspaceName string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	arcHome := project.DefaultArcHome()
-	cfg := &project.Config{
-		WorkspaceID:   workspaceID,
-		WorkspaceName: workspaceName,
-		ProjectRoot:   cwd,
-	}
-	return project.WriteConfig(arcHome, cwd, cfg)
-}
-
-// findWorkspaceByPath queries the server for a workspace matching the current directory
-func findWorkspaceByPath(c *client.Client) (*types.Workspace, error) {
+// findProjectByPath queries the server for a project matching the current directory.
+func findProjectByPath(c *client.Client) (*types.Project, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
-	workspaces, err := c.ListWorkspaces()
-	if err != nil {
-		return nil, err
-	}
-
-	normalizedCwd := project.NormalizePath(cwd)
-
-	for _, ws := range workspaces {
-		if ws.Path == cwd || project.NormalizePath(ws.Path) == normalizedCwd {
-			return ws, nil
+	// Try server-side resolution via workspace paths
+	if res, resolveErr := c.ResolveProjectByPath(cwd); resolveErr == nil && res.ProjectID != "" {
+		if proj, getErr := c.GetProject(res.ProjectID); getErr == nil {
+			return proj, nil
 		}
 	}
 
-	return nil, errWorkspaceNotFound
+	// Also try with normalized (symlink-resolved) path
+	normalizedCwd := project.NormalizePath(cwd)
+	if normalizedCwd != cwd {
+		if res, resolveErr := c.ResolveProjectByPath(normalizedCwd); resolveErr == nil && res.ProjectID != "" {
+			if proj, getErr := c.GetProject(res.ProjectID); getErr == nil {
+				return proj, nil
+			}
+		}
+	}
+
+	return nil, errProjectNotFound
 }
 
-// tryRecoverWorkspace attempts to find and restore a workspace matching the
-// current directory from the server. Returns the workspace ID if found, or
-// an empty string when no matching workspace exists.
-func tryRecoverWorkspace(c *client.Client) string {
-	ws, err := findWorkspaceByPath(c)
+// tryRecoverProject attempts to find and restore a project matching the
+// current directory from the server. Returns the project ID if found, or
+// an empty string when no matching project exists.
+func tryRecoverProject(c *client.Client) string {
+	proj, err := findProjectByPath(c)
 	if err != nil {
 		return ""
 	}
 
-	// Found workspace on server - restore local config
-	_, _ = fmt.Println("## Workspace Recovery")
+	// Found project on server
+	_, _ = fmt.Println("## Project Recovery")
 	_, _ = fmt.Println()
-	_, _ = fmt.Printf("Found workspace **%s** on server for this directory.\n", ws.Name)
-	_, _ = fmt.Println("Restoring local configuration...")
-	_, _ = fmt.Println()
-
-	// Save project config to ~/.arc/projects/
-	if err := saveOnboardConfig(ws.ID, ws.Name); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Warning: could not save project config: %v\n", err)
-	} else {
-		_, _ = fmt.Println("\u2713 Created project config")
-	}
+	_, _ = fmt.Printf("Found project **%s** on server for this directory.\n", proj.Name)
 	_, _ = fmt.Println()
 
-	return ws.ID
+	return proj.ID
 }
 
 //nolint:revive // function-length + CLI output: onboard prints many sequential lines
@@ -133,20 +116,20 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 
 	var wsID string
 
-	// Step 1: Try to get workspace ID from project config
-	projCfg, err := loadOnboardConfig()
-	if err == nil && projCfg.WorkspaceID != "" {
-		wsID = projCfg.WorkspaceID
+	// Step 1: Try to find project by path from server
+	wsID = tryRecoverProject(c)
+
+	// Step 2: If no server match, check legacy config
+	if wsID == "" {
+		projCfg, cfgErr := loadOnboardConfig()
+		if cfgErr == nil && projCfg.WorkspaceID != "" {
+			wsID = projCfg.WorkspaceID
+		}
 	}
 
-	// Step 2: If no local config, try to find workspace by path from server
+	// Step 3: If still no project, suggest initialization
 	if wsID == "" {
-		wsID = tryRecoverWorkspace(c)
-	}
-
-	// Step 3: If still no workspace, suggest initialization
-	if wsID == "" {
-		fmt.Println("# No Workspace Found")
+		fmt.Println("# No Project Found")
 		fmt.Println()
 		fmt.Println("This directory is not configured for arc issue tracking.")
 		fmt.Println()
@@ -155,18 +138,18 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 		fmt.Println("arc init")
 		fmt.Println("```")
 		fmt.Println()
-		fmt.Println("This will create a workspace and configure the project.")
+		fmt.Println("This will create a project and configure the directory.")
 		return nil
 	}
 
-	// Get workspace info
-	ws, err := c.GetWorkspace(wsID)
+	// Get project info
+	proj, err := c.GetProject(wsID)
 	if err != nil {
-		return fmt.Errorf("get workspace details: %w", err)
+		return fmt.Errorf("get project details: %w", err)
 	}
 
 	// Get statistics
-	stats, err := c.GetStatistics(wsID)
+	stats, err := c.GetProjectStats(wsID)
 	if err != nil {
 		return fmt.Errorf("get statistics: %w", err)
 	}
@@ -193,12 +176,12 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 	}
 
 	// Output onboarding information
-	_, _ = fmt.Println("# Workspace Onboarding")
+	_, _ = fmt.Println("# Project Onboarding")
 	_, _ = fmt.Println()
-	_, _ = fmt.Printf("**Workspace:** %s (%s)\n", ws.Name, ws.ID)
-	_, _ = fmt.Printf("**Prefix:** %s\n", ws.Prefix)
-	if ws.Description != "" {
-		fmt.Printf("**Description:** %s\n", ws.Description)
+	_, _ = fmt.Printf("**Project:** %s (%s)\n", proj.Name, proj.ID)
+	_, _ = fmt.Printf("**Prefix:** %s\n", proj.Prefix)
+	if proj.Description != "" {
+		fmt.Printf("**Description:** %s\n", proj.Description)
 	}
 	fmt.Println()
 

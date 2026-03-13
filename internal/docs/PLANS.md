@@ -71,7 +71,7 @@ arc plan show <child-id>
 
 ## Shared Plans
 
-Standalone plan objects that can be linked to multiple unrelated issues across the workspace. Useful for cross-cutting initiatives.
+Standalone plan objects that can be linked to multiple unrelated issues across the project. Useful for cross-cutting initiatives.
 
 ### Commands
 

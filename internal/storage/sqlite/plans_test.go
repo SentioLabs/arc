@@ -29,32 +29,32 @@ func setupTestStore(t *testing.T) (*sqlite.Store, func()) {
 	return store, cleanup
 }
 
-// setupTestWorkspace creates a workspace for testing.
-func setupTestWorkspace(t *testing.T, store *sqlite.Store) *types.Workspace {
+// setupTestProject creates a project for testing.
+func setupTestProject(t *testing.T, store *sqlite.Store) *types.Project {
 	t.Helper()
 	ctx := context.Background()
 
-	ws := &types.Workspace{
-		Name:   "Test Workspace",
+	proj := &types.Project{
+		Name:   "Test Project",
 		Prefix: "test",
 	}
-	if err := store.CreateWorkspace(ctx, ws); err != nil {
-		t.Fatalf("failed to create workspace: %v", err)
+	if err := store.CreateProject(ctx, proj); err != nil {
+		t.Fatalf("failed to create project: %v", err)
 	}
-	return ws
+	return proj
 }
 
 // setupTestIssue creates an issue for testing.
-func setupTestIssue(t *testing.T, store *sqlite.Store, ws *types.Workspace, title string) *types.Issue {
+func setupTestIssue(t *testing.T, store *sqlite.Store, proj *types.Project, title string) *types.Issue {
 	t.Helper()
 	ctx := context.Background()
 
 	issue := &types.Issue{
-		WorkspaceID: ws.ID,
-		Title:       title,
-		Status:      types.StatusOpen,
-		Priority:    2,
-		IssueType:   types.TypeTask,
+		ProjectID: proj.ID,
+		Title:     title,
+		Status:    types.StatusOpen,
+		Priority:  2,
+		IssueType: types.TypeTask,
 	}
 	if err := store.CreateIssue(ctx, issue, "test-actor"); err != nil {
 		t.Fatalf("failed to create issue: %v", err)
@@ -67,13 +67,13 @@ func TestCreateAndGetPlan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	proj := setupTestProject(t, store)
 
 	plan := &types.Plan{
-		ID:          "plan.abc123",
-		WorkspaceID: ws.ID,
-		Title:       "Test Plan",
-		Content:     "Plan content here",
+		ID:        "plan.abc123",
+		ProjectID: proj.ID,
+		Title:     "Test Plan",
+		Content:   "Plan content here",
 	}
 
 	// Create the plan
@@ -98,8 +98,8 @@ func TestCreateAndGetPlan(t *testing.T) {
 	if retrieved.ID != plan.ID {
 		t.Errorf("ID = %q, want %q", retrieved.ID, plan.ID)
 	}
-	if retrieved.WorkspaceID != plan.WorkspaceID {
-		t.Errorf("WorkspaceID = %q, want %q", retrieved.WorkspaceID, plan.WorkspaceID)
+	if retrieved.ProjectID != plan.ProjectID {
+		t.Errorf("ProjectID = %q, want %q", retrieved.ProjectID, plan.ProjectID)
 	}
 	if retrieved.Title != plan.Title {
 		t.Errorf("Title = %q, want %q", retrieved.Title, plan.Title)
@@ -126,13 +126,13 @@ func TestListPlans(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	proj := setupTestProject(t, store)
 
 	// Create multiple plans
 	plans := []*types.Plan{
-		{ID: "plan.001", WorkspaceID: ws.ID, Title: "Plan 1", Content: "Content 1"},
-		{ID: "plan.002", WorkspaceID: ws.ID, Title: "Plan 2", Content: "Content 2"},
-		{ID: "plan.003", WorkspaceID: ws.ID, Title: "Plan 3", Content: "Content 3"},
+		{ID: "plan.001", ProjectID: proj.ID, Title: "Plan 1", Content: "Content 1"},
+		{ID: "plan.002", ProjectID: proj.ID, Title: "Plan 2", Content: "Content 2"},
+		{ID: "plan.003", ProjectID: proj.ID, Title: "Plan 3", Content: "Content 3"},
 	}
 
 	for _, p := range plans {
@@ -142,7 +142,7 @@ func TestListPlans(t *testing.T) {
 	}
 
 	// List plans
-	listed, err := store.ListPlans(ctx, ws.ID)
+	listed, err := store.ListPlans(ctx, proj.ID)
 	if err != nil {
 		t.Fatalf("ListPlans failed: %v", err)
 	}
@@ -157,13 +157,13 @@ func TestUpdatePlan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	proj := setupTestProject(t, store)
 
 	plan := &types.Plan{
-		ID:          "plan.update",
-		WorkspaceID: ws.ID,
-		Title:       "Original Title",
-		Content:     "Original Content",
+		ID:        "plan.update",
+		ProjectID: proj.ID,
+		Title:     "Original Title",
+		Content:   "Original Content",
 	}
 	if err := store.CreatePlan(ctx, plan); err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
@@ -198,13 +198,13 @@ func TestDeletePlan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	proj := setupTestProject(t, store)
 
 	plan := &types.Plan{
-		ID:          "plan.delete",
-		WorkspaceID: ws.ID,
-		Title:       "To Delete",
-		Content:     "Will be deleted",
+		ID:        "plan.delete",
+		ProjectID: proj.ID,
+		Title:     "To Delete",
+		Content:   "Will be deleted",
 	}
 	if err := store.CreatePlan(ctx, plan); err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
@@ -227,21 +227,21 @@ func TestLinkAndUnlinkIssueToPlan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	proj := setupTestProject(t, store)
 
 	// Create plan and issues
 	plan := &types.Plan{
-		ID:          "plan.link",
-		WorkspaceID: ws.ID,
-		Title:       "Linkable Plan",
-		Content:     "Content",
+		ID:        "plan.link",
+		ProjectID: proj.ID,
+		Title:     "Linkable Plan",
+		Content:   "Content",
 	}
 	if err := store.CreatePlan(ctx, plan); err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
-	issue1 := setupTestIssue(t, store, ws, "Issue 1")
-	issue2 := setupTestIssue(t, store, ws, "Issue 2")
+	issue1 := setupTestIssue(t, store, proj, "Issue 1")
+	issue2 := setupTestIssue(t, store, proj, "Issue 2")
 
 	// Link issues to plan
 	if err := store.LinkIssueToPlan(ctx, issue1.ID, plan.ID); err != nil {
@@ -292,8 +292,8 @@ func TestSetAndGetInlinePlan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
-	issue := setupTestIssue(t, store, ws, "Issue with Plan")
+	proj := setupTestProject(t, store)
+	issue := setupTestIssue(t, store, proj, "Issue with Plan")
 
 	// Initially no plan - should return ErrNoPlan
 	_, err := store.GetInlinePlan(ctx, issue.ID)
@@ -337,8 +337,8 @@ func TestPlanHistory(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
-	issue := setupTestIssue(t, store, ws, "Issue with Plan History")
+	proj := setupTestProject(t, store)
+	issue := setupTestIssue(t, store, proj, "Issue with Plan History")
 
 	// Set multiple plan versions
 	versions := []string{
@@ -364,7 +364,6 @@ func TestPlanHistory(t *testing.T) {
 	}
 
 	// History should be in reverse chronological order (newest first)
-	// Based on queries, should be ordered by created_at DESC
 	if len(history) > 0 && history[0].Text != versions[len(versions)-1] {
 		t.Errorf("Latest plan in history = %q, want %q", history[0].Text, versions[len(versions)-1])
 	}
@@ -384,16 +383,16 @@ func TestGetPlanContext(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
+	proj := setupTestProject(t, store)
 
 	// Create parent (epic) with a plan
-	parent := setupTestIssue(t, store, ws, "Parent Epic")
+	parent := setupTestIssue(t, store, proj, "Parent Epic")
 	if _, err := store.SetInlinePlan(ctx, parent.ID, "author", "Parent's master plan"); err != nil {
 		t.Fatalf("SetInlinePlan on parent failed: %v", err)
 	}
 
 	// Create child issue
-	child := setupTestIssue(t, store, ws, "Child Task")
+	child := setupTestIssue(t, store, proj, "Child Task")
 
 	// Add parent-child dependency
 	dep := &types.Dependency{
@@ -412,10 +411,10 @@ func TestGetPlanContext(t *testing.T) {
 
 	// Create and link a shared plan
 	sharedPlan := &types.Plan{
-		ID:          "plan.shared",
-		WorkspaceID: ws.ID,
-		Title:       "Shared Initiative",
-		Content:     "Shared plan content",
+		ID:        "plan.shared",
+		ProjectID: proj.ID,
+		Title:     "Shared Initiative",
+		Content:   "Shared plan content",
 	}
 	if err := store.CreatePlan(ctx, sharedPlan); err != nil {
 		t.Fatalf("CreatePlan failed: %v", err)
@@ -465,8 +464,8 @@ func TestGetPlanContextEmpty(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ws := setupTestWorkspace(t, store)
-	issue := setupTestIssue(t, store, ws, "Issue without Plans")
+	proj := setupTestProject(t, store)
+	issue := setupTestIssue(t, store, proj, "Issue without Plans")
 
 	pc, err := store.GetPlanContext(ctx, issue.ID)
 	if err != nil {

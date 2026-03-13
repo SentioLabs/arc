@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Use after brainstorm to break an approved design into implementation tasks with exact file paths and steps. Creates self-contained arc issues that subagents can implement with zero prior context.
+description: You MUST use this skill to break a design or feature into implementation tasks — especially after brainstorming, when the user says "plan this", "break this down", "create tasks", or wants to turn a design into actionable arc issues with exact file paths. Creates self-contained arc issues that subagents can implement with zero prior context. Always prefer this over generic planning when the project uses arc issue tracking.
 ---
 
 # Plan — Implementation Task Breakdown
@@ -119,11 +119,7 @@ Options:
   - "Parallel session" (hand off the plan to a new session for implementation — keeps this session free for other work)
 ```
 
-If team, prompt for labels:
-```bash
-arc label add <task-id> teammate:frontend
-arc label add <task-id> teammate:backend
-```
+If team, add teammate labels when creating the issues — include `teammate:<role>` in the task description for the `arc-issue-tracker` agent to handle during creation, or apply them via the web UI.
 
 Available roles: `teammate:frontend`, `teammate:backend`, `teammate:architect`, `teammate:tests`, `teammate:devops`, or custom.
 

@@ -110,7 +110,7 @@ func TestCloseCmdCascadeFlagShorthandAbsent(t *testing.T) {
 	flag := closeCmd.Flags().Lookup("cascade")
 	assert.NotNil(t, flag)
 	// cascade should not have a shorthand to avoid conflicts
-	assert.Equal(t, "", flag.Shorthand)
+	assert.Empty(t, flag.Shorthand)
 }
 
 func TestFormatOpenChildrenErrorHintMessage(t *testing.T) {

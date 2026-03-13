@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>List View Layout Comparison</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --surface-900: oklch(0.13 0.01 250);
+    --surface-800: oklch(0.16 0.01 250);
+    --surface-700: oklch(0.2 0.01 250);
+    --surface-600: oklch(0.25 0.015 250);
+    --surface-500: oklch(0.35 0.02 250);
+    --primary-400: oklch(0.65 0.18 270);
+    --primary-300: oklch(0.75 0.12 270);
+    --accent-400: oklch(0.72 0.12 185);
+    --text-primary: oklch(0.95 0.005 250);
+    --text-secondary: oklch(0.7 0.01 250);
+    --text-muted: oklch(0.5 0.01 250);
+    --border: oklch(0.25 0.01 250);
+    --border-focus: oklch(0.55 0.22 270);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--surface-900);
+    color: var(--text-primary);
+    font-family: "Instrument Sans", system-ui, sans-serif;
+    padding: 2rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-bottom: 2rem;
+  }
+
+  .section {
+    margin-bottom: 3rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+  }
+
+  .badge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .badge-current {
+    background: var(--surface-600);
+    color: var(--text-secondary);
+  }
+
+  .badge-new {
+    background: oklch(0.55 0.22 270 / 0.2);
+    color: var(--primary-300);
+  }
+
+  .card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .card {
+    background: var(--surface-800);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    transition: border-color 0.2s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .card:hover {
+    border-color: oklch(0.55 0.22 270 / 0.5);
+  }
+
+  /* ──── Option A: Single-line with truncation ──── */
+  .card-a {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.625rem 1rem;
+  }
+
+  .card-a .name-id {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    flex-shrink: 0;
+    width: 280px;
+  }
+
+  .card-a .name-id h3 {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--primary-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .card-a:hover .name-id h3 {
+    color: var(--primary-300);
+  }
+
+  .divider {
+    width: 1px;
+    height: 0.875rem;
+    background: var(--surface-500);
+    opacity: 0.6;
+    margin: 0 0.5rem;
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .project-id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--accent-400);
+    white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+
+  .card-a .description {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .trailing {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .workspace-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .workspace-count svg {
+    width: 0.625rem;
+    height: 0.625rem;
+    opacity: 0.7;
+  }
+
+  .chevron {
+    width: 1rem;
+    height: 1rem;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+  }
+
+  .chevron svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .card:hover .chevron {
+    color: var(--primary-400);
+    transform: translateX(2px);
+  }
+
+  /* ──── Option C: Two-line compact ──── */
+  .card-c {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .card-c .content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .card-c .top-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    min-width: 0;
+  }
+
+  .card-c .top-line h3 {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--primary-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .card-c:hover .top-line h3 {
+    color: var(--primary-300);
+  }
+
+  .card-c .bottom-line {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 0.05rem;
+  }
+
+  /* ──── Controls ──── */
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .control-btn {
+    font-family: "Instrument Sans", system-ui, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border);
+    background: var(--surface-800);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+
+  .control-btn:hover {
+    border-color: var(--primary-400);
+    color: var(--text-primary);
+  }
+
+  .control-btn.active {
+    background: oklch(0.55 0.22 270 / 0.15);
+    border-color: var(--primary-400);
+    color: var(--primary-300);
+  }
+
+  .note {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    font-style: italic;
+  }
+
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  @media (max-width: 900px) {
+    .comparison-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>List View Layout Comparison</h1>
+<p class="subtitle">Side-by-side: Option A (truncation fix) vs Option C (two-line compact)</p>
+
+<div class="controls">
+  <button class="control-btn active" id="btn-side">Side by Side</button>
+  <button class="control-btn" id="btn-a-only">Option A Only</button>
+  <button class="control-btn" id="btn-c-only">Option C Only</button>
+</div>
+
+<div class="comparison-grid" id="grid">
+  <div class="section" id="section-a">
+    <div class="section-header">
+      <span class="section-title">Option A — Truncated Single-Line</span>
+      <span class="badge badge-current">Current</span>
+    </div>
+    <div class="card-list" id="list-a"></div>
+    <p class="note">Fixed 280px name column. Long names truncate with ellipsis. Hover for full name.</p>
+  </div>
+
+  <div class="section" id="section-c">
+    <div class="section-header">
+      <span class="section-title">Option C — Two-Line Compact</span>
+      <span class="badge badge-new">Alternative</span>
+    </div>
+    <div class="card-list" id="list-c"></div>
+    <p class="note">Name + ID on top, description below. No truncation needed. Slightly taller rows.</p>
+  </div>
+</div>
+
+<script>
+  var NS = "http://www.w3.org/2000/svg";
+
+  var projects = [
+    { name: "BACSTACK", id: "ws-02m4x6", description: "BACnet/IP protocol stack and tooling", workspaces: 1 },
+    { name: "LUMEN-MAIN-A8D484", id: "ws-02m4x6", description: "No description", workspaces: 1 },
+    { name: "LUMEN-VESPA-MULTILAN-9391E2", id: "ws-068m", description: "No description", workspaces: 1 },
+    { name: "STASH-BFIRESTONE-TRA-A490FA", id: "ws-02zk", description: "No description", workspaces: 1 },
+    { name: "ARC", id: "ws-01ab", description: "Central issue tracking server for AI-assisted coding workflows", workspaces: 3 },
+    { name: "MY-VERY-LONG-PROJECT-NAME-THAT-KEEPS-GOING", id: "ws-09zz", description: "Testing extremely long names that would definitely overflow", workspaces: 2 },
+  ];
+
+  function makeFolderIcon() {
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2.5");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    var path = document.createElementNS(NS, "path");
+    path.setAttribute("d", "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function makeChevronIcon() {
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "currentColor");
+    var path = document.createElementNS(NS, "path");
+    path.setAttribute("d", "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z");
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function makeTrailing(p) {
+    var trailing = document.createElement("div");
+    trailing.className = "trailing";
+
+    if (p.workspaces > 0) {
+      var ws = document.createElement("span");
+      ws.className = "workspace-count";
+      ws.appendChild(makeFolderIcon());
+      var ct = document.createTextNode(" " + p.workspaces);
+      ws.appendChild(ct);
+      trailing.appendChild(ws);
+    }
+
+    var chev = document.createElement("span");
+    chev.className = "chevron";
+    chev.appendChild(makeChevronIcon());
+    trailing.appendChild(chev);
+
+    return trailing;
+  }
+
+  function renderOptionA(container) {
+    container.textContent = "";
+    for (var i = 0; i < projects.length; i++) {
+      var p = projects[i];
+      var card = document.createElement("div");
+      card.className = "card card-a";
+
+      var nameId = document.createElement("div");
+      nameId.className = "name-id";
+
+      var h3 = document.createElement("h3");
+      h3.textContent = p.name;
+      h3.title = p.name;
+
+      var divider = document.createElement("span");
+      divider.className = "divider";
+
+      var pid = document.createElement("span");
+      pid.className = "project-id";
+      pid.textContent = p.id;
+
+      nameId.appendChild(h3);
+      nameId.appendChild(divider);
+      nameId.appendChild(pid);
+
+      var desc = document.createElement("p");
+      desc.className = "description";
+      desc.textContent = p.description;
+
+      card.appendChild(nameId);
+      card.appendChild(desc);
+      card.appendChild(makeTrailing(p));
+      container.appendChild(card);
+    }
+  }
+
+  function renderOptionC(container) {
+    container.textContent = "";
+    for (var i = 0; i < projects.length; i++) {
+      var p = projects[i];
+      var card = document.createElement("div");
+      card.className = "card card-c";
+
+      var content = document.createElement("div");
+      content.className = "content";
+
+      var topLine = document.createElement("div");
+      topLine.className = "top-line";
+
+      var h3 = document.createElement("h3");
+      h3.textContent = p.name;
+
+      var divider = document.createElement("span");
+      divider.className = "divider";
+
+      var pid = document.createElement("span");
+      pid.className = "project-id";
+      pid.textContent = p.id;
+
+      topLine.appendChild(h3);
+      topLine.appendChild(divider);
+      topLine.appendChild(pid);
+
+      var bottomLine = document.createElement("p");
+      bottomLine.className = "bottom-line";
+      bottomLine.textContent = p.description;
+
+      content.appendChild(topLine);
+      content.appendChild(bottomLine);
+
+      card.appendChild(content);
+      card.appendChild(makeTrailing(p));
+      container.appendChild(card);
+    }
+  }
+
+  renderOptionA(document.getElementById("list-a"));
+  renderOptionC(document.getElementById("list-c"));
+
+  var btnSide = document.getElementById("btn-side");
+  var btnA = document.getElementById("btn-a-only");
+  var btnC = document.getElementById("btn-c-only");
+  var grid = document.getElementById("grid");
+  var sectionA = document.getElementById("section-a");
+  var sectionC = document.getElementById("section-c");
+
+  function setView(mode) {
+    btnSide.classList.remove("active");
+    btnA.classList.remove("active");
+    btnC.classList.remove("active");
+
+    if (mode === "side") {
+      btnSide.classList.add("active");
+      grid.style.gridTemplateColumns = "1fr 1fr";
+      sectionA.style.display = "";
+      sectionC.style.display = "";
+    } else if (mode === "a") {
+      btnA.classList.add("active");
+      grid.style.gridTemplateColumns = "1fr";
+      sectionA.style.display = "";
+      sectionC.style.display = "none";
+    } else {
+      btnC.classList.add("active");
+      grid.style.gridTemplateColumns = "1fr";
+      sectionA.style.display = "none";
+      sectionC.style.display = "";
+    }
+  }
+
+  btnSide.addEventListener("click", function() { setView("side"); });
+  btnA.addEventListener("click", function() { setView("a"); });
+  btnC.addEventListener("click", function() { setView("c"); });
+</script>
+
+</body>
+</html>

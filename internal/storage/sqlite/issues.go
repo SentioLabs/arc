@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
-	"github.com/sentiolabs/arc/internal/workspace"
 )
 
 // IsHierarchicalID checks if an issue ID is hierarchical (has a parent).
@@ -84,10 +84,10 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 		return fmt.Errorf("validate issue: %w", err)
 	}
 
-	// Get workspace prefix for ID generation
-	ws, err := s.GetWorkspace(ctx, issue.WorkspaceID)
+	// Get project prefix for ID generation
+	proj, err := s.GetProject(ctx, issue.ProjectID)
 	if err != nil {
-		return fmt.Errorf("get workspace for ID generation: %w", err)
+		return fmt.Errorf("get project for ID generation: %w", err)
 	}
 
 	// Generate ID - use hierarchical ID if parent is specified
@@ -100,7 +100,7 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 			}
 			issue.ID = childID
 		} else {
-			issue.ID = workspace.GenerateIssueID(ws.Prefix, issue.Title)
+			issue.ID = project.GenerateIssueID(proj.Prefix, issue.Title)
 		}
 	}
 
@@ -110,7 +110,7 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 
 	err = s.queries.CreateIssue(ctx, db.CreateIssueParams{
 		ID:          issue.ID,
-		WorkspaceID: issue.WorkspaceID,
+		ProjectID:   issue.ProjectID,
 		Title:       issue.Title,
 		Description: toNullString(issue.Description),
 		Status:      string(issue.Status),
@@ -186,15 +186,15 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 
 	// Full-text search has its own dedicated path.
 	if filter.Query != "" {
-		return s.searchIssuesFTS(ctx, filter.WorkspaceID, filter.Query, limit, offset)
+		return s.searchIssuesFTS(ctx, filter.ProjectID, filter.Query, limit, offset)
 	}
 
 	// Convert pointer filters to nil-able interface{} values for sqlc.narg params.
 	// nil means "skip this filter", non-nil means "apply this filter".
 	params := db.ListIssuesFilteredParams{
-		WorkspaceID: filter.WorkspaceID,
-		Limit:       int64(limit),
-		Offset:      int64(offset),
+		ProjectID: filter.ProjectID,
+		Limit:     int64(limit),
+		Offset:    int64(offset),
 	}
 	if filter.Status != nil {
 		params.Status = string(*filter.Status)
@@ -462,7 +462,7 @@ func (s *Store) GetIssueDetails(ctx context.Context, id string) (*types.IssueDet
 func dbIssueToType(row *db.Issue) *types.Issue {
 	return &types.Issue{
 		ID:          row.ID,
-		WorkspaceID: row.WorkspaceID,
+		ProjectID:   row.ProjectID,
 		Title:       row.Title,
 		Description: fromNullString(row.Description),
 		Status:      types.Status(row.Status),

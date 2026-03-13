@@ -1,8 +1,8 @@
 ---
-description: Show workspace statistics
+description: Show project statistics
 ---
 
-Run `arc stats` to show statistics for the current workspace:
+Run `arc stats` to show statistics for the current project:
 
 - Total issues
 - Open, in progress, blocked, deferred, closed counts

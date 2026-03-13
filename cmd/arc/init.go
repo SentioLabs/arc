@@ -6,9 +6,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/templates"
-	"github.com/sentiolabs/arc/internal/workspace"
+	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -19,22 +20,22 @@ const filePermissions = 0o644
 var initCmd = &cobra.Command{
 	Use:   "init [name]",
 	Short: "Initialize arc in the current directory",
-	Long: `Initialize arc in the current directory by creating a workspace.
+	Long: `Initialize arc in the current directory by creating a project.
 
 This command:
-1. Creates a workspace on the server (or connects to existing)
+1. Creates a project on the server (or connects to existing)
 2. Saves project config to ~/.arc/projects/
 3. Creates AGENTS.md with session completion instructions
 
 For Claude Code users: Install the arc plugin for full integration
 (hooks, skills, agents). The plugin's onboard skill will handle
-workspace initialization automatically.
+project initialization automatically.
 
 For Codex CLI users: Run arc setup codex to install the repo-scoped
 arc skill bundle under .codex/skills.
 
 Examples:
-  arc init                    # Use directory name as workspace
+  arc init                    # Use directory name as project
   arc init my-project         # Use custom name
   arc init --prefix cxsh      # Custom issue prefix (e.g., cxsh-0b7w)`,
 	Args: cobra.MaximumNArgs(1),
@@ -42,7 +43,7 @@ Examples:
 }
 
 func init() {
-	initCmd.Flags().StringP("description", "d", "", "Workspace description")
+	initCmd.Flags().StringP("description", "d", "", "Project description")
 	initCmd.Flags().StringP("prefix", "p", "", "Custom issue prefix (alphanumeric, max 10 chars)")
 	initCmd.Flags().BoolP("quiet", "q", false, "Suppress output")
 	rootCmd.AddCommand(initCmd)
@@ -60,16 +61,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	cwd = project.NormalizePath(cwd)
 
-	// Determine workspace name
+	// Determine project name
 	var name string
 	if len(args) > 0 {
 		// User provided explicit name
 		name = args[0]
 	} else {
 		// Auto-generate: sanitized-basename-hash
-		name, err = workspace.GenerateName(cwd)
+		name, err = project.GenerateName(cwd)
 		if err != nil {
-			return fmt.Errorf("generate workspace name: %w", err)
+			return fmt.Errorf("generate project name: %w", err)
 		}
 	}
 
@@ -78,94 +79,64 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	var prefix string
 	if customPrefix != "" {
-		prefix, err = workspace.GeneratePrefixWithCustomName(cwd, customPrefix)
+		prefix, err = project.GeneratePrefixWithCustomName(cwd, customPrefix)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
 	} else {
-		prefix, err = workspace.GeneratePrefix(cwd)
+		prefix, err = project.GeneratePrefix(cwd)
 		if err != nil {
 			return fmt.Errorf("generate prefix: %w", err)
 		}
 	}
 
-	// Create workspace on server
+	// Create project on server
 	c, err := getClient()
 	if err != nil {
 		return fmt.Errorf("connect to server: %w", err)
 	}
 
-	// Check if workspace already exists
-	workspaces, err := c.ListWorkspaces()
+	// Check if project already exists
+	projects, err := c.ListProjects()
 	if err != nil {
-		return fmt.Errorf("list workspaces: %w", err)
+		return fmt.Errorf("list projects: %w", err)
 	}
 
-	var ws *struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Path        string `json:"path"`
-		Description string `json:"description"`
-		Prefix      string `json:"prefix"`
-	}
+	var proj *types.Project
 
-	// Look for existing workspace by path or name (normalize paths to handle symlinks)
-	for _, existing := range workspaces {
-		if existing.Path == cwd || project.NormalizePath(existing.Path) == cwd || existing.Name == name {
-			ws = &struct {
-				ID          string `json:"id"`
-				Name        string `json:"name"`
-				Path        string `json:"path"`
-				Description string `json:"description"`
-				Prefix      string `json:"prefix"`
-			}{
-				ID:          existing.ID,
-				Name:        existing.Name,
-				Path:        existing.Path,
-				Description: existing.Description,
-				Prefix:      existing.Prefix,
-			}
+	// Look for existing project by name
+	for _, existing := range projects {
+		if existing.Name == name {
+			proj = existing
 			if !quiet {
-				fmt.Printf("Using existing workspace: %s (%s)\n", ws.Name, ws.ID)
+				fmt.Printf("Using existing project: %s (%s)\n", proj.Name, proj.ID)
 			}
 			break
 		}
 	}
 
-	// Create new workspace if not found
-	if ws == nil {
-		newWs, err := c.CreateWorkspace(name, prefix, cwd, description)
+	// Also check server-side path resolution
+	if proj == nil {
+		proj = resolveExistingProject(c, cwd, quiet)
+	}
+
+	// Create new project if not found
+	if proj == nil {
+		proj, err = c.CreateProject(name, prefix, description)
 		if err != nil {
-			return fmt.Errorf("create workspace: %w", err)
-		}
-		ws = &struct {
-			ID          string `json:"id"`
-			Name        string `json:"name"`
-			Path        string `json:"path"`
-			Description string `json:"description"`
-			Prefix      string `json:"prefix"`
-		}{
-			ID:          newWs.ID,
-			Name:        newWs.Name,
-			Path:        newWs.Path,
-			Description: newWs.Description,
-			Prefix:      newWs.Prefix,
+			return fmt.Errorf("create project: %w", err)
 		}
 		if !quiet {
-			fmt.Printf("Created workspace: %s (%s)\n", ws.Name, ws.ID)
+			fmt.Printf("Created project: %s (%s)\n", proj.Name, proj.ID)
 		}
 	}
 
-	// Create project config in ~/.arc/projects/
-	arcHome := project.DefaultArcHome()
-	projectCfg := &project.Config{
-		WorkspaceID:   ws.ID,
-		WorkspaceName: ws.Name,
-		ProjectRoot:   cwd,
-	}
-	if err := project.WriteConfig(arcHome, cwd, projectCfg); err != nil {
+	// Register the current directory as a workspace path
+	hostname, _ := os.Hostname()
+	absPath, resolvedPath := project.NormalizePathPair(cwd)
+	if regErr := registerPathPair(c, proj.ID, absPath, resolvedPath, hostname); regErr != nil {
 		if !quiet {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to create project config: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to register workspace path: %v\n", regErr)
 		}
 	}
 
@@ -185,11 +156,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	if !quiet {
 		fmt.Printf("\n✓ arc initialized successfully!\n\n")
-		fmt.Printf("  Workspace: %s\n", ws.Name)
-		fmt.Printf("  ID: %s\n", ws.ID)
-		fmt.Printf("  Prefix: %s\n", ws.Prefix)
+		fmt.Printf("  Project: %s\n", proj.Name)
+		fmt.Printf("  ID: %s\n", proj.ID)
+		fmt.Printf("  Prefix: %s\n", proj.Prefix)
 		fmt.Printf("  Issues will be named: %s.<hash> (e.g., %s.a3f2dd)\n\n",
-			ws.Prefix, ws.Prefix)
+			proj.Prefix, proj.Prefix)
 		fmt.Printf("Run %s to get started.\n", "arc quickstart")
 	}
 
@@ -236,6 +207,7 @@ func addLandingThePlaneInstructions(verbose bool) error {
 	}
 	newContent += landingSection
 
+	//nolint:gosec // filename is a hardcoded constant ("AGENTS.md")
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
@@ -318,6 +290,7 @@ func updateClaudeMdReference(verbose bool) error {
 		newContent += "\n" + reference
 	}
 
+	//nolint:gosec // filename is a hardcoded constant ("CLAUDE.md")
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
@@ -349,4 +322,20 @@ func replaceSectionUntilNextHeader(content, header, replacement string) string {
 	}
 
 	return content[:start] + replacement + content[end:]
+}
+
+// resolveExistingProject checks server-side path resolution for an existing project.
+func resolveExistingProject(c *client.Client, cwd string, quiet bool) *types.Project {
+	res, resolveErr := c.ResolveProjectByPath(cwd)
+	if resolveErr != nil || res.ProjectID == "" {
+		return nil
+	}
+	existing, getErr := c.GetProject(res.ProjectID)
+	if getErr != nil {
+		return nil
+	}
+	if !quiet {
+		fmt.Printf("Using existing project: %s (%s)\n", existing.Name, existing.ID)
+	}
+	return existing
 }

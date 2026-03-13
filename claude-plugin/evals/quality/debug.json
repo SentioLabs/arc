@@ -1,0 +1,107 @@
+[
+  {
+    "eval_id": 1,
+    "eval_name": "Debug investigates before fixing",
+    "prompt": "Tests are failing: TestCreateIssue panics with nil pointer at internal/storage/sqlite/issues.go:42. Fix it.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output reads the error message and stack trace before proposing any fix",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output reads the code at the referenced file and line number",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output does NOT write a fix in the first response — Phase 1 is investigation only",
+        "type": "constraint"
+      },
+      {
+        "id": 4,
+        "text": "Output checks recent changes (git diff or git log) for context",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "Debug writes failing test before fix",
+    "prompt": "After investigating, the root cause is that GetProject returns nil when the project doesn't exist instead of an error. Fix it.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output writes a failing test that demonstrates the bug BEFORE writing the fix",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output runs the test and confirms it fails with the expected behavior",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "After the fix, output runs the full test suite to check for regressions",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "Debug applies the 3-fix rule",
+    "prompt": "I've already tried 3 different fixes for this intermittent race condition and none worked. The test still fails randomly.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output recognizes the 3-fix threshold and stops trying new fixes",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output goes back to investigation (Phase 1) to gather more evidence",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output does NOT propose a 4th fix without deeper investigation first",
+        "type": "constraint"
+      }
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "Debug creates arc issue for larger bugs",
+    "prompt": "While debugging the nil pointer, I discovered that the entire error handling pattern in the storage layer is inconsistent — some functions return nil, others return sentinel errors.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output creates an arc issue for the larger pattern problem (arc create ... --type=bug)",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output decides whether to fix it now (if it blocks current work) or defer it",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "Debug tests one hypothesis at a time",
+    "prompt": "The API returns 500 on /users. Possible causes: database connection pool exhausted, query timeout, or missing index on users table.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output forms a SINGLE hypothesis and designs a test for it",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output does NOT try multiple fixes simultaneously",
+        "type": "constraint"
+      }
+    ]
+  }
+]

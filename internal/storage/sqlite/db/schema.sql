@@ -2,21 +2,38 @@
 -- Applied at runtime via golang-migrate (see migrations/*.sql).
 -- Keep this in sync with the migration files.
 
--- Workspaces table
-CREATE TABLE workspaces (
+-- Projects table (issue containers, previously named workspaces)
+CREATE TABLE projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
-    path TEXT,
     description TEXT,
     prefix TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Workspaces table (directory paths, previously named workspace_paths)
+CREATE TABLE workspaces (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    path TEXT NOT NULL,
+    label TEXT,
+    hostname TEXT,
+    git_remote TEXT,
+    path_type TEXT NOT NULL DEFAULT 'canonical',
+    last_accessed_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(project_id, path)
+);
+
+CREATE INDEX idx_workspaces_project_id ON workspaces(project_id);
+CREATE INDEX idx_workspaces_path ON workspaces(path);
+
 -- Issues table
 CREATE TABLE issues (
     id TEXT PRIMARY KEY,
-    workspace_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
     status TEXT NOT NULL DEFAULT 'open',
@@ -29,18 +46,18 @@ CREATE TABLE issues (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at TIMESTAMP,
     close_reason TEXT,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
 -- Index for common queries
-CREATE INDEX idx_issues_workspace ON issues(workspace_id);
-CREATE INDEX idx_issues_status ON issues(workspace_id, status);
-CREATE INDEX idx_issues_priority ON issues(workspace_id, priority);
-CREATE INDEX idx_issues_assignee ON issues(workspace_id, assignee);
-CREATE INDEX idx_issues_type ON issues(workspace_id, issue_type);
-CREATE INDEX idx_issues_updated ON issues(workspace_id, updated_at DESC);
+CREATE INDEX idx_issues_project ON issues(project_id);
+CREATE INDEX idx_issues_status ON issues(project_id, status);
+CREATE INDEX idx_issues_priority ON issues(project_id, priority);
+CREATE INDEX idx_issues_assignee ON issues(project_id, assignee);
+CREATE INDEX idx_issues_type ON issues(project_id, issue_type);
+CREATE INDEX idx_issues_updated ON issues(project_id, updated_at DESC);
 CREATE UNIQUE INDEX idx_issues_external_ref ON issues(external_ref) WHERE external_ref IS NOT NULL;
-CREATE INDEX idx_issues_rank ON issues(workspace_id, priority, rank, created_at);
+CREATE INDEX idx_issues_rank ON issues(project_id, priority, rank, created_at);
 
 -- Dependencies table
 CREATE TABLE dependencies (
@@ -113,13 +130,13 @@ CREATE TABLE blocked_issues_cache (
     FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE
 );
 
--- Config table (for workspace settings)
+-- Config table (for project settings)
 CREATE TABLE config (
-    workspace_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT,
-    PRIMARY KEY (workspace_id, key),
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    PRIMARY KEY (project_id, key),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
 -- Global config table (server-wide settings)
@@ -138,15 +155,15 @@ CREATE TABLE child_counters (
 -- Shared plans table for cross-issue planning
 CREATE TABLE plans (
     id TEXT PRIMARY KEY,              -- plan.xxxxx format
-    workspace_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
     title TEXT NOT NULL,
     content TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_plans_workspace ON plans(workspace_id);
+CREATE INDEX idx_plans_project ON plans(project_id);
 
 -- Issue-plan links (many-to-many)
 CREATE TABLE issue_plans (

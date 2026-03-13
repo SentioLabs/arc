@@ -1,6 +1,6 @@
 -- name: CreateIssue :exec
 INSERT INTO issues (
-    id, workspace_id, title, description,
+    id, project_id, title, description,
     status, priority, issue_type, assignee, external_ref,
     created_at, updated_at, closed_at, close_reason
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -14,12 +14,12 @@ SELECT * FROM issues WHERE external_ref = ?;
 -- name: ListIssuesFiltered :many
 -- Composable filter query: all optional params use sqlc.narg so NULL means "skip this filter".
 -- The LEFT JOIN on dependencies is only effective when parent_id is non-NULL.
-SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
        i.issue_type, i.assignee, i.external_ref, i.rank,
        i.created_at, i.updated_at, i.closed_at, i.close_reason
 FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
-WHERE i.workspace_id = sqlc.arg('workspace_id')
+WHERE i.project_id = sqlc.arg('project_id')
   AND (sqlc.narg('status') IS NULL OR i.status = sqlc.narg('status'))
   AND (sqlc.narg('issue_type') IS NULL OR i.issue_type = sqlc.narg('issue_type'))
   AND (sqlc.narg('assignee') IS NULL OR i.assignee = sqlc.narg('assignee'))
@@ -30,7 +30,7 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: SearchIssues :many
 SELECT * FROM issues
-WHERE workspace_id = ?
+WHERE project_id = ?
   AND (title LIKE ? OR description LIKE ?)
 ORDER BY priority ASC, updated_at DESC
 LIMIT ? OFFSET ?;
@@ -75,11 +75,11 @@ WHERE id = ?;
 -- name: DeleteIssue :exec
 DELETE FROM issues WHERE id = ?;
 
--- name: CountIssuesByWorkspace :one
-SELECT COUNT(*) as count FROM issues WHERE workspace_id = ?;
+-- name: CountIssuesByProject :one
+SELECT COUNT(*) as count FROM issues WHERE project_id = ?;
 
 -- name: CountIssuesByStatus :one
-SELECT COUNT(*) as count FROM issues WHERE workspace_id = ? AND status = ?;
+SELECT COUNT(*) as count FROM issues WHERE project_id = ? AND status = ?;
 
 -- name: CountIssuesByID :one
 SELECT COUNT(*) as count FROM issues WHERE id = ?;
@@ -88,7 +88,7 @@ SELECT COUNT(*) as count FROM issues WHERE id = ?;
 SELECT i.* FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
-WHERE i.workspace_id = ?
+WHERE i.project_id = ?
   AND i.status IN ('open', 'in_progress')
 GROUP BY i.id
 HAVING COUNT(blocker.id) = 0
@@ -102,7 +102,7 @@ LIMIT ?;
 SELECT i.* FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
-WHERE i.workspace_id = ?
+WHERE i.project_id = ?
   AND i.status IN ('open', 'in_progress')
 GROUP BY i.id
 HAVING COUNT(blocker.id) = 0
@@ -125,7 +125,7 @@ LIMIT ?;
 SELECT i.* FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
-WHERE i.workspace_id = ?
+WHERE i.project_id = ?
   AND i.status IN ('open', 'in_progress')
 GROUP BY i.id
 HAVING COUNT(blocker.id) = 0
@@ -141,7 +141,7 @@ LIMIT ?;
 SELECT i.* FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
-WHERE i.workspace_id = ?
+WHERE i.project_id = ?
   AND i.status IN ('open', 'in_progress')
 GROUP BY i.id
 HAVING COUNT(blocker.id) = 0

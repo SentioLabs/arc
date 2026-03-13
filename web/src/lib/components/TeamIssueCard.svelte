@@ -10,16 +10,16 @@
 
 	interface Props {
 		issue: TeamContextIssue;
-		workspaceId: string;
+		projectId: string;
 	}
 
-	let { issue, workspaceId }: Props = $props();
+	let { issue, projectId }: Props = $props();
 
 	const deps = $derived(issue.deps ?? []);
 </script>
 
 <a
-	href="/{workspaceId}/issues/{issue.id}"
+	href="/{projectId}/issues/{issue.id}"
 	class="group block card p-3 hover:border-border-focus/50 transition-all duration-200"
 >
 	<!-- Header: ID, Type, Priority -->

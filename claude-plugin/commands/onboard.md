@@ -1,10 +1,10 @@
 ---
-description: Get oriented with the current workspace
+description: Get oriented with the current project
 ---
 
 Run `arc onboard` at the start of a work session to understand:
 
-- Current workspace and project context
+- Current project and directory context
 - Open issues and their priorities
 - Blocked work and dependencies
 - Recent activity

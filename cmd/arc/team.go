@@ -70,7 +70,7 @@ Otherwise, all issues with teammate:* labels in the workspace are shown.`,
 			return err
 		}
 
-		wsID, err := getWorkspaceID()
+		wsID, err := getProjectID()
 		if err != nil {
 			return err
 		}
@@ -132,8 +132,8 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 		// Find teammate:* label
 		role := ""
 		for _, l := range issue.Labels {
-			if strings.HasPrefix(l, "teammate:") {
-				role = strings.TrimPrefix(l, "teammate:")
+			if after, ok := strings.CutPrefix(l, "teammate:"); ok {
+				role = after
 				break
 			}
 		}
@@ -155,14 +155,14 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 	return tc, nil
 }
 
-// fetchTeamIssues fetches issues for team context, either from an epic or from the full workspace.
+// fetchTeamIssues fetches issues for team context, either from an epic or from the full project.
 // When epicID is provided, it populates tc.Epic and returns the epic's children.
 // Otherwise, it returns all open + in_progress issues.
 func fetchTeamIssues(c *client.Client, wsID, epicID string, tc *TeamContext) ([]*types.Issue, error) {
 	if epicID != "" {
 		return fetchEpicChildren(c, wsID, epicID, tc)
 	}
-	return fetchWorkspaceIssues(c, wsID)
+	return fetchProjectIssues(c, wsID)
 }
 
 // fetchEpicChildren fetches epic details and its child issues.
@@ -192,8 +192,8 @@ func fetchEpicChildren(c *client.Client, wsID, epicID string, tc *TeamContext) (
 	return children, nil
 }
 
-// fetchWorkspaceIssues fetches all open and in_progress issues from the workspace.
-func fetchWorkspaceIssues(c *client.Client, wsID string) ([]*types.Issue, error) {
+// fetchProjectIssues fetches all open and in_progress issues from the project.
+func fetchProjectIssues(c *client.Client, wsID string) ([]*types.Issue, error) {
 	allIssues, err := c.ListIssues(wsID, client.ListIssuesOptions{
 		Status: "open",
 		Limit:  teamListLimit,

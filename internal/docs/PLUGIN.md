@@ -140,7 +140,7 @@ arc prime
 
 **In a new session**, you should see `arc prime` output automatically if:
 1. The plugin is installed
-2. You're in an arc-enabled project (project config exists in `~/.arc/projects/`)
+2. You're in an arc-enabled project (resolved via server path registration or local config in `~/.arc/projects/`)
 
 ## Validation Checklist
 
@@ -151,7 +151,7 @@ Use this checklist when validating Codex CLI integration:
 3. Start Codex CLI from the repo root.
 4. Verify the arc skill is discoverable (e.g., `/skills`).
 5. Run `arc onboard` and `arc prime` once per session.
-6. Run `arc ready` to confirm workspace access.
+6. Run `arc ready` to confirm project access.
 7. Uninstall with `arc setup codex --remove` and verify cleanup.
 
 ## Plugin Components
@@ -207,7 +207,7 @@ This ensures Claude proactively uses arc in enabled projects.
 
 ### Hooks not firing
 
-1. Verify you're in an arc-enabled project (project config exists in `~/.arc/projects/`)
+1. Verify you're in an arc-enabled project (resolved via server path registration or local config in `~/.arc/projects/`)
 2. Check arc CLI is in PATH:
    ```bash
    which arc

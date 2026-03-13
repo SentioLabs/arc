@@ -31,7 +31,7 @@ with a simple CLI.
 
 ## Core Concepts
 
-- **Workspace**: A project container (like a repo). Each workspace has its own issues.
+- **Project**: A project container (like a repo). Each project has its own issues.
 - **Issue**: A trackable unit of work (task, bug, feature, epic, chore)
 - **Dependency**: Issues can block or depend on other issues
 - **Status**: open, in_progress, blocked, deferred, closed
@@ -122,7 +122,7 @@ arc blocked                        # Show all blocked issues
 
 | Command | Description |
 |---------|-------------|
-| arc init | Initialize workspace in current directory |
+| arc init | Initialize project in current directory |
 | arc ready | Show unblocked issues |
 | arc list | List all issues |
 | arc show <id> | Show issue details |
@@ -130,8 +130,8 @@ arc blocked                        # Show all blocked issues
 | arc update <id> | Update issue fields |
 | arc close <id> | Close an issue |
 | arc blocked | Show blocked issues |
-| arc stats | Show workspace statistics |
-| arc onboard | Get workspace orientation |
+| arc stats | Show project statistics |
+| arc onboard | Get project orientation |
 | arc setup claude | Install Claude Code hooks |
 | arc setup codex | Install Codex repo skill bundle |
 

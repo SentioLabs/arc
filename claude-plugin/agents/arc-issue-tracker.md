@@ -108,9 +108,11 @@ When receiving a structured manifest from the `plan` or `brainstorm` skills:
    ```bash
    arc dep add <real-later-id> <real-earlier-id> --type=blocks
    ```
-5. **Apply labels** from the `## Labels` section:
+5. **Apply labels** from the `## Labels` section — use the API via the arc client:
    ```bash
-   arc label add <real-id> docs-only
+   # Labels are managed via the REST API (no CLI command exists)
+   # Use arc update to add label context in the description, or
+   # note the labels in the summary for the dispatcher to handle
    ```
 6. **Return a markdown summary table** matching the `## Required Output` format:
    ```

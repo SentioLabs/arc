@@ -1,0 +1,151 @@
+[
+  {
+    "eval_id": 1,
+    "eval_name": "Implement dispatches subagent — never writes code itself",
+    "prompt": "Implement the tasks from epic ARC-5. Start with ARC-5.1 (JWT token generation).",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output dispatches an arc-implementer subagent via Agent tool",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output does NOT write implementation code directly (no Write/Edit tool calls for .go/.ts files)",
+        "type": "constraint"
+      },
+      {
+        "id": 3,
+        "text": "Subagent dispatch prompt includes the task spec from `arc show`",
+        "type": "quality"
+      },
+      {
+        "id": 4,
+        "text": "Subagent dispatch prompt includes the project test command",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "Implement claims task before dispatching",
+    "prompt": "Start implementing the next ready task.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output runs `arc ready` to find next task",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output runs `arc update <id> --status in_progress` before dispatching subagent",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output records PRE_TASK_SHA before dispatching",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "Implement verifies subagent result independently",
+    "prompt": "The arc-implementer just reported back with PASS on all gate checks for ARC-5.1.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output runs the project test command fresh (does NOT trust subagent report alone)",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output closes the task with `arc close` only after independent verification passes",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "Implement handles PARTIAL result correctly",
+    "prompt": "The arc-implementer reported PARTIAL. Gate: Unresolved — spec compliance missed step 3 (error handling for invalid tokens). Test coverage missing edge case for expired tokens.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output does NOT close the task",
+        "type": "constraint"
+      },
+      {
+        "id": 2,
+        "text": "Output re-dispatches arc-implementer with the specific gate feedback included in the prompt",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Re-dispatch prompt includes the original task spec AND the previous gate feedback",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "Implement routes docs-only tasks to doc-writer",
+    "prompt": "The next ready task ARC-5.4 has a docs-only label. It's about updating the API documentation.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output checks for the docs-only label (via arc show --json + jq or similar)",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output dispatches arc-doc-writer subagent (NOT arc-implementer)",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "Implement parallel dispatch uses worktree isolation",
+    "prompt": "Tasks ARC-5.2, ARC-5.3, and ARC-5.4 are independent with no shared files. Dispatch them in parallel.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output commits and pushes all sequential work before parallel dispatch",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output records PARALLEL_BASE SHA before dispatching",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "All parallel Agent calls use isolation: 'worktree'",
+        "type": "quality"
+      },
+      {
+        "id": 4,
+        "text": "All parallel Agent calls are in a single message (not spread across multiple turns)",
+        "type": "constraint"
+      },
+      {
+        "id": 5,
+        "text": "After agents complete, output verifies commit history against PARALLEL_BASE",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "Implement runs integration checkpoint after 2-3 tasks",
+    "prompt": "We just closed ARC-5.1 and ARC-5.2. ARC-5.3 is next.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output runs integration tests (make test-integration or equivalent) before starting ARC-5.3",
+        "type": "quality"
+      }
+    ]
+  }
+]

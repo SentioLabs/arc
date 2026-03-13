@@ -35,7 +35,7 @@ COPY --from=frontend-builder /build/web/build ./web/build
 
 # Build unified binary
 # CGO_ENABLED=0 for static binaries (modernc.org/sqlite is pure Go)
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o arc ./cmd/arc
+RUN CGO_ENABLED=0 GOOS=linux go build -tags webui -ldflags="-s -w" -o arc ./cmd/arc
 
 # ===========================================================================
 # Stage 3: Runtime

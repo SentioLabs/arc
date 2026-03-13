@@ -1,0 +1,26 @@
+[
+  {
+    "query": "I want to add OAuth support to our Go API server. We currently have JWT auth in internal/api/middleware.go but I'm not sure whether to use authorization code flow or PKCE, and we need to decide on a token storage strategy \u2014 database vs Redis vs in-memory. There are security trade-offs I want to think through before writing any code. Can we brainstorm the design?",
+    "should_trigger": true
+  },
+  {
+    "query": "We need a caching layer for our API but I'm torn between Redis and an in-memory LRU cache. Our server runs as a single instance right now but we might scale to multiple replicas in Q3. The hot path is in internal/storage/sqlite/issues.go where GetIssue is called ~500 times per dashboard load. I want to explore the architecture trade-offs before committing to an approach.",
+    "should_trigger": true
+  },
+  {
+    "query": "I'm starting a big new feature \u2014 a notification system that needs to support email, Slack, and webhooks. Each channel has different retry semantics, rate limits, and failure modes. I haven't designed the architecture yet and I want to explore options for the message queue, channel abstraction, and delivery guarantees before anyone writes code. This will probably become an epic with 6+ tasks.",
+    "should_trigger": true
+  },
+  {
+    "query": "Fix the typo in README.md on line 42",
+    "should_trigger": false
+  },
+  {
+    "query": "Add a --verbose flag to the list command",
+    "should_trigger": false
+  },
+  {
+    "query": "Plan my vacation to Japan next month",
+    "should_trigger": false
+  }
+]

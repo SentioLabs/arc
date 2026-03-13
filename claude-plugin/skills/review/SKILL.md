@@ -1,6 +1,6 @@
 ---
 name: review
-description: Use after implementing a task to get code review. Dispatches the arc-reviewer agent with git diff and task spec, then triages feedback by severity. Works in both single-agent and team contexts.
+description: You MUST use this skill after implementing a task to get code review — especially when the user says "review this", "check my code", "review the changes", or after any implementation task completes. Dispatches the arc-reviewer agent with git diff and task spec, then triages feedback by severity. Always prefer this over generic code review when the project uses arc issue tracking.
 ---
 
 # Review — Code Review Dispatch

@@ -12,15 +12,15 @@ Key Differences:
 
 ## Features
 
-- **Central Server**: Single server managing multiple workspaces
+- **Central Server**: Single server managing multiple projects
 - **Web UI**: Svelte client app embedded in Go server
 - **REST API**: Clean JSON API for all operations
-- **Workspaces**: First-class workspace management (replaces per-repo concept)
+- **Projects**: First-class project management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
 - **Plans**: Inline plans on issues, shared plans linkable to multiple issues
 - **Ready Work**: Find issues with no blockers
 - **Agent Teams**: Coordinate multi-agent workflows with `teammate:*` labels and team context
-- **Statistics**: Aggregate metrics per workspace
+- **Statistics**: Aggregate metrics per project
 
 ## Installation
 
@@ -76,13 +76,13 @@ The server stores data in `~/.arc/data.db` by default.
 #### Getting Started
 
 ```bash
-# Initialize arc in your project directory (creates workspace + config)
+# Initialize arc in your project directory (creates project + config)
 cd your-project
-arc init                        # Uses directory name as workspace
-arc init my-project             # Custom workspace name
+arc init                        # Uses directory name as project
+arc init my-project             # Custom project name
 arc init --prefix mp            # Custom issue prefix (e.g., mp-a3f2)
 
-# Check which workspace is active
+# Check which project is active
 arc which
 ```
 
@@ -177,14 +177,14 @@ arc quickstart                  # Quick start guide
 arc self update                 # Update to latest version
 ```
 
-#### Advanced: Workspace Management
+#### Advanced: Project Management
 
 ```bash
-# For multi-project setups or manual workspace control
-arc workspace create my-project --path /path/to/project
-arc workspace use my-project    # Set default workspace
-arc workspace list
-arc workspace delete ws-abc123
+# For multi-project setups or manual project control
+arc project create my-project
+arc project use my-project      # Set default project
+arc project list
+arc project delete ws-abc123
 ```
 
 ### Claude Code Integration
@@ -249,7 +249,7 @@ brainstorm → plan → implement → review → finish
 # 1. Start the server (if not running)
 arc server start
 
-# 2. Initialize workspace in your project
+# 2. Initialize project in your directory
 cd your-project
 arc init
 
@@ -268,7 +268,7 @@ and a setup command to install it into your repo.
 # 1. Start the server (if not running)
 arc server start
 
-# 2. Initialize workspace in your project
+# 2. Initialize project in your directory
 cd your-project
 arc init
 
@@ -286,21 +286,21 @@ arc setup codex
 # Health check
 curl http://localhost:7432/health
 
-# Create workspace
-curl -X POST http://localhost:7432/api/v1/workspaces \
+# Create project
+curl -X POST http://localhost:7432/api/v1/projects \
   -H "Content-Type: application/json" \
   -d '{"name": "my-project", "prefix": "mp"}'
 
 # List issues
-curl http://localhost:7432/api/v1/workspaces/ws-abc123/issues
+curl http://localhost:7432/api/v1/projects/ws-abc123/issues
 
 # Create issue
-curl -X POST http://localhost:7432/api/v1/workspaces/ws-abc123/issues \
+curl -X POST http://localhost:7432/api/v1/projects/ws-abc123/issues \
   -H "Content-Type: application/json" \
   -d '{"title": "New feature", "priority": 1, "issue_type": "feature"}'
 
 # Get ready work
-curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
+curl http://localhost:7432/api/v1/projects/ws-abc123/ready
 ```
 
 ## Architecture
@@ -308,13 +308,13 @@ curl http://localhost:7432/api/v1/workspaces/ws-abc123/ready
 ```mermaid
 flowchart TB
     subgraph server["Central Server"]
-        subgraph workspaces["Workspaces"]
-            ws1["Workspace A"]
-            ws2["Workspace B"]
-            ws3["Workspace C"]
+        subgraph projects["Projects"]
+            ws1["Project A"]
+            ws2["Project B"]
+            ws3["Project C"]
         end
         db[("SQLite DB<br/>~/.arc/data.db")]
-        workspaces --> db
+        projects --> db
     end
 
     api{{"REST API<br/>localhost:7432"}}
@@ -333,10 +333,10 @@ flowchart TB
 
 ## Data Model
 
-### Workspace
+### Project
 
 - ID (e.g., "ws-a1b2")
-- Name, description, path
+- Name, description
 - Prefix for issue IDs
 
 ### Issue
@@ -358,7 +358,7 @@ flowchart TB
 ### Label
 
 - Name, color, description
-- Global scope (shared across workspaces)
+- Global scope (shared across projects)
 
 ### Comment
 
@@ -372,19 +372,19 @@ flowchart TB
 ### Plan (Shared)
 
 - ID (e.g., "plan.xxxxx"), title, content
-- Scoped to workspace, linkable to multiple issues
+- Scoped to project, linkable to multiple issues
 
 ## Configuration
 
 Arc uses three configuration layers (highest priority wins):
 
-1. **CLI config** (`~/.arc/cli-config.json`) — server URL, default workspace
-2. **Project config** (`~/.arc/projects/<path>/config.json`) — per-project workspace binding
+1. **CLI config** (`~/.arc/cli-config.json`) — server URL, default project
+2. **Project config** (`~/.arc/projects/<path>/config.json`) — per-directory project binding
 
 ```json
 {
   "server_url": "http://localhost:7432",
-  "default_workspace": "ws-abc123"
+  "default_project": "ws-abc123"
 }
 ```
 
@@ -412,40 +412,46 @@ make docker-up
 
 ## API Reference
 
-### Workspaces
+### Projects
 
-- `GET /api/v1/workspaces` - List workspaces
-- `POST /api/v1/workspaces` - Create workspace
-- `GET /api/v1/workspaces/:id` - Get workspace
-- `PUT /api/v1/workspaces/:id` - Update workspace
-- `DELETE /api/v1/workspaces/:id` - Delete workspace
-- `GET /api/v1/workspaces/:id/stats` - Get statistics
+- `GET /api/v1/projects` - List projects
+- `POST /api/v1/projects` - Create project
+- `GET /api/v1/projects/:id` - Get project
+- `PUT /api/v1/projects/:id` - Update project
+- `DELETE /api/v1/projects/:id` - Delete project
+- `GET /api/v1/projects/:id/stats` - Get statistics
+
+### Workspaces (Directory Paths)
+
+- `GET /api/v1/projects/:id/workspaces` - List workspace paths
+- `POST /api/v1/projects/:id/workspaces` - Add workspace path
+- `DELETE /api/v1/projects/:id/workspaces/:wid` - Remove workspace path
 
 ### Issues
 
-- `GET /api/v1/workspaces/:ws/issues` - List issues
-- `POST /api/v1/workspaces/:ws/issues` - Create issue
-- `GET /api/v1/workspaces/:ws/issues/:id` - Get issue
-- `PUT /api/v1/workspaces/:ws/issues/:id` - Update issue
-- `DELETE /api/v1/workspaces/:ws/issues/:id` - Delete issue
-- `POST /api/v1/workspaces/:ws/issues/:id/close` - Close issue
-- `POST /api/v1/workspaces/:ws/issues/:id/reopen` - Reopen issue
+- `GET /api/v1/projects/:id/issues` - List issues
+- `POST /api/v1/projects/:id/issues` - Create issue
+- `GET /api/v1/projects/:id/issues/:iid` - Get issue
+- `PUT /api/v1/projects/:id/issues/:iid` - Update issue
+- `DELETE /api/v1/projects/:id/issues/:iid` - Delete issue
+- `POST /api/v1/projects/:id/issues/:iid/close` - Close issue
+- `POST /api/v1/projects/:id/issues/:iid/reopen` - Reopen issue
 
 ### Ready Work & Blocked
 
-- `GET /api/v1/workspaces/:ws/ready` - Ready issues
-- `GET /api/v1/workspaces/:ws/blocked` - Blocked issues
+- `GET /api/v1/projects/:id/ready` - Ready issues
+- `GET /api/v1/projects/:id/blocked` - Blocked issues
 
 ### Team Context
 
-- `GET /api/v1/workspaces/:ws/team-context` - Issues grouped by `teammate:*` labels
-- `GET /api/v1/workspaces/:ws/team-context?epic_id=ID` - Scoped to epic children
+- `GET /api/v1/projects/:id/team-context` - Issues grouped by `teammate:*` labels
+- `GET /api/v1/projects/:id/team-context?epic_id=ID` - Scoped to epic children
 
 ### Dependencies
 
-- `GET /api/v1/workspaces/:ws/issues/:id/deps` - Get dependencies
-- `POST /api/v1/workspaces/:ws/issues/:id/deps` - Add dependency
-- `DELETE /api/v1/workspaces/:ws/issues/:id/deps/:dep` - Remove dependency
+- `GET /api/v1/projects/:id/issues/:iid/deps` - Get dependencies
+- `POST /api/v1/projects/:id/issues/:iid/deps` - Add dependency
+- `DELETE /api/v1/projects/:id/issues/:iid/deps/:dep` - Remove dependency
 
 ### Labels (Global)
 
@@ -456,35 +462,35 @@ make docker-up
 
 ### Issue Labels
 
-- `POST /api/v1/workspaces/:ws/issues/:id/labels` - Add label to issue
-- `DELETE /api/v1/workspaces/:ws/issues/:id/labels/:label` - Remove label
+- `POST /api/v1/projects/:id/issues/:iid/labels` - Add label to issue
+- `DELETE /api/v1/projects/:id/issues/:iid/labels/:label` - Remove label
 
 ### Comments
 
-- `GET /api/v1/workspaces/:ws/issues/:id/comments` - Get comments
-- `POST /api/v1/workspaces/:ws/issues/:id/comments` - Add comment
-- `PUT /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Update comment
-- `DELETE /api/v1/workspaces/:ws/issues/:id/comments/:cid` - Delete comment
+- `GET /api/v1/projects/:id/issues/:iid/comments` - Get comments
+- `POST /api/v1/projects/:id/issues/:iid/comments` - Add comment
+- `PUT /api/v1/projects/:id/issues/:iid/comments/:cid` - Update comment
+- `DELETE /api/v1/projects/:id/issues/:iid/comments/:cid` - Delete comment
 
 ### Inline Plans
 
-- `POST /api/v1/workspaces/:ws/issues/:id/plan` - Set inline plan
-- `GET /api/v1/workspaces/:ws/issues/:id/plan` - Get inline plan
-- `GET /api/v1/workspaces/:ws/issues/:id/plan/history` - Get plan history
+- `POST /api/v1/projects/:id/issues/:iid/plan` - Set inline plan
+- `GET /api/v1/projects/:id/issues/:iid/plan` - Get inline plan
+- `GET /api/v1/projects/:id/issues/:iid/plan/history` - Get plan history
 
 ### Shared Plans
 
-- `GET /api/v1/workspaces/:ws/plans` - List shared plans
-- `POST /api/v1/workspaces/:ws/plans` - Create shared plan
-- `GET /api/v1/workspaces/:ws/plans/:pid` - Get shared plan
-- `PUT /api/v1/workspaces/:ws/plans/:pid` - Update shared plan
-- `DELETE /api/v1/workspaces/:ws/plans/:pid` - Delete shared plan
-- `POST /api/v1/workspaces/:ws/plans/:pid/link` - Link issues to plan
-- `DELETE /api/v1/workspaces/:ws/plans/:pid/link/:id` - Unlink issue from plan
+- `GET /api/v1/projects/:id/plans` - List shared plans
+- `POST /api/v1/projects/:id/plans` - Create shared plan
+- `GET /api/v1/projects/:id/plans/:pid` - Get shared plan
+- `PUT /api/v1/projects/:id/plans/:pid` - Update shared plan
+- `DELETE /api/v1/projects/:id/plans/:pid` - Delete shared plan
+- `POST /api/v1/projects/:id/plans/:pid/link` - Link issues to plan
+- `DELETE /api/v1/projects/:id/plans/:pid/link/:iid` - Unlink issue from plan
 
 ### Events
 
-- `GET /api/v1/workspaces/:ws/issues/:id/events` - Get audit events
+- `GET /api/v1/projects/:id/issues/:iid/events` - Get audit events
 
 ## License
 

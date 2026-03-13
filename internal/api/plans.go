@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
-	"github.com/sentiolabs/arc/internal/workspace"
 )
 
 // --- Request/Response types ---
@@ -135,10 +135,10 @@ func (s *Server) createPlan(c echo.Context) error {
 	}
 
 	plan := &types.Plan{
-		ID:          workspace.GeneratePlanID(req.Title),
-		WorkspaceID: wsID,
-		Title:       req.Title,
-		Content:     req.Content,
+		ID:        project.GeneratePlanID(req.Title),
+		ProjectID: wsID,
+		Title:     req.Title,
+		Content:   req.Content,
 	}
 
 	if err := s.store.CreatePlan(c.Request().Context(), plan); err != nil {
@@ -160,7 +160,7 @@ func (s *Server) getPlan(c echo.Context) error {
 	}
 
 	// Validate plan belongs to workspace
-	if plan.WorkspaceID != wsID {
+	if plan.ProjectID != wsID {
 		return errorJSON(c, http.StatusForbidden, "access denied")
 	}
 
@@ -186,7 +186,7 @@ func (s *Server) updatePlan(c echo.Context) error {
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
-	if plan.WorkspaceID != wsID {
+	if plan.ProjectID != wsID {
 		return errorJSON(c, http.StatusForbidden, "access denied")
 	}
 
@@ -226,7 +226,7 @@ func (s *Server) deletePlan(c echo.Context) error {
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
-	if plan.WorkspaceID != wsID {
+	if plan.ProjectID != wsID {
 		return errorJSON(c, http.StatusForbidden, "access denied")
 	}
 
@@ -249,7 +249,7 @@ func (s *Server) linkIssuesToPlan(c echo.Context) error {
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
-	if plan.WorkspaceID != wsID {
+	if plan.ProjectID != wsID {
 		return errorJSON(c, http.StatusForbidden, "access denied")
 	}
 
@@ -269,7 +269,7 @@ func (s *Server) linkIssuesToPlan(c echo.Context) error {
 		if err != nil {
 			return errorJSON(c, http.StatusNotFound, "issue not found: "+issueID)
 		}
-		if issue.WorkspaceID != wsID {
+		if issue.ProjectID != wsID {
 			return errorJSON(c, http.StatusForbidden, "issue not in workspace: "+issueID)
 		}
 
@@ -294,7 +294,7 @@ func (s *Server) unlinkIssueFromPlan(c echo.Context) error {
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
-	if plan.WorkspaceID != wsID {
+	if plan.ProjectID != wsID {
 		return errorJSON(c, http.StatusForbidden, "access denied")
 	}
 

@@ -11,50 +11,34 @@ import (
 	"time"
 )
 
-const countWorkspacesByID = `-- name: CountWorkspacesByID :one
-SELECT COUNT(*) as count FROM workspaces WHERE id = ?
-`
-
-func (q *Queries) CountWorkspacesByID(ctx context.Context, id string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countWorkspacesByID, id)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countWorkspacesByName = `-- name: CountWorkspacesByName :one
-SELECT COUNT(*) as count FROM workspaces WHERE name = ?
-`
-
-func (q *Queries) CountWorkspacesByName(ctx context.Context, name string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countWorkspacesByName, name)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createWorkspace = `-- name: CreateWorkspace :exec
-INSERT INTO workspaces (id, name, path, description, prefix, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO workspaces (id, project_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Path        sql.NullString `json:"path"`
-	Description sql.NullString `json:"description"`
-	Prefix      string         `json:"prefix"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID             string         `json:"id"`
+	ProjectID      string         `json:"project_id"`
+	Path           string         `json:"path"`
+	Label          sql.NullString `json:"label"`
+	Hostname       sql.NullString `json:"hostname"`
+	GitRemote      sql.NullString `json:"git_remote"`
+	PathType       string         `json:"path_type"`
+	LastAccessedAt sql.NullTime   `json:"last_accessed_at"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
 	_, err := q.db.ExecContext(ctx, createWorkspace,
 		arg.ID,
-		arg.Name,
+		arg.ProjectID,
 		arg.Path,
-		arg.Description,
-		arg.Prefix,
+		arg.Label,
+		arg.Hostname,
+		arg.GitRemote,
+		arg.PathType,
+		arg.LastAccessedAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -70,8 +54,17 @@ func (q *Queries) DeleteWorkspace(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteWorkspacesByProject = `-- name: DeleteWorkspacesByProject :exec
+DELETE FROM workspaces WHERE project_id = ?
+`
+
+func (q *Queries) DeleteWorkspacesByProject(ctx context.Context, projectID string) error {
+	_, err := q.db.ExecContext(ctx, deleteWorkspacesByProject, projectID)
+	return err
+}
+
 const getWorkspace = `-- name: GetWorkspace :one
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces WHERE id = ?
+SELECT id, project_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspaces WHERE id = ?
 `
 
 func (q *Queries) GetWorkspace(ctx context.Context, id string) (*Workspace, error) {
@@ -79,60 +72,25 @@ func (q *Queries) GetWorkspace(ctx context.Context, id string) (*Workspace, erro
 	var i Workspace
 	err := row.Scan(
 		&i.ID,
-		&i.Name,
+		&i.ProjectID,
 		&i.Path,
-		&i.Description,
-		&i.Prefix,
+		&i.Label,
+		&i.Hostname,
+		&i.GitRemote,
+		&i.PathType,
+		&i.LastAccessedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
-const getWorkspaceByName = `-- name: GetWorkspaceByName :one
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces WHERE name = ?
+const listAllWorkspaces = `-- name: ListAllWorkspaces :many
+SELECT id, project_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspaces ORDER BY project_id, path
 `
 
-func (q *Queries) GetWorkspaceByName(ctx context.Context, name string) (*Workspace, error) {
-	row := q.db.QueryRowContext(ctx, getWorkspaceByName, name)
-	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Path,
-		&i.Description,
-		&i.Prefix,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
-const getWorkspaceByPath = `-- name: GetWorkspaceByPath :one
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces WHERE path = ?
-`
-
-func (q *Queries) GetWorkspaceByPath(ctx context.Context, path sql.NullString) (*Workspace, error) {
-	row := q.db.QueryRowContext(ctx, getWorkspaceByPath, path)
-	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Path,
-		&i.Description,
-		&i.Prefix,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
-const listWorkspaces = `-- name: ListWorkspaces :many
-SELECT id, name, path, description, prefix, created_at, updated_at FROM workspaces ORDER BY name
-`
-
-func (q *Queries) ListWorkspaces(ctx context.Context) ([]*Workspace, error) {
-	rows, err := q.db.QueryContext(ctx, listWorkspaces)
+func (q *Queries) ListAllWorkspaces(ctx context.Context) ([]*Workspace, error) {
+	rows, err := q.db.QueryContext(ctx, listAllWorkspaces)
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +100,13 @@ func (q *Queries) ListWorkspaces(ctx context.Context) ([]*Workspace, error) {
 		var i Workspace
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
+			&i.ProjectID,
 			&i.Path,
-			&i.Description,
-			&i.Prefix,
+			&i.Label,
+			&i.Hostname,
+			&i.GitRemote,
+			&i.PathType,
+			&i.LastAccessedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -162,27 +123,102 @@ func (q *Queries) ListWorkspaces(ctx context.Context) ([]*Workspace, error) {
 	return items, nil
 }
 
+const listWorkspaces = `-- name: ListWorkspaces :many
+SELECT id, project_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspaces WHERE project_id = ? ORDER BY path
+`
+
+func (q *Queries) ListWorkspaces(ctx context.Context, projectID string) ([]*Workspace, error) {
+	rows, err := q.db.QueryContext(ctx, listWorkspaces, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Workspace{}
+	for rows.Next() {
+		var i Workspace
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Path,
+			&i.Label,
+			&i.Hostname,
+			&i.GitRemote,
+			&i.PathType,
+			&i.LastAccessedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resolveProjectByPath = `-- name: ResolveProjectByPath :one
+SELECT id, project_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspaces WHERE path = ?
+`
+
+func (q *Queries) ResolveProjectByPath(ctx context.Context, path string) (*Workspace, error) {
+	row := q.db.QueryRowContext(ctx, resolveProjectByPath, path)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Path,
+		&i.Label,
+		&i.Hostname,
+		&i.GitRemote,
+		&i.PathType,
+		&i.LastAccessedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const updateWorkspace = `-- name: UpdateWorkspace :exec
-UPDATE workspaces
-SET name = ?, path = ?, description = ?, updated_at = ?
-WHERE id = ?
+UPDATE workspaces SET label = ?, hostname = ?, git_remote = ?, path_type = ?, updated_at = ? WHERE id = ?
 `
 
 type UpdateWorkspaceParams struct {
-	Name        string         `json:"name"`
-	Path        sql.NullString `json:"path"`
-	Description sql.NullString `json:"description"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	ID          string         `json:"id"`
+	Label     sql.NullString `json:"label"`
+	Hostname  sql.NullString `json:"hostname"`
+	GitRemote sql.NullString `json:"git_remote"`
+	PathType  string         `json:"path_type"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	ID        string         `json:"id"`
 }
 
 func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) error {
 	_, err := q.db.ExecContext(ctx, updateWorkspace,
-		arg.Name,
-		arg.Path,
-		arg.Description,
+		arg.Label,
+		arg.Hostname,
+		arg.GitRemote,
+		arg.PathType,
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const updateWorkspaceLastAccessed = `-- name: UpdateWorkspaceLastAccessed :exec
+UPDATE workspaces SET last_accessed_at = ?, updated_at = ? WHERE id = ?
+`
+
+type UpdateWorkspaceLastAccessedParams struct {
+	LastAccessedAt sql.NullTime `json:"last_accessed_at"`
+	UpdatedAt      time.Time    `json:"updated_at"`
+	ID             string       `json:"id"`
+}
+
+func (q *Queries) UpdateWorkspaceLastAccessed(ctx context.Context, arg UpdateWorkspaceLastAccessedParams) error {
+	_, err := q.db.ExecContext(ctx, updateWorkspaceLastAccessed, arg.LastAccessedAt, arg.UpdatedAt, arg.ID)
 	return err
 }

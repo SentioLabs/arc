@@ -40,20 +40,27 @@ Install hooks:
 Workflow customization:
 - Place a .arc/PRIME.md file to override the default output entirely.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Check if this project has arc configured via ~/.arc/projects/
+		// Check if this project has arc configured via workspace path resolution
 		cwd, err := os.Getwd()
 		if err != nil {
 			os.Exit(0)
 		}
-		arcHome := project.DefaultArcHome()
-		projectRoot, err := project.FindProjectRootWithArcHome(cwd, arcHome)
-		if err != nil {
-			os.Exit(0)
+		normalizedCwd := project.NormalizePath(cwd)
+
+		// Try server-based resolution first, fall back to legacy config
+		arcConfigured := false
+		c, clientErr := getClient()
+		if clientErr == nil {
+			if _, err := c.ResolveProjectByPath(normalizedCwd); err == nil {
+				arcConfigured = true
+			}
 		}
-		if _, err := project.LoadConfig(arcHome, projectRoot); err != nil {
-			// Not in an arc project - silent exit with success
-			// This enables cross-platform hook integration
-			os.Exit(0)
+		if !arcConfigured {
+			// Fall back to legacy config check (works offline)
+			arcHome := project.DefaultArcHome()
+			if cfg, err := readLegacyConfig(arcHome, cwd); err != nil || cfg == nil {
+				os.Exit(0)
+			}
 		}
 
 		// Check for custom PRIME.md override

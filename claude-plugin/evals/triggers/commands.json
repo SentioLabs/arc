@@ -1,0 +1,293 @@
+[
+  {
+    "_comment": "=== /arc:ready ===",
+    "_target": "/arc:ready"
+  },
+  {
+    "query": "What work is available? Show me unblocked tasks.",
+    "should_trigger": true,
+    "target_command": "arc:ready",
+    "note": "Looking for available work"
+  },
+  {
+    "query": "What should I work on next?",
+    "should_trigger": true,
+    "target_command": "arc:ready",
+    "note": "Implicit ready check"
+  },
+  {
+    "query": "Are there any tasks ready to pick up?",
+    "should_trigger": true,
+    "target_command": "arc:ready",
+    "note": "Explicit ready query"
+  },
+
+  {
+    "_comment": "=== /arc:create ===",
+    "_target": "/arc:create"
+  },
+  {
+    "query": "Create a bug for the intermittent 500 errors on /api/users",
+    "should_trigger": true,
+    "target_command": "arc:create",
+    "note": "Explicit issue creation with type"
+  },
+  {
+    "query": "I found a security issue in the auth middleware. Track it as a high priority bug.",
+    "should_trigger": true,
+    "target_command": "arc:create",
+    "note": "Issue creation with priority context"
+  },
+  {
+    "query": "Make an epic for the database migration project with subtasks",
+    "should_trigger": true,
+    "target_command": "arc:create",
+    "note": "Epic creation request"
+  },
+  {
+    "query": "Create a new React component for the sidebar",
+    "should_trigger": false,
+    "target_command": "arc:create",
+    "note": "'Create' refers to code, not arc issues"
+  },
+  {
+    "query": "Create a new git branch for the feature",
+    "should_trigger": false,
+    "target_command": "arc:create",
+    "note": "Git branch creation, not issue creation"
+  },
+
+  {
+    "_comment": "=== /arc:show ===",
+    "_target": "/arc:show"
+  },
+  {
+    "query": "Show me the details of ARC-5.2",
+    "should_trigger": true,
+    "target_command": "arc:show",
+    "note": "Explicit issue detail request with ID"
+  },
+  {
+    "query": "What's the status of the auth epic?",
+    "should_trigger": true,
+    "target_command": "arc:show",
+    "note": "Status check on specific work"
+  },
+
+  {
+    "_comment": "=== /arc:update ===",
+    "_target": "/arc:update"
+  },
+  {
+    "query": "Mark ARC-5.1 as in progress — I'm starting work on it now.",
+    "should_trigger": true,
+    "target_command": "arc:update",
+    "note": "Status update request"
+  },
+  {
+    "query": "Change the priority of the login bug to critical",
+    "should_trigger": true,
+    "target_command": "arc:update",
+    "note": "Priority update"
+  },
+  {
+    "query": "Assign the database migration task to alice",
+    "should_trigger": true,
+    "target_command": "arc:update",
+    "note": "Assignee update"
+  },
+
+  {
+    "_comment": "=== /arc:close ===",
+    "_target": "/arc:close"
+  },
+  {
+    "query": "Close ARC-5.1 — the JWT implementation is done and tests pass.",
+    "should_trigger": true,
+    "target_command": "arc:close",
+    "note": "Explicit close with reason"
+  },
+  {
+    "query": "Mark issues ARC-5.1, ARC-5.2, and ARC-5.3 as complete.",
+    "should_trigger": true,
+    "target_command": "arc:close",
+    "note": "Batch close request"
+  },
+  {
+    "query": "Close the browser tab with the documentation",
+    "should_trigger": false,
+    "target_command": "arc:close",
+    "note": "'Close' refers to browser, not arc issues"
+  },
+
+  {
+    "_comment": "=== /arc:blocked ===",
+    "_target": "/arc:blocked"
+  },
+  {
+    "query": "What's blocking progress? Show me stuck issues.",
+    "should_trigger": true,
+    "target_command": "arc:blocked",
+    "note": "Blocked work query"
+  },
+  {
+    "query": "Why can't I start the API endpoint task?",
+    "should_trigger": true,
+    "target_command": "arc:blocked",
+    "note": "Implicit blocked check — something is preventing work"
+  },
+
+  {
+    "_comment": "=== /arc:list ===",
+    "_target": "/arc:list"
+  },
+  {
+    "query": "Show me all open bugs in the project",
+    "should_trigger": true,
+    "target_command": "arc:list",
+    "note": "Filtered list request"
+  },
+  {
+    "query": "List all the epics we have",
+    "should_trigger": true,
+    "target_command": "arc:list",
+    "note": "Type-filtered list"
+  },
+  {
+    "query": "What issues are assigned to me?",
+    "should_trigger": true,
+    "target_command": "arc:list",
+    "note": "Assignee-filtered list"
+  },
+
+  {
+    "_comment": "=== /arc:dep ===",
+    "_target": "/arc:dep"
+  },
+  {
+    "query": "Make ARC-5.3 depend on ARC-5.2 — the middleware needs the API first.",
+    "should_trigger": true,
+    "target_command": "arc:dep",
+    "note": "Explicit dependency creation"
+  },
+  {
+    "query": "Link the test task as a child of the auth epic",
+    "should_trigger": true,
+    "target_command": "arc:dep",
+    "note": "Parent-child relationship request"
+  },
+  {
+    "query": "Remove the dependency between the cache and auth tasks — they can run in parallel.",
+    "should_trigger": true,
+    "target_command": "arc:dep",
+    "note": "Dependency removal"
+  },
+
+  {
+    "_comment": "=== /arc:stats ===",
+    "_target": "/arc:stats"
+  },
+  {
+    "query": "How's the project doing? Give me an overview of issue counts.",
+    "should_trigger": true,
+    "target_command": "arc:stats",
+    "note": "Project health overview"
+  },
+  {
+    "query": "How many open issues do we have?",
+    "should_trigger": true,
+    "target_command": "arc:stats",
+    "note": "Issue count query"
+  },
+
+  {
+    "_comment": "=== /arc:init ===",
+    "_target": "/arc:init"
+  },
+  {
+    "query": "Set up arc in this repository. Initialize the project.",
+    "should_trigger": true,
+    "target_command": "arc:init",
+    "note": "Project initialization"
+  },
+  {
+    "query": "Initialize a new git repository here",
+    "should_trigger": false,
+    "target_command": "arc:init",
+    "note": "Git init, not arc init"
+  },
+
+  {
+    "_comment": "=== /arc:onboard ===",
+    "_target": "/arc:onboard"
+  },
+  {
+    "query": "I just started a new session. What's the context for this project?",
+    "should_trigger": true,
+    "target_command": "arc:onboard",
+    "note": "Session start orientation"
+  },
+  {
+    "query": "Get me up to speed on where things stand.",
+    "should_trigger": true,
+    "target_command": "arc:onboard",
+    "note": "Project orientation request"
+  },
+
+  {
+    "_comment": "=== /arc:project ===",
+    "_target": "/arc:workspace"
+  },
+  {
+    "query": "Rename this project to 'auth-service'",
+    "should_trigger": true,
+    "target_command": "arc:workspace",
+    "note": "Project rename"
+  },
+  {
+    "query": "List all arc projects on the server",
+    "should_trigger": true,
+    "target_command": "arc:workspace",
+    "note": "Project listing"
+  },
+  {
+    "query": "Merge the old-api project into the main-api project",
+    "should_trigger": true,
+    "target_command": "arc:workspace",
+    "note": "Project merge"
+  },
+
+  {
+    "_comment": "=== /arc:paths ===",
+    "_target": "/arc:paths"
+  },
+  {
+    "query": "Register this directory to the current project",
+    "should_trigger": true,
+    "target_command": "arc:paths",
+    "note": "Path registration. Note: no /arc:paths command exists yet — would need manual arc paths add"
+  },
+  {
+    "query": "What directories are associated with this project?",
+    "should_trigger": true,
+    "target_command": "arc:paths",
+    "note": "Path listing query"
+  },
+
+  {
+    "_comment": "=== /arc:docs ===",
+    "_target": "/arc:docs"
+  },
+  {
+    "query": "Show me the arc documentation about dependency types",
+    "should_trigger": true,
+    "target_command": "arc:docs",
+    "note": "Arc documentation request"
+  },
+  {
+    "query": "Search the arc docs for how to write resumable issues",
+    "should_trigger": true,
+    "target_command": "arc:docs",
+    "note": "Documentation search"
+  }
+]

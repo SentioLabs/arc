@@ -1,0 +1,26 @@
+[
+  {
+    "query": "OK I'm done for the day. We completed ARC-5.1 and ARC-5.2 but didn't get to ARC-5.3. I need you to run the full session completion protocol: capture remaining work as arc issues, run quality gates (make test, make build), close the completed issues with resolution notes, commit all changes with specific files staged, push to the remote, and verify the push succeeded. Don't skip any steps.",
+    "should_trigger": true
+  },
+  {
+    "query": "That's all the work for this session. We discovered a bug in token refresh logic while working on ARC-5.2 \u2014 create an arc issue for it before we forget. Then close ARC-5.1 and ARC-5.2 with summaries, run the tests one more time, commit everything, and push. Make sure nothing is left unpushed.",
+    "should_trigger": true
+  },
+  {
+    "query": "Let's land the plane. I've been working on this branch all day \u2014 there are changes across internal/api/, internal/storage/, and the test files. Run the quality gates, update the arc issues to reflect what we actually completed vs what's still open, commit with a proper conventional commit message, and push. Then run arc prime so the next session has context.",
+    "should_trigger": true
+  },
+  {
+    "query": "We're done with the feature. Time to wrap up \u2014 close the arc issues, run tests, commit, push. I want to make sure the remote is up to date and nothing is left dangling.",
+    "should_trigger": true
+  },
+  {
+    "query": "Finish implementing the login form component",
+    "should_trigger": false
+  },
+  {
+    "query": "Can you finish writing the test for the parser?",
+    "should_trigger": false
+  }
+]

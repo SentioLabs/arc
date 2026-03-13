@@ -90,21 +90,11 @@
 </script>
 
 <div class="flex-1 p-6 animate-fade-in">
-	<header class="mb-6 flex items-center justify-between">
-		<div>
-			<h1 class="text-2xl font-bold text-text-primary mb-1">Labels</h1>
-			<p class="text-text-secondary">
-				{labels.length} global label{labels.length !== 1 ? 's' : ''}
-			</p>
-		</div>
-		{#if !showForm}
-			<button class="btn btn-primary" onclick={openCreate}>
-				<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-				</svg>
-				New Label
-			</button>
-		{/if}
+	<header class="mb-6">
+		<h1 class="text-2xl font-bold text-text-primary mb-1">Labels</h1>
+		<p class="text-text-secondary">
+			{labels.length} global label{labels.length !== 1 ? 's' : ''}
+		</p>
 	</header>
 
 	<!-- Create/Edit form -->
@@ -251,6 +241,19 @@
 					{/if}
 				</div>
 			{/each}
+
+			{#if !showForm}
+				<button
+					type="button"
+					class="card p-4 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-surface-600 hover:border-primary-400 hover:bg-surface-700/50 transition-all cursor-pointer min-h-[100px]"
+					onclick={openCreate}
+				>
+					<svg class="w-6 h-6 text-text-muted" viewBox="0 0 24 24" fill="currentColor">
+						<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+					</svg>
+					<span class="text-sm font-medium text-text-muted">Create Label</span>
+				</button>
+			{/if}
 		</div>
 	{/if}
 </div>

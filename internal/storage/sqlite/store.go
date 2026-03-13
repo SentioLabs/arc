@@ -76,7 +76,7 @@ func New(path string) (*Store, error) {
 // If a migration fails and a backup exists, the database is restored
 // to its pre-migration state.
 func (s *Store) initSchema(_ context.Context) error {
-	backupPath, err := backupDatabase(s.db, s.path)
+	backupPath, err := backupForMigration(s.db, s.path)
 	if err != nil {
 		// Non-fatal: migrating without a backup is better than not migrating
 		log.Printf("warning: could not back up database before migration: %v", err)

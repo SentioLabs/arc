@@ -4,58 +4,58 @@
  */
 
 export interface paths {
-    "/workspaces": {
+    "/projects": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List all workspaces */
-        get: operations["listWorkspaces"];
+        /** List all projects */
+        get: operations["listProjects"];
         put?: never;
-        /** Create a new workspace */
-        post: operations["createWorkspace"];
+        /** Create a new project */
+        post: operations["createProject"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}": {
+    "/projects/{projectId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
-        /** Get workspace by ID */
-        get: operations["getWorkspace"];
-        /** Update workspace */
-        put: operations["updateWorkspace"];
+        /** Get project by ID */
+        get: operations["getProject"];
+        /** Update project */
+        put: operations["updateProject"];
         post?: never;
-        /** Delete workspace */
-        delete: operations["deleteWorkspace"];
+        /** Delete project */
+        delete: operations["deleteProject"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/stats": {
+    "/projects/{projectId}/stats": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
-        /** Get workspace statistics */
-        get: operations["getWorkspaceStats"];
+        /** Get project statistics */
+        get: operations["getProjectStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -64,17 +64,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues": {
+    "/projects/{projectId}/issues": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
-        /** List issues in workspace */
+        /** List issues in project */
         get: operations["listIssues"];
         put?: never;
         /** Create a new issue */
@@ -85,13 +85,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}": {
+    "/projects/{projectId}/issues/{issueId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -109,13 +109,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/close": {
+    "/projects/{projectId}/issues/{issueId}/close": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -131,13 +131,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/reopen": {
+    "/projects/{projectId}/issues/{issueId}/reopen": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -153,13 +153,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/ready": {
+    "/projects/{projectId}/ready": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -173,13 +173,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/blocked": {
+    "/projects/{projectId}/blocked": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -193,13 +193,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/team-context": {
+    "/projects/{projectId}/team-context": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -208,7 +208,7 @@ export interface paths {
          * @description Returns issues grouped by their `teammate:*` labels. When an epic_id is
          *     provided, only children of that epic (via parent-child dependency) are
          *     included. Without epic_id, all non-closed issues with teammate labels
-         *     in the workspace are returned.
+         *     in the project are returned.
          */
         get: operations["getTeamContext"];
         put?: never;
@@ -219,13 +219,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/deps": {
+    "/projects/{projectId}/issues/{issueId}/deps": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -242,13 +242,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/deps/{dependsOnId}": {
+    "/projects/{projectId}/issues/{issueId}/deps/{dependsOnId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
                 /** @description ID of the dependency to remove */
@@ -305,13 +305,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/labels": {
+    "/projects/{projectId}/issues/{issueId}/labels": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -327,13 +327,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/labels/{labelName}": {
+    "/projects/{projectId}/issues/{issueId}/labels/{labelName}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
                 /** @description Label name to remove */
@@ -351,13 +351,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/comments": {
+    "/projects/{projectId}/issues/{issueId}/comments": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -374,13 +374,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/comments/{commentId}": {
+    "/projects/{projectId}/issues/{issueId}/comments/{commentId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
                 /** @description Comment ID */
@@ -399,13 +399,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/workspaces/{workspaceId}/issues/{issueId}/events": {
+    "/projects/{projectId}/issues/{issueId}/events": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -437,14 +437,14 @@ export interface components {
         DependencyType: "blocks" | "parent-child" | "related" | "discovered-from";
         /** @enum {string} */
         EventType: "created" | "updated" | "status_changed" | "commented" | "closed" | "reopened" | "dependency_added" | "dependency_removed" | "label_added" | "label_removed";
-        Workspace: {
-            /** @description Unique workspace ID (e.g., "ws-a1b2") */
+        Project: {
+            /** @description Unique project ID (e.g., "proj-a1b2") */
             id: string;
             /** @description Display name */
             name: string;
             /** @description Optional associated directory path */
             path?: string;
-            /** @description Workspace description */
+            /** @description Project description */
             description?: string;
             /** @description Issue ID prefix (e.g., "bd") */
             prefix: string;
@@ -453,17 +453,17 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        CreateWorkspaceRequest: {
+        CreateProjectRequest: {
             /** @description Display name */
             name: string;
             /** @description Optional associated directory path */
             path?: string;
-            /** @description Workspace description */
+            /** @description Project description */
             description?: string;
             /** @description Issue ID prefix */
             prefix: string;
         };
-        UpdateWorkspaceRequest: {
+        UpdateProjectRequest: {
             /** @description New display name */
             name?: string;
             /** @description New associated directory path */
@@ -472,7 +472,7 @@ export interface components {
             description?: string;
         };
         Statistics: {
-            workspace_id: string;
+            project_id: string;
             total_issues: number;
             open_issues: number;
             in_progress_issues: number;
@@ -486,7 +486,7 @@ export interface components {
         Issue: {
             /** @description Unique issue ID */
             id: string;
-            workspace_id: string;
+            project_id: string;
             title: string;
             description?: string;
             status: components["schemas"]["Status"];
@@ -523,8 +523,8 @@ export interface components {
             offset?: number;
         };
         TeamContext: {
-            /** @description Workspace ID */
-            workspace: string;
+            /** @description Project ID */
+            project: string;
             epic?: components["schemas"]["TeamContextEpic"];
             /** @description Issues grouped by teammate role name */
             roles: {
@@ -671,8 +671,8 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Workspace ID */
-        WorkspaceId: string;
+        /** @description Project ID */
+        ProjectId: string;
         /** @description Issue ID */
         IssueId: string;
         /** @description User performing the action (defaults to "anonymous") */
@@ -684,7 +684,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    listWorkspaces: {
+    listProjects: {
         parameters: {
             query?: never;
             header?: never;
@@ -693,19 +693,19 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of workspaces */
+            /** @description List of projects */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Workspace"][];
+                    "application/json": components["schemas"]["Project"][];
                 };
             };
             500: components["responses"]["InternalError"];
         };
     };
-    createWorkspace: {
+    createProject: {
         parameters: {
             query?: never;
             header?: never;
@@ -714,71 +714,71 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateWorkspaceRequest"];
+                "application/json": components["schemas"]["CreateProjectRequest"];
             };
         };
         responses: {
-            /** @description Workspace created */
+            /** @description Project created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Workspace"];
+                    "application/json": components["schemas"]["Project"];
                 };
             };
             400: components["responses"]["BadRequest"];
             500: components["responses"]["InternalError"];
         };
     };
-    getWorkspace: {
+    getProject: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Workspace details */
+            /** @description Project details */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Workspace"];
+                    "application/json": components["schemas"]["Project"];
                 };
             };
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };
-    updateWorkspace: {
+    updateProject: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateWorkspaceRequest"];
+                "application/json": components["schemas"]["UpdateProjectRequest"];
             };
         };
         responses: {
-            /** @description Workspace updated */
+            /** @description Project updated */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Workspace"];
+                    "application/json": components["schemas"]["Project"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -786,19 +786,19 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-    deleteWorkspace: {
+    deleteProject: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Workspace deleted */
+            /** @description Project deleted */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -809,19 +809,19 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-    getWorkspaceStats: {
+    getProjectStats: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Workspace statistics */
+            /** @description Project statistics */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -856,8 +856,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -883,8 +883,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -915,8 +915,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -945,8 +945,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -977,8 +977,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1005,8 +1005,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1040,8 +1040,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1086,8 +1086,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -1113,8 +1113,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -1140,8 +1140,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
             };
             cookie?: never;
         };
@@ -1165,8 +1165,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1195,8 +1195,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1230,8 +1230,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
                 /** @description ID of the dependency to remove */
@@ -1360,8 +1360,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1393,8 +1393,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
                 /** @description Label name to remove */
@@ -1420,8 +1420,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1450,8 +1450,8 @@ export interface operations {
                 "X-Actor"?: components["parameters"]["ActorHeader"];
             };
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1482,8 +1482,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
                 /** @description Comment ID */
@@ -1514,8 +1514,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
                 /** @description Comment ID */
@@ -1544,8 +1544,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Workspace ID */
-                workspaceId: components["parameters"]["WorkspaceId"];
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };

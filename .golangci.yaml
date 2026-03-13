@@ -3,8 +3,8 @@
 version: "2"
 
 # Language settings - inform linters about target Go version
-language:
-  version: "1.26" # Match go.mod version
+#language:
+#  version: "1.26" # Match go.mod version
 
 # Linters configuration section - controls which linters are enabled/disabled
 # See full documentation at: https://golangci-lint.run/usage/linters/

@@ -9,40 +9,39 @@ import (
 
 // Validation limits for data fields.
 const (
-	maxWorkspaceNameLength = 100 // maximum characters for workspace name
-	maxTitleLength         = 500 // maximum characters for issue title
-	maxPlanTitleLength     = 200 // maximum characters for plan title
+	maxProjectNameLength = 100 // maximum characters for project name
+	maxTitleLength       = 500 // maximum characters for issue title
+	maxPlanTitleLength   = 200 // maximum characters for plan title
 )
 
-// MaxPrefixLength is the maximum allowed workspace prefix length.
-// Must match workspace.MaxPrefixLength (kept separate to avoid circular imports).
+// MaxPrefixLength is the maximum allowed project prefix length.
+// Must match project.MaxPrefixLength (kept separate to avoid circular imports).
 const MaxPrefixLength = 15
 
-// Workspace represents a project or workspace that contains issues.
-// Replaces the per-repo concept from beads with explicit workspace management.
-type Workspace struct {
-	ID          string    `json:"id"`             // Short hash ID (e.g., "ws-a1b2")
-	Name        string    `json:"name"`           // Display name
-	Path        string    `json:"path,omitempty"` // Optional: associated directory path
+// Project represents a project that contains issues.
+// Previously named Workspace; renamed to clarify that this is the issue container.
+type Project struct {
+	ID          string    `json:"id"`   // Short hash ID (e.g., "proj-a1b2")
+	Name        string    `json:"name"` // Display name
 	Description string    `json:"description,omitempty"`
 	Prefix      string    `json:"prefix"` // Issue ID prefix (e.g., "bd")
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// Validate checks if the workspace has valid field values.
-func (w *Workspace) Validate() error {
-	if w.Name == "" {
-		return errors.New("workspace name is required")
+// Validate checks if the project has valid field values.
+func (p *Project) Validate() error {
+	if p.Name == "" {
+		return errors.New("project name is required")
 	}
-	if len(w.Name) > maxWorkspaceNameLength {
-		return fmt.Errorf("workspace name must be %d characters or less", maxWorkspaceNameLength)
+	if len(p.Name) > maxProjectNameLength {
+		return fmt.Errorf("project name must be %d characters or less", maxProjectNameLength)
 	}
-	if w.Prefix == "" {
-		return errors.New("workspace prefix is required")
+	if p.Prefix == "" {
+		return errors.New("project prefix is required")
 	}
-	if len(w.Prefix) > MaxPrefixLength {
-		return fmt.Errorf("workspace prefix must be %d characters or less", MaxPrefixLength)
+	if len(p.Prefix) > MaxPrefixLength {
+		return fmt.Errorf("project prefix must be %d characters or less", MaxPrefixLength)
 	}
 	return nil
 }
@@ -50,9 +49,9 @@ func (w *Workspace) Validate() error {
 // Issue represents a trackable work item.
 type Issue struct {
 	// Core Identification
-	ID          string `json:"id"`
-	WorkspaceID string `json:"workspace_id"`
-	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs (e.g., parent-id.1)
+	ID        string `json:"id"`
+	ProjectID string `json:"project_id"`
+	ParentID  string `json:"parent_id,omitempty"` // For hierarchical child IDs (e.g., parent-id.1)
 
 	// Issue Content
 	Title       string `json:"title"`
@@ -90,8 +89,8 @@ func (i *Issue) Validate() error {
 	if len(i.Title) > maxTitleLength {
 		return fmt.Errorf("title must be %d characters or less (got %d)", maxTitleLength, len(i.Title))
 	}
-	if i.WorkspaceID == "" {
-		return errors.New("workspace_id is required")
+	if i.ProjectID == "" {
+		return errors.New("project_id is required")
 	}
 	if i.Priority < 0 || i.Priority > 4 {
 		return fmt.Errorf("priority must be between 0 and 4 (got %d)", i.Priority)
@@ -183,7 +182,7 @@ const (
 	// This prevents backlog starvation while keeping high-priority recent work visible.
 	SortPolicyHybrid SortPolicy = "hybrid"
 
-	// SortPolicyPriority always sorts by priority → rank → created_at.
+	// SortPolicyPriority always sorts by priority -> rank -> created_at.
 	SortPolicyPriority SortPolicy = "priority"
 
 	// SortPolicyOldest always sorts by created_at (oldest first) for backlog clearing.
@@ -303,39 +302,40 @@ const (
 	EventDependencyRemoved EventType = "dependency_removed"
 	EventLabelAdded        EventType = "label_added"
 	EventLabelRemoved      EventType = "label_removed"
+	EventMerged            EventType = "merged"
 )
 
 // IssueFilter is used to filter issue queries.
 type IssueFilter struct {
-	WorkspaceID string     // Required: filter by workspace
-	Status      *Status    // Filter by status
-	Priority    *int       // Filter by priority
-	IssueType   *IssueType // Filter by issue type
-	Assignee    *string    // Filter by assignee
-	Labels      []string   // AND semantics: issue must have ALL these labels
-	ParentID    string     // Filter by parent issue (via parent-child dependency)
-	Query       string     // Full-text search in title/description
-	IDs         []string   // Filter by specific issue IDs
-	Limit       int        // Maximum results to return
-	Offset      int        // Pagination offset
+	ProjectID string     // Required: filter by project
+	Status    *Status    // Filter by status
+	Priority  *int       // Filter by priority
+	IssueType *IssueType // Filter by issue type
+	Assignee  *string    // Filter by assignee
+	Labels    []string   // AND semantics: issue must have ALL these labels
+	ParentID  string     // Filter by parent issue (via parent-child dependency)
+	Query     string     // Full-text search in title/description
+	IDs       []string   // Filter by specific issue IDs
+	Limit     int        // Maximum results to return
+	Offset    int        // Pagination offset
 }
 
 // WorkFilter is used to filter ready work queries.
 type WorkFilter struct {
-	WorkspaceID string     // Required: filter by workspace
-	Status      *Status    // Filter by status
-	IssueType   *IssueType // Filter by issue type
-	Priority    *int       // Filter by priority
-	Assignee    *string    // Filter by assignee
-	Unassigned  bool       // Filter for unassigned issues
-	Labels      []string   // AND semantics
-	SortPolicy  SortPolicy // Sort policy: hybrid (default), priority, oldest
-	Limit       int        // Maximum results
+	ProjectID  string     // Required: filter by project
+	Status     *Status    // Filter by status
+	IssueType  *IssueType // Filter by issue type
+	Priority   *int       // Filter by priority
+	Assignee   *string    // Filter by assignee
+	Unassigned bool       // Filter for unassigned issues
+	Labels     []string   // AND semantics
+	SortPolicy SortPolicy // Sort policy: hybrid (default), priority, oldest
+	Limit      int        // Maximum results
 }
 
-// Statistics provides aggregate metrics for a workspace.
+// Statistics provides aggregate metrics for a project.
 type Statistics struct {
-	WorkspaceID      string  `json:"workspace_id"`
+	ProjectID        string  `json:"project_id"`
 	TotalIssues      int     `json:"total_issues"`
 	OpenIssues       int     `json:"open_issues"`
 	InProgressIssues int     `json:"in_progress_issues"`
@@ -344,6 +344,41 @@ type Statistics struct {
 	DeferredIssues   int     `json:"deferred_issues"`
 	ReadyIssues      int     `json:"ready_issues"`
 	AvgLeadTimeHours float64 `json:"avg_lead_time_hours,omitempty"`
+}
+
+// MergeResult contains the outcome of merging one or more source projects into a target.
+type MergeResult struct {
+	TargetProject  *Project `json:"target_project"`
+	IssuesMoved    int      `json:"issues_moved"`
+	PlansMoved     int      `json:"plans_moved"`
+	SourcesDeleted []string `json:"sources_deleted"`
+}
+
+// Workspace represents a directory path associated with a project.
+// Multiple workspaces can be linked to a single project to support multi-directory projects.
+// Previously named WorkspacePath; renamed because this IS the workspace (a directory where work happens).
+type Workspace struct {
+	ID             string     `json:"id"`
+	ProjectID      string     `json:"project_id"`
+	Path           string     `json:"path"`
+	Label          string     `json:"label,omitempty"`
+	Hostname       string     `json:"hostname,omitempty"`
+	GitRemote      string     `json:"git_remote,omitempty"`
+	PathType       string     `json:"path_type,omitempty"`
+	LastAccessedAt *time.Time `json:"last_accessed_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+// Validate checks if the workspace has valid field values.
+func (w *Workspace) Validate() error {
+	if w.Path == "" {
+		return errors.New("path is required")
+	}
+	if w.ProjectID == "" {
+		return errors.New("project_id is required")
+	}
+	return nil
 }
 
 // OpenChildrenError is returned when attempting to close an issue that has open child issues.
@@ -376,12 +411,12 @@ type IssueDetails struct {
 
 // Plan represents a shared plan that can be linked to multiple issues.
 type Plan struct {
-	ID          string    `json:"id"` // plan.xxxxx format
-	WorkspaceID string    `json:"workspace_id"`
-	Title       string    `json:"title"`
-	Content     string    `json:"content"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID        string    `json:"id"` // plan.xxxxx format
+	ProjectID string    `json:"project_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 	// LinkedIssues contains issue IDs linked to this plan (populated on detail views)
 	LinkedIssues []string `json:"linked_issues,omitempty"`
 }
@@ -394,8 +429,8 @@ func (p *Plan) Validate() error {
 	if len(p.Title) > maxPlanTitleLength {
 		return fmt.Errorf("plan title must be %d characters or less", maxPlanTitleLength)
 	}
-	if p.WorkspaceID == "" {
-		return errors.New("workspace_id is required")
+	if p.ProjectID == "" {
+		return errors.New("project_id is required")
 	}
 	return nil
 }
@@ -422,4 +457,11 @@ func (pc *PlanContext) HasPlan() bool {
 		return false
 	}
 	return pc.InlinePlan != nil || pc.ParentPlan != nil || len(pc.SharedPlans) > 0
+}
+
+// ProjectResolution contains the result of resolving a project by path.
+type ProjectResolution struct {
+	ProjectID   string `json:"project_id"`
+	ProjectName string `json:"project_name"`
+	PathID      string `json:"path_id"`
 }

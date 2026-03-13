@@ -22,24 +22,24 @@ func (q *Queries) CountPlanLinks(ctx context.Context, planID string) (int64, err
 }
 
 const createPlan = `-- name: CreatePlan :one
-INSERT INTO plans (id, workspace_id, title, content, created_at, updated_at)
+INSERT INTO plans (id, project_id, title, content, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, workspace_id, title, content, created_at, updated_at
+RETURNING id, project_id, title, content, created_at, updated_at
 `
 
 type CreatePlanParams struct {
-	ID          string    `json:"id"`
-	WorkspaceID string    `json:"workspace_id"`
-	Title       string    `json:"title"`
-	Content     string    `json:"content"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+	ProjectID string    `json:"project_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (*Plan, error) {
 	row := q.db.QueryRowContext(ctx, createPlan,
 		arg.ID,
-		arg.WorkspaceID,
+		arg.ProjectID,
 		arg.Title,
 		arg.Content,
 		arg.CreatedAt,
@@ -48,7 +48,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (*Plan, 
 	var i Plan
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceID,
+		&i.ProjectID,
 		&i.Title,
 		&i.Content,
 		&i.CreatedAt,
@@ -94,7 +94,7 @@ func (q *Queries) GetLinkedIssues(ctx context.Context, planID string) ([]string,
 }
 
 const getLinkedPlans = `-- name: GetLinkedPlans :many
-SELECT p.id, p.workspace_id, p.title, p.content, p.created_at, p.updated_at FROM plans p
+SELECT p.id, p.project_id, p.title, p.content, p.created_at, p.updated_at FROM plans p
 INNER JOIN issue_plans ip ON ip.plan_id = p.id
 WHERE ip.issue_id = ?
 ORDER BY p.updated_at DESC
@@ -111,7 +111,7 @@ func (q *Queries) GetLinkedPlans(ctx context.Context, issueID string) ([]*Plan, 
 		var i Plan
 		if err := rows.Scan(
 			&i.ID,
-			&i.WorkspaceID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Content,
 			&i.CreatedAt,
@@ -131,7 +131,7 @@ func (q *Queries) GetLinkedPlans(ctx context.Context, issueID string) ([]*Plan, 
 }
 
 const getPlan = `-- name: GetPlan :one
-SELECT id, workspace_id, title, content, created_at, updated_at FROM plans WHERE id = ?
+SELECT id, project_id, title, content, created_at, updated_at FROM plans WHERE id = ?
 `
 
 func (q *Queries) GetPlan(ctx context.Context, id string) (*Plan, error) {
@@ -139,7 +139,7 @@ func (q *Queries) GetPlan(ctx context.Context, id string) (*Plan, error) {
 	var i Plan
 	err := row.Scan(
 		&i.ID,
-		&i.WorkspaceID,
+		&i.ProjectID,
 		&i.Title,
 		&i.Content,
 		&i.CreatedAt,
@@ -166,13 +166,13 @@ func (q *Queries) LinkIssueToPlan(ctx context.Context, arg LinkIssueToPlanParams
 }
 
 const listPlans = `-- name: ListPlans :many
-SELECT id, workspace_id, title, content, created_at, updated_at FROM plans
-WHERE workspace_id = ?
+SELECT id, project_id, title, content, created_at, updated_at FROM plans
+WHERE project_id = ?
 ORDER BY updated_at DESC
 `
 
-func (q *Queries) ListPlans(ctx context.Context, workspaceID string) ([]*Plan, error) {
-	rows, err := q.db.QueryContext(ctx, listPlans, workspaceID)
+func (q *Queries) ListPlans(ctx context.Context, projectID string) ([]*Plan, error) {
+	rows, err := q.db.QueryContext(ctx, listPlans, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (q *Queries) ListPlans(ctx context.Context, workspaceID string) ([]*Plan, e
 		var i Plan
 		if err := rows.Scan(
 			&i.ID,
-			&i.WorkspaceID,
+			&i.ProjectID,
 			&i.Title,
 			&i.Content,
 			&i.CreatedAt,

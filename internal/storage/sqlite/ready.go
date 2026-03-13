@@ -1,5 +1,5 @@
 // Package sqlite implements the storage interface using SQLite.
-// This file handles ready work queries, blocked issue detection, and workspace statistics.
+// This file handles ready work queries, blocked issue detection, and project statistics.
 package sqlite
 
 import (
@@ -38,18 +38,18 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 	switch sortPolicy {
 	case types.SortPolicyPriority:
 		rows, err = s.queries.GetReadyIssuesPriority(ctx, db.GetReadyIssuesPriorityParams{
-			WorkspaceID: filter.WorkspaceID,
-			Limit:       int64(limit),
+			ProjectID: filter.ProjectID,
+			Limit:     int64(limit),
 		})
 	case types.SortPolicyOldest:
 		rows, err = s.queries.GetReadyIssuesOldest(ctx, db.GetReadyIssuesOldestParams{
-			WorkspaceID: filter.WorkspaceID,
-			Limit:       int64(limit),
+			ProjectID: filter.ProjectID,
+			Limit:     int64(limit),
 		})
 	default: // SortPolicyHybrid
 		rows, err = s.queries.GetReadyIssuesHybrid(ctx, db.GetReadyIssuesHybridParams{
-			WorkspaceID: filter.WorkspaceID,
-			Limit:       int64(limit),
+			ProjectID: filter.ProjectID,
+			Limit:     int64(limit),
 		})
 	}
 
@@ -92,9 +92,9 @@ func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) (
 		limit = defaultWorkLimit
 	}
 
-	rows, err := s.queries.GetBlockedIssuesInWorkspace(ctx, db.GetBlockedIssuesInWorkspaceParams{
-		WorkspaceID: filter.WorkspaceID,
-		Limit:       int64(limit),
+	rows, err := s.queries.GetBlockedIssuesInProject(ctx, db.GetBlockedIssuesInProjectParams{
+		ProjectID: filter.ProjectID,
+		Limit:     int64(limit),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get blocked issues: %w", err)
@@ -112,7 +112,7 @@ func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) (
 		blocked := &types.BlockedIssue{
 			Issue: types.Issue{
 				ID:          row.ID,
-				WorkspaceID: row.WorkspaceID,
+				ProjectID:   row.ProjectID,
 				Title:       row.Title,
 				Description: fromNullString(row.Description),
 				Status:      types.Status(row.Status),
@@ -154,26 +154,26 @@ func (s *Store) IsBlocked(ctx context.Context, issueID string) (bool, []string, 
 	return true, blockerIDs, nil
 }
 
-// GetStatistics returns aggregate statistics for a workspace.
+// GetStatistics returns aggregate statistics for a project.
 // Includes counts by status, ready issue count, and average lead time.
-func (s *Store) GetStatistics(ctx context.Context, workspaceID string) (*types.Statistics, error) {
-	stats, err := s.queries.GetWorkspaceStats(ctx, workspaceID)
+func (s *Store) GetStatistics(ctx context.Context, projectID string) (*types.Statistics, error) {
+	stats, err := s.queries.GetProjectStats(ctx, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("get workspace stats: %w", err)
+		return nil, fmt.Errorf("get project stats: %w", err)
 	}
 
-	readyCount, err := s.queries.GetReadyIssueCount(ctx, workspaceID)
+	readyCount, err := s.queries.GetReadyIssueCount(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("get ready issue count: %w", err)
 	}
 
-	avgLeadTime, err := s.queries.GetAverageLeadTime(ctx, workspaceID)
+	avgLeadTime, err := s.queries.GetAverageLeadTime(ctx, projectID)
 	if err != nil && !strings.Contains(err.Error(), "no rows") {
 		return nil, fmt.Errorf("get average lead time: %w", err)
 	}
 
 	return &types.Statistics{
-		WorkspaceID:      workspaceID,
+		ProjectID:        projectID,
 		TotalIssues:      int(stats.TotalIssues),
 		OpenIssues:       int(stats.OpenIssues),
 		InProgressIssues: int(stats.InProgressIssues),

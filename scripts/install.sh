@@ -352,7 +352,7 @@ verify_installation() {
     echo ""
     echo "Get started:"
     echo "  arc quickstart      Quick start guide"
-    echo "  arc init            Initialize workspace"
+    echo "  arc init            Initialize project"
     echo "  arc server start    Start the server"
     echo ""
 }

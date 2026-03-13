@@ -32,9 +32,9 @@ type Comment struct {
 }
 
 type Config struct {
-	WorkspaceID string         `json:"workspace_id"`
-	Key         string         `json:"key"`
-	Value       sql.NullString `json:"value"`
+	ProjectID string         `json:"project_id"`
+	Key       string         `json:"key"`
+	Value     sql.NullString `json:"value"`
 }
 
 type Dependency struct {
@@ -63,7 +63,7 @@ type GlobalConfig struct {
 
 type Issue struct {
 	ID          string         `json:"id"`
-	WorkspaceID string         `json:"workspace_id"`
+	ProjectID   string         `json:"project_id"`
 	Title       string         `json:"title"`
 	Description sql.NullString `json:"description"`
 	Status      string         `json:"status"`
@@ -96,20 +96,32 @@ type Label struct {
 }
 
 type Plan struct {
-	ID          string    `json:"id"`
-	WorkspaceID string    `json:"workspace_id"`
-	Title       string    `json:"title"`
-	Content     string    `json:"content"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+	ProjectID string    `json:"project_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type Workspace struct {
+type Project struct {
 	ID          string         `json:"id"`
 	Name        string         `json:"name"`
-	Path        sql.NullString `json:"path"`
 	Description sql.NullString `json:"description"`
 	Prefix      string         `json:"prefix"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
+}
+
+type Workspace struct {
+	ID             string         `json:"id"`
+	ProjectID      string         `json:"project_id"`
+	Path           string         `json:"path"`
+	Label          sql.NullString `json:"label"`
+	Hostname       sql.NullString `json:"hostname"`
+	GitRemote      sql.NullString `json:"git_remote"`
+	PathType       string         `json:"path_type"`
+	LastAccessedAt sql.NullTime   `json:"last_accessed_at"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }

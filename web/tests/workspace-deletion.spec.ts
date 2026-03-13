@@ -1,58 +1,65 @@
 import { test, expect } from '@playwright/test';
 
-// Mock workspace data
-const mockWorkspaces = [
+// Mock project data
+const mockProjects = [
 	{
 		id: 'ws-test1',
-		name: 'Test Workspace 1',
-		prefix: 'tw1',
-		path: '/tmp/test-workspace-1',
-		description: 'First test workspace',
+		name: 'Test Project 1',
+		prefix: 'tp1',
+		description: 'First test project',
 		created_at: '2024-01-01T00:00:00Z',
 		updated_at: '2024-01-01T00:00:00Z'
 	},
 	{
 		id: 'ws-test2',
-		name: 'Test Workspace 2',
-		prefix: 'tw2',
-		path: '/tmp/test-workspace-2',
-		description: 'Second test workspace',
+		name: 'Test Project 2',
+		prefix: 'tp2',
+		description: 'Second test project',
 		created_at: '2024-01-01T00:00:00Z',
 		updated_at: '2024-01-01T00:00:00Z'
 	},
 	{
 		id: 'ws-test3',
-		name: 'Test Workspace 3',
-		prefix: 'tw3',
-		path: '/tmp/test-workspace-3',
-		description: 'Third test workspace',
+		name: 'Test Project 3',
+		prefix: 'tp3',
+		description: 'Third test project',
 		created_at: '2024-01-01T00:00:00Z',
 		updated_at: '2024-01-01T00:00:00Z'
 	}
 ];
 
-test.describe('Workspace Deletion', () => {
+test.describe('Project Deletion', () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock the API endpoints
-		let currentWorkspaces = [...mockWorkspaces];
+		let currentProjects = [...mockProjects];
 
-		await page.route('**/api/v1/workspaces', async (route) => {
+		// Mock listing projects
+		await page.route('**/api/v1/projects', async (route) => {
 			if (route.request().method() === 'GET') {
 				await route.fulfill({
 					status: 200,
 					contentType: 'application/json',
-					body: JSON.stringify(currentWorkspaces)
+					body: JSON.stringify(currentProjects)
 				});
 			} else {
 				await route.continue();
 			}
 		});
 
-		await page.route('**/api/v1/workspaces/*', async (route) => {
+		// Mock workspace paths (for project insights loading)
+		await page.route('**/api/v1/projects/*/workspaces', async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify([])
+			});
+		});
+
+		// Mock individual project delete
+		await page.route(/\/api\/v1\/projects\/[^/]+$/, async (route) => {
 			if (route.request().method() === 'DELETE') {
 				const url = route.request().url();
-				const workspaceId = url.split('/').pop();
-				currentWorkspaces = currentWorkspaces.filter((w) => w.id !== workspaceId);
+				const projectId = url.split('/').pop();
+				currentProjects = currentProjects.filter((p) => p.id !== projectId);
 				await route.fulfill({ status: 204 });
 			} else {
 				await route.continue();
@@ -60,11 +67,11 @@ test.describe('Workspace Deletion', () => {
 		});
 	});
 
-	test('shows edit button when workspaces exist', async ({ page }) => {
+	test('shows edit button when projects exist', async ({ page }) => {
 		await page.goto('/');
 
-		// Wait for workspaces to load
-		await expect(page.getByRole('heading', { name: 'Workspaces' })).toBeVisible();
+		// Wait for projects to load
+		await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 
 		// Edit button should be visible
 		const editButton = page.getByRole('button', { name: 'Edit' });
@@ -88,42 +95,42 @@ test.describe('Workspace Deletion', () => {
 		await expect(checkboxes).toHaveCount(4); // 3 cards + 1 select all
 	});
 
-	test('selects single workspace and shows delete button', async ({ page }) => {
+	test('selects single project and shows delete button', async ({ page }) => {
 		await page.goto('/');
 
 		// Enter edit mode
 		await page.getByRole('button', { name: 'Edit' }).click();
 
-		// Click on the first workspace card to select it
-		await page.getByRole('button', { name: /Test Workspace 1/i }).click();
+		// Click on the first project card to select it
+		await page.getByRole('button', { name: /Test Project 1/i }).click();
 
 		// Should show "1 selected" text
 		await expect(page.getByText('1 selected')).toBeVisible();
 
-		// Should show batch delete button (target the button element with exact text)
+		// Should show batch delete button
 		await expect(
-			page.locator('button.btn-danger').filter({ hasText: 'Delete workspace' })
+			page.locator('button.btn-danger').filter({ hasText: 'Delete project' })
 		).toBeVisible();
 	});
 
-	test('selects multiple workspaces', async ({ page }) => {
+	test('selects multiple projects', async ({ page }) => {
 		await page.goto('/');
 
 		// Enter edit mode
 		await page.getByRole('button', { name: 'Edit' }).click();
 
-		// Click on multiple workspace cards
-		await page.getByRole('button', { name: /Test Workspace 1/i }).click();
-		await page.getByRole('button', { name: /Test Workspace 2/i }).click();
+		// Click on multiple project cards
+		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.getByRole('button', { name: /Test Project 2/i }).click();
 
 		// Should show "2 selected" text
 		await expect(page.getByText('2 selected')).toBeVisible();
 
 		// Should show delete button with count
-		await expect(page.getByRole('button', { name: 'Delete 2 workspaces' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Delete 2 projects' })).toBeVisible();
 	});
 
-	test('select all selects all workspaces', async ({ page }) => {
+	test('select all selects all projects', async ({ page }) => {
 		await page.goto('/');
 
 		// Enter edit mode
@@ -142,82 +149,83 @@ test.describe('Workspace Deletion', () => {
 		// Enter edit mode
 		await page.getByRole('button', { name: 'Edit' }).click();
 
-		// Select a workspace
-		await page.getByRole('button', { name: /Test Workspace 1/i }).click();
+		// Select a project
+		await page.getByRole('button', { name: /Test Project 1/i }).click();
 
 		// Click batch delete button
-		await page.locator('button.btn-danger').filter({ hasText: 'Delete workspace' }).click();
+		await page.locator('button.btn-danger').filter({ hasText: 'Delete project' }).click();
 
 		// Confirmation dialog should appear
 		const dialog = page.getByRole('dialog');
-		await expect(page.getByRole('heading', { name: 'Delete workspace?' })).toBeVisible();
-		await expect(page.getByText('This action cannot be undone')).toBeVisible();
-		await expect(dialog.getByText('Test Workspace 1')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Delete project?' })).toBeVisible();
+		await expect(dialog.getByText('Test Project 1')).toBeVisible();
 	});
 
 	test('cancels deletion when clicking cancel', async ({ page }) => {
 		await page.goto('/');
 
-		// Enter edit mode and select workspace
+		// Enter edit mode and select project
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Workspace 1/i }).click();
-		await page.locator('button.btn-danger').filter({ hasText: 'Delete workspace' }).click();
+		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.locator('button.btn-danger').filter({ hasText: 'Delete project' }).click();
 
 		// Click cancel
 		await page.getByRole('button', { name: 'Cancel' }).click();
 
 		// Dialog should close
-		await expect(page.getByRole('heading', { name: 'Delete workspace?' })).not.toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Delete project?' })).not.toBeVisible();
 
-		// Workspace should still be selected
+		// Project should still be selected
 		await expect(page.getByText('1 selected')).toBeVisible();
 	});
 
-	test('deletes single workspace', async ({ page }) => {
+	test('deletes single project', async ({ page }) => {
 		await page.goto('/');
 
-		// Enter edit mode and select workspace
+		// Enter edit mode and select project
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Workspace 1/i }).click();
-		await page.locator('button.btn-danger').filter({ hasText: 'Delete workspace' }).click();
+		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.locator('button.btn-danger').filter({ hasText: 'Delete project' }).click();
 
 		// Confirm deletion (target the button inside the dialog)
 		const dialog = page.getByRole('dialog');
-		await dialog.getByRole('button', { name: 'Delete Workspace' }).click();
+		await dialog.getByRole('button', { name: 'Delete Project' }).click();
 
 		// Wait for dialog to close
-		await expect(page.getByRole('heading', { name: 'Delete workspace?' })).not.toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Delete project?' })).not.toBeVisible();
 
-		// Workspace should be removed from the list (check heading specifically)
-		await expect(page.getByRole('heading', { name: 'Test Workspace 1' })).not.toBeVisible();
+		// Project should be removed from the list
+		await expect(page.locator('main').getByText('Test Project 1')).not.toBeVisible();
 
-		// Other workspaces should still be visible
-		await expect(page.getByRole('heading', { name: 'Test Workspace 2' })).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Test Workspace 3' })).toBeVisible();
+		// Other projects should still be visible
+		await expect(page.locator('main').getByText('Test Project 2')).toBeVisible();
+		await expect(page.locator('main').getByText('Test Project 3')).toBeVisible();
 	});
 
-	test('deletes multiple workspaces', async ({ page }) => {
+	test('deletes multiple projects', async ({ page }) => {
 		await page.goto('/');
 
-		// Enter edit mode and select workspaces
+		// Enter edit mode and select projects
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Workspace 1/i }).click();
-		await page.getByRole('button', { name: /Test Workspace 2/i }).click();
-		await page.getByRole('button', { name: 'Delete 2 workspaces' }).click();
+		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.getByRole('button', { name: /Test Project 2/i }).click();
+		await page.getByRole('button', { name: 'Delete 2 projects' }).click();
 
 		// Confirm deletion (target the button inside the dialog)
 		const dialog = page.getByRole('dialog');
-		await dialog.getByRole('button', { name: 'Delete Workspaces' }).click();
+		await dialog.getByRole('button', { name: 'Delete Projects' }).click();
 
 		// Wait for dialog to close
-		await expect(page.getByRole('heading', { name: 'Delete 2 workspaces?' })).not.toBeVisible();
+		await expect(
+			page.getByRole('heading', { name: 'Delete 2 projects?' })
+		).not.toBeVisible();
 
-		// Deleted workspaces should be removed (check headings specifically)
-		await expect(page.getByRole('heading', { name: 'Test Workspace 1' })).not.toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Test Workspace 2' })).not.toBeVisible();
+		// Deleted projects should be removed
+		await expect(page.locator('main').getByText('Test Project 1')).not.toBeVisible();
+		await expect(page.locator('main').getByText('Test Project 2')).not.toBeVisible();
 
-		// Remaining workspace should still be visible
-		await expect(page.getByRole('heading', { name: 'Test Workspace 3' })).toBeVisible();
+		// Remaining project should still be visible
+		await expect(page.locator('main').getByText('Test Project 3')).toBeVisible();
 	});
 
 	test('exits edit mode when clicking Done', async ({ page }) => {
@@ -240,9 +248,9 @@ test.describe('Workspace Deletion', () => {
 	test('clears selection when exiting edit mode', async ({ page }) => {
 		await page.goto('/');
 
-		// Enter edit mode and select workspaces
+		// Enter edit mode and select projects
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Workspace 1/i }).click();
+		await page.getByRole('button', { name: /Test Project 1/i }).click();
 		await expect(page.getByText('1 selected')).toBeVisible();
 
 		// Exit edit mode
@@ -262,18 +270,18 @@ test.describe('Workspace Deletion', () => {
 		// Enter edit mode
 		await page.getByRole('button', { name: 'Edit' }).click();
 
-		// Hover over the first workspace card to reveal delete button
-		const firstCard = page.getByRole('button', { name: /Test Workspace 1/i });
+		// Hover over the first project card to reveal delete button
+		const firstCard = page.getByRole('button', { name: /Test Project 1/i });
 		await firstCard.hover();
 
 		// Find and click the individual delete button (trash icon)
-		const deleteButton = firstCard.locator('[title="Delete workspace"]');
+		const deleteButton = firstCard.locator('[title="Delete project"]');
 		await deleteButton.click();
 
-		// Confirmation dialog should appear for single workspace
+		// Confirmation dialog should appear for single project
 		const dialog = page.getByRole('dialog');
-		await expect(page.getByRole('heading', { name: 'Delete workspace?' })).toBeVisible();
-		await expect(dialog.getByText('Test Workspace 1')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Delete project?' })).toBeVisible();
+		await expect(dialog.getByText('Test Project 1')).toBeVisible();
 	});
 
 	test('keyboard navigation works in edit mode', async ({ page }) => {
@@ -282,7 +290,7 @@ test.describe('Workspace Deletion', () => {
 		// Enter edit mode
 		await page.getByRole('button', { name: 'Edit' }).click();
 
-		// Tab to first workspace card
+		// Tab to first project card
 		await page.keyboard.press('Tab');
 		await page.keyboard.press('Tab'); // Skip select all checkbox
 
@@ -294,10 +302,10 @@ test.describe('Workspace Deletion', () => {
 	});
 });
 
-test.describe('Workspace Deletion - Empty State', () => {
-	test('hides edit button when no workspaces', async ({ page }) => {
-		// Mock empty workspaces
-		await page.route('**/api/v1/workspaces', async (route) => {
+test.describe('Project Deletion - Empty State', () => {
+	test('hides edit button when no projects', async ({ page }) => {
+		// Mock empty projects
+		await page.route('**/api/v1/projects', async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: 'application/json',
@@ -307,8 +315,8 @@ test.describe('Workspace Deletion - Empty State', () => {
 
 		await page.goto('/');
 
-		// Should show empty state (use heading role for specificity)
-		await expect(page.getByRole('heading', { name: 'No workspaces yet' })).toBeVisible();
+		// Should show empty state
+		await expect(page.getByRole('heading', { name: 'No projects yet' })).toBeVisible();
 
 		// Edit button should not be visible
 		await expect(page.getByRole('button', { name: 'Edit' })).not.toBeVisible();

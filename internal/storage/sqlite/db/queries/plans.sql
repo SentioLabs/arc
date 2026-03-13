@@ -1,5 +1,5 @@
 -- name: CreatePlan :one
-INSERT INTO plans (id, workspace_id, title, content, created_at, updated_at)
+INSERT INTO plans (id, project_id, title, content, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
@@ -8,7 +8,7 @@ SELECT * FROM plans WHERE id = ?;
 
 -- name: ListPlans :many
 SELECT * FROM plans
-WHERE workspace_id = ?
+WHERE project_id = ?
 ORDER BY updated_at DESC;
 
 -- name: UpdatePlan :exec

@@ -51,10 +51,10 @@ func (s *Server) listIssues(c echo.Context) error {
 	wsID := workspaceID(c)
 
 	filter := types.IssueFilter{
-		WorkspaceID: wsID,
-		Limit:       queryInt(c, "limit", defaultListLimit),
-		Offset:      queryInt(c, "offset", 0),
-		Query:       c.QueryParam("q"),
+		ProjectID: wsID,
+		Limit:     queryInt(c, "limit", defaultListLimit),
+		Offset:    queryInt(c, "offset", 0),
+		Query:     c.QueryParam("q"),
 	}
 
 	// Parse optional filters from query parameters
@@ -112,7 +112,7 @@ func (s *Server) createIssue(c echo.Context) error {
 	}
 
 	issue := &types.Issue{
-		WorkspaceID: wsID,
+		ProjectID:   wsID,
 		ParentID:    req.ParentID,
 		Title:       req.Title,
 		Description: req.Description,
@@ -306,8 +306,8 @@ func (s *Server) getReadyWork(c echo.Context) error {
 	wsID := workspaceID(c)
 
 	filter := types.WorkFilter{
-		WorkspaceID: wsID,
-		Limit:       queryInt(c, "limit", defaultListLimit),
+		ProjectID: wsID,
+		Limit:     queryInt(c, "limit", defaultListLimit),
 	}
 
 	// Parse optional filters
@@ -354,8 +354,8 @@ func (s *Server) getBlockedIssues(c echo.Context) error {
 	wsID := workspaceID(c)
 
 	filter := types.WorkFilter{
-		WorkspaceID: wsID,
-		Limit:       queryInt(c, "limit", defaultListLimit),
+		ProjectID: wsID,
+		Limit:     queryInt(c, "limit", defaultListLimit),
 	}
 
 	issues, err := s.store.GetBlockedIssues(c.Request().Context(), filter)

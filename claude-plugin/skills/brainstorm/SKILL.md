@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Use when starting a new feature, project, or significant piece of work that needs design exploration, architecture decisions, or design trade-offs before implementation. Guides Socratic discovery of requirements and constraints, then saves the approved design as an arc plan.
+description: You MUST use this skill for any design exploration, architecture decision, or trade-off analysis before implementation begins — especially when the user says "brainstorm", "explore the design", "think through", "what approach should we take", or describes a feature with multiple valid strategies. This is the arc-native brainstorming skill that saves approved designs as arc plans. Always prefer this over generic brainstorming when the project uses arc issue tracking.
 ---
 
 # Brainstorm — Design Discovery

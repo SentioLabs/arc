@@ -113,9 +113,15 @@ release-snapshot: ## Build release snapshot locally (no tag required)
 	goreleaser release --snapshot --clean
 
 .PHONY: install
-install: ## Install unified binary to GOPATH/bin
-	@echo "==> Installing arc binary..."
-	$(GO) install ./cmd/arc
+install: build ## Install arc binary to ~/.local/bin (restarts server)
+	@echo "==> Stopping arc server..."
+	-$(CLI_BIN) server stop 2>/dev/null
+	@echo "==> Installing arc binary to ~/.local/bin..."
+	@mkdir -p $(HOME)/.local/bin
+	cp $(CLI_BIN) $(HOME)/.local/bin/arc
+	@echo "==> Starting arc server..."
+	$(HOME)/.local/bin/arc server start
+	@echo "==> Installed: $$($(HOME)/.local/bin/arc --version)"
 
 # ===========================================================================
 # Testing & Quality
@@ -155,6 +161,28 @@ vet: ## Run go vet
 
 .PHONY: check
 check: lint test web-check ## Run all checks (lint, test, frontend)
+
+.PHONY: ci
+ci: deps test lint ## Run CI pipeline locally (unit tests + lint)
+
+.PHONY: ci-all
+ci-all: ci test-integration test-playwright ## Run full CI pipeline (unit tests + lint + integration + playwright)
+
+# ===========================================================================
+# E2E Testing (requires Docker)
+# ===========================================================================
+
+.PHONY: test-integration
+test-integration: ## Run CLI integration tests (requires Docker)
+	scripts/test-e2e.sh integration
+
+.PHONY: test-playwright
+test-playwright: ## Run Playwright E2E tests (requires Docker)
+	scripts/test-e2e.sh playwright
+
+.PHONY: test-e2e
+test-e2e: ## Run all E2E tests (integration + playwright, requires Docker)
+	scripts/test-e2e.sh all
 
 # ===========================================================================
 # Dependencies

@@ -34,7 +34,7 @@ func TestListIssuesParentIDFilter(t *testing.T) {
 	addTestDependency(t, e, wsID, testDep{child2ID, epicID, "parent-child"})
 
 	// List issues filtered by parent_id
-	url := fmt.Sprintf("/api/v1/workspaces/%s/issues?parent_id=%s", wsID, epicID)
+	url := fmt.Sprintf("/api/v1/projects/%s/issues?parent_id=%s", wsID, epicID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -96,7 +96,7 @@ func TestListIssuesWithoutParentIDReturnsAll(t *testing.T) {
 	createTestIssue(t, e, wsID, "Issue 3")
 
 	// List issues without parent_id filter - should return all
-	url := fmt.Sprintf("/api/v1/workspaces/%s/issues", wsID)
+	url := fmt.Sprintf("/api/v1/projects/%s/issues", wsID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -129,7 +129,7 @@ func TestListIssuesWithoutParentIDReturnsAll(t *testing.T) {
 func closeTestIssue(t *testing.T, e *echo.Echo, wsID, issueID, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	closeURL := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s/close", wsID, issueID)
+	closeURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s/close", wsID, issueID)
 	req := httptest.NewRequest(http.MethodPost, closeURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -158,7 +158,7 @@ func TestCloseIssueCascadeField(t *testing.T) {
 	}
 
 	// Verify the child was also closed
-	childURL := fmt.Sprintf("/api/v1/workspaces/%s/issues/%s", wsID, childID)
+	childURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s", wsID, childID)
 	req := httptest.NewRequest(http.MethodGet, childURL, nil)
 	childRec := httptest.NewRecorder()
 	e.ServeHTTP(childRec, req)
@@ -189,7 +189,8 @@ func TestCloseIssueOpenChildren409(t *testing.T) {
 	rec := closeTestIssue(t, e, wsID, epicID, `{}`)
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf("closeIssue without cascade returned %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+		t.Fatalf("closeIssue without cascade returned %d, want %d: %s",
+			rec.Code, http.StatusConflict, rec.Body.String())
 	}
 
 	// Parse the response body
