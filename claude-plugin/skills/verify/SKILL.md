@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Use before claiming any work is complete, any test passes, or any fix works. Requires fresh verification evidence before any completion claim. Called by the implement skill before closing tasks, and by finish before session end. Invoke this before arc close or before telling the user something is done.
+description: You MUST use this skill before claiming any work is complete, any test passes, or any fix works — especially before arc close, before telling the user "done", or when the user asks "does it work?", "did the tests pass?", "is it fixed?". Requires fresh verification evidence (not cached results). Always prefer this over ad-hoc verification when the project uses arc issue tracking.
 ---
 
 # Verify — Evidence-Based Completion Gates

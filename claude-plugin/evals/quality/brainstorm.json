@@ -1,0 +1,97 @@
+[
+  {
+    "eval_id": 1,
+    "eval_name": "Brainstorm does NOT write code",
+    "prompt": "I want to add WebSocket support to our Go API server. Let's brainstorm the design.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output does NOT contain implementation code (no .go files written, no Write/Edit tool calls for source code)",
+        "type": "constraint"
+      },
+      {
+        "id": 2,
+        "text": "Output asks at least one clarifying question before proposing approaches",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output proposes 2-3 approaches with trade-offs for each",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "Brainstorm asks questions one at a time",
+    "prompt": "We need to redesign the permission system. The current one is too simple — just admin/user roles. We need something more granular.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "First response asks ONE clarifying question, not a list of 5+",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Question is asked using AskUserQuestion tool with structured options when applicable",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "Brainstorm saves design to arc",
+    "prompt": "I want to add a plugin system to arc. [After several rounds of Q&A, user approves the design.] Let's save this and move to planning.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output creates an arc epic or issue with `arc create`",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output saves the design as a plan with `arc plan set`",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output suggests transitioning to the plan skill as next step",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "Brainstorm applies YAGNI",
+    "prompt": "Add a simple health check endpoint to the API. Just GET /healthz returning 200.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output recognizes this is small/obvious work and suggests skipping brainstorm or going directly to implement",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output does NOT propose elaborate monitoring frameworks or complex health check systems for a simple endpoint",
+        "type": "constraint"
+      }
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "Brainstorm identifies shared contracts for parallel readiness",
+    "prompt": "Design a notification system with email, Slack, and webhook channels. Each channel will be implemented by a different agent in parallel.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output identifies shared contracts (e.g., Notifier interface, NotificationPayload type) that multiple channels reference",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output presents shared contracts as a 'foundation layer' to be implemented before parallel work",
+        "type": "quality"
+      }
+    ]
+  }
+]

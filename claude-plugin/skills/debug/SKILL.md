@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Use when encountering bugs, test failures, or unexpected behavior during implementation. Requires root cause investigation before any fix attempt. Invoked standalone or automatically from the implement skill when subagents report failures they can't resolve.
+description: You MUST use this skill when encountering any bug, test failure, unexpected behavior, nil pointer, panic, or error that needs root cause investigation — especially when the user says "debug", "investigate", "why is this failing", "root cause", or pastes a stack trace or error log. This is the arc-native debugging skill that enforces systematic investigation before any fix attempt. Always prefer this over generic debugging when the project uses arc issue tracking.
 ---
 
 # Debug — Systematic Root Cause Investigation

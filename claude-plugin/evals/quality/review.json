@@ -1,0 +1,117 @@
+[
+  {
+    "eval_id": 1,
+    "eval_name": "Review dispatches arc-reviewer with correct context",
+    "prompt": "Review the implementation of ARC-5.2 (OAuth integration). PRE_TASK_SHA is abc1234.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output dispatches arc-reviewer subagent via Agent tool",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Dispatch prompt includes the task spec (from arc show)",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Dispatch prompt includes the git diff range (PRE_TASK_SHA..HEAD)",
+        "type": "quality"
+      },
+      {
+        "id": 4,
+        "text": "Output does NOT write code changes itself — review skill is read-only",
+        "type": "constraint"
+      }
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "Review triages findings by severity correctly",
+    "prompt": "The arc-reviewer found: Critical — SQL injection in query builder. Important — missing error handling for network timeouts. Minor — inconsistent variable naming in test helpers.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output re-dispatches arc-implementer for the Critical SQL injection fix immediately",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output plans to fix the Important finding before moving to the next task",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output notes the Minor finding in an arc issue comment for later, does not block on it",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 3,
+    "eval_name": "Review applies circuit breaker after 3 cycles",
+    "prompt": "This is the 3rd review/fix cycle for ARC-5.2. The reviewer keeps flagging the same error handling pattern as Critical, but the implementer keeps writing it the same way.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output recognizes the 3-cycle circuit breaker threshold",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output STOPS the review/fix loop and escalates to the user",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output does NOT dispatch a 4th review/fix cycle without user guidance",
+        "type": "constraint"
+      },
+      {
+        "id": 4,
+        "text": "Output provides a summary of the recurring disagreement to help the user decide",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 4,
+    "eval_name": "Review evaluates findings technically, not performatively",
+    "prompt": "The arc-reviewer flagged: Critical — 'The function GetUser should return (User, error) not (*User, error) because User is small enough to copy.' But the codebase consistently uses pointer returns for all storage methods.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output evaluates the finding against codebase conventions rather than blindly accepting it",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output explains why the reviewer's suggestion conflicts with established patterns",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output does NOT automatically dispatch implementer for a finding that contradicts project conventions",
+        "type": "constraint"
+      }
+    ]
+  },
+  {
+    "eval_id": 5,
+    "eval_name": "Review re-reviews after fixes are applied",
+    "prompt": "The arc-implementer just fixed the Critical SQL injection finding from the review. What's next?",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output re-dispatches arc-reviewer with updated SHAs to verify the fix",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output does NOT skip re-review and assume the fix is correct",
+        "type": "constraint"
+      }
+    ]
+  }
+]

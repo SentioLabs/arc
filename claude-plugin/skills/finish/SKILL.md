@@ -1,6 +1,6 @@
 ---
 name: finish
-description: Use at the end of a session to capture remaining work, run quality gates, update arc issues, and commit/push all changes. Replaces both "Landing the Plane" and "finishing-a-development-branch" — one unified session completion protocol.
+description: You MUST use this skill at the end of any session, when the user says "land the plane", "wrap up", "done for the day", "finish up", "session complete", "push and close", or indicates work is complete. This is the arc-native session completion protocol that captures remaining work as arc issues, runs quality gates, updates arc issue statuses, commits, and pushes. Always prefer this over generic branch-finishing when the project uses arc issue tracking.
 ---
 
 # Finish — Unified Session Completion

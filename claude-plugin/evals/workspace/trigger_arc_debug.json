@@ -1,0 +1,22 @@
+[
+  {
+    "query": "TestCreateIssue is panicking with a nil pointer dereference at internal/storage/sqlite/issues.go:42. I ran `go test ./internal/storage/...` and got a stack trace showing GetProject returns nil. I need you to investigate the root cause \u2014 read the failing test, check the code at that line, look at recent git changes, and figure out why GetProject returns nil before we try any fix.",
+    "should_trigger": true
+  },
+  {
+    "query": "Our production API is returning intermittent 500 errors on the /api/v1/users endpoint. It happens about 30% of the time and the logs show 'database is locked' errors from SQLite. I've already tried increasing the busy_timeout to 10s and it didn't help. I've tried adding WAL mode and that didn't help either. This is the third fix attempt that failed \u2014 I need to go back to investigation and really understand what's causing the lock contention.",
+    "should_trigger": true
+  },
+  {
+    "query": "The CI build passes locally with `make build` and `make test` but fails in GitHub Actions with 'module not found: github.com/sentiolabs/arc/internal/types'. I checked go.mod and the module path is correct. I tried `go mod tidy` and clearing the module cache, but neither worked. Something is fundamentally wrong and I need a proper investigation \u2014 check the CI config, the module paths, the build environment differences.",
+    "should_trigger": true
+  },
+  {
+    "query": "Add error handling to the CreateUser function",
+    "should_trigger": false
+  },
+  {
+    "query": "Explain how the dependency resolution algorithm works",
+    "should_trigger": false
+  }
+]
