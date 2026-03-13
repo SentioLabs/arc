@@ -66,6 +66,9 @@ type Issue struct {
 	// Assignment
 	Assignee string `json:"assignee,omitempty"`
 
+	// AI Session Tracking
+	AISessionID string `json:"ai_session_id,omitempty"` // Claude Code session UUID
+
 	// Timestamps
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -311,8 +314,9 @@ type IssueFilter struct {
 	Status    *Status    // Filter by status
 	Priority  *int       // Filter by priority
 	IssueType *IssueType // Filter by issue type
-	Assignee  *string    // Filter by assignee
-	Labels    []string   // AND semantics: issue must have ALL these labels
+	Assignee    *string    // Filter by assignee
+	AISessionID *string    // Filter by AI session ID
+	Labels      []string   // AND semantics: issue must have ALL these labels
 	ParentID  string     // Filter by parent issue (via parent-child dependency)
 	Query     string     // Full-text search in title/description
 	IDs       []string   // Filter by specific issue IDs
