@@ -54,6 +54,10 @@
 	--color-type-epic: oklch(0.68 0.18 320);
 	--color-type-chore: oklch(0.55 0.04 250);
 
+	/* Accent - teal/cyan (complementary to primary indigo) */
+	--color-accent-400: oklch(0.72 0.12 185);
+	--color-accent-500: oklch(0.62 0.14 185);
+
 	/* Semantic text */
 	--color-text-primary: oklch(0.95 0.005 250);
 	--color-text-secondary: oklch(0.7 0.01 250);

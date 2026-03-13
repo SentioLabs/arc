@@ -5,6 +5,7 @@
 	import type { Writable } from 'svelte/store';
 	import {
 		getProjectStats,
+		updateProject,
 		listWorkspaces,
 		createWorkspace,
 		deleteWorkspace,
@@ -39,6 +40,59 @@
 	let addingPath = $state(false);
 	let deletePathConfirm = $state<{ pathId: string; pathValue: string } | null>(null);
 	let deletingPath = $state(false);
+
+	// Rename state
+	let renameEditing = $state(false);
+	let renameValue = $state('');
+	let renameSaving = $state(false);
+	let renameError = $state('');
+	// svelte-ignore non_reactive_update
+	let renameInputEl: HTMLInputElement;
+
+	function startRename() {
+		renameValue = project?.name ?? '';
+		renameError = '';
+		renameEditing = true;
+		requestAnimationFrame(() => renameInputEl?.focus());
+	}
+
+	function cancelRename() {
+		renameEditing = false;
+		renameError = '';
+	}
+
+	async function saveRename() {
+		const trimmed = renameValue.trim();
+		if (!trimmed || trimmed === project?.name) {
+			cancelRename();
+			return;
+		}
+		renameSaving = true;
+		renameError = '';
+		try {
+			const updated = await updateProject(projectId!, { name: trimmed });
+			projects.update((list) =>
+				list.map((p) => (p.id === updated.id ? updated : p))
+			);
+			renameEditing = false;
+		} catch (err) {
+			renameError = err instanceof Error ? err.message : 'Failed to rename project';
+		} finally {
+			renameSaving = false;
+		}
+	}
+
+	function handleRenameKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
+		if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+	}
+
+	function handleRenameBlur(e: FocusEvent) {
+		// Don't cancel if focus moves to save/cancel buttons
+		const related = e.relatedTarget as HTMLElement | null;
+		if (related?.closest('.rename-actions')) return;
+		cancelRename();
+	}
 
 	// Merge state
 	let mergeDialogOpen = $state(false);
@@ -274,9 +328,7 @@
 
 	<div class="flex-1 p-8 animate-fade-in">
 		<header class="mb-8">
-			<h1 class="text-3xl font-bold text-text-primary mb-2">
-				{project.name}
-			</h1>
+			{@render projectNameEditor(project)}
 			{#if project.description}
 				<p class="text-text-secondary">{project.description}</p>
 			{/if}
@@ -720,3 +772,69 @@
 		</div>
 	</dialog>
 {/if}
+
+{#snippet projectNameEditor(proj: Project)}
+	<div class="flex items-center gap-2 mb-2 group/rename">
+		{#if renameEditing}
+			<div class="flex-1">
+				<div class="flex items-center gap-2">
+					<input
+						bind:this={renameInputEl}
+						type="text"
+						bind:value={renameValue}
+						onblur={handleRenameBlur}
+						onkeydown={handleRenameKeydown}
+						disabled={renameSaving}
+						class="input text-2xl font-bold text-text-primary w-full py-1.5"
+						placeholder="Project name"
+					/>
+					<div class="rename-actions flex items-center gap-1.5 shrink-0">
+						<button
+							type="button"
+							class="btn btn-primary btn-sm"
+							disabled={renameSaving || !renameValue.trim() || renameValue.trim() === proj.name}
+							onclick={saveRename}
+						>
+							{#if renameSaving}
+								<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+							{:else}
+								Save
+							{/if}
+						</button>
+						<button
+							type="button"
+							class="btn btn-ghost btn-sm"
+							disabled={renameSaving}
+							onclick={cancelRename}
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+				{#if renameError}
+					<p class="text-xs text-status-blocked mt-1.5">{renameError}</p>
+				{/if}
+			</div>
+		{:else}
+			<h1
+				class="text-3xl font-bold text-text-primary cursor-pointer hover:bg-surface-700/30 rounded px-1 -mx-1 transition-colors"
+				ondblclick={startRename}
+			>
+				{proj.name}
+			</h1>
+			<button
+				type="button"
+				class="opacity-0 group-hover/rename:opacity-100 transition-opacity text-text-muted hover:text-primary-400 p-1 rounded hover:bg-surface-700/50"
+				title="Rename project"
+				onclick={startRename}
+			>
+				<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+					<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+				</svg>
+			</button>
+		{/if}
+	</div>
+{/snippet}

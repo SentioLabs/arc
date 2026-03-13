@@ -70,7 +70,7 @@
 	const hostDistribution = $derived.by(() => {
 		const counts: Record<string, number> = {};
 		for (const p of allPaths) {
-			const host = p.hostname || 'unknown';
+			const host = p.hostname || 'None';
 			counts[host] = (counts[host] || 0) + 1;
 		}
 		return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -99,16 +99,22 @@
 	let searchQuery = $state('');
 	let searchFocused = $state(false);
 
-	// Filter projects based on search query
+	// Filter and sort projects
 	const filteredProjects = $derived.by(() => {
-		if (!searchQuery.trim()) return $projects;
-		const q = searchQuery.toLowerCase().trim();
-		return $projects.filter(
-			(w) =>
-				w.name.toLowerCase().includes(q) ||
-				w.prefix.toLowerCase().includes(q) ||
-				(w.description?.toLowerCase().includes(q) ?? false)
-		);
+		let result = $projects;
+		if (searchQuery.trim()) {
+			const q = searchQuery.toLowerCase().trim();
+			result = result.filter(
+				(w) =>
+					w.name.toLowerCase().includes(q) ||
+					w.prefix.toLowerCase().includes(q) ||
+					(w.description?.toLowerCase().includes(q) ?? false)
+			);
+		}
+		return result.slice().sort((a, b) => {
+			const cmp = a.name.localeCompare(b.name);
+			return sortAsc ? cmp : -cmp;
+		});
 	});
 
 	function clearSearch() {
@@ -129,11 +135,23 @@
 	let projectsToMerge: Project[] = $state([]);
 	let mergeResult: MergeResult | null = $state(null);
 
+	// Sort & layout state
+	let sortAsc = $state(true);
+	let layoutMode = $state<'grid' | 'list'>('list');
+
 	// Workspace paths state (directory paths, read-only expansion)
 	let expandedPaths = $state<Set<string>>(new Set());
 	let workspacePaths = $state<Record<string, Workspace[]>>({});
 	let pathsLoading = $state<Set<string>>(new Set());
-	let pathCounts = $state<Record<string, number>>({});
+
+	// Derive path counts from the already-loaded projectPathsMap (fixes bug where count only showed after expanding)
+	const pathCounts = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const [id, paths] of Object.entries(projectPathsMap)) {
+			counts[id] = paths.length;
+		}
+		return counts;
+	});
 
 	function togglePaths(projectId: string, event: MouseEvent) {
 		event.preventDefault();
@@ -162,7 +180,6 @@
 		try {
 			const paths = await listWorkspaces(projectId);
 			workspacePaths = { ...workspacePaths, [projectId]: paths };
-			pathCounts = { ...pathCounts, [projectId]: paths.length };
 		} catch (err) {
 			console.error('Failed to load paths for project', projectId, err);
 			workspacePaths = { ...workspacePaths, [projectId]: [] };
@@ -455,14 +472,57 @@
 			<button type="button" class="btn btn-primary" onclick={clearSearch}> Clear search </button>
 		</div>
 	{:else}
-		<div class="grid gap-4 sm:grid-cols-2">
+		<!-- Toolbar: sort + layout -->
+		{#if !editMode}
+			<div class="flex items-center justify-between mb-3 px-0.5">
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm gap-1.5"
+						onclick={() => { sortAsc = !sortAsc; }}
+					>
+						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/>
+						</svg>
+						{sortAsc ? 'A–Z' : 'Z–A'}
+					</button>
+				</div>
+				<div class="flex items-center gap-1">
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm btn-icon {layoutMode === 'grid' ? '!border-primary-600/40 !text-primary-400' : ''}"
+						title="Grid view"
+						onclick={() => { layoutMode = 'grid'; }}
+					>
+						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+							<rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+						</svg>
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm btn-icon {layoutMode === 'list' ? '!border-primary-600/40 !text-primary-400' : ''}"
+						title="List view"
+						onclick={() => { layoutMode = 'list'; }}
+					>
+						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+							<line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+							<line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+						</svg>
+					</button>
+				</div>
+			</div>
+		{/if}
+
+		<div class={layoutMode === 'grid' || editMode ? 'grid gap-4 sm:grid-cols-2' : 'flex flex-col gap-2'}>
 			{#each filteredProjects as project (project.id)}
 				{@const isSelected = selectedIds.has(project.id)}
 				{#if editMode}
 					<!-- Edit mode: clickable card for selection -->
 					<button
 						type="button"
-						class="card p-6 transition-all duration-200 group relative text-left cursor-pointer {isSelected
+						class="card p-4 transition-all duration-200 group relative text-left cursor-pointer {isSelected
 							? 'border-primary-500 bg-primary-600/5'
 							: 'hover:border-border-focus/50'}"
 						onclick={() => toggleSelection(project.id)}
@@ -507,11 +567,19 @@
 							</svg>
 						</span>
 					</button>
-				{:else}
-					<!-- Normal mode: link to project -->
+				{:else if layoutMode === 'list'}
+					<!-- List mode: compact horizontal row -->
 					<a
 						href="/{project.id}"
-						class="card p-6 transition-all duration-200 group hover:border-border-focus/50 block"
+						class="card px-4 py-2.5 transition-all duration-200 group hover:border-border-focus/50 flex items-center gap-4"
+					>
+						{@render projectListContent(project)}
+					</a>
+				{:else}
+					<!-- Grid mode: full card -->
+					<a
+						href="/{project.id}"
+						class="card p-4 transition-all duration-200 group hover:border-border-focus/50 block"
 					>
 						{@render projectContent(project)}
 					</a>
@@ -594,13 +662,14 @@
 					{#if hostDistribution.length === 0}
 						<p class="text-xs text-text-muted">No host data available</p>
 					{:else}
+						{@const maxCount = Math.max(...hostDistribution.map(([, c]) => c), 1)}
 						<ul class="space-y-2">
 							{#each hostDistribution as [host, count]}
-								<li class="flex items-center justify-between gap-2">
-									<span class="text-xs text-text-secondary truncate" title={host}>{host}</span>
-									<div class="flex items-center gap-2">
-										<div class="h-2 bg-primary-600/30 rounded-full" style="width: {Math.max(count * 20, 8)}px"></div>
-										<span class="text-xs font-mono text-text-muted">{count}</span>
+								<li class="flex items-center justify-between gap-2 min-w-0">
+									<span class="text-xs text-text-secondary truncate min-w-0 flex-1" title={host}>{host}</span>
+									<div class="flex items-center gap-2 shrink-0">
+										<div class="h-2 bg-primary-600/30 rounded-full" style="width: {Math.max(Math.round((count / maxCount) * 60), 8)}px"></div>
+										<span class="text-xs font-mono text-text-muted w-4 text-right">{count}</span>
 									</div>
 								</li>
 							{/each}
@@ -744,55 +813,45 @@
 {/if}
 
 {#snippet projectContent(project: Project)}
-	<div class="flex items-start justify-between mb-4">
-		<div
-			class="w-10 h-10 bg-primary-600/20 rounded-lg flex items-center justify-center group-hover:bg-primary-600/30 transition-colors"
-		>
-			<span class="font-mono font-bold text-primary-400 text-sm uppercase">
-				{project.prefix}
+	<!-- Header: NAME | ID + path count -->
+	<div class="flex items-center justify-between mb-2.5">
+		<div class="flex items-baseline min-w-0 overflow-hidden">
+			<h3 class="text-[1.3rem] font-bold text-primary-400 group-hover:text-primary-300 transition-colors whitespace-nowrap uppercase tracking-wide">
+				{project.name}
+			</h3>
+			<span class="w-px h-4 bg-surface-500/60 mx-2.5 shrink-0 self-center"></span>
+			<span class="font-mono text-[0.7rem] font-medium text-accent-400 whitespace-nowrap opacity-85">
+				{project.id}
 			</span>
 		</div>
-		{#if !editMode}
-			<svg
-				class="w-5 h-5 text-text-muted group-hover:text-primary-400 transition-colors"
-				viewBox="0 0 24 24"
-				fill="currentColor"
-			>
-				<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-			</svg>
-		{/if}
-	</div>
-
-	<div class="flex items-center gap-2 mb-1">
-		<h3 class="text-lg font-semibold text-text-primary group-hover:text-white transition-colors">
-			{project.name}
-		</h3>
 		{#if pathCounts[project.id] !== undefined && pathCounts[project.id] > 0}
-			<span
-				class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-600/20 text-primary-400"
-			>
-				{pathCounts[project.id]} {pathCounts[project.id] === 1 ? 'path' : 'paths'}
+			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.65rem] font-semibold bg-surface-700 text-text-muted border border-border-subtle shrink-0 ml-2 group-hover:bg-surface-600 group-hover:text-text-secondary transition-colors">
+				<svg class="w-2.5 h-2.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+				</svg>
+				{pathCounts[project.id]} {pathCounts[project.id] === 1 ? 'workspace' : 'workspaces'}
 			</span>
 		{/if}
 	</div>
 
+	<!-- Description -->
 	{#if project.description}
-		<p class="text-sm text-text-secondary line-clamp-2 mb-4">
+		<p class="text-sm text-text-secondary line-clamp-2">
 			{project.description}
 		</p>
 	{:else}
-		<p class="text-sm text-text-muted mb-4">No description</p>
+		<p class="text-sm text-text-muted italic">No description</p>
 	{/if}
 
-	<!-- Expandable paths section (read-only) -->
-	<div class="mt-2">
+	<!-- Footer: show paths + chevron -->
+	<div class="flex items-center justify-between mt-2.5 pt-2 border-t border-border-subtle">
 		<button
 			type="button"
-			class="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors"
+			class="flex items-center gap-1 text-[0.7rem] text-text-muted hover:text-primary-400 transition-colors"
 			onclick={(e) => togglePaths(project.id, e)}
 		>
 			<svg
-				class="w-3 h-3 transition-transform {expandedPaths.has(project.id) ? 'rotate-90' : ''}"
+				class="w-2.5 h-2.5 transition-transform {expandedPaths.has(project.id) ? 'rotate-90' : ''}"
 				viewBox="0 0 24 24"
 				fill="currentColor"
 			>
@@ -800,44 +859,89 @@
 			</svg>
 			{expandedPaths.has(project.id) ? 'Hide paths' : 'Show paths'}
 		</button>
-
-		{#if expandedPaths.has(project.id)}
-			<div class="mt-2 animate-fade-in">
-				{#if pathsLoading.has(project.id)}
-					<div class="flex items-center gap-2 text-xs text-text-muted py-2">
-						<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-						</svg>
-						Loading paths...
-					</div>
-				{:else if (workspacePaths[project.id] ?? []).length === 0}
-					<p class="text-xs text-text-muted py-2">No paths configured</p>
-				{:else}
-					<div class="border border-border-subtle rounded-md overflow-hidden">
-						<table class="w-full text-xs">
-							<thead>
-								<tr class="bg-surface-800">
-									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Path</th>
-									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Label</th>
-									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Host</th>
-									<th class="text-left px-2 py-1.5 text-text-muted font-medium">Last Accessed</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each workspacePaths[project.id] ?? [] as wp (wp.id)}
-									<tr class="border-t border-border-subtle hover:bg-surface-800/50">
-										<td class="px-2 py-1.5 font-mono text-text-primary truncate max-w-[200px]" title={wp.path}>{wp.path}</td>
-										<td class="px-2 py-1.5 text-text-secondary">{wp.label ?? '-'}</td>
-										<td class="px-2 py-1.5 text-text-secondary">{wp.hostname ?? '-'}</td>
-										<td class="px-2 py-1.5 text-text-secondary">{formatDate(wp.last_accessed_at)}</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{/if}
-			</div>
+		{#if !editMode}
+			<svg
+				class="w-4 h-4 text-text-muted group-hover:text-primary-400 group-hover:translate-x-0.5 transition-all"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+			>
+				<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+			</svg>
 		{/if}
+	</div>
+
+	<!-- Expandable paths table -->
+	{#if expandedPaths.has(project.id)}
+		<div class="mt-2 animate-fade-in">
+			{#if pathsLoading.has(project.id)}
+				<div class="flex items-center gap-2 text-xs text-text-muted py-2">
+					<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+					</svg>
+					Loading paths...
+				</div>
+			{:else if (workspacePaths[project.id] ?? []).length === 0}
+				<p class="text-xs text-text-muted py-2">No paths configured</p>
+			{:else}
+				<div class="border border-border-subtle rounded-md overflow-hidden">
+					<table class="w-full text-xs">
+						<thead>
+							<tr class="bg-surface-800">
+								<th class="text-left px-2 py-1.5 text-text-muted font-medium">Path</th>
+								<th class="text-left px-2 py-1.5 text-text-muted font-medium">Label</th>
+								<th class="text-left px-2 py-1.5 text-text-muted font-medium">Host</th>
+								<th class="text-left px-2 py-1.5 text-text-muted font-medium">Last Accessed</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each workspacePaths[project.id] ?? [] as wp (wp.id)}
+								<tr class="border-t border-border-subtle hover:bg-surface-800/50">
+									<td class="px-2 py-1.5 font-mono text-text-primary truncate max-w-[200px]" title={wp.path}>{wp.path}</td>
+									<td class="px-2 py-1.5 text-text-secondary">{wp.label ?? '-'}</td>
+									<td class="px-2 py-1.5 text-text-secondary">{wp.hostname ?? '-'}</td>
+									<td class="px-2 py-1.5 text-text-secondary">{formatDate(wp.last_accessed_at)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet projectListContent(project: Project)}
+	<!-- List mode: two-line compact row -->
+	<div class="flex-1 min-w-0 flex flex-col gap-0.5">
+		<div class="flex items-baseline min-w-0">
+			<h3 class="text-sm font-bold text-primary-400 group-hover:text-primary-300 transition-colors truncate uppercase tracking-wide min-w-0">
+				{project.name}
+			</h3>
+			<span class="w-px h-3.5 bg-surface-500/60 mx-2 shrink-0 self-center"></span>
+			<span class="font-mono text-[0.65rem] font-medium text-accent-400 whitespace-nowrap shrink-0 opacity-85">
+				{project.id}
+			</span>
+		</div>
+		<p class="text-[0.7rem] text-text-muted truncate">
+			{project.description || 'No description'}
+		</p>
+	</div>
+	<div class="flex items-center gap-3 shrink-0">
+		{#if pathCounts[project.id] !== undefined && pathCounts[project.id] > 0}
+			<span class="inline-flex items-center gap-1 text-[0.65rem] font-medium text-text-muted">
+				<svg class="w-2.5 h-2.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+				</svg>
+				{pathCounts[project.id]}
+			</span>
+		{/if}
+		<svg
+			class="w-4 h-4 text-text-muted group-hover:text-primary-400 group-hover:translate-x-0.5 transition-all"
+			viewBox="0 0 24 24"
+			fill="currentColor"
+		>
+			<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+		</svg>
 	</div>
 {/snippet}

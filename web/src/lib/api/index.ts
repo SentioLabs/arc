@@ -79,6 +79,19 @@ export async function getProjectStats(projectId: string): Promise<Statistics> {
 	return data;
 }
 
+export async function updateProject(
+	projectId: string,
+	updates: { name?: string; description?: string }
+): Promise<Project> {
+	const { data, error } = await api.PUT('/projects/{projectId}', {
+		params: { path: { projectId } },
+		body: updates
+	});
+	if (error) handleError(error);
+	if (!data) throw new Error('Failed to update project');
+	return data;
+}
+
 export async function deleteProject(projectId: string): Promise<void> {
 	const { error } = await api.DELETE('/projects/{projectId}', {
 		params: { path: { projectId } }

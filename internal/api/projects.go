@@ -82,11 +82,20 @@ func (s *Server) updateProject(c echo.Context) error {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
-	if req.Name != "" {
+	if req.Name != "" && req.Name != p.Name {
+		// Check for duplicate name
+		existing, _ := s.store.GetProjectByName(c.Request().Context(), req.Name)
+		if existing != nil {
+			return errorJSON(c, http.StatusConflict, "a project with that name already exists")
+		}
 		p.Name = req.Name
 	}
 	if req.Description != "" {
 		p.Description = req.Description
+	}
+
+	if err := p.Validate(); err != nil {
+		return errorJSON(c, http.StatusBadRequest, err.Error())
 	}
 
 	if err := s.store.UpdateProject(c.Request().Context(), p); err != nil {
