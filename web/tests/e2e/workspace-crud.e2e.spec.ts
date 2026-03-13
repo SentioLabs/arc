@@ -66,11 +66,14 @@ test.describe('Workspace CRUD', () => {
 			const extraCard = main.locator('button.card').filter({ hasText: extraWs.name });
 			await extraCard.click();
 
+			// Wait for selection to register
+			await expect(main.getByText('1 selected')).toBeVisible();
+
 			// Click the delete button in the batch actions bar (btn-danger class)
 			await main.locator('button.btn-danger').click();
 
 			// Confirm deletion in the dialog
-			const dialog = page.locator('dialog');
+			const dialog = page.getByRole('dialog');
 			await expect(dialog).toBeVisible();
 			await dialog.getByRole('button', { name: /Delete/ }).click();
 
@@ -104,8 +107,11 @@ test.describe('Workspace CRUD', () => {
 			const ws2Card = main.locator('button.card').filter({ hasText: ws2.name });
 			await ws2Card.click();
 
+			// Wait for selection state to register before looking for merge button
+			await expect(main.getByText('1 selected')).toBeVisible();
+
 			// Click "Merge into..."
-			await main.getByRole('button', { name: 'Merge into...' }).click();
+			await main.getByRole('button', { name: /Merge into/ }).click();
 
 			// The merge dialog should appear (use [open] to target only the visible dialog)
 			const dialog = page.locator('dialog.dialog-modal[open]');
