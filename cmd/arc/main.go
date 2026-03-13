@@ -766,6 +766,9 @@ var showCmd = &cobra.Command{
 		if details.Assignee != "" {
 			fmt.Printf("Assignee: %s\n", details.Assignee)
 		}
+		if details.AISessionID != "" {
+			fmt.Printf("AI Session: %s\n", details.AISessionID)
+		}
 		if details.Description != "" {
 			fmt.Printf("\nDescription:\n%s\n", details.Description)
 		}
@@ -872,6 +875,29 @@ var updateCmd = &cobra.Command{
 			updates["description"] = description
 		}
 
+		// Handle --take flag
+		take, _ := cmd.Flags().GetBool("take")
+		sessionID, _ := cmd.Flags().GetString("session-id")
+
+		if sessionID != "" && !take {
+			return errors.New("--session-id requires --take")
+		}
+
+		if take {
+			// Resolve session ID: explicit flag > env var > error
+			if sessionID == "" {
+				sessionID = os.Getenv("ARC_SESSION_ID")
+			}
+			if sessionID == "" {
+				return errors.New("no session ID available — set ARC_SESSION_ID or pass --session-id")
+			}
+			updates["ai_session_id"] = sessionID
+			// Set status to in_progress unless user explicitly passed --status
+			if !cmd.Flags().Changed("status") {
+				updates["status"] = "in_progress"
+			}
+		}
+
 		if len(updates) == 0 {
 			return errors.New("no updates specified")
 		}
@@ -899,6 +925,8 @@ func init() {
 	updateCmd.Flags().StringP("type", "t", "", "New type")
 	updateCmd.Flags().StringP("description", "d", "", "New description")
 	updateCmd.Flags().Bool("stdin", false, "Read description from stdin")
+	updateCmd.Flags().Bool("take", false, "Take this issue for the current AI session (sets ai_session_id + status=in_progress)")
+	updateCmd.Flags().String("session-id", "", "Explicit AI session ID (used with --take)")
 }
 
 // closeCmd marks one or more issues as closed.
