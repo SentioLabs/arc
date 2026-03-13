@@ -144,7 +144,7 @@
 								<tr class="border-b border-border last:border-0 hover:bg-surface-700/50 transition-colors">
 									<td class="px-4 py-3 text-sm text-text-primary max-w-xs truncate" title={agent.description ?? ''}>
 										<a
-											href="/ai/{session.id}/agents/{agent.id}/transcript"
+											href="/ai/{session.id}/agents/{agent.id}"
 											class="hover:text-primary-400 transition-colors"
 										>
 											{agent.description ?? '-'}

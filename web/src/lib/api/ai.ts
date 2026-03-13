@@ -40,6 +40,37 @@ export async function getAISession(sessionId: string): Promise<AISessionResponse
 	return data;
 }
 
+export async function getAIAgent(
+	sessionId: string,
+	agentId: string
+): Promise<AIAgentResponse> {
+	const { data, error } = await api.GET('/ai/sessions/{sessionId}/agents/{agentId}', {
+		params: { path: { sessionId, agentId } }
+	});
+	if (error) {
+		if (typeof error === 'object' && error !== null && 'error' in error) {
+			throw new Error(String((error as { error: string }).error));
+		}
+		throw new Error('Failed to get AI agent');
+	}
+	if (!data) throw new Error('AI agent not found');
+	return data;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getAgentTranscript(sessionId: string, agentId: string): Promise<any[]> {
+	const response = await fetch(
+		`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}/agents/${encodeURIComponent(agentId)}/transcript`
+	);
+	if (!response.ok) {
+		if (response.status === 404) {
+			throw new Error('Agent transcript not found');
+		}
+		throw new Error('Failed to get agent transcript');
+	}
+	return await response.json();
+}
+
 export async function listAIAgents(sessionId: string): Promise<AIAgentResponse[]> {
 	const { data, error } = await api.GET('/ai/sessions/{sessionId}/agents', {
 		params: { path: { sessionId } }
