@@ -23,6 +23,7 @@ type createIssueRequest struct {
 	Priority    int    `json:"priority,omitempty"`
 	IssueType   string `json:"issue_type,omitempty"`
 	Assignee    string `json:"assignee,omitempty"`
+	AISessionID string `json:"ai_session_id,omitempty"`
 	ExternalRef string `json:"external_ref,omitempty"`
 	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs
 }
@@ -35,6 +36,7 @@ type updateIssueRequest struct {
 	Priority    *int    `json:"priority,omitempty"`
 	IssueType   *string `json:"issue_type,omitempty"`
 	Assignee    *string `json:"assignee,omitempty"`
+	AISessionID *string `json:"ai_session_id,omitempty"`
 	ExternalRef *string `json:"external_ref,omitempty"`
 }
 
@@ -68,6 +70,9 @@ func (s *Server) listIssues(c echo.Context) error {
 	}
 	if assignee := c.QueryParam("assignee"); assignee != "" {
 		filter.Assignee = &assignee
+	}
+	if aiSessionID := c.QueryParam("ai_session_id"); aiSessionID != "" {
+		filter.AISessionID = &aiSessionID
 	}
 	if priority := c.QueryParam("priority"); priority != "" {
 		p := queryInt(c, "priority", defaultPriority)
@@ -120,6 +125,7 @@ func (s *Server) createIssue(c echo.Context) error {
 		Priority:    req.Priority,
 		IssueType:   types.IssueType(req.IssueType),
 		Assignee:    req.Assignee,
+		AISessionID: req.AISessionID,
 		ExternalRef: req.ExternalRef,
 	}
 
@@ -194,6 +200,9 @@ func (s *Server) updateIssue(c echo.Context) error {
 	}
 	if req.Assignee != nil {
 		updates["assignee"] = *req.Assignee
+	}
+	if req.AISessionID != nil {
+		updates["ai_session_id"] = *req.AISessionID
 	}
 	if req.ExternalRef != nil {
 		updates["external_ref"] = *req.ExternalRef
