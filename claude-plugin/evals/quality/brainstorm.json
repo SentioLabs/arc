@@ -45,12 +45,12 @@
     "assertions": [
       {
         "id": 1,
-        "text": "Output creates an arc epic or issue with `arc create`",
+        "text": "Output writes the design to docs/plans/ and registers with `arc plan create`",
         "type": "quality"
       },
       {
         "id": 2,
-        "text": "Output saves the design as a plan with `arc plan set`",
+        "text": "Output presents the plan for review with approve/review options",
         "type": "quality"
       },
       {
