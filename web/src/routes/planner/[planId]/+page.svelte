@@ -40,6 +40,7 @@
 	$effect(() => { if (planId) loadData(); });
 
 	async function loadData() {
+		if (!planId) return;
 		loading = true;
 		error = null;
 		try {
@@ -57,7 +58,7 @@
 	}
 
 	async function handleSaveEdit() {
-		if (!plan) return;
+		if (!plan || !planId) return;
 		try {
 			const updated = await updatePlanContent(planId, editContent);
 			plan = updated;
@@ -68,6 +69,7 @@
 	}
 
 	async function handleAddComment(lineNumber: number | null) {
+		if (!planId) return;
 		const text = lineNumber === null ? overallFeedback : commentText;
 		if (!text.trim()) return;
 		try {
@@ -82,6 +84,7 @@
 	}
 
 	async function handleUpdateStatus(status: string) {
+		if (!planId) return;
 		submitting = true;
 		try {
 			if (status === 'in_review' && overallFeedback.trim()) {

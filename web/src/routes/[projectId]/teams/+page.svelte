@@ -24,7 +24,7 @@
 	let epics = $state<Issue[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let planExpanded = $state(false);
+
 
 	// Role color palette
 	const roleColors: Record<string, string> = {
@@ -66,7 +66,7 @@
 	async function loadEpics() {
 		if (!projectId) return;
 		try {
-			const result = await listIssues(projectId, { type: 'epic', status: 'open', limit: 100 });
+			const result = await listIssues(projectId, { type: ['epic'], status: ['open'], limit: 100 });
 			epics = result.data ?? [];
 		} catch {
 			/* epics are optional */
@@ -139,34 +139,6 @@
 				<Select options={epicOptions} value={epicId} placeholder="All teammate issues" onchange={selectEpic} />
 			</div>
 		</header>
-
-		<!-- Epic plan summary (if epic selected and has plan) -->
-		{#if teamContext?.epic?.plan}
-			<div class="card p-4 mb-6">
-				<button
-					type="button"
-					class="flex items-center gap-2 w-full text-left"
-					onclick={() => (planExpanded = !planExpanded)}
-				>
-					<svg
-						class="w-4 h-4 text-text-muted transition-transform {planExpanded
-							? 'rotate-90'
-							: ''}"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-					>
-						<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-					</svg>
-					<span class="text-sm font-medium text-text-primary">
-						Epic Plan: {teamContext.epic.title}
-					</span>
-				</button>
-				{#if planExpanded}
-					<pre
-						class="mt-3 text-sm text-text-secondary whitespace-pre-wrap font-mono bg-surface-800 rounded p-3 max-h-64 overflow-y-auto">{teamContext.epic.plan}</pre>
-				{/if}
-			</div>
-		{/if}
 
 		<!-- Content -->
 		{#if loading}
