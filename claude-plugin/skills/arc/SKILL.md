@@ -141,15 +141,24 @@ Arc supports four dependency types:
 
 ## Plans
 
-Arc supports three plan patterns:
+Plans are stored centrally with status tracking (draft, approved, rejected) and optional issue binding.
 
-| Pattern | When to Use | Command |
-|---------|------------|---------|
+**CLI commands:**
+
+| Command | Purpose |
+|---------|---------|
+| `arc plan set <id> "steps..."` | Create or update a plan for an issue (defaults to draft) |
+| `arc plan show <id>` | Show the plan for an issue |
+| `arc plan list` | List all plans (use `--status` to filter by draft/approved/rejected) |
+
+**Plan patterns:**
+
+| Pattern | When to Use | How |
+|---------|------------|-----|
 | **Inline** | Single issue with clear steps | `arc plan set <id> "steps..."` |
 | **Parent Epic** | Epic with children sharing a plan | Set plan on parent; children inherit |
-| **Shared** | Initiative spanning unrelated issues | `arc plan create "title"` + `arc plan link` |
 
-Plans are shown automatically in `arc show <id>`. Run `arc docs plans` for full details.
+Plans default to **draft** status. They can be approved or rejected via the web UI, which provides a split-pane editor for review. Plans are shown automatically in `arc show <id>`. Run `arc docs plans` for full details.
 
 ## Labels
 

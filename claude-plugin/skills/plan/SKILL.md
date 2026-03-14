@@ -7,6 +7,10 @@ description: You MUST use this skill to break a design or feature into implement
 
 Break an approved design into bite-sized, self-contained tasks with exact file paths and steps.
 
+## Plan Commands
+
+Plans use three commands: `arc plan set`, `arc plan show`, and `arc plan list`. Plans default to **draft** status and can be approved or rejected through the web UI's split-pane review editor.
+
 ## Granularity Rule
 
 Each task step is **ONE action, 2-5 minutes**. Assume the implementer has **zero codebase context** and fresh context without codebase familiarity. If a step says "add validation" without showing the code, it's too vague.
@@ -100,12 +104,15 @@ Before proceeding, verify the agent's output:
 
 ### 6. Update Epic Plan
 
-Using the task IDs from the agent's returned summary table, add the task breakdown to the epic's plan:
+Using the task IDs from the agent's returned summary table, add the task breakdown to the epic's plan. Plans default to **draft** status and can be approved or rejected via the web UI.
+
 ```bash
 arc plan set <epic-id> --stdin <<'EOF'
 <updated plan with task listing>
 EOF
 ```
+
+The plan is now visible in the web UI at the project's plans page, where it can be reviewed, edited, approved, or rejected using the split-pane editor. Use `arc plan list --status draft` to see all plans awaiting review.
 
 ### 7. Choose Execution Path
 
