@@ -379,10 +379,11 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 - ` + "`arc show <id>`" + ` - See what's blocking/blocked by this issue
 
 ### Plans
-- ` + "`arc plan set <issue-id> \"plan\"`" + ` - Set inline plan on issue
-- ` + "`arc plan show <issue-id>`" + ` - Show all plans for issue (inline, parent, shared)
-- ` + "`arc plan create \"title\"`" + ` - Create shared plan
-- ` + "`arc plan link <plan-id> <issue>...`" + ` - Link plan to issues
+- ` + "`arc plan create --file <path>`" + ` - Register ephemeral plan for review
+- ` + "`arc plan show <plan-id>`" + ` - Show plan content, status, and comments
+- ` + "`arc plan approve <plan-id>`" + ` - Approve plan
+- ` + "`arc plan reject <plan-id>`" + ` - Reject plan
+- ` + "`arc plan comments <plan-id>`" + ` - List review comments
 
 ### Project Health
 - ` + "`arc stats`" + ` - Project statistics (open/closed/blocked counts)

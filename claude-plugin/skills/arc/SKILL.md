@@ -85,7 +85,7 @@ Run `arc prime` for full workflow context, or `arc <command> --help` for specifi
 - `arc close` - Complete work
 - `arc show` - View details
 - `arc dep` - Manage dependencies
-- `arc plan` - Manage plans (inline, shared)
+- `arc plan` - Manage plans (create, show, approve, reject, comments)
 - `arc which` - Show active project and resolution source
 - `arc paths` - Manage workspace path registrations
 - `arc project` - Manage projects (list, create, delete, rename, merge)
@@ -141,24 +141,19 @@ Arc supports four dependency types:
 
 ## Plans
 
-Plans are stored centrally with status tracking (draft, approved, rejected) and optional issue binding.
+Plans are ephemeral review artifacts backed by filesystem markdown files in `docs/plans/`. They support a review workflow with approval, rejection, and comments.
 
 **CLI commands:**
 
 | Command | Purpose |
 |---------|---------|
-| `arc plan set <id> "steps..."` | Create or update a plan for an issue (defaults to draft) |
-| `arc plan show <id>` | Show the plan for an issue |
-| `arc plan list` | List all plans (use `--status` to filter by draft/approved/rejected) |
+| `arc plan create --file <path>` | Register an ephemeral plan, returns plan ID |
+| `arc plan show <plan-id>` | Show plan content, status, and comments |
+| `arc plan approve <plan-id>` | Approve the plan |
+| `arc plan reject <plan-id>` | Reject the plan |
+| `arc plan comments <plan-id>` | List review comments |
 
-**Plan patterns:**
-
-| Pattern | When to Use | How |
-|---------|------------|-----|
-| **Inline** | Single issue with clear steps | `arc plan set <id> "steps..."` |
-| **Parent Epic** | Epic with children sharing a plan | Set plan on parent; children inherit |
-
-Plans default to **draft** status. They can be approved or rejected via the web UI, which provides a split-pane editor for review. Plans are shown automatically in `arc show <id>`. Run `arc docs plans` for full details.
+Plans go through a review cycle: create, review (with comments), then approve or reject. Approved design content is written into the epic's description field when creating implementation tasks. Run `arc docs plans` for full details.
 
 ## Labels
 
