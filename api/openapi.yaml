@@ -32,7 +32,7 @@ tags:
   - name: ai-sessions
     description: AI session and agent observability
   - name: plans
-    description: Plan management
+    description: Ephemeral plan review artifacts
 
 paths:
   # ====================
@@ -1039,73 +1039,22 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ====================
-  # Plans (Global)
+  # Plans (ephemeral review artifacts, not project-scoped)
   # ====================
   /plans:
-    get:
-      operationId: listAllPlans
-      tags: [plans]
-      summary: List all plans across projects
-      parameters:
-        - name: status
-          in: query
-          description: Filter by plan status (draft, approved, rejected)
-          schema:
-            $ref: "#/components/schemas/PlanStatus"
-      responses:
-        "200":
-          description: List of plans
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Plan"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  # ====================
-  # Plans (Project-scoped)
-  # ====================
-  /projects/{projectId}/plans:
-    parameters:
-      - $ref: "#/components/parameters/ProjectId"
-
-    get:
-      operationId: listPlans
-      tags: [plans]
-      summary: List plans in project
-      parameters:
-        - name: status
-          in: query
-          description: Filter by plan status (draft, approved, rejected)
-          schema:
-            $ref: "#/components/schemas/PlanStatus"
-      responses:
-        "200":
-          description: List of plans
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Plan"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
     post:
-      operationId: createOrUpdatePlan
+      operationId: createPlan
       tags: [plans]
-      summary: Create or update a plan (upserts by issue_id)
+      summary: Register an ephemeral plan
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SetPlanRequest"
+              $ref: "#/components/schemas/CreatePlanRequest"
       responses:
-        "200":
-          description: Plan created or updated
+        "201":
+          description: Plan created
           content:
             application/json:
               schema:
@@ -1115,60 +1064,32 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /projects/{projectId}/plans/pending-count:
+  /plans/{planId}:
     parameters:
-      - $ref: "#/components/parameters/ProjectId"
-
-    get:
-      operationId: getPendingPlanCount
-      tags: [plans]
-      summary: Get count of plans with a given status
-      parameters:
-        - name: status
-          in: query
-          description: Status to count (defaults to draft)
-          schema:
-            $ref: "#/components/schemas/PlanStatus"
-      responses:
-        "200":
-          description: Plan count
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PlanCount"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /projects/{projectId}/plans/{planId}:
-    parameters:
-      - $ref: "#/components/parameters/ProjectId"
       - name: planId
         in: path
         required: true
-        description: Plan ID
         schema:
           type: string
-
     get:
       operationId: getPlan
       tags: [plans]
-      summary: Get plan by ID
+      summary: Get plan metadata and file content
       responses:
         "200":
-          description: Plan details
+          description: Plan with content
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Plan"
+                $ref: "#/components/schemas/PlanWithContent"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-
     put:
       operationId: updatePlanContent
       tags: [plans]
-      summary: Update plan title and content
+      summary: Update plan file content
       requestBody:
         required: true
         content:
@@ -1176,19 +1097,22 @@ paths:
             schema:
               $ref: "#/components/schemas/UpdatePlanContentRequest"
       responses:
-        "204":
-          description: Plan content updated
+        "200":
+          description: Content updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanWithContent"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-
     delete:
       operationId: deletePlan
       tags: [plans]
-      summary: Delete a plan
+      summary: Delete plan and its comments
       responses:
         "204":
           description: Plan deleted
@@ -1197,16 +1121,13 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /projects/{projectId}/plans/{planId}/status:
+  /plans/{planId}/status:
     parameters:
-      - $ref: "#/components/parameters/ProjectId"
       - name: planId
         in: path
         required: true
-        description: Plan ID
         schema:
           type: string
-
     patch:
       operationId: updatePlanStatus
       tags: [plans]
@@ -1218,8 +1139,58 @@ paths:
             schema:
               $ref: "#/components/schemas/UpdatePlanStatusRequest"
       responses:
-        "204":
-          description: Plan status updated
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /plans/{planId}/comments:
+    parameters:
+      - name: planId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: listPlanComments
+      tags: [plans]
+      summary: List plan review comments
+      responses:
+        "200":
+          description: Comments list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanComment"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createPlanComment
+      tags: [plans]
+      summary: Add a review comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanCommentRequest"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanComment"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -1576,9 +1547,6 @@ components:
           type: string
         title:
           type: string
-        plan:
-          type: string
-          description: Epic's inline plan text
 
     TeamContextRole:
       type: object
@@ -1611,9 +1579,6 @@ components:
           type: string
         type:
           type: string
-        plan:
-          type: string
-          description: Issue's inline plan text
         deps:
           type: array
           items:
@@ -1965,37 +1930,20 @@ components:
     # ====================
     PlanStatus:
       type: string
-      enum:
-        - draft
-        - approved
-        - rejected
+      enum: [draft, in_review, approved, rejected]
 
     Plan:
       type: object
-      required:
-        - id
-        - project_id
-        - title
-        - content
-        - status
-        - created_at
-        - updated_at
+      required: [id, file_path, status, created_at, updated_at]
       properties:
         id:
           type: string
           description: Unique plan ID (plan.xxxxx format)
-        project_id:
+        file_path:
           type: string
-        title:
-          type: string
-          maxLength: 200
-        content:
-          type: string
+          description: Relative path to the plan markdown file
         status:
           $ref: "#/components/schemas/PlanStatus"
-        issue_id:
-          type: string
-          description: Associated issue ID
         created_at:
           type: string
           format: date-time
@@ -2003,50 +1951,60 @@ components:
           type: string
           format: date-time
 
-    SetPlanRequest:
+    PlanWithContent:
+      allOf:
+        - $ref: "#/components/schemas/Plan"
+        - type: object
+          properties:
+            content:
+              type: string
+              description: Markdown content read from the plan file
+
+    PlanComment:
       type: object
-      required:
-        - title
-        - content
+      required: [id, plan_id, content, created_at]
       properties:
-        title:
+        id:
           type: string
-          maxLength: 200
+        plan_id:
+          type: string
+        line_number:
+          type: integer
+          nullable: true
+          description: Line number anchor (null for overall feedback)
         content:
           type: string
-        status:
-          $ref: "#/components/schemas/PlanStatus"
-        issue_id:
+        created_at:
           type: string
-          description: Associated issue ID
+          format: date-time
+
+    CreatePlanRequest:
+      type: object
+      required: [file_path]
+      properties:
+        file_path:
+          type: string
 
     UpdatePlanContentRequest:
       type: object
-      required:
-        - title
-        - content
+      required: [content]
       properties:
-        title:
-          type: string
-          maxLength: 200
         content:
           type: string
-        issue_id:
-          type: string
-          description: Associated issue ID (set to empty string to unlink)
 
     UpdatePlanStatusRequest:
       type: object
-      required:
-        - status
+      required: [status]
       properties:
         status:
           $ref: "#/components/schemas/PlanStatus"
 
-    PlanCount:
+    CreatePlanCommentRequest:
       type: object
-      required:
-        - count
+      required: [content]
       properties:
-        count:
+        line_number:
           type: integer
+          nullable: true
+        content:
+          type: string
