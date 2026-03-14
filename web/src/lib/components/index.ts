@@ -22,6 +22,7 @@ export { default as FilesystemBrowser } from './FilesystemBrowser.svelte';
 
 // Utility components
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
+export { default as IssuePicker } from './IssuePicker.svelte';
 export { default as Select } from './Select.svelte';
 export { default as ColorPicker } from './ColorPicker.svelte';
 
