@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Header, IssueCard, Select } from '$lib/components';
+	import { Header, IssueCard, MultiSelect } from '$lib/components';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { getContext } from 'svelte';
@@ -29,11 +29,18 @@
 
 	// Get filters from URL
 	const filters = $derived<IssueFilters>({
-		status: $page.url.searchParams.get('status') || undefined,
-		type: $page.url.searchParams.get('type') || undefined,
-		priority: $page.url.searchParams.get('priority')
-			? parseInt($page.url.searchParams.get('priority')!)
-			: undefined,
+		status:
+			$page.url.searchParams.getAll('status').length > 0
+				? $page.url.searchParams.getAll('status')
+				: undefined,
+		type:
+			$page.url.searchParams.getAll('type').length > 0
+				? $page.url.searchParams.getAll('type')
+				: undefined,
+		priority:
+			$page.url.searchParams.getAll('priority').length > 0
+				? $page.url.searchParams.getAll('priority').map(Number)
+				: undefined,
 		q: $page.url.searchParams.get('q') || undefined,
 		limit: 50,
 		offset: $page.url.searchParams.get('offset')
@@ -75,7 +82,6 @@
 
 	// Status options
 	const statuses = [
-		{ value: '', label: 'All Statuses' },
 		{ value: 'open', label: 'Open' },
 		{ value: 'in_progress', label: 'In Progress' },
 		{ value: 'blocked', label: 'Blocked' },
@@ -85,7 +91,6 @@
 
 	// Type options
 	const types = [
-		{ value: '', label: 'All Types' },
 		{ value: 'bug', label: 'Bug' },
 		{ value: 'feature', label: 'Feature' },
 		{ value: 'task', label: 'Task' },
@@ -95,7 +100,6 @@
 
 	// Priority options
 	const priorities = [
-		{ value: '', label: 'All Priorities' },
 		{ value: '0', label: 'Critical (P0)' },
 		{ value: '1', label: 'High (P1)' },
 		{ value: '2', label: 'Medium (P2)' },
@@ -103,12 +107,11 @@
 		{ value: '4', label: 'Backlog (P4)' }
 	];
 
-	function updateFilter(key: string, value: string) {
+	function updateFilter(key: string, values: string[]) {
 		const params = new URLSearchParams($page.url.searchParams);
-		if (value) {
-			params.set(key, value);
-		} else {
-			params.delete(key);
+		params.delete(key);
+		for (const v of values) {
+			params.append(key, v);
 		}
 		params.delete('offset');
 		goto(`?${params.toString()}`, { keepFocus: true });
@@ -125,7 +128,10 @@
 	}
 
 	const hasActiveFilters = $derived(
-		filters.status || filters.type || filters.priority !== undefined || filters.q
+		(filters.status?.length ?? 0) > 0 ||
+			(filters.type?.length ?? 0) > 0 ||
+			(filters.priority?.length ?? 0) > 0 ||
+			filters.q
 	);
 </script>
 
@@ -135,21 +141,24 @@
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Filters -->
 		<div class="flex flex-wrap items-center gap-3 mb-6">
-			<Select
+			<MultiSelect
 				options={statuses}
-				value={filters.status ?? ''}
+				values={filters.status ?? []}
+				placeholder="All Statuses"
 				onchange={(v) => updateFilter('status', v)}
 			/>
 
-			<Select
+			<MultiSelect
 				options={types}
-				value={filters.type ?? ''}
+				values={filters.type ?? []}
+				placeholder="All Types"
 				onchange={(v) => updateFilter('type', v)}
 			/>
 
-			<Select
+			<MultiSelect
 				options={priorities}
-				value={filters.priority?.toString() ?? ''}
+				values={(filters.priority ?? []).map(String)}
+				placeholder="All Priorities"
 				onchange={(v) => updateFilter('priority', v)}
 			/>
 
@@ -212,7 +221,13 @@
 							class="btn btn-ghost"
 							onclick={() => {
 								const newOffset = Math.max(0, (filters.offset ?? 0) - 50);
-								updateFilter('offset', newOffset > 0 ? newOffset.toString() : '');
+								const params = new URLSearchParams($page.url.searchParams);
+								if (newOffset > 0) {
+									params.set('offset', newOffset.toString());
+								} else {
+									params.delete('offset');
+								}
+								goto(`?${params.toString()}`, { keepFocus: true });
 							}}
 						>
 							Previous
@@ -223,7 +238,9 @@
 						class="btn btn-ghost"
 						onclick={() => {
 							const newOffset = (filters.offset ?? 0) + 50;
-							updateFilter('offset', newOffset.toString());
+							const params = new URLSearchParams($page.url.searchParams);
+							params.set('offset', newOffset.toString());
+							goto(`?${params.toString()}`, { keepFocus: true });
 						}}
 					>
 						Next

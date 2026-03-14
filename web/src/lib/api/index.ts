@@ -161,9 +161,9 @@ export async function deleteWorkspace(projectId: string, pathId: string): Promis
 
 // Issue APIs
 export interface IssueFilters {
-	status?: string;
-	type?: string;
-	priority?: number;
+	status?: string[];
+	type?: string[];
+	priority?: number[];
 	assignee?: string;
 	q?: string;
 	limit?: number;
@@ -178,14 +178,8 @@ export async function listIssues(
 		params: {
 			path: { projectId },
 			query: {
-				status: filters.status as
-					| 'open'
-					| 'in_progress'
-					| 'blocked'
-					| 'deferred'
-					| 'closed'
-					| undefined,
-				type: filters.type as 'bug' | 'feature' | 'task' | 'epic' | 'chore' | undefined,
+				status: filters.status as components['schemas']['Status'][] | undefined,
+				type: filters.type as components['schemas']['IssueType'][] | undefined,
 				priority: filters.priority,
 				assignee: filters.assignee,
 				q: filters.q,

@@ -4,9 +4,9 @@ type Status = components['schemas']['Status'];
 type IssueType = components['schemas']['IssueType'];
 
 export interface IssueFilters {
-	status?: Status;
-	issueType?: IssueType;
-	priority?: number;
+	statuses?: Status[];
+	issueTypes?: IssueType[];
+	priorities?: number[];
 	assignee?: string;
 	q?: string;
 }
@@ -19,14 +19,14 @@ function createFilterStore() {
 		get filters() {
 			return filters;
 		},
-		setStatus(status: Status | undefined) {
-			filters = { ...filters, status };
+		setStatuses(statuses: Status[] | undefined) {
+			filters = { ...filters, statuses };
 		},
-		setIssueType(issueType: IssueType | undefined) {
-			filters = { ...filters, issueType };
+		setIssueTypes(issueTypes: IssueType[] | undefined) {
+			filters = { ...filters, issueTypes };
 		},
-		setPriority(priority: number | undefined) {
-			filters = { ...filters, priority };
+		setPriorities(priorities: number[] | undefined) {
+			filters = { ...filters, priorities };
 		},
 		setAssignee(assignee: string | undefined) {
 			filters = { ...filters, assignee };
@@ -40,19 +40,37 @@ function createFilterStore() {
 		// Convert to URL search params for navigation
 		toSearchParams(): URLSearchParams {
 			const params = new URLSearchParams();
-			if (filters.status) params.set('status', filters.status);
-			if (filters.issueType) params.set('type', filters.issueType);
-			if (filters.priority !== undefined) params.set('priority', filters.priority.toString());
+			if (filters.statuses) {
+				for (const s of filters.statuses) {
+					params.append('status', s);
+				}
+			}
+			if (filters.issueTypes) {
+				for (const t of filters.issueTypes) {
+					params.append('type', t);
+				}
+			}
+			if (filters.priorities) {
+				for (const p of filters.priorities) {
+					params.append('priority', p.toString());
+				}
+			}
 			if (filters.assignee) params.set('assignee', filters.assignee);
 			if (filters.q) params.set('q', filters.q);
 			return params;
 		},
 		// Initialize from URL search params
 		fromSearchParams(params: URLSearchParams) {
+			const statusValues = params.getAll('status');
+			const typeValues = params.getAll('type');
+			const priorityValues = params.getAll('priority');
 			filters = {
-				status: (params.get('status') as Status) || undefined,
-				issueType: (params.get('type') as IssueType) || undefined,
-				priority: params.has('priority') ? parseInt(params.get('priority') ?? '0', 10) : undefined,
+				statuses: statusValues.length > 0 ? (statusValues as Status[]) : undefined,
+				issueTypes: typeValues.length > 0 ? (typeValues as IssueType[]) : undefined,
+				priorities:
+					priorityValues.length > 0
+						? priorityValues.map((p) => parseInt(p, 10))
+						: undefined,
 				assignee: params.get('assignee') || undefined,
 				q: params.get('q') || undefined
 			};
