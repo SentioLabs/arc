@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -434,11 +435,11 @@ SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
 FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
 WHERE i.project_id = ?1
-  AND (?2 IS NULL OR i.status = ?2)
-  AND (?3 IS NULL OR i.issue_type = ?3)
-  AND (?4 IS NULL OR i.assignee = ?4)
-  AND (?5 IS NULL OR i.ai_session_id = ?5)
-  AND (?6 IS NULL OR i.priority = ?6)
+  AND i.status IN (/*SLICE:statuses*/?)
+  AND i.issue_type IN (/*SLICE:issue_types*/?)
+  AND i.priority IN (/*SLICE:priorities*/?)
+  AND (?5 IS NULL OR i.assignee = ?5)
+  AND (?6 IS NULL OR i.ai_session_id = ?6)
   AND (?7 IS NULL OR d.depends_on_id = ?7)
 ORDER BY i.priority ASC, i.updated_at DESC
 LIMIT ?9 OFFSET ?8
@@ -446,30 +447,52 @@ LIMIT ?9 OFFSET ?8
 
 type ListIssuesFilteredParams struct {
 	ProjectID   string      `json:"project_id"`
-	Status      interface{} `json:"status"`
-	IssueType   interface{} `json:"issue_type"`
+	Statuses    []string    `json:"statuses"`
+	IssueTypes  []string    `json:"issue_types"`
+	Priorities  []int64     `json:"priorities"`
 	Assignee    interface{} `json:"assignee"`
 	AiSessionID interface{} `json:"ai_session_id"`
-	Priority    interface{} `json:"priority"`
 	ParentID    interface{} `json:"parent_id"`
 	Offset      int64       `json:"offset"`
 	Limit       int64       `json:"limit"`
 }
 
-// Composable filter query: all optional params use sqlc.narg so NULL means "skip this filter".
+// Composable filter query: slices use IN for multi-select, narg for optional scalars.
 // The LEFT JOIN on dependencies is only effective when parent_id is non-NULL.
 func (q *Queries) ListIssuesFiltered(ctx context.Context, arg ListIssuesFilteredParams) ([]*Issue, error) {
-	rows, err := q.db.QueryContext(ctx, listIssuesFiltered,
-		arg.ProjectID,
-		arg.Status,
-		arg.IssueType,
-		arg.Assignee,
-		arg.AiSessionID,
-		arg.Priority,
-		arg.ParentID,
-		arg.Offset,
-		arg.Limit,
-	)
+	query := listIssuesFiltered
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.ProjectID)
+	if len(arg.Statuses) > 0 {
+		for _, v := range arg.Statuses {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:statuses*/?", strings.Repeat(",?", len(arg.Statuses))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:statuses*/?", "NULL", 1)
+	}
+	if len(arg.IssueTypes) > 0 {
+		for _, v := range arg.IssueTypes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:issue_types*/?", strings.Repeat(",?", len(arg.IssueTypes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:issue_types*/?", "NULL", 1)
+	}
+	if len(arg.Priorities) > 0 {
+		for _, v := range arg.Priorities {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:priorities*/?", strings.Repeat(",?", len(arg.Priorities))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:priorities*/?", "NULL", 1)
+	}
+	queryParams = append(queryParams, arg.Assignee)
+	queryParams = append(queryParams, arg.AiSessionID)
+	queryParams = append(queryParams, arg.ParentID)
+	queryParams = append(queryParams, arg.Offset)
+	queryParams = append(queryParams, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

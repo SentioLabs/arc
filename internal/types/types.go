@@ -305,11 +305,11 @@ const (
 
 // IssueFilter is used to filter issue queries.
 type IssueFilter struct {
-	ProjectID   string     // Required: filter by project
-	Status      *Status    // Filter by status
-	Priority    *int       // Filter by priority
-	IssueType   *IssueType // Filter by issue type
-	Assignee    *string    // Filter by assignee
+	ProjectID  string      // Required: filter by project
+	Statuses   []Status    // Filter by statuses (multi-select, empty means all)
+	Priorities []int       // Filter by priorities (multi-select, empty means all)
+	IssueTypes []IssueType // Filter by issue types (multi-select, empty means all)
+	Assignee   *string     // Filter by assignee
 	AISessionID *string    // Filter by AI session ID
 	Labels      []string   // AND semantics: issue must have ALL these labels
 	ParentID    string     // Filter by parent issue (via parent-child dependency)

@@ -12,7 +12,7 @@ SELECT * FROM issues WHERE id = ?;
 SELECT * FROM issues WHERE external_ref = ?;
 
 -- name: ListIssuesFiltered :many
--- Composable filter query: all optional params use sqlc.narg so NULL means "skip this filter".
+-- Composable filter query: slices use IN for multi-select, narg for optional scalars.
 -- The LEFT JOIN on dependencies is only effective when parent_id is non-NULL.
 SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
        i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank,
@@ -20,11 +20,11 @@ SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
 FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
 WHERE i.project_id = sqlc.arg('project_id')
-  AND (sqlc.narg('status') IS NULL OR i.status = sqlc.narg('status'))
-  AND (sqlc.narg('issue_type') IS NULL OR i.issue_type = sqlc.narg('issue_type'))
+  AND i.status IN (sqlc.slice('statuses'))
+  AND i.issue_type IN (sqlc.slice('issue_types'))
+  AND i.priority IN (sqlc.slice('priorities'))
   AND (sqlc.narg('assignee') IS NULL OR i.assignee = sqlc.narg('assignee'))
   AND (sqlc.narg('ai_session_id') IS NULL OR i.ai_session_id = sqlc.narg('ai_session_id'))
-  AND (sqlc.narg('priority') IS NULL OR i.priority = sqlc.narg('priority'))
   AND (sqlc.narg('parent_id') IS NULL OR d.depends_on_id = sqlc.narg('parent_id'))
 ORDER BY i.priority ASC, i.updated_at DESC
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');

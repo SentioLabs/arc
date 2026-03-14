@@ -167,21 +167,33 @@ paths:
       parameters:
         - name: status
           in: query
-          description: Filter by status
+          description: Filter by status (supports multiple values)
           schema:
-            $ref: "#/components/schemas/Status"
+            type: array
+            items:
+              $ref: "#/components/schemas/Status"
+          style: form
+          explode: true
         - name: type
           in: query
-          description: Filter by issue type
+          description: Filter by issue type (supports multiple values)
           schema:
-            $ref: "#/components/schemas/IssueType"
+            type: array
+            items:
+              $ref: "#/components/schemas/IssueType"
+          style: form
+          explode: true
         - name: priority
           in: query
-          description: Filter by priority (0-4)
+          description: Filter by priority (supports multiple values, 0-4)
           schema:
-            type: integer
-            minimum: 0
-            maximum: 4
+            type: array
+            items:
+              type: integer
+              minimum: 0
+              maximum: 4
+          style: form
+          explode: true
         - name: assignee
           in: query
           description: Filter by assignee

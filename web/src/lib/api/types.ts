@@ -1127,12 +1127,12 @@ export interface operations {
     listIssues: {
         parameters: {
             query?: {
-                /** @description Filter by status */
-                status?: components["schemas"]["Status"];
-                /** @description Filter by issue type */
-                type?: components["schemas"]["IssueType"];
-                /** @description Filter by priority (0-4) */
-                priority?: number;
+                /** @description Filter by status (supports multiple values) */
+                status?: components["schemas"]["Status"][];
+                /** @description Filter by issue type (supports multiple values) */
+                type?: components["schemas"]["IssueType"][];
+                /** @description Filter by priority (supports multiple values, 0-4) */
+                priority?: number[];
                 /** @description Filter by assignee */
                 assignee?: string;
                 /** @description Filter by AI session ID */
