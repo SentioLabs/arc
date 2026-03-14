@@ -9,7 +9,12 @@ Break an approved design into bite-sized, self-contained tasks with exact file p
 
 ## Plan Commands
 
-Plans use three commands: `arc plan set`, `arc plan show`, and `arc plan list`. Plans default to **draft** status and can be approved or rejected through the web UI's split-pane review editor.
+Plans are ephemeral review artifacts backed by filesystem markdown files:
+- `arc plan create --file <path>` — Register a plan for review, returns plan ID
+- `arc plan show <plan-id>` — Show plan content, status, and comments
+- `arc plan approve <plan-id>` — Approve the plan
+- `arc plan reject <plan-id>` — Reject the plan
+- `arc plan comments <plan-id>` — List review comments
 
 ## Granularity Rule
 
@@ -22,10 +27,10 @@ Create a TodoWrite checklist with these steps and work through them:
 ### 1. Read the Design
 
 ```bash
-arc plan show <epic-id>
+arc plan show <plan-id>
 ```
 
-Load the approved design from brainstorm. Understand the full scope before breaking it down.
+Load the approved design from brainstorm. The plan ID is provided by the brainstorm skill after registration. Understand the full scope before breaking it down.
 
 ### 2. Identify Shared Contracts (Foundation Task)
 
@@ -102,17 +107,17 @@ Before proceeding, verify the agent's output:
 2. **Spot-check**: Run `arc show <id>` on one returned task to confirm it exists and has the correct parent
 3. **If mismatch**: Re-dispatch the agent for missing tasks only, or create them manually
 
-### 6. Update Epic Plan
+### 6. Update Epic with Implementation Breakdown
 
-Using the task IDs from the agent's returned summary table, add the task breakdown to the epic's plan. Plans default to **draft** status and can be approved or rejected via the web UI.
+Using the task IDs from the agent's returned summary table, write the approved design content and task breakdown into the epic's description field:
 
 ```bash
-arc plan set <epic-id> --stdin <<'EOF'
-<updated plan with task listing>
+arc update <epic-id> --stdin <<'EOF'
+<approved design content with task listing>
 EOF
 ```
 
-The plan is now visible in the web UI at the project's plans page, where it can be reviewed, edited, approved, or rejected using the split-pane editor. Use `arc plan list --status draft` to see all plans awaiting review.
+This stores the implementation breakdown directly on the epic for reference during execution.
 
 ### 7. Choose Execution Path
 
@@ -179,7 +184,7 @@ For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
 ## Rules
 
 - Never reference external docs or the full plan in task descriptions — everything needed is in the description
-- Never create `docs/plans/` markdown files — arc plan is the sole artifact
+- Design documents live in `docs/plans/` and are registered via `arc plan create --file`
 - Task descriptions must include actual code guidance, not vague instructions
 - Team preparation (teammate labels) is optional — only if user chooses team execution
 - The plan skill creates tasks; it does not implement them
