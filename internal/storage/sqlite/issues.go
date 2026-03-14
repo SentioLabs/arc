@@ -186,7 +186,10 @@ var allPriorities = []int64{0, 1, 2, 3, 4}
 
 // ListIssues returns issues matching the filter.
 // All filter fields are composed with AND semantics so multiple filters
-// (e.g. --parent + --status) work together via a single sqlc query.
+// (e.g. --parent + --status) work together via a dynamic SQL query.
+// We use dynamic SQL because sqlc.slice and sqlc.narg positional placeholders
+// are incompatible when mixed in the same query (positional ?N offsets shift
+// when slice placeholders expand to multiple values).
 func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*types.Issue, error) {
 	limit := filter.Limit
 	if limit <= 0 {
@@ -199,37 +202,26 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 		return s.searchIssuesFTS(ctx, filter.ProjectID, filter.Query, limit, offset)
 	}
 
-	// Build status filter: prefer new slice field, fall back to deprecated pointer.
+	// Convert filter slices, defaulting to "all" when empty.
 	statuses := make([]string, len(filter.Statuses))
 	for i, s := range filter.Statuses {
 		statuses[i] = string(s)
-	}
-	if len(statuses) == 0 && filter.Status != nil {
-		statuses = []string{string(*filter.Status)}
 	}
 	if len(statuses) == 0 {
 		statuses = allStatuses
 	}
 
-	// Build issue type filter: prefer new slice field, fall back to deprecated pointer.
 	issueTypes := make([]string, len(filter.IssueTypes))
 	for i, t := range filter.IssueTypes {
 		issueTypes[i] = string(t)
-	}
-	if len(issueTypes) == 0 && filter.IssueType != nil {
-		issueTypes = []string{string(*filter.IssueType)}
 	}
 	if len(issueTypes) == 0 {
 		issueTypes = allIssueTypes
 	}
 
-	// Build priority filter: prefer new slice field, fall back to deprecated pointer.
 	priorities := make([]int64, len(filter.Priorities))
 	for i, p := range filter.Priorities {
 		priorities[i] = int64(p)
-	}
-	if len(priorities) == 0 && filter.Priority != nil {
-		priorities = []int64{int64(*filter.Priority)}
 	}
 	if len(priorities) == 0 {
 		priorities = allPriorities
