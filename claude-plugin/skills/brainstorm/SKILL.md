@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: You MUST use this skill for any design exploration, architecture decision, or trade-off analysis before implementation begins — especially when the user says "brainstorm", "explore the design", "think through", "what approach should we take", or describes a feature with multiple valid strategies. This is the arc-native brainstorming skill that saves approved designs as arc plans. Always prefer this over generic brainstorming when the project uses arc issue tracking.
+description: You MUST use this skill for any design exploration, architecture decision, or trade-off analysis before implementation begins — especially when the user says "brainstorm", "explore the design", "think through", "what approach should we take", or describes a feature with multiple valid strategies. This is the arc-native brainstorming skill that writes designs to docs/plans/ and registers them for review via arc plan. Always prefer this over generic brainstorming when the project uses arc issue tracking.
 ---
 
 # Brainstorm — Design Discovery
@@ -77,83 +77,61 @@ These contracts become a **foundation task** during planning — implemented seq
 
 **Skip this step** if the design maps to a single task or purely sequential work.
 
-### 6. Save to Arc (Including Shared Contracts)
+### 6. Save Design and Register for Review
 
-Detect scale and create appropriate structure:
+Write the design document to `docs/plans/` and register it as an ephemeral plan for review:
 
-**Large (multi-phase project):**
 ```bash
-arc create "Project Name" --type=epic
-# Save overall design as plan
-arc plan set <meta-epic-id> --stdin <<'EOF'
+# Write the design markdown file
+# Use YYYY-MM-DD-<topic>.md naming convention
+cat > docs/plans/YYYY-MM-DD-<topic>.md <<'EOF'
 <design content>
 EOF
+
+# Register the plan for review (returns a plan ID)
+arc plan create --file docs/plans/YYYY-MM-DD-<topic>.md
 ```
 
-If 3+ phases, delegate phase creation to `arc-issue-tracker`:
+The `arc plan create` command returns a plan ID and a planner URL for web-based review.
+
+### 7. Review Loop
+
+Present the user with the planner URL and CLI options for review:
+
+**Use the AskUserQuestion tool:**
 ```
-Use the Agent tool with subagent_type="arc:arc-issue-tracker":
-
-Create the following phase epics under meta-epic <meta-epic-id>.
-After creation, set dependencies as listed.
-Return a summary table mapping phase names to arc IDs.
-
-## Tasks
-
-### P1: Phase 1 - ...
-Type: epic
-Parent: <meta-epic-id>
-
-### P2: Phase 2 - ...
-Type: epic
-Parent: <meta-epic-id>
-
-### P3: Phase 3 - ...
-Type: epic
-Parent: <meta-epic-id>
-
-## Dependencies
-- P2 blocked by P1
-- P3 blocked by P2
-
-## Required Output
-| Phase | Arc ID | Title |
-|-------|--------|-------|
-| P1    | ...    | ...   |
+Question: "Plan registered for review. How would you like to proceed?"
+Options:
+  - "Approve it" (approve and proceed to /arc:plan for implementation breakdown)
+  - "I've submitted review comments" (read comments, revise, re-register)
+  - "Reject it" (reject and start over)
 ```
 
-If 1-2 phases, create directly:
+**If user approves:**
 ```bash
-arc create "Phase 1: ..." --type=epic --parent=<meta-epic-id>
-arc create "Phase 2: ..." --type=epic --parent=<meta-epic-id>
-# Set phase dependencies
-arc dep add <phase-2-id> <phase-1-id> --type=blocks
+arc plan approve <plan-id>
 ```
+Then proceed to the `plan` skill.
 
-**Medium (single feature):**
+**If user says "review submitted":**
 ```bash
-arc create "Feature Name" --type=epic
-arc plan set <epic-id> --stdin <<'EOF'
-<design content>
-EOF
+# Read review comments
+arc plan comments <plan-id>
+# Revise the design file based on feedback, then re-register
+arc plan create --file docs/plans/YYYY-MM-DD-<topic>.md
+# Loop back to present review options
 ```
 
-**Small (single task):**
-```bash
-arc create "Task Name" --type=task
-# Skip brainstorm/plan — go directly to implement
-```
+### 8. Transition
 
-### 7. Transition
-
-**Use the AskUserQuestion tool** to confirm the next step:
+After the plan is approved:
 
 - For large/medium work: invoke the `plan` skill to break the design into implementation tasks
 - For small work: invoke the `implement` skill directly
 
 **Example AskUserQuestion usage:**
 ```
-Question: "Design is saved. What's next?"
+Question: "Design is approved. What's next?"
 Options:
   - "Move to /arc:plan to break this into trackable tasks"
   - "Move to /arc:implement to start building directly"
@@ -172,7 +150,7 @@ Options:
 
 - The ONLY next skill after brainstorm is `plan` (or `implement` for small work)
 - Never invoke implementation skills from brainstorm
-- Never create `docs/plans/` markdown files — arc plan is the sole artifact
+- Design documents go in `docs/plans/` and are registered via `arc plan create --file`
 - Arc issues track persistent work; TodoWrite tracks your brainstorming checklist steps
 - YAGNI: if the user didn't ask for it, don't design it
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`
