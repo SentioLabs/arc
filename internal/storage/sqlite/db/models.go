@@ -43,13 +43,12 @@ type ChildCounter struct {
 }
 
 type Comment struct {
-	ID          int64        `json:"id"`
-	IssueID     string       `json:"issue_id"`
-	Author      string       `json:"author"`
-	Text        string       `json:"text"`
-	CommentType string       `json:"comment_type"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   sql.NullTime `json:"updated_at"`
+	ID        int64        `json:"id"`
+	IssueID   string       `json:"issue_id"`
+	Author    string       `json:"author"`
+	Text      string       `json:"text"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt sql.NullTime `json:"updated_at"`
 }
 
 type Config struct {
@@ -118,12 +117,14 @@ type Label struct {
 }
 
 type Plan struct {
-	ID        string    `json:"id"`
-	ProjectID string    `json:"project_id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        string         `json:"id"`
+	ProjectID string         `json:"project_id"`
+	Title     string         `json:"title"`
+	Content   string         `json:"content"`
+	Status    string         `json:"status"`
+	IssueID   sql.NullString `json:"issue_id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 type Project struct {

@@ -86,81 +86,6 @@ func TestPlanValidate(t *testing.T) {
 	}
 }
 
-func TestPlanContextHasPlan(t *testing.T) {
-	tests := []struct {
-		name string
-		pc   *PlanContext
-		want bool
-	}{
-		{
-			name: "nil context",
-			pc:   nil,
-			want: false,
-		},
-		{
-			name: "empty context",
-			pc:   &PlanContext{},
-			want: false,
-		},
-		{
-			name: "with inline plan",
-			pc: &PlanContext{
-				InlinePlan: &Comment{
-					ID:   1,
-					Text: "Test plan",
-				},
-			},
-			want: true,
-		},
-		{
-			name: "with parent plan",
-			pc: &PlanContext{
-				ParentPlan: &Comment{
-					ID:   2,
-					Text: "Parent plan",
-				},
-				ParentIssueID: "issue-123",
-			},
-			want: true,
-		},
-		{
-			name: "with shared plans",
-			pc: &PlanContext{
-				SharedPlans: []*Plan{
-					{ID: "plan.abc123", Title: "Shared"},
-				},
-			},
-			want: true,
-		},
-		{
-			name: "with all plan types",
-			pc: &PlanContext{
-				InlinePlan:    &Comment{ID: 1, Text: "Inline"},
-				ParentPlan:    &Comment{ID: 2, Text: "Parent"},
-				ParentIssueID: "issue-123",
-				SharedPlans:   []*Plan{{ID: "plan.abc123", Title: "Shared"}},
-			},
-			want: true,
-		},
-		{
-			name: "with empty shared plans slice",
-			pc: &PlanContext{
-				SharedPlans: []*Plan{},
-			},
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.pc.HasPlan()
-			if got != tt.want {
-				t.Errorf("PlanContext.HasPlan() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCommentTypeIsValid(t *testing.T) {
 	tests := []struct {
 		name string
@@ -168,7 +93,7 @@ func TestCommentTypeIsValid(t *testing.T) {
 		want bool
 	}{
 		{"comment type", CommentTypeComment, true},
-		{"plan type", CommentTypePlan, true},
+		{"plan type is no longer valid", CommentType("plan"), false},
 		{"empty string", CommentType(""), false},
 		{"invalid type", CommentType("invalid"), false},
 	}

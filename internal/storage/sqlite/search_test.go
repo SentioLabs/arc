@@ -274,10 +274,17 @@ func TestFTSPlanSearchNotIndexed(t *testing.T) {
 
 	issue := setupTestIssue(t, store, ws, "Issue with plan")
 
-	// Set an inline plan with unique text
-	_, err := store.SetInlinePlan(ctx, issue.ID, "author", "Implement the zigzag algorithm for sorting")
+	// Create a plan with unique text
+	plan := &types.Plan{
+		ProjectID: ws.ID,
+		IssueID:   issue.ID,
+		Title:     "Zigzag Plan",
+		Content:   "Implement the zigzag algorithm for sorting",
+		Status:    types.PlanStatusDraft,
+	}
+	err := store.CreateOrUpdatePlan(ctx, plan)
 	if err != nil {
-		t.Fatalf("failed to set inline plan: %v", err)
+		t.Fatalf("failed to create plan: %v", err)
 	}
 
 	// FTS only indexes title and description (simplified in migration 010).

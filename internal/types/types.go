@@ -251,21 +251,16 @@ type Label struct {
 	Description string `json:"description,omitempty"`
 }
 
-// CommentType distinguishes between regular comments and inline plans.
+// CommentType distinguishes between different comment types.
 type CommentType string
 
 const (
 	CommentTypeComment CommentType = "comment"
-	CommentTypePlan    CommentType = "plan"
 )
 
 // IsValid checks if the comment type value is valid.
 func (c CommentType) IsValid() bool {
-	switch c {
-	case CommentTypeComment, CommentTypePlan:
-		return true
-	}
-	return false
+	return c == CommentTypeComment
 }
 
 // Comment represents a comment on an issue.
@@ -410,19 +405,25 @@ type IssueDetails struct {
 	Dependencies []*Dependency `json:"dependencies,omitempty"`
 	Dependents   []*Dependency `json:"dependents,omitempty"`
 	Comments     []*Comment    `json:"comments,omitempty"`
-	PlanContext  *PlanContext  `json:"plan_context,omitempty"`
 }
 
-// Plan represents a shared plan that can be linked to multiple issues.
+// Plan status constants.
+const (
+	PlanStatusDraft    = "draft"
+	PlanStatusApproved = "approved"
+	PlanStatusRejected = "rejected"
+)
+
+// Plan represents a plan that can be associated with an issue.
 type Plan struct {
 	ID        string    `json:"id"` // plan.xxxxx format
 	ProjectID string    `json:"project_id"`
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
+	Status    string    `json:"status"`
+	IssueID   string    `json:"issue_id,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	// LinkedIssues contains issue IDs linked to this plan (populated on detail views)
-	LinkedIssues []string `json:"linked_issues,omitempty"`
 }
 
 // Validate checks if the plan has valid field values.

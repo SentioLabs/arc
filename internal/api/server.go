@@ -152,19 +152,15 @@ func (s *Server) registerRoutes() {
 	ws.PUT("/issues/:id/comments/:cid", s.updateComment)
 	ws.DELETE("/issues/:id/comments/:cid", s.deleteComment)
 
-	// Inline Plans (on issues)
+	// Plans (unified)
 	ws.POST("/issues/:id/plan", s.setIssuePlan)
 	ws.GET("/issues/:id/plan", s.getIssuePlan)
-	ws.GET("/issues/:id/plan/history", s.getIssuePlanHistory)
-
-	// Shared Plans
 	ws.GET("/plans", s.listPlans)
-	ws.POST("/plans", s.createPlan)
+	ws.GET("/plans/pending-count", s.getPendingCount)
 	ws.GET("/plans/:pid", s.getPlan)
 	ws.PUT("/plans/:pid", s.updatePlan)
+	ws.PATCH("/plans/:pid/status", s.updatePlanStatus)
 	ws.DELETE("/plans/:pid", s.deletePlan)
-	ws.POST("/plans/:pid/link", s.linkIssuesToPlan)
-	ws.DELETE("/plans/:pid/link/:id", s.unlinkIssueFromPlan)
 
 	// Events (audit trail)
 	ws.GET("/issues/:id/events", s.getEvents)

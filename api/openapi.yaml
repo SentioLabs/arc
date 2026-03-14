@@ -31,6 +31,8 @@ tags:
     description: Agent team context and role grouping
   - name: ai-sessions
     description: AI session and agent observability
+  - name: plans
+    description: Plan management
 
 paths:
   # ====================
@@ -1024,6 +1026,169 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  # ====================
+  # Plans
+  # ====================
+  /projects/{projectId}/plans:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+
+    get:
+      operationId: listPlans
+      tags: [plans]
+      summary: List plans in project
+      parameters:
+        - name: status
+          in: query
+          description: Filter by plan status (draft, approved, rejected)
+          schema:
+            $ref: "#/components/schemas/PlanStatus"
+      responses:
+        "200":
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createOrUpdatePlan
+      tags: [plans]
+      summary: Create or update a plan (upserts by issue_id)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPlanRequest"
+      responses:
+        "200":
+          description: Plan created or updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/plans/pending-count:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+
+    get:
+      operationId: getPendingPlanCount
+      tags: [plans]
+      summary: Get count of plans with a given status
+      parameters:
+        - name: status
+          in: query
+          description: Status to count (defaults to draft)
+          schema:
+            $ref: "#/components/schemas/PlanStatus"
+      responses:
+        "200":
+          description: Plan count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanCount"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/plans/{planId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - name: planId
+        in: path
+        required: true
+        description: Plan ID
+        schema:
+          type: string
+
+    get:
+      operationId: getPlan
+      tags: [plans]
+      summary: Get plan by ID
+      responses:
+        "200":
+          description: Plan details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      operationId: updatePlanContent
+      tags: [plans]
+      summary: Update plan title and content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanContentRequest"
+      responses:
+        "204":
+          description: Plan content updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deletePlan
+      tags: [plans]
+      summary: Delete a plan
+      responses:
+        "204":
+          description: Plan deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/plans/{planId}/status:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - name: planId
+        in: path
+        required: true
+        description: Plan ID
+        schema:
+          type: string
+
+    patch:
+      operationId: updatePlanStatus
+      tags: [plans]
+      summary: Update plan status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanStatusRequest"
+      responses:
+        "204":
+          description: Plan status updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   parameters:
     ProjectId:
@@ -1756,3 +1921,91 @@ components:
         status:
           type: string
           description: Agent status (defaults to "running")
+
+    # ====================
+    # Plan Schemas
+    # ====================
+    PlanStatus:
+      type: string
+      enum:
+        - draft
+        - approved
+        - rejected
+
+    Plan:
+      type: object
+      required:
+        - id
+        - project_id
+        - title
+        - content
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique plan ID (plan.xxxxx format)
+        project_id:
+          type: string
+        title:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        issue_id:
+          type: string
+          description: Associated issue ID
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SetPlanRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        issue_id:
+          type: string
+          description: Associated issue ID
+
+    UpdatePlanContentRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+
+    UpdatePlanStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+
+    PlanCount:
+      type: object
+      required:
+        - count
+      properties:
+        count:
+          type: integer

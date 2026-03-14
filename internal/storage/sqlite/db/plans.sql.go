@@ -7,41 +7,51 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
-const countPlanLinks = `-- name: CountPlanLinks :one
-SELECT COUNT(*) as count FROM issue_plans WHERE plan_id = ?
+const countPlansByStatus = `-- name: CountPlansByStatus :one
+SELECT COUNT(*) as count FROM plans WHERE project_id = ? AND status = ?
 `
 
-func (q *Queries) CountPlanLinks(ctx context.Context, planID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countPlanLinks, planID)
+type CountPlansByStatusParams struct {
+	ProjectID string `json:"project_id"`
+	Status    string `json:"status"`
+}
+
+func (q *Queries) CountPlansByStatus(ctx context.Context, arg CountPlansByStatusParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPlansByStatus, arg.ProjectID, arg.Status)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const createPlan = `-- name: CreatePlan :one
-INSERT INTO plans (id, project_id, title, content, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, project_id, title, content, created_at, updated_at
+INSERT INTO plans (id, project_id, issue_id, title, content, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, project_id, title, content, status, issue_id, created_at, updated_at
 `
 
 type CreatePlanParams struct {
-	ID        string    `json:"id"`
-	ProjectID string    `json:"project_id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        string         `json:"id"`
+	ProjectID string         `json:"project_id"`
+	IssueID   sql.NullString `json:"issue_id"`
+	Title     string         `json:"title"`
+	Content   string         `json:"content"`
+	Status    string         `json:"status"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (*Plan, error) {
 	row := q.db.QueryRowContext(ctx, createPlan,
 		arg.ID,
 		arg.ProjectID,
+		arg.IssueID,
 		arg.Title,
 		arg.Content,
+		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -51,6 +61,8 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (*Plan, 
 		&i.ProjectID,
 		&i.Title,
 		&i.Content,
+		&i.Status,
+		&i.IssueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -66,72 +78,8 @@ func (q *Queries) DeletePlan(ctx context.Context, id string) error {
 	return err
 }
 
-const getLinkedIssues = `-- name: GetLinkedIssues :many
-SELECT issue_id FROM issue_plans WHERE plan_id = ?
-`
-
-func (q *Queries) GetLinkedIssues(ctx context.Context, planID string) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, getLinkedIssues, planID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var issue_id string
-		if err := rows.Scan(&issue_id); err != nil {
-			return nil, err
-		}
-		items = append(items, issue_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getLinkedPlans = `-- name: GetLinkedPlans :many
-SELECT p.id, p.project_id, p.title, p.content, p.created_at, p.updated_at FROM plans p
-INNER JOIN issue_plans ip ON ip.plan_id = p.id
-WHERE ip.issue_id = ?
-ORDER BY p.updated_at DESC
-`
-
-func (q *Queries) GetLinkedPlans(ctx context.Context, issueID string) ([]*Plan, error) {
-	rows, err := q.db.QueryContext(ctx, getLinkedPlans, issueID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*Plan{}
-	for rows.Next() {
-		var i Plan
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Title,
-			&i.Content,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getPlan = `-- name: GetPlan :one
-SELECT id, project_id, title, content, created_at, updated_at FROM plans WHERE id = ?
+SELECT id, project_id, title, content, status, issue_id, created_at, updated_at FROM plans WHERE id = ?
 `
 
 func (q *Queries) GetPlan(ctx context.Context, id string) (*Plan, error) {
@@ -142,37 +90,48 @@ func (q *Queries) GetPlan(ctx context.Context, id string) (*Plan, error) {
 		&i.ProjectID,
 		&i.Title,
 		&i.Content,
+		&i.Status,
+		&i.IssueID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return &i, err
 }
 
-const linkIssueToPlan = `-- name: LinkIssueToPlan :exec
-INSERT INTO issue_plans (issue_id, plan_id, created_at)
-VALUES (?, ?, ?)
-ON CONFLICT (issue_id, plan_id) DO NOTHING
+const getPlanByIssueID = `-- name: GetPlanByIssueID :one
+SELECT id, project_id, title, content, status, issue_id, created_at, updated_at FROM plans WHERE issue_id = ?
 `
 
-type LinkIssueToPlanParams struct {
-	IssueID   string    `json:"issue_id"`
-	PlanID    string    `json:"plan_id"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-func (q *Queries) LinkIssueToPlan(ctx context.Context, arg LinkIssueToPlanParams) error {
-	_, err := q.db.ExecContext(ctx, linkIssueToPlan, arg.IssueID, arg.PlanID, arg.CreatedAt)
-	return err
+func (q *Queries) GetPlanByIssueID(ctx context.Context, issueID sql.NullString) (*Plan, error) {
+	row := q.db.QueryRowContext(ctx, getPlanByIssueID, issueID)
+	var i Plan
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Content,
+		&i.Status,
+		&i.IssueID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
 }
 
 const listPlans = `-- name: ListPlans :many
-SELECT id, project_id, title, content, created_at, updated_at FROM plans
-WHERE project_id = ?
+SELECT id, project_id, title, content, status, issue_id, created_at, updated_at FROM plans
+WHERE project_id = ? AND (? = '' OR status = ?)
 ORDER BY updated_at DESC
 `
 
-func (q *Queries) ListPlans(ctx context.Context, projectID string) ([]*Plan, error) {
-	rows, err := q.db.QueryContext(ctx, listPlans, projectID)
+type ListPlansParams struct {
+	ProjectID string      `json:"project_id"`
+	Column2   interface{} `json:"column_2"`
+	Status    string      `json:"status"`
+}
+
+func (q *Queries) ListPlans(ctx context.Context, arg ListPlansParams) ([]*Plan, error) {
+	rows, err := q.db.QueryContext(ctx, listPlans, arg.ProjectID, arg.Column2, arg.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +144,8 @@ func (q *Queries) ListPlans(ctx context.Context, projectID string) ([]*Plan, err
 			&i.ProjectID,
 			&i.Title,
 			&i.Content,
+			&i.Status,
+			&i.IssueID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -201,38 +162,84 @@ func (q *Queries) ListPlans(ctx context.Context, projectID string) ([]*Plan, err
 	return items, nil
 }
 
-const unlinkIssueFromPlan = `-- name: UnlinkIssueFromPlan :exec
-DELETE FROM issue_plans WHERE issue_id = ? AND plan_id = ?
+const updatePlanContent = `-- name: UpdatePlanContent :exec
+UPDATE plans SET title = ?, content = ?, updated_at = ? WHERE id = ?
 `
 
-type UnlinkIssueFromPlanParams struct {
-	IssueID string `json:"issue_id"`
-	PlanID  string `json:"plan_id"`
-}
-
-func (q *Queries) UnlinkIssueFromPlan(ctx context.Context, arg UnlinkIssueFromPlanParams) error {
-	_, err := q.db.ExecContext(ctx, unlinkIssueFromPlan, arg.IssueID, arg.PlanID)
-	return err
-}
-
-const updatePlan = `-- name: UpdatePlan :exec
-UPDATE plans SET title = ?, content = ?, updated_at = ?
-WHERE id = ?
-`
-
-type UpdatePlanParams struct {
+type UpdatePlanContentParams struct {
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
 	UpdatedAt time.Time `json:"updated_at"`
 	ID        string    `json:"id"`
 }
 
-func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) error {
-	_, err := q.db.ExecContext(ctx, updatePlan,
+func (q *Queries) UpdatePlanContent(ctx context.Context, arg UpdatePlanContentParams) error {
+	_, err := q.db.ExecContext(ctx, updatePlanContent,
 		arg.Title,
 		arg.Content,
 		arg.UpdatedAt,
 		arg.ID,
 	)
 	return err
+}
+
+const updatePlanStatus = `-- name: UpdatePlanStatus :exec
+UPDATE plans SET status = ?, updated_at = ? WHERE id = ?
+`
+
+type UpdatePlanStatusParams struct {
+	Status    string    `json:"status"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+func (q *Queries) UpdatePlanStatus(ctx context.Context, arg UpdatePlanStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updatePlanStatus, arg.Status, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const upsertPlan = `-- name: UpsertPlan :one
+INSERT INTO plans (id, project_id, issue_id, title, content, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (issue_id) DO UPDATE SET
+    title = excluded.title,
+    content = excluded.content,
+    updated_at = excluded.updated_at
+RETURNING id, project_id, title, content, status, issue_id, created_at, updated_at
+`
+
+type UpsertPlanParams struct {
+	ID        string         `json:"id"`
+	ProjectID string         `json:"project_id"`
+	IssueID   sql.NullString `json:"issue_id"`
+	Title     string         `json:"title"`
+	Content   string         `json:"content"`
+	Status    string         `json:"status"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) UpsertPlan(ctx context.Context, arg UpsertPlanParams) (*Plan, error) {
+	row := q.db.QueryRowContext(ctx, upsertPlan,
+		arg.ID,
+		arg.ProjectID,
+		arg.IssueID,
+		arg.Title,
+		arg.Content,
+		arg.Status,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i Plan
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Content,
+		&i.Status,
+		&i.IssueID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
 }

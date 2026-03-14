@@ -503,6 +503,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** List plans in project */
+        get: operations["listPlans"];
+        put?: never;
+        /** Create or update a plan (upserts by issue_id) */
+        post: operations["createOrUpdatePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/pending-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** Get count of plans with a given status */
+        get: operations["getPendingPlanCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Plan ID */
+                planId: string;
+            };
+            cookie?: never;
+        };
+        /** Get plan by ID */
+        get: operations["getPlan"];
+        /** Update plan title and content */
+        put: operations["updatePlanContent"];
+        post?: never;
+        /** Delete a plan */
+        delete: operations["deletePlan"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Plan ID */
+                planId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update plan status */
+        patch: operations["updatePlanStatus"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -790,6 +877,39 @@ export interface components {
             model?: string;
             /** @description Agent status (defaults to "running") */
             status?: string;
+        };
+        /** @enum {string} */
+        PlanStatus: "draft" | "approved" | "rejected";
+        Plan: {
+            /** @description Unique plan ID (plan.xxxxx format) */
+            id: string;
+            project_id: string;
+            title: string;
+            content: string;
+            status: components["schemas"]["PlanStatus"];
+            /** @description Associated issue ID */
+            issue_id?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        SetPlanRequest: {
+            title: string;
+            content: string;
+            status?: components["schemas"]["PlanStatus"];
+            /** @description Associated issue ID */
+            issue_id?: string;
+        };
+        UpdatePlanContentRequest: {
+            title: string;
+            content: string;
+        };
+        UpdatePlanStatusRequest: {
+            status: components["schemas"]["PlanStatus"];
+        };
+        PlanCount: {
+            count: number;
         };
     };
     responses: {
@@ -1897,6 +2017,201 @@ export interface operations {
                     "application/json": components["schemas"]["Event"][];
                 };
             };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPlans: {
+        parameters: {
+            query?: {
+                /** @description Filter by plan status (draft, approved, rejected) */
+                status?: components["schemas"]["PlanStatus"];
+            };
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of plans */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"][];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createOrUpdatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan created or updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPendingPlanCount: {
+        parameters: {
+            query?: {
+                /** @description Status to count (defaults to draft) */
+                status?: components["schemas"]["PlanStatus"];
+            };
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCount"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Plan ID */
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updatePlanContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Plan ID */
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlanContentRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan content updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deletePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Plan ID */
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updatePlanStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Plan ID */
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlanStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Plan status updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };

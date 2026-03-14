@@ -17,11 +17,10 @@ import (
 func (s *Store) AddComment(ctx context.Context, issueID, author, text string) (*types.Comment, error) {
 	now := time.Now()
 	result, err := s.queries.CreateComment(ctx, db.CreateCommentParams{
-		IssueID:     issueID,
-		Author:      author,
-		Text:        text,
-		CommentType: string(types.CommentTypeComment),
-		CreatedAt:   now,
+		IssueID:   issueID,
+		Author:    author,
+		Text:      text,
+		CreatedAt: now,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("add comment: %w", err)
@@ -31,12 +30,11 @@ func (s *Store) AddComment(ctx context.Context, issueID, author, text string) (*
 	s.rebuildFTSForIssue(ctx, issueID)
 
 	return &types.Comment{
-		ID:          result.ID,
-		IssueID:     result.IssueID,
-		Author:      result.Author,
-		Text:        result.Text,
-		CommentType: types.CommentType(result.CommentType),
-		CreatedAt:   result.CreatedAt,
+		ID:        result.ID,
+		IssueID:   result.IssueID,
+		Author:    result.Author,
+		Text:      result.Text,
+		CreatedAt: result.CreatedAt,
 	}, nil
 }
 
@@ -49,7 +47,18 @@ func (s *Store) GetComments(ctx context.Context, issueID string) ([]*types.Comme
 
 	comments := make([]*types.Comment, len(rows))
 	for i, row := range rows {
-		comments[i] = dbCommentToType(row)
+		var updatedAt time.Time
+		if row.UpdatedAt.Valid {
+			updatedAt = row.UpdatedAt.Time
+		}
+		comments[i] = &types.Comment{
+			ID:        row.ID,
+			IssueID:   row.IssueID,
+			Author:    row.Author,
+			Text:      row.Text,
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: updatedAt,
+		}
 	}
 
 	return comments, nil

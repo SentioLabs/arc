@@ -53,6 +53,13 @@ const (
 	Task    IssueType = "task"
 )
 
+// Defines values for PlanStatus.
+const (
+	Approved PlanStatus = "approved"
+	Draft    PlanStatus = "draft"
+	Rejected PlanStatus = "rejected"
+)
+
 // Defines values for Status.
 const (
 	StatusBlocked    Status = "blocked"
@@ -377,6 +384,30 @@ type PaginatedIssues struct {
 	Total  *int    `json:"total,omitempty"`
 }
 
+// Plan defines model for Plan.
+type Plan struct {
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// ID Unique plan ID (plan.xxxxx format)
+	ID string `json:"id"`
+
+	// IssueID Associated issue ID
+	IssueID   *string    `json:"issue_id,omitempty"`
+	ProjectID string     `json:"project_id"`
+	Status    PlanStatus `json:"status"`
+	Title     string     `json:"title"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// PlanCount defines model for PlanCount.
+type PlanCount struct {
+	Count int `json:"count"`
+}
+
+// PlanStatus defines model for PlanStatus.
+type PlanStatus string
+
 // Project defines model for Project.
 type Project struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -396,6 +427,16 @@ type Project struct {
 	// Prefix Issue ID prefix (e.g., "bd")
 	Prefix    string    `json:"prefix"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// SetPlanRequest defines model for SetPlanRequest.
+type SetPlanRequest struct {
+	Content string `json:"content"`
+
+	// IssueID Associated issue ID
+	IssueID *string     `json:"issue_id,omitempty"`
+	Status  *PlanStatus `json:"status,omitempty"`
+	Title   string      `json:"title"`
 }
 
 // Statistics defines model for Statistics.
@@ -478,6 +519,17 @@ type UpdateIssueRequest struct {
 type UpdateLabelRequest struct {
 	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
+}
+
+// UpdatePlanContentRequest defines model for UpdatePlanContentRequest.
+type UpdatePlanContentRequest struct {
+	Content string `json:"content"`
+	Title   string `json:"title"`
+}
+
+// UpdatePlanStatusRequest defines model for UpdatePlanStatusRequest.
+type UpdatePlanStatusRequest struct {
+	Status PlanStatus `json:"status"`
 }
 
 // UpdateProjectRequest defines model for UpdateProjectRequest.
@@ -621,6 +673,18 @@ type ReopenIssueParams struct {
 	XActor *ActorHeader `json:"X-Actor,omitempty"`
 }
 
+// ListPlansParams defines parameters for ListPlans.
+type ListPlansParams struct {
+	// Status Filter by plan status (draft, approved, rejected)
+	Status *PlanStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// GetPendingPlanCountParams defines parameters for GetPendingPlanCount.
+type GetPendingPlanCountParams struct {
+	// Status Status to count (defaults to draft)
+	Status *PlanStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
 // GetReadyWorkParams defines parameters for GetReadyWork.
 type GetReadyWorkParams struct {
 	// Type Filter by issue type
@@ -692,6 +756,15 @@ type AddDependencyJSONRequestBody = AddDependencyRequest
 
 // AddLabelToIssueJSONRequestBody defines body for AddLabelToIssue for application/json ContentType.
 type AddLabelToIssueJSONRequestBody = AddLabelToIssueRequest
+
+// CreateOrUpdatePlanJSONRequestBody defines body for CreateOrUpdatePlan for application/json ContentType.
+type CreateOrUpdatePlanJSONRequestBody = SetPlanRequest
+
+// UpdatePlanContentJSONRequestBody defines body for UpdatePlanContent for application/json ContentType.
+type UpdatePlanContentJSONRequestBody = UpdatePlanContentRequest
+
+// UpdatePlanStatusJSONRequestBody defines body for UpdatePlanStatus for application/json ContentType.
+type UpdatePlanStatusJSONRequestBody = UpdatePlanStatusRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -797,6 +870,27 @@ type ServerInterface interface {
 	// Reopen a closed issue
 	// (POST /projects/{projectId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx echo.Context, projectID ProjectID, issueID IssueID, params ReopenIssueParams) error
+	// List plans in project
+	// (GET /projects/{projectId}/plans)
+	ListPlans(ctx echo.Context, projectID ProjectID, params ListPlansParams) error
+	// Create or update a plan (upserts by issue_id)
+	// (POST /projects/{projectId}/plans)
+	CreateOrUpdatePlan(ctx echo.Context, projectID ProjectID) error
+	// Get count of plans with a given status
+	// (GET /projects/{projectId}/plans/pending-count)
+	GetPendingPlanCount(ctx echo.Context, projectID ProjectID, params GetPendingPlanCountParams) error
+	// Delete a plan
+	// (DELETE /projects/{projectId}/plans/{planId})
+	DeletePlan(ctx echo.Context, projectID ProjectID, planID string) error
+	// Get plan by ID
+	// (GET /projects/{projectId}/plans/{planId})
+	GetPlan(ctx echo.Context, projectID ProjectID, planID string) error
+	// Update plan title and content
+	// (PUT /projects/{projectId}/plans/{planId})
+	UpdatePlanContent(ctx echo.Context, projectID ProjectID, planID string) error
+	// Update plan status
+	// (PATCH /projects/{projectId}/plans/{planId}/status)
+	UpdatePlanStatus(ctx echo.Context, projectID ProjectID, planID string) error
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /projects/{projectId}/ready)
 	GetReadyWork(ctx echo.Context, projectID ProjectID, params GetReadyWorkParams) error
@@ -1763,6 +1857,168 @@ func (w *ServerInterfaceWrapper) ReopenIssue(ctx echo.Context) error {
 	return err
 }
 
+// ListPlans converts echo context to params.
+func (w *ServerInterfaceWrapper) ListPlans(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPlansParams
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "status", ctx.QueryParams(), &params.Status)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter status: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListPlans(ctx, projectID, params)
+	return err
+}
+
+// CreateOrUpdatePlan converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateOrUpdatePlan(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateOrUpdatePlan(ctx, projectID)
+	return err
+}
+
+// GetPendingPlanCount converts echo context to params.
+func (w *ServerInterfaceWrapper) GetPendingPlanCount(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPendingPlanCountParams
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "status", ctx.QueryParams(), &params.Status)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter status: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetPendingPlanCount(ctx, projectID, params)
+	return err
+}
+
+// DeletePlan converts echo context to params.
+func (w *ServerInterfaceWrapper) DeletePlan(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeletePlan(ctx, projectID, planID)
+	return err
+}
+
+// GetPlan converts echo context to params.
+func (w *ServerInterfaceWrapper) GetPlan(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetPlan(ctx, projectID, planID)
+	return err
+}
+
+// UpdatePlanContent converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdatePlanContent(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdatePlanContent(ctx, projectID, planID)
+	return err
+}
+
+// UpdatePlanStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdatePlanStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdatePlanStatus(ctx, projectID, planID)
+	return err
+}
+
 // GetReadyWork converts echo context to params.
 func (w *ServerInterfaceWrapper) GetReadyWork(ctx echo.Context) error {
 	var err error
@@ -1926,6 +2182,13 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/projects/:projectId/issues/:issueId/labels", wrapper.AddLabelToIssue)
 	router.DELETE(baseURL+"/projects/:projectId/issues/:issueId/labels/:labelName", wrapper.RemoveLabelFromIssue)
 	router.POST(baseURL+"/projects/:projectId/issues/:issueId/reopen", wrapper.ReopenIssue)
+	router.GET(baseURL+"/projects/:projectId/plans", wrapper.ListPlans)
+	router.POST(baseURL+"/projects/:projectId/plans", wrapper.CreateOrUpdatePlan)
+	router.GET(baseURL+"/projects/:projectId/plans/pending-count", wrapper.GetPendingPlanCount)
+	router.DELETE(baseURL+"/projects/:projectId/plans/:planId", wrapper.DeletePlan)
+	router.GET(baseURL+"/projects/:projectId/plans/:planId", wrapper.GetPlan)
+	router.PUT(baseURL+"/projects/:projectId/plans/:planId", wrapper.UpdatePlanContent)
+	router.PATCH(baseURL+"/projects/:projectId/plans/:planId/status", wrapper.UpdatePlanStatus)
 	router.GET(baseURL+"/projects/:projectId/ready", wrapper.GetReadyWork)
 	router.GET(baseURL+"/projects/:projectId/stats", wrapper.GetProjectStats)
 	router.GET(baseURL+"/projects/:projectId/team-context", wrapper.GetTeamContext)
@@ -3207,6 +3470,257 @@ func (response ReopenIssue500JSONResponse) VisitReopenIssueResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListPlansRequestObject struct {
+	ProjectID ProjectID `json:"projectId"`
+	Params    ListPlansParams
+}
+
+type ListPlansResponseObject interface {
+	VisitListPlansResponse(w http.ResponseWriter) error
+}
+
+type ListPlans200JSONResponse []Plan
+
+func (response ListPlans200JSONResponse) VisitListPlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlans500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListPlans500JSONResponse) VisitListPlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateOrUpdatePlanRequestObject struct {
+	ProjectID ProjectID `json:"projectId"`
+	Body      *CreateOrUpdatePlanJSONRequestBody
+}
+
+type CreateOrUpdatePlanResponseObject interface {
+	VisitCreateOrUpdatePlanResponse(w http.ResponseWriter) error
+}
+
+type CreateOrUpdatePlan200JSONResponse Plan
+
+func (response CreateOrUpdatePlan200JSONResponse) VisitCreateOrUpdatePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateOrUpdatePlan400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateOrUpdatePlan400JSONResponse) VisitCreateOrUpdatePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateOrUpdatePlan500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateOrUpdatePlan500JSONResponse) VisitCreateOrUpdatePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPendingPlanCountRequestObject struct {
+	ProjectID ProjectID `json:"projectId"`
+	Params    GetPendingPlanCountParams
+}
+
+type GetPendingPlanCountResponseObject interface {
+	VisitGetPendingPlanCountResponse(w http.ResponseWriter) error
+}
+
+type GetPendingPlanCount200JSONResponse PlanCount
+
+func (response GetPendingPlanCount200JSONResponse) VisitGetPendingPlanCountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPendingPlanCount500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetPendingPlanCount500JSONResponse) VisitGetPendingPlanCountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeletePlanRequestObject struct {
+	ProjectID ProjectID `json:"projectId"`
+	PlanID    string    `json:"planId"`
+}
+
+type DeletePlanResponseObject interface {
+	VisitDeletePlanResponse(w http.ResponseWriter) error
+}
+
+type DeletePlan204Response struct {
+}
+
+func (response DeletePlan204Response) VisitDeletePlanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePlan404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeletePlan404JSONResponse) VisitDeletePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeletePlan500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeletePlan500JSONResponse) VisitDeletePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlanRequestObject struct {
+	ProjectID ProjectID `json:"projectId"`
+	PlanID    string    `json:"planId"`
+}
+
+type GetPlanResponseObject interface {
+	VisitGetPlanResponse(w http.ResponseWriter) error
+}
+
+type GetPlan200JSONResponse Plan
+
+func (response GetPlan200JSONResponse) VisitGetPlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlan404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPlan404JSONResponse) VisitGetPlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlan500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetPlan500JSONResponse) VisitGetPlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdatePlanContentRequestObject struct {
+	ProjectID ProjectID `json:"projectId"`
+	PlanID    string    `json:"planId"`
+	Body      *UpdatePlanContentJSONRequestBody
+}
+
+type UpdatePlanContentResponseObject interface {
+	VisitUpdatePlanContentResponse(w http.ResponseWriter) error
+}
+
+type UpdatePlanContent204Response struct {
+}
+
+func (response UpdatePlanContent204Response) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UpdatePlanContent400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdatePlanContent400JSONResponse) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdatePlanContent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdatePlanContent404JSONResponse) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdatePlanContent500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdatePlanContent500JSONResponse) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdatePlanStatusRequestObject struct {
+	ProjectID ProjectID `json:"projectId"`
+	PlanID    string    `json:"planId"`
+	Body      *UpdatePlanStatusJSONRequestBody
+}
+
+type UpdatePlanStatusResponseObject interface {
+	VisitUpdatePlanStatusResponse(w http.ResponseWriter) error
+}
+
+type UpdatePlanStatus204Response struct {
+}
+
+func (response UpdatePlanStatus204Response) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UpdatePlanStatus400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdatePlanStatus400JSONResponse) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdatePlanStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdatePlanStatus404JSONResponse) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdatePlanStatus500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdatePlanStatus500JSONResponse) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetReadyWorkRequestObject struct {
 	ProjectID ProjectID `json:"projectId"`
 	Params    GetReadyWorkParams
@@ -3409,6 +3923,27 @@ type StrictServerInterface interface {
 	// Reopen a closed issue
 	// (POST /projects/{projectId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx context.Context, request ReopenIssueRequestObject) (ReopenIssueResponseObject, error)
+	// List plans in project
+	// (GET /projects/{projectId}/plans)
+	ListPlans(ctx context.Context, request ListPlansRequestObject) (ListPlansResponseObject, error)
+	// Create or update a plan (upserts by issue_id)
+	// (POST /projects/{projectId}/plans)
+	CreateOrUpdatePlan(ctx context.Context, request CreateOrUpdatePlanRequestObject) (CreateOrUpdatePlanResponseObject, error)
+	// Get count of plans with a given status
+	// (GET /projects/{projectId}/plans/pending-count)
+	GetPendingPlanCount(ctx context.Context, request GetPendingPlanCountRequestObject) (GetPendingPlanCountResponseObject, error)
+	// Delete a plan
+	// (DELETE /projects/{projectId}/plans/{planId})
+	DeletePlan(ctx context.Context, request DeletePlanRequestObject) (DeletePlanResponseObject, error)
+	// Get plan by ID
+	// (GET /projects/{projectId}/plans/{planId})
+	GetPlan(ctx context.Context, request GetPlanRequestObject) (GetPlanResponseObject, error)
+	// Update plan title and content
+	// (PUT /projects/{projectId}/plans/{planId})
+	UpdatePlanContent(ctx context.Context, request UpdatePlanContentRequestObject) (UpdatePlanContentResponseObject, error)
+	// Update plan status
+	// (PATCH /projects/{projectId}/plans/{planId}/status)
+	UpdatePlanStatus(ctx context.Context, request UpdatePlanStatusRequestObject) (UpdatePlanStatusResponseObject, error)
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /projects/{projectId}/ready)
 	GetReadyWork(ctx context.Context, request GetReadyWorkRequestObject) (GetReadyWorkResponseObject, error)
@@ -4383,6 +4918,205 @@ func (sh *strictHandler) ReopenIssue(ctx echo.Context, projectID ProjectID, issu
 	return nil
 }
 
+// ListPlans operation middleware
+func (sh *strictHandler) ListPlans(ctx echo.Context, projectID ProjectID, params ListPlansParams) error {
+	var request ListPlansRequestObject
+
+	request.ProjectID = projectID
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPlans(ctx.Request().Context(), request.(ListPlansRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPlans")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListPlansResponseObject); ok {
+		return validResponse.VisitListPlansResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateOrUpdatePlan operation middleware
+func (sh *strictHandler) CreateOrUpdatePlan(ctx echo.Context, projectID ProjectID) error {
+	var request CreateOrUpdatePlanRequestObject
+
+	request.ProjectID = projectID
+
+	var body CreateOrUpdatePlanJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateOrUpdatePlan(ctx.Request().Context(), request.(CreateOrUpdatePlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateOrUpdatePlan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateOrUpdatePlanResponseObject); ok {
+		return validResponse.VisitCreateOrUpdatePlanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPendingPlanCount operation middleware
+func (sh *strictHandler) GetPendingPlanCount(ctx echo.Context, projectID ProjectID, params GetPendingPlanCountParams) error {
+	var request GetPendingPlanCountRequestObject
+
+	request.ProjectID = projectID
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPendingPlanCount(ctx.Request().Context(), request.(GetPendingPlanCountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPendingPlanCount")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetPendingPlanCountResponseObject); ok {
+		return validResponse.VisitGetPendingPlanCountResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeletePlan operation middleware
+func (sh *strictHandler) DeletePlan(ctx echo.Context, projectID ProjectID, planID string) error {
+	var request DeletePlanRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePlan(ctx.Request().Context(), request.(DeletePlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePlan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeletePlanResponseObject); ok {
+		return validResponse.VisitDeletePlanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPlan operation middleware
+func (sh *strictHandler) GetPlan(ctx echo.Context, projectID ProjectID, planID string) error {
+	var request GetPlanRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlan(ctx.Request().Context(), request.(GetPlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetPlanResponseObject); ok {
+		return validResponse.VisitGetPlanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdatePlanContent operation middleware
+func (sh *strictHandler) UpdatePlanContent(ctx echo.Context, projectID ProjectID, planID string) error {
+	var request UpdatePlanContentRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+
+	var body UpdatePlanContentJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdatePlanContent(ctx.Request().Context(), request.(UpdatePlanContentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdatePlanContent")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdatePlanContentResponseObject); ok {
+		return validResponse.VisitUpdatePlanContentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdatePlanStatus operation middleware
+func (sh *strictHandler) UpdatePlanStatus(ctx echo.Context, projectID ProjectID, planID string) error {
+	var request UpdatePlanStatusRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+
+	var body UpdatePlanStatusJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdatePlanStatus(ctx.Request().Context(), request.(UpdatePlanStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdatePlanStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdatePlanStatusResponseObject); ok {
+		return validResponse.VisitUpdatePlanStatusResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetReadyWork operation middleware
 func (sh *strictHandler) GetReadyWork(ctx echo.Context, projectID ProjectID, params GetReadyWorkParams) error {
 	var request GetReadyWorkRequestObject
@@ -4463,83 +5197,91 @@ func (sh *strictHandler) GetTeamContext(ctx echo.Context, projectID ProjectID, p
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AAD//zuiTGniggAA",
+	"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",
+	"AA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

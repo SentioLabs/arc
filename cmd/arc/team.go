@@ -124,9 +124,9 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 		}
 
 		// Check for plan
-		pc, err := c.GetPlanContext(wsID, issue.ID)
-		if err == nil && pc.InlinePlan != nil {
-			tci.Plan = pc.InlinePlan.Text
+		plan, err := c.GetPlanByIssue(wsID, issue.ID)
+		if err == nil && plan != nil {
+			tci.Plan = plan.Content
 		}
 
 		// Find teammate:* label
@@ -177,9 +177,9 @@ func fetchEpicChildren(c *client.Client, wsID, epicID string, tc *TeamContext) (
 		Title: epic.Title,
 	}
 
-	pc, err := c.GetPlanContext(wsID, epicID)
-	if err == nil && pc.InlinePlan != nil {
-		tc.Epic.Plan = pc.InlinePlan.Text
+	plan, err := c.GetPlanByIssue(wsID, epicID)
+	if err == nil && plan != nil {
+		tc.Epic.Plan = plan.Content
 	}
 
 	children, err := c.ListIssues(wsID, client.ListIssuesOptions{

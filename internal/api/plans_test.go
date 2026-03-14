@@ -13,6 +13,8 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+const testPlanBody = `{"text": "Plan content"}`
+
 // testServer creates a test server with a temporary SQLite database.
 func testServer(t *testing.T) (*Server, func()) {
 	t.Helper()
@@ -81,7 +83,7 @@ func createTestIssue(t *testing.T, e *echo.Echo, wsID, title string) string {
 	return issue.ID
 }
 
-func TestSetAndGetIssuePlan(t *testing.T) {
+func TestSetIssuePlanCreatesDraft(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
@@ -89,12 +91,10 @@ func TestSetAndGetIssuePlan(t *testing.T) {
 	wsID := createTestWorkspace(t, e)
 	issueID := createTestIssue(t, e, wsID, "Issue with Plan")
 
-	// Set inline plan - use JSON marshal to properly escape
-	planText := "This is the plan: Step one then Step two"
-	reqBody := map[string]string{"text": planText}
-	bodyBytes, _ := json.Marshal(reqBody)
+	// Set plan with explicit draft status
+	body := `{"text": "Plan content here", "status": "draft"}`
 	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
-	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBuffer(bodyBytes))
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("X-Actor", "test-user")
 	rec := httptest.NewRecorder()
@@ -104,25 +104,52 @@ func TestSetAndGetIssuePlan(t *testing.T) {
 		t.Fatalf("setIssuePlan returned %d: %s", rec.Code, rec.Body.String())
 	}
 
-	// Get plan context
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/issues/"+issueID+"/plan", nil)
-	rec = httptest.NewRecorder()
+	var plan types.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
+
+	if plan.Status != "draft" {
+		t.Errorf("plan.Status = %q, want %q", plan.Status, "draft")
+	}
+	if plan.Content != "Plan content here" {
+		t.Errorf("plan.Content = %q, want %q", plan.Content, "Plan content here")
+	}
+	if plan.IssueID != issueID {
+		t.Errorf("plan.IssueID = %q, want %q", plan.IssueID, issueID)
+	}
+	if plan.ProjectID != wsID {
+		t.Errorf("plan.ProjectID = %q, want %q", plan.ProjectID, wsID)
+	}
+}
+
+func TestSetIssuePlanDefaultsDraft(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+	issueID := createTestIssue(t, e, wsID, "Issue Default Status")
+
+	// Set plan without status - should default to "draft"
+	body := `{"text": "Plan without status"}`
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("getIssuePlan returned %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("setIssuePlan returned %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var pc types.PlanContext
-	if err := json.Unmarshal(rec.Body.Bytes(), &pc); err != nil {
-		t.Fatalf("failed to parse plan context: %v", err)
+	var plan types.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
 	}
 
-	if pc.InlinePlan == nil {
-		t.Fatal("InlinePlan should not be nil")
-	}
-	if pc.InlinePlan.Text != planText {
-		t.Errorf("InlinePlan.Text = %q, want %q", pc.InlinePlan.Text, planText)
+	if plan.Status != "draft" {
+		t.Errorf("plan.Status = %q, want %q", plan.Status, "draft")
 	}
 }
 
@@ -146,63 +173,35 @@ func TestSetIssuePlanEmptyText(t *testing.T) {
 	}
 }
 
-func TestGetIssuePlanHistory(t *testing.T) {
+func TestGetIssuePlan(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
 
 	wsID := createTestWorkspace(t, e)
-	issueID := createTestIssue(t, e, wsID, "Issue with History")
+	issueID := createTestIssue(t, e, wsID, "Issue with Plan")
 
-	// Create multiple plan versions
-	versions := []string{"Version 1", "Version 2", "Version 3"}
+	// Set plan first
+	planText := "This is the plan"
+	reqBody := map[string]string{"text": planText}
+	bodyBytes, _ := json.Marshal(reqBody)
 	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
-	for _, v := range versions {
-		body := `{"text": "` + v + `"}`
-		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, req)
-		if rec.Code != http.StatusCreated {
-			t.Fatalf("setIssuePlan failed: %s", rec.Body.String())
-		}
-	}
-
-	// Get history
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/issues/"+issueID+"/plan/history", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("getIssuePlanHistory returned %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var history []*types.Comment
-	if err := json.Unmarshal(rec.Body.Bytes(), &history); err != nil {
-		t.Fatalf("failed to parse history: %v", err)
-	}
-
-	if len(history) != len(versions) {
-		t.Errorf("history length = %d, want %d", len(history), len(versions))
-	}
-}
-
-func TestCreateAndGetSharedPlan(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.echo
-
-	wsID := createTestWorkspace(t, e)
-
-	// Create shared plan
-	body := `{"title": "Shared Plan", "content": "Plan content here"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBuffer(bodyBytes))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("createPlan returned %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("setIssuePlan returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Get plan
+	req = httptest.NewRequest(http.MethodGet, planURL, nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("getIssuePlan returned %d: %s", rec.Code, rec.Body.String())
 	}
 
 	var plan types.Plan
@@ -210,47 +209,30 @@ func TestCreateAndGetSharedPlan(t *testing.T) {
 		t.Fatalf("failed to parse plan: %v", err)
 	}
 
-	if plan.Title != "Shared Plan" {
-		t.Errorf("plan.Title = %q, want %q", plan.Title, "Shared Plan")
+	if plan.Content != planText {
+		t.Errorf("plan.Content = %q, want %q", plan.Content, planText)
 	}
-	if plan.Content != "Plan content here" {
-		t.Errorf("plan.Content = %q, want %q", plan.Content, "Plan content here")
-	}
-
-	// Get plan
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
-	rec = httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("getPlan returned %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var retrieved types.Plan
-	if err := json.Unmarshal(rec.Body.Bytes(), &retrieved); err != nil {
-		t.Fatalf("failed to parse plan: %v", err)
-	}
-
-	if retrieved.ID != plan.ID {
-		t.Errorf("retrieved.ID = %q, want %q", retrieved.ID, plan.ID)
+	if plan.IssueID != issueID {
+		t.Errorf("plan.IssueID = %q, want %q", plan.IssueID, issueID)
 	}
 }
 
-func TestCreatePlanEmptyTitle(t *testing.T) {
+func TestGetIssuePlanNotFound(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
 
 	wsID := createTestWorkspace(t, e)
+	issueID := createTestIssue(t, e, wsID, "Issue without Plan")
 
-	body := `{"title": "", "content": "content"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	// Get plan for issue with no plan - should 404
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodGet, planURL, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("createPlan with empty title returned %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("getIssuePlan with no plan returned %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }
 
@@ -261,19 +243,21 @@ func TestListPlans(t *testing.T) {
 
 	wsID := createTestWorkspace(t, e)
 
-	// Create multiple plans
+	// Create plans via issues
 	for i := range 3 {
-		body := `{"title": "Plan ` + string(rune('A'+i)) + `", "content": "Content"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
+		issueID := createTestIssue(t, e, wsID, "Issue "+string(rune('A'+i)))
+		body := `{"text": "Plan content ` + string(rune('A'+i)) + `"}`
+		planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 		if rec.Code != http.StatusCreated {
-			t.Fatalf("createPlan failed: %s", rec.Body.String())
+			t.Fatalf("setIssuePlan failed: %s", rec.Body.String())
 		}
 	}
 
-	// List plans
+	// List all plans
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -292,16 +276,75 @@ func TestListPlans(t *testing.T) {
 	}
 }
 
-func TestUpdatePlan(t *testing.T) {
+func TestListPlansFilterByStatus(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
 
 	wsID := createTestWorkspace(t, e)
 
+	// Create two plans (both default to "draft")
+	planIDs := make([]string, 0, 2)
+	for i := range 2 {
+		issueID := createTestIssue(t, e, wsID, "Issue "+string(rune('A'+i)))
+		body := testPlanBody
+		planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("setIssuePlan failed: %s", rec.Body.String())
+		}
+		var plan types.Plan
+		if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+			t.Fatalf("failed to parse plan: %v", err)
+		}
+		planIDs = append(planIDs, plan.ID)
+	}
+
+	// Approve the first plan
+	statusBody := `{"status": "approved"}`
+	statusURL := "/api/v1/projects/" + wsID + "/plans/" + planIDs[0] + "/status"
+	req := httptest.NewRequest(http.MethodPatch, statusURL, bytes.NewBufferString(statusBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("updatePlanStatus returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// List only draft plans
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans?status=draft", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("listPlans returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var plans []*types.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &plans); err != nil {
+		t.Fatalf("failed to parse plans: %v", err)
+	}
+
+	if len(plans) != 1 {
+		t.Errorf("listPlans with status=draft returned %d plans, want 1", len(plans))
+	}
+}
+
+func TestUpdatePlanStatus(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+	issueID := createTestIssue(t, e, wsID, "Issue for Status")
+
 	// Create plan
-	body := `{"title": "Original", "content": "Original content"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
+	body := testPlanBody
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -311,9 +354,92 @@ func TestUpdatePlan(t *testing.T) {
 		t.Fatalf("failed to parse plan: %v", err)
 	}
 
-	// Update plan
-	body = `{"title": "Updated", "content": "Updated content"}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, bytes.NewBufferString(body))
+	// Update status to approved
+	statusBody := `{"status": "approved"}`
+	statusURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/status"
+	req = httptest.NewRequest(http.MethodPatch, statusURL, bytes.NewBufferString(statusBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("updatePlanStatus returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify by getting the plan
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	var updated types.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
+
+	if updated.Status != "approved" {
+		t.Errorf("plan.Status = %q, want %q", updated.Status, "approved")
+	}
+}
+
+func TestUpdatePlanStatusInvalid(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+	issueID := createTestIssue(t, e, wsID, "Issue for Invalid Status")
+
+	// Create plan
+	body := testPlanBody
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	var plan types.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
+
+	// Try invalid status
+	statusBody := `{"status": "invalid_status"}`
+	statusURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/status"
+	req = httptest.NewRequest(http.MethodPatch, statusURL, bytes.NewBufferString(statusBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("updatePlanStatus with invalid status returned %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestUpdatePlanContent(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+	issueID := createTestIssue(t, e, wsID, "Issue for Update")
+
+	// Create plan
+	body := `{"text": "Original content"}`
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	var plan types.Plan
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+		t.Fatalf("failed to parse plan: %v", err)
+	}
+
+	// Update content
+	updateBody := `{"title": "Updated Title", "content": "Updated content"}`
+	updateURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID
+	req = httptest.NewRequest(http.MethodPut, updateURL, bytes.NewBufferString(updateBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -327,8 +453,8 @@ func TestUpdatePlan(t *testing.T) {
 		t.Fatalf("failed to parse plan: %v", err)
 	}
 
-	if updated.Title != "Updated" {
-		t.Errorf("updated.Title = %q, want %q", updated.Title, "Updated")
+	if updated.Title != "Updated Title" {
+		t.Errorf("updated.Title = %q, want %q", updated.Title, "Updated Title")
 	}
 	if updated.Content != "Updated content" {
 		t.Errorf("updated.Content = %q, want %q", updated.Content, "Updated content")
@@ -341,10 +467,12 @@ func TestDeletePlan(t *testing.T) {
 	e := server.echo
 
 	wsID := createTestWorkspace(t, e)
+	issueID := createTestIssue(t, e, wsID, "Issue for Delete")
 
 	// Create plan
-	body := `{"title": "To Delete", "content": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
+	body := `{"text": "Plan to delete"}`
+	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -373,108 +501,85 @@ func TestDeletePlan(t *testing.T) {
 	}
 }
 
-func TestLinkAndUnlinkIssuesToPlan(t *testing.T) {
+func TestGetPendingCount(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
 
 	wsID := createTestWorkspace(t, e)
-	issueID := createTestIssue(t, e, wsID, "Issue to Link")
 
-	// Create plan
-	body := `{"title": "Linkable Plan", "content": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	// Create two draft plans
+	for i := range 2 {
+		issueID := createTestIssue(t, e, wsID, "Issue "+string(rune('A'+i)))
+		body := testPlanBody
+		planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
+		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("setIssuePlan failed: %s", rec.Body.String())
+		}
+	}
+
+	// Get pending count
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/pending-count", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	var plan types.Plan
-	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
-		t.Fatalf("failed to parse plan: %v", err)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("getPendingCount returned %d: %s", rec.Code, rec.Body.String())
 	}
 
-	// Link issue to plan
-	linkURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/link"
-	body = `{"issue_ids": ["` + issueID + `"]}`
-	req = httptest.NewRequest(http.MethodPost, linkURL, bytes.NewBufferString(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec = httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("linkIssuesToPlan returned %d: %s", rec.Code, rec.Body.String())
+	var result map[string]int
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to parse pending count: %v", err)
 	}
 
-	// Verify link via getPlan (should include linked_issues)
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
-	rec = httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	var retrieved types.Plan
-	if err := json.Unmarshal(rec.Body.Bytes(), &retrieved); err != nil {
-		t.Fatalf("failed to parse plan: %v", err)
-	}
-
-	if len(retrieved.LinkedIssues) != 1 {
-		t.Errorf("LinkedIssues length = %d, want 1", len(retrieved.LinkedIssues))
-	}
-	if len(retrieved.LinkedIssues) > 0 && retrieved.LinkedIssues[0] != issueID {
-		t.Errorf("LinkedIssues[0] = %q, want %q", retrieved.LinkedIssues[0], issueID)
-	}
-
-	// Unlink issue
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+wsID+"/plans/"+plan.ID+"/link/"+issueID, nil)
-	rec = httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("unlinkIssueFromPlan returned %d: %s", rec.Code, rec.Body.String())
-	}
-
-	// Verify unlink - use new variable to avoid stale data
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, nil)
-	rec = httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	var afterUnlink types.Plan
-	if err := json.Unmarshal(rec.Body.Bytes(), &afterUnlink); err != nil {
-		t.Fatalf("failed to parse plan: %v", err)
-	}
-
-	if len(afterUnlink.LinkedIssues) != 0 {
-		t.Errorf("LinkedIssues after unlink length = %d, want 0", len(afterUnlink.LinkedIssues))
+	if result["count"] != 2 {
+		t.Errorf("pending count = %d, want 2", result["count"])
 	}
 }
 
-func TestLinkIssuesToPlanEmptyList(t *testing.T) {
+func TestGetPendingCountZero(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
 
 	wsID := createTestWorkspace(t, e)
 
-	// Create plan
-	body := `{"title": "Plan", "content": ""}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/plans", bytes.NewBufferString(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	// Get pending count with no plans
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/pending-count", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	var plan types.Plan
-	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
-		t.Fatalf("failed to parse plan: %v", err)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("getPendingCount returned %d: %s", rec.Code, rec.Body.String())
 	}
 
-	// Try to link empty list
-	linkURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/link"
-	body = `{"issue_ids": []}`
-	req = httptest.NewRequest(http.MethodPost, linkURL, bytes.NewBufferString(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec = httptest.NewRecorder()
+	var result map[string]int
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to parse pending count: %v", err)
+	}
+
+	if result["count"] != 0 {
+		t.Errorf("pending count = %d, want 0", result["count"])
+	}
+}
+
+func TestGetPlanNotFound(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	wsID := createTestWorkspace(t, e)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/plan.nonexistent", nil)
+	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("linkIssuesToPlan with empty list returned %d, want %d", rec.Code, http.StatusBadRequest)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("getPlan for nonexistent plan returned %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }
 
@@ -497,9 +602,11 @@ func TestPlanWorkspaceIsolation(t *testing.T) {
 	}
 	wsID2 := ws2.ID
 
-	// Create plan in workspace 1
-	body = `{"title": "WS1 Plan", "content": ""}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID1+"/plans", bytes.NewBufferString(body))
+	// Create plan in workspace 1 via issue
+	issueID := createTestIssue(t, e, wsID1, "WS1 Issue")
+	body = `{"text": "WS1 plan content"}`
+	planURL := "/api/v1/projects/" + wsID1 + "/issues/" + issueID + "/plan"
+	req = httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -516,21 +623,5 @@ func TestPlanWorkspaceIsolation(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("getPlan from wrong workspace returned %d, want %d", rec.Code, http.StatusForbidden)
-	}
-}
-
-func TestGetPlanNotFound(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.echo
-
-	wsID := createTestWorkspace(t, e)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+wsID+"/plans/plan.nonexistent", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("getPlan for nonexistent plan returned %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }
