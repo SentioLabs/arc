@@ -455,7 +455,7 @@ export async function updatePlan(
 ): Promise<Plan> {
 	const { data, error } = await api.PUT('/projects/{projectId}/plans/{planId}', {
 		params: { path: { projectId, planId } },
-		body: updates as any
+		body: updates as components['schemas']['UpdatePlanContentRequest']
 	});
 	if (error) handleError(error);
 	if (!data) throw new Error('Failed to update plan');
