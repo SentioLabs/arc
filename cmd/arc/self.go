@@ -155,7 +155,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		dbPath := filepath.Join(project.DefaultArcHome(), "data.db")
 		result, backupErr := sqlite.BackupDatabase(dbPath)
 		if backupErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: pre-update backup failed: %v\n", backupErr)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: pre-update backup failed: %v\n", backupErr)
 		} else if result != nil {
 			fmt.Printf("Pre-update backup: %s (%s → %s)\n",
 				result.Path, formatSize(result.OriginalSize), formatSize(result.BackupSize))

@@ -232,7 +232,11 @@ func (m *mockWPStore) UpdateComment(_ context.Context, _ int64, _ string) error 
 	panic("not implemented")
 }
 func (m *mockWPStore) DeleteComment(_ context.Context, _ int64) error { panic("not implemented") }
-func (m *mockWPStore) CreatePlan(_ context.Context, _ *types.Plan) error {
+func (m *mockWPStore) CreateOrUpdatePlan(_ context.Context, _ *types.Plan) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) GetPlanByIssueID(_ context.Context, _ string) (*types.Plan, error) {
 	panic("not implemented")
 }
 
@@ -240,43 +244,21 @@ func (m *mockWPStore) GetPlan(_ context.Context, _ string) (*types.Plan, error) 
 	panic("not implemented")
 }
 
-func (m *mockWPStore) ListPlans(_ context.Context, _ string) ([]*types.Plan, error) {
+func (m *mockWPStore) ListPlans(_ context.Context, _, _ string) ([]*types.Plan, error) {
 	panic("not implemented")
 }
 
-func (m *mockWPStore) UpdatePlan(_ context.Context, _, _, _ string) error {
+func (m *mockWPStore) UpdatePlanStatus(_ context.Context, _, _ string) error {
 	panic("not implemented")
 }
+
+func (m *mockWPStore) UpdatePlanContent(_ context.Context, _, _, _ string) error {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) DeletePlan(_ context.Context, _ string) error { panic("not implemented") }
-func (m *mockWPStore) LinkIssueToPlan(_ context.Context, _, _ string) error {
-	panic("not implemented")
-}
 
-func (m *mockWPStore) UnlinkIssueFromPlan(_ context.Context, _, _ string) error {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) GetLinkedPlans(_ context.Context, _ string) ([]*types.Plan, error) {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) GetLinkedIssues(_ context.Context, _ string) ([]string, error) {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) SetInlinePlan(_ context.Context, _, _, _ string) (*types.Comment, error) {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) GetInlinePlan(_ context.Context, _ string) (*types.Comment, error) {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) GetPlanHistory(_ context.Context, _ string) ([]*types.Comment, error) {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) GetPlanContext(_ context.Context, _ string) (*types.PlanContext, error) {
+func (m *mockWPStore) CountPlansByStatus(_ context.Context, _, _ string) (int, error) {
 	panic("not implemented")
 }
 

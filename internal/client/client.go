@@ -459,26 +459,26 @@ func (c *Client) RemoveDependency(projID, issueID, dependsOnID string) error {
 
 // --- Plan methods ---
 
-// SetInlinePlan sets or updates an inline plan on an issue.
-func (c *Client) SetInlinePlan(projID, issueID, text string) (*types.Comment, error) {
+// SetPlan creates or updates the plan for an issue.
+func (c *Client) SetPlan(projID, issueID, text, status string) (*types.Plan, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan", projID, issueID)
 
-	body := map[string]string{"text": text}
+	body := map[string]string{"text": text, "status": status}
 	resp, err := c.post(path, body)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var comment types.Comment
-	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
+	var plan types.Plan
+	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return &comment, nil
+	return &plan, nil
 }
 
-// GetPlanContext returns the plan context for an issue.
-func (c *Client) GetPlanContext(projID, issueID string) (*types.PlanContext, error) {
+// GetPlanByIssue returns the plan associated with an issue.
+func (c *Client) GetPlanByIssue(projID, issueID string) (*types.Plan, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan", projID, issueID)
 
 	resp, err := c.get(path)
@@ -487,33 +487,22 @@ func (c *Client) GetPlanContext(projID, issueID string) (*types.PlanContext, err
 	}
 	defer resp.Body.Close()
 
-	var pc types.PlanContext
-	if err := json.NewDecoder(resp.Body).Decode(&pc); err != nil {
+	var plan types.Plan
+	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	return &pc, nil
+	return &plan, nil
 }
 
-// GetPlanHistory returns the plan version history for an issue.
-func (c *Client) GetPlanHistory(projID, issueID string) ([]*types.Comment, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan/history", projID, issueID)
-
-	resp, err := c.get(path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var comments []*types.Comment
-	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return comments, nil
-}
-
-// ListPlans returns all shared plans in a project.
-func (c *Client) ListPlans(projID string) ([]*types.Plan, error) {
+// ListPlans returns plans in a project, optionally filtered by status.
+func (c *Client) ListPlans(projID, status string) ([]*types.Plan, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/plans", projID)
+
+	if status != "" {
+		query := url.Values{}
+		query.Set("status", status)
+		path += "?" + query.Encode()
+	}
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -526,24 +515,6 @@ func (c *Client) ListPlans(projID string) ([]*types.Plan, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return plans, nil
-}
-
-// CreatePlan creates a new shared plan.
-func (c *Client) CreatePlan(projID, title, content string) (*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans", projID)
-
-	body := map[string]string{"title": title, "content": content}
-	resp, err := c.post(path, body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var plan types.Plan
-	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &plan, nil
 }
 
 // GetPlan retrieves a plan by ID.
@@ -563,25 +534,33 @@ func (c *Client) GetPlan(projID, planID string) (*types.Plan, error) {
 	return &plan, nil
 }
 
-// UpdatePlan updates a shared plan.
-func (c *Client) UpdatePlan(projID, planID, title, content string) (*types.Plan, error) {
+// UpdatePlanStatus updates the status of a plan.
+func (c *Client) UpdatePlanStatus(projID, planID, status string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s/status", projID, planID)
+
+	body := map[string]string{"status": status}
+	resp, err := c.patch(path, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// UpdatePlanContent updates a plan's title and content.
+func (c *Client) UpdatePlanContent(projID, planID, title, content string) error {
 	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
 
 	body := map[string]string{"title": title, "content": content}
 	resp, err := c.put(path, body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
-
-	var plan types.Plan
-	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &plan, nil
+	return nil
 }
 
-// DeletePlan deletes a shared plan.
+// DeletePlan deletes a plan.
 func (c *Client) DeletePlan(projID, planID string) error {
 	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
 
@@ -593,29 +572,23 @@ func (c *Client) DeletePlan(projID, planID string) error {
 	return nil
 }
 
-// LinkIssuesToPlan links one or more issues to a plan.
-func (c *Client) LinkIssuesToPlan(projID, planID string, issueIDs []string) error {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s/link", projID, planID)
+// GetPendingPlanCount returns the count of draft plans in a project.
+func (c *Client) GetPendingPlanCount(projID string) (int, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/plans/pending-count", projID)
 
-	body := map[string][]string{"issue_ids": issueIDs}
-	resp, err := c.post(path, body)
+	resp, err := c.get(path)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
-	return nil
-}
 
-// UnlinkIssueFromPlan removes a link between an issue and a plan.
-func (c *Client) UnlinkIssueFromPlan(projID, planID, issueID string) error {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s/link/%s", projID, planID, issueID)
-
-	resp, err := c.delete(path)
-	if err != nil {
-		return err
+	var result struct {
+		Count int `json:"count"`
 	}
-	defer resp.Body.Close()
-	return nil
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, fmt.Errorf("decode response: %w", err)
+	}
+	return result.Count, nil
 }
 
 // Workspace types and methods manage directory paths associated with projects.

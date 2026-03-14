@@ -137,13 +137,19 @@ func TestMergeProjects_WithPlans(t *testing.T) {
 	}
 
 	// Create plans in source project
-	plan1 := &types.Plan{ID: "plan.001", ProjectID: source.ID, Title: "Plan 1", Content: "Content 1"}
-	if err := store.CreatePlan(ctx, plan1); err != nil {
-		t.Fatalf("CreatePlan failed: %v", err)
+	plan1 := &types.Plan{
+		ID: "plan.001", ProjectID: source.ID,
+		Title: "Plan 1", Content: "Content 1", Status: types.PlanStatusDraft,
 	}
-	plan2 := &types.Plan{ID: "plan.002", ProjectID: source.ID, Title: "Plan 2", Content: "Content 2"}
-	if err := store.CreatePlan(ctx, plan2); err != nil {
-		t.Fatalf("CreatePlan failed: %v", err)
+	if err := store.CreateOrUpdatePlan(ctx, plan1); err != nil {
+		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
+	}
+	plan2 := &types.Plan{
+		ID: "plan.002", ProjectID: source.ID,
+		Title: "Plan 2", Content: "Content 2", Status: types.PlanStatusDraft,
+	}
+	if err := store.CreateOrUpdatePlan(ctx, plan2); err != nil {
+		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
 	}
 
 	result, err := store.MergeProjects(ctx, target.ID, []string{source.ID}, "test-actor")
@@ -156,7 +162,7 @@ func TestMergeProjects_WithPlans(t *testing.T) {
 	}
 
 	// Verify plans are now in target project
-	plans, err := store.ListPlans(ctx, target.ID)
+	plans, err := store.ListPlans(ctx, target.ID, "")
 	if err != nil {
 		t.Fatalf("ListPlans failed: %v", err)
 	}
