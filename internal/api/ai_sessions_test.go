@@ -39,7 +39,10 @@ func createTestAISession(t *testing.T, e *echo.Echo, id, transcriptPath, cwd str
 func createTestAIAgent(t *testing.T, e *echo.Echo, sessionID, agentID string) *types.AIAgent {
 	t.Helper()
 
-	body := fmt.Sprintf(`{"id":%q,"description":"test agent","agent_type":"task","model":"opus","status":"completed"}`, agentID)
+	body := fmt.Sprintf(
+		`{"id":%q,"description":"test agent","agent_type":"task","model":"opus","status":"completed"}`,
+		agentID,
+	)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/sessions/"+sessionID+"/agents", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -348,7 +351,7 @@ func TestGetSessionTranscript(t *testing.T) {
 	content := `{"type":"message","role":"user","content":"hello"}
 {"type":"message","role":"assistant","content":"hi there"}
 `
-	if err := os.WriteFile(transcriptPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(transcriptPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to write transcript file: %v", err)
 	}
 
@@ -391,13 +394,13 @@ func TestGetAgentTranscript(t *testing.T) {
 	agentTranscriptPath := filepath.Join(transcriptDir, "agent-agent-at-001.jsonl")
 	content := `{"type":"tool_use","name":"bash","input":"ls"}
 `
-	if err := os.WriteFile(agentTranscriptPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(agentTranscriptPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to write agent transcript: %v", err)
 	}
 
 	// Session transcript_path: <dir>/sess-at.jsonl (the session ID directory is derived)
 	sessionTranscriptPath := filepath.Join(tmpDir, "sess-at.jsonl")
-	if err := os.WriteFile(sessionTranscriptPath, []byte(`{}`+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(sessionTranscriptPath, []byte(`{}`+"\n"), 0o600); err != nil {
 		t.Fatalf("failed to write session transcript: %v", err)
 	}
 

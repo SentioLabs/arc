@@ -256,10 +256,11 @@ func (s *Server) getAgentTranscript(c echo.Context) error {
 	return successJSON(c, entries)
 }
 
-// readJSONLFile reads a JSONL file and returns the entries as a slice of
-// json.RawMessage values. Returns os.ErrNotExist if the file does not exist.
+// readJSONLFile reads a JSONL file line by line and returns the entries as a
+// slice of json.RawMessage values. Empty lines are skipped. Returns
+// os.ErrNotExist if the file does not exist on disk.
 func readJSONLFile(path string) ([]json.RawMessage, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // path derived from trusted DB transcript_path field
 	if err != nil {
 		return nil, err
 	}

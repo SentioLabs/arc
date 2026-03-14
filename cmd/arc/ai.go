@@ -26,10 +26,10 @@ type postToolUsePayload struct {
 	} `json:"tool_input"`
 	ToolResponse struct {
 		Status            string `json:"status"`
-		AgentID           string `json:"agentId"`
-		TotalDurationMs   int    `json:"totalDurationMs"`
-		TotalTokens       int    `json:"totalTokens"`
-		TotalToolUseCount int    `json:"totalToolUseCount"`
+		AgentID           string `json:"agentId"`           //nolint:tagliatelle // matches Claude Code payload
+		TotalDurationMs   int    `json:"totalDurationMs"`   //nolint:tagliatelle // matches Claude Code payload
+		TotalTokens       int    `json:"totalTokens"`       //nolint:tagliatelle // matches Claude Code payload
+		TotalToolUseCount int    `json:"totalToolUseCount"` //nolint:tagliatelle // matches Claude Code payload
 	} `json:"tool_response"`
 }
 
@@ -62,7 +62,9 @@ var aiSessionCmd = &cobra.Command{
 	Short: "Manage AI sessions",
 }
 
-// aiSessionStartCmd creates a new AI session.
+// aiSessionStartCmd creates a new AI session. It requires --id to identify the
+// session and optionally accepts --transcript-path. The create is idempotent:
+// if the session already exists, the existing record is returned.
 var aiSessionStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start a new AI session",
@@ -99,7 +101,8 @@ var aiSessionStartCmd = &cobra.Command{
 	},
 }
 
-// aiSessionListCmd lists AI sessions.
+// aiSessionListCmd lists AI sessions sorted by start time (newest first).
+// Supports --json for machine-readable output.
 var aiSessionListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List AI sessions",
@@ -138,7 +141,8 @@ var aiSessionListCmd = &cobra.Command{
 	},
 }
 
-// aiSessionShowCmd displays details for a single AI session.
+// aiSessionShowCmd displays details for a single AI session, including
+// its registered agents. Supports --json for machine-readable output.
 var aiSessionShowCmd = &cobra.Command{
 	Use:   "show <id>",
 	Short: "Show AI session details",
@@ -189,7 +193,11 @@ var aiAgentCmd = &cobra.Command{
 	Short: "Manage AI agents",
 }
 
-// aiAgentRegisterCmd registers a new AI agent from PostToolUse stdin payload.
+// aiAgentRegisterCmd registers a new AI agent from a PostToolUse stdin payload.
+// It parses the JSON payload piped via --stdin, extracts agent metadata from
+// tool_input/tool_response, and calls the server API. Non-Agent tool payloads
+// are silently ignored (exit 0). If the session doesn't exist, the server
+// auto-creates it via lazy fallback.
 var aiAgentRegisterCmd = &cobra.Command{
 	Use:   "register",
 	Short: "Register an AI agent from PostToolUse hook payload",
@@ -250,7 +258,9 @@ var aiAgentRegisterCmd = &cobra.Command{
 	},
 }
 
-// aiAgentShowCmd displays details for a single AI agent.
+// aiAgentShowCmd displays details for a single AI agent including description,
+// type, model, status, duration, tokens, and tool use count.
+// Requires --session to identify the parent session.
 var aiAgentShowCmd = &cobra.Command{
 	Use:   "show <id>",
 	Short: "Show AI agent details",
@@ -303,6 +313,8 @@ var aiAgentShowCmd = &cobra.Command{
 }
 
 // aiAgentTranscriptCmd dumps the transcript for an AI agent to stdout.
+// The transcript is derived from the session's transcript path on disk.
+// Requires --session to identify the parent session.
 var aiAgentTranscriptCmd = &cobra.Command{
 	Use:   "transcript <id>",
 	Short: "Show AI agent transcript",

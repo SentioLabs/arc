@@ -328,7 +328,7 @@ func (c *Client) CloseIssue(projID, id, reason string, cascade bool) (*types.Iss
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -711,13 +711,19 @@ func (c *Client) ResolveProjectByPath(fsPath string) (*types.ProjectResolution, 
 
 // AI Session methods provide CRUD operations for AI coding sessions.
 
+// AI Session and Agent methods provide operations for tracking AI agent
+// observability data. Sessions are global (not project-scoped) and agents
+// are registered under sessions via PostToolUse hooks.
+
 // AISessionResponse extends AISession with its agents for detail views.
+// Used by GetAISession to return the session along with all registered agents.
 type AISessionResponse struct {
 	types.AISession
 	Agents []*types.AIAgent `json:"agents"`
 }
 
-// CreateAISession creates a new AI session.
+// CreateAISession creates a new AI session. The operation is idempotent:
+// if a session with the same ID already exists, the existing record is returned.
 func (c *Client) CreateAISession(session *types.AISession) (*types.AISession, error) {
 	resp, err := c.post("/api/v1/ai/sessions", session)
 	if err != nil {
@@ -869,7 +875,7 @@ func (c *Client) get(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -905,7 +911,7 @@ func (c *Client) delete(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -932,7 +938,7 @@ func (c *Client) doJSON(method, path string, body any) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

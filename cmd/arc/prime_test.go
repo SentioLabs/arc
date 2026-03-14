@@ -42,7 +42,9 @@ func TestPersistSessionID(t *testing.T) {
 
 	t.Run("replaces existing line", func(t *testing.T) {
 		f := filepath.Join(t.TempDir(), "env.sh")
-		os.WriteFile(f, []byte("export ARC_SESSION_ID=old-id\nexport OTHER=val\n"), 0o600)
+		if err := os.WriteFile(f, []byte("export ARC_SESSION_ID=old-id\nexport OTHER=val\n"), 0o600); err != nil {
+			t.Fatalf("write test file: %v", err)
+		}
 		t.Setenv("CLAUDE_ENV_FILE", f)
 		persistSessionID("new-id")
 		got, _ := os.ReadFile(f)

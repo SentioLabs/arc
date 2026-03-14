@@ -30,7 +30,7 @@ func TestNormalizePathPair(t *testing.T) {
 	if err := os.Symlink(realDir, symlinkDir); err != nil {
 		t.Skipf("cannot create symlink: %v", err)
 	}
-	t.Cleanup(func() { os.Remove(symlinkDir) })
+	t.Cleanup(func() { _ = os.Remove(symlinkDir) })
 
 	absPath, resolvedPath := core.NormalizePathPair(symlinkDir)
 

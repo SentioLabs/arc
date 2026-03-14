@@ -14,6 +14,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// stdinReadTimeout is the maximum time to wait for hook JSON on stdin.
+const stdinReadTimeout = 2 * time.Second
+
+// envFilePermissions is the file mode for Claude env files written by persistSessionID.
+const envFilePermissions = 0o600
+
 var (
 	primeFullMode bool
 	primeMCPMode  bool
@@ -148,7 +154,7 @@ func parseHookInput(r io.Reader) string {
 	var data []byte
 	select {
 	case data = <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(stdinReadTimeout):
 		return ""
 	}
 
@@ -189,7 +195,7 @@ func persistSessionID(sessionID string) {
 	line := fmt.Sprintf("export ARC_SESSION_ID=%s\n", sessionID)
 
 	// Read existing content to check for existing ARC_SESSION_ID
-	existing, err := os.ReadFile(envFile)
+	existing, err := os.ReadFile(envFile) //nolint:gosec // envFile from trusted CLAUDE_ENV_FILE env var
 	if err == nil {
 		lines := strings.Split(string(existing), "\n")
 		var filtered []string
@@ -203,12 +209,14 @@ func persistSessionID(sessionID string) {
 			content += "\n"
 		}
 		content += line
-		_ = os.WriteFile(envFile, []byte(content), 0o600)
+		//nolint:gosec // envFile from trusted CLAUDE_ENV_FILE env var
+		_ = os.WriteFile(envFile, []byte(content), envFilePermissions)
 		return
 	}
 
 	// File doesn't exist yet, create it
-	_ = os.WriteFile(envFile, []byte(line), 0o600)
+	//nolint:gosec // envFile from trusted CLAUDE_ENV_FILE env var
+	_ = os.WriteFile(envFile, []byte(line), envFilePermissions)
 }
 
 // primeData holds template data for prime output templates.

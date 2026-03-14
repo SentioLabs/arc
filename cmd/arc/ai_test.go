@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,8 +63,8 @@ func TestParsePostToolUsePayload(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "s1", p.SessionID)
 		assert.Equal(t, "Agent", p.ToolName)
-		assert.Equal(t, "", p.TranscriptPath)
-		assert.Equal(t, "", p.ToolInput.Description)
+		assert.Empty(t, p.TranscriptPath)
+		assert.Empty(t, p.ToolInput.Description)
 		assert.Equal(t, 0, p.ToolResponse.TotalDurationMs)
 	})
 
@@ -75,105 +76,26 @@ func TestParsePostToolUsePayload(t *testing.T) {
 	})
 }
 
+// hasSubcommand checks whether parent has a subcommand with the given name.
+func hasSubcommand(parent *cobra.Command, name string) bool {
+	for _, cmd := range parent.Commands() {
+		if cmd.Name() == name {
+			return true
+		}
+	}
+	return false
+}
+
 func TestAiCmdTree(t *testing.T) {
-	t.Run("ai command exists on root", func(t *testing.T) {
-		found := false
-		for _, cmd := range rootCmd.Commands() {
-			if cmd.Name() == "ai" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "rootCmd should have an 'ai' subcommand")
-	})
-
-	t.Run("ai has session subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiCmd.Commands() {
-			if cmd.Name() == "session" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiCmd should have a 'session' subcommand")
-	})
-
-	t.Run("ai has agent subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiCmd.Commands() {
-			if cmd.Name() == "agent" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiCmd should have an 'agent' subcommand")
-	})
-
-	t.Run("session has start subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiSessionCmd.Commands() {
-			if cmd.Name() == "start" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiSessionCmd should have a 'start' subcommand")
-	})
-
-	t.Run("session has list subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiSessionCmd.Commands() {
-			if cmd.Name() == "list" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiSessionCmd should have a 'list' subcommand")
-	})
-
-	t.Run("session has show subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiSessionCmd.Commands() {
-			if cmd.Name() == "show" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiSessionCmd should have a 'show' subcommand")
-	})
-
-	t.Run("agent has register subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiAgentCmd.Commands() {
-			if cmd.Name() == "register" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiAgentCmd should have a 'register' subcommand")
-	})
-
-	t.Run("agent has show subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiAgentCmd.Commands() {
-			if cmd.Name() == "show" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiAgentCmd should have a 'show' subcommand")
-	})
-
-	t.Run("agent has transcript subcommand", func(t *testing.T) {
-		found := false
-		for _, cmd := range aiAgentCmd.Commands() {
-			if cmd.Name() == "transcript" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "aiAgentCmd should have a 'transcript' subcommand")
-	})
+	assert.True(t, hasSubcommand(rootCmd, "ai"), "rootCmd should have an 'ai' subcommand")
+	assert.True(t, hasSubcommand(aiCmd, "session"), "aiCmd should have a 'session' subcommand")
+	assert.True(t, hasSubcommand(aiCmd, "agent"), "aiCmd should have an 'agent' subcommand")
+	assert.True(t, hasSubcommand(aiSessionCmd, "start"), "aiSessionCmd should have a 'start' subcommand")
+	assert.True(t, hasSubcommand(aiSessionCmd, "list"), "aiSessionCmd should have a 'list' subcommand")
+	assert.True(t, hasSubcommand(aiSessionCmd, "show"), "aiSessionCmd should have a 'show' subcommand")
+	assert.True(t, hasSubcommand(aiAgentCmd, "register"), "aiAgentCmd should have a 'register' subcommand")
+	assert.True(t, hasSubcommand(aiAgentCmd, "show"), "aiAgentCmd should have a 'show' subcommand")
+	assert.True(t, hasSubcommand(aiAgentCmd, "transcript"), "aiAgentCmd should have a 'transcript' subcommand")
 }
 
 func TestAiSessionStartFlags(t *testing.T) {

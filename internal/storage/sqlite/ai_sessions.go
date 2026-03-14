@@ -1,3 +1,6 @@
+// Package sqlite implements the storage.Storage interface using SQLite.
+// This file provides AI session and agent CRUD operations backed by the
+// ai_sessions and ai_agents tables.
 package sqlite
 
 import (

@@ -1,5 +1,5 @@
 // Package version provides build version information.
-package version
+package version //nolint:revive // package name is intentional
 
 import (
 	"fmt"

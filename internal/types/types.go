@@ -310,18 +310,18 @@ const (
 
 // IssueFilter is used to filter issue queries.
 type IssueFilter struct {
-	ProjectID string     // Required: filter by project
-	Status    *Status    // Filter by status
-	Priority  *int       // Filter by priority
-	IssueType *IssueType // Filter by issue type
+	ProjectID   string     // Required: filter by project
+	Status      *Status    // Filter by status
+	Priority    *int       // Filter by priority
+	IssueType   *IssueType // Filter by issue type
 	Assignee    *string    // Filter by assignee
 	AISessionID *string    // Filter by AI session ID
 	Labels      []string   // AND semantics: issue must have ALL these labels
-	ParentID  string     // Filter by parent issue (via parent-child dependency)
-	Query     string     // Full-text search in title/description
-	IDs       []string   // Filter by specific issue IDs
-	Limit     int        // Maximum results to return
-	Offset    int        // Pagination offset
+	ParentID    string     // Filter by parent issue (via parent-child dependency)
+	Query       string     // Full-text search in title/description
+	IDs         []string   // Filter by specific issue IDs
+	Limit       int        // Maximum results to return
+	Offset      int        // Pagination offset
 }
 
 // WorkFilter is used to filter ready work queries.
