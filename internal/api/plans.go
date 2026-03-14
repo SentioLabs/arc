@@ -1,6 +1,10 @@
+// Package api provides HTTP handlers for the arc REST API.
+// This file implements ephemeral plan management — plans are lightweight review
+// artifacts backed by filesystem markdown files, with metadata and comments in the DB.
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,20 +17,29 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// --- Request/Response types ---
+// File permission constants for plan files and directories.
+const (
+	planFilePerms = 0o600
+	planDirPerms  = 0o750
+)
 
+// createPlanRequest is the body for POST /plans.
 type createPlanRequest struct {
 	FilePath string `json:"file_path" validate:"required"`
 }
 
+// updatePlanContentRequest is the body for PUT /plans/:planId.
 type updatePlanContentRequest struct {
 	Content string `json:"content" validate:"required"`
 }
 
+// updatePlanStatusRequest is the body for PATCH /plans/:planId/status.
 type updatePlanStatusRequest struct {
 	Status string `json:"status" validate:"required"`
 }
 
+// createPlanCommentRequest is the body for POST /plans/:planId/comments.
+// LineNumber is nil for overall feedback, or a specific line for anchored comments.
 type createPlanCommentRequest struct {
 	LineNumber *int   `json:"line_number,omitempty"`
 	Content    string `json:"content" validate:"required"`
@@ -116,11 +129,11 @@ func (s *Server) updatePlanContent(c echo.Context) error {
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(plan.FilePath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, planDirPerms); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("creating directory: %v", err))
 	}
 
-	if err := os.WriteFile(plan.FilePath, []byte(req.Content), 0o644); err != nil {
+	if err := os.WriteFile(plan.FilePath, []byte(req.Content), planFilePerms); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("writing plan file: %v", err))
 	}
 
@@ -211,7 +224,7 @@ func (s *Server) createPlanComment(c echo.Context) error {
 	}
 
 	comment := &types.PlanComment{
-		ID:         fmt.Sprintf("pc.%s", project.GeneratePlanID("comment")),
+		ID:         "pc." + project.GeneratePlanID("comment"),
 		PlanID:     planID,
 		LineNumber: req.LineNumber,
 		Content:    req.Content,
@@ -228,15 +241,15 @@ func (s *Server) createPlanComment(c echo.Context) error {
 // validateFilePath checks that a file path is within the current working directory.
 func (s *Server) validateFilePath(filePath string) error {
 	if filePath == "" {
-		return fmt.Errorf("file_path is required")
+		return errors.New("file_path is required")
 	}
 	if !filepath.IsAbs(filePath) {
-		return fmt.Errorf("file_path must be absolute")
+		return errors.New("file_path must be absolute")
 	}
 	// Basic path traversal check: reject paths containing ".." components.
 	cleaned := filepath.Clean(filePath)
 	if strings.Contains(cleaned, "..") {
-		return fmt.Errorf("path must not contain '..' components")
+		return errors.New("path must not contain '..' components")
 	}
 	return nil
 }

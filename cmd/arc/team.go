@@ -226,4 +226,3 @@ func printTeamContext(tc *TeamContext) error {
 
 	return w.Flush()
 }
-

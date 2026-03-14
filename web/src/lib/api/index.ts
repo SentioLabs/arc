@@ -419,7 +419,8 @@ export async function createPlan(filePath: string): Promise<Plan> {
 		body: { file_path: filePath }
 	});
 	if (error) handleError(error);
-	return data!;
+	if (!data) throw new Error('Failed to create plan');
+	return data;
 }
 
 export async function getPlan(planId: string): Promise<PlanWithContent> {
@@ -427,7 +428,8 @@ export async function getPlan(planId: string): Promise<PlanWithContent> {
 		params: { path: { planId } }
 	});
 	if (error) handleError(error);
-	return data!;
+	if (!data) throw new Error('Plan not found');
+	return data;
 }
 
 export async function updatePlanContent(planId: string, content: string): Promise<PlanWithContent> {
@@ -436,7 +438,8 @@ export async function updatePlanContent(planId: string, content: string): Promis
 		body: { content }
 	});
 	if (error) handleError(error);
-	return data!;
+	if (!data) throw new Error('Failed to update plan content');
+	return data;
 }
 
 export async function updatePlanStatus(planId: string, status: string): Promise<Plan> {
@@ -445,7 +448,8 @@ export async function updatePlanStatus(planId: string, status: string): Promise<
 		body: { status: status as components['schemas']['PlanStatus'] }
 	});
 	if (error) handleError(error);
-	return data!;
+	if (!data) throw new Error('Failed to update plan status');
+	return data;
 }
 
 export async function deletePlan(planId: string): Promise<void> {
@@ -469,7 +473,8 @@ export async function createPlanComment(planId: string, content: string, lineNum
 		body: { content, line_number: lineNumber ?? null }
 	});
 	if (error) handleError(error);
-	return data!;
+	if (!data) throw new Error('Failed to create comment');
+	return data;
 }
 
 // Team Context APIs

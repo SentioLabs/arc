@@ -477,7 +477,7 @@ func (c *Client) CreatePlan(filePath string) (*types.Plan, error) {
 
 // GetPlan retrieves a plan by ID, including file content.
 func (c *Client) GetPlan(planID string) (*types.PlanWithContent, error) {
-	path := fmt.Sprintf("/api/v1/plans/%s", planID)
+	path := "/api/v1/plans/" + planID
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -494,7 +494,7 @@ func (c *Client) GetPlan(planID string) (*types.PlanWithContent, error) {
 
 // UpdatePlanContent writes new content to the plan's file.
 func (c *Client) UpdatePlanContent(planID string, content string) error {
-	path := fmt.Sprintf("/api/v1/plans/%s", planID)
+	path := "/api/v1/plans/" + planID
 
 	body := map[string]string{"content": content}
 	resp, err := c.put(path, body)
@@ -507,7 +507,7 @@ func (c *Client) UpdatePlanContent(planID string, content string) error {
 
 // UpdatePlanStatus updates the status of a plan.
 func (c *Client) UpdatePlanStatus(planID string, status string) error {
-	path := fmt.Sprintf("/api/v1/plans/%s/status", planID)
+	path := "/api/v1/plans/" + planID + "/status"
 
 	body := map[string]string{"status": status}
 	resp, err := c.patch(path, body)
@@ -520,7 +520,7 @@ func (c *Client) UpdatePlanStatus(planID string, status string) error {
 
 // DeletePlan deletes a plan and its comments.
 func (c *Client) DeletePlan(planID string) error {
-	path := fmt.Sprintf("/api/v1/plans/%s", planID)
+	path := "/api/v1/plans/" + planID
 
 	resp, err := c.delete(path)
 	if err != nil {
@@ -532,7 +532,7 @@ func (c *Client) DeletePlan(planID string) error {
 
 // ListPlanComments returns all comments for a plan.
 func (c *Client) ListPlanComments(planID string) ([]*types.PlanComment, error) {
-	path := fmt.Sprintf("/api/v1/plans/%s/comments", planID)
+	path := "/api/v1/plans/" + planID + "/comments"
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -549,7 +549,7 @@ func (c *Client) ListPlanComments(planID string) ([]*types.PlanComment, error) {
 
 // CreatePlanComment adds a review comment to a plan.
 func (c *Client) CreatePlanComment(planID string, lineNumber *int, content string) (*types.PlanComment, error) {
-	path := fmt.Sprintf("/api/v1/plans/%s/comments", planID)
+	path := "/api/v1/plans/" + planID + "/comments"
 
 	body := map[string]any{"content": content}
 	if lineNumber != nil {
