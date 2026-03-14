@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
+	import { api } from '$lib/api/client';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 
@@ -11,6 +12,23 @@
 	}
 
 	let { projects = [], currentProject }: Props = $props();
+
+	// Pending draft plan count for badge
+	let draftPlanCount = $state(0);
+
+	$effect(() => {
+		if (currentProject) {
+			api.GET('/projects/{projectId}/plans/pending-count', {
+				params: { path: { projectId: currentProject.id } }
+			}).then(({ data }) => {
+				draftPlanCount = data?.count ?? 0;
+			}).catch(() => {
+				draftPlanCount = 0;
+			});
+		} else {
+			draftPlanCount = 0;
+		}
+	});
 
 	// Project search state
 	let searchQuery = $state('');
@@ -167,6 +185,11 @@
 						<path d={icons[item.icon]} />
 					</svg>
 					{item.label}
+					{#if item.href === 'plans' && draftPlanCount > 0}
+						<span class="ml-auto px-1.5 py-0.5 text-xs font-medium rounded-full bg-amber-900/30 text-amber-400">
+							{draftPlanCount}
+						</span>
+					{/if}
 				</a>
 			{/each}
 
