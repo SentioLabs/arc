@@ -11,8 +11,7 @@
 	const agentId = $derived($page.params.agentId);
 
 	let agent = $state<AIAgentResponse | null>(null);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let transcript = $state<any[]>([]);
+	let transcript = $state<Record<string, unknown>[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let transcriptNotFound = $state(false);

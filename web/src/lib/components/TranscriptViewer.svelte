@@ -8,8 +8,7 @@
 		name?: string;
 		input?: unknown;
 		result?: unknown;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		[key: string]: any;
+		[key: string]: unknown;
 	}
 
 	interface Props {

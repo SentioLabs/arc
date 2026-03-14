@@ -57,8 +57,10 @@ export async function getAIAgent(
 	return data;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getAgentTranscript(sessionId: string, agentId: string): Promise<any[]> {
+export async function getAgentTranscript(
+	sessionId: string,
+	agentId: string
+): Promise<Record<string, unknown>[]> {
 	const response = await fetch(
 		`/api/v1/ai/sessions/${encodeURIComponent(sessionId)}/agents/${encodeURIComponent(agentId)}/transcript`
 	);
