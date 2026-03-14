@@ -8,6 +8,8 @@ services:
       - "7433:7432"
     tmpfs:
       - /data:uid=1000,gid=1000
+    volumes:
+      - /tmp:/tmp:rw
     environment:
       - TZ=UTC
     healthcheck:

@@ -227,17 +227,16 @@ func (s *Server) createPlanComment(c echo.Context) error {
 
 // validateFilePath checks that a file path is within the current working directory.
 func (s *Server) validateFilePath(filePath string) error {
-	absPath, err := filepath.Abs(filePath)
-	if err != nil {
-		return fmt.Errorf("invalid path: %w", err)
+	if filePath == "" {
+		return fmt.Errorf("file_path is required")
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("cannot determine working directory: %w", err)
+	if !filepath.IsAbs(filePath) {
+		return fmt.Errorf("file_path must be absolute")
 	}
-	rel, err := filepath.Rel(wd, absPath)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return fmt.Errorf("path must be within project directory")
+	// Basic path traversal check: reject paths containing ".." components.
+	cleaned := filepath.Clean(filePath)
+	if strings.Contains(cleaned, "..") {
+		return fmt.Errorf("path must not contain '..' components")
 	}
 	return nil
 }

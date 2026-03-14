@@ -81,8 +81,9 @@ func TestPlanCreateJSON(t *testing.T) {
 	if plan["status"] != "draft" {
 		t.Errorf("expected status 'draft', got %v", plan["status"])
 	}
-	if plan["file_path"] != planPath {
-		t.Errorf("expected file_path %q, got %v", planPath, plan["file_path"])
+	fp, _ := plan["file_path"].(string)
+	if !strings.HasSuffix(fp, planPath) {
+		t.Errorf("expected file_path ending with %q, got %v", planPath, fp)
 	}
 	if _, ok := plan["id"]; !ok {
 		t.Error("expected 'id' field in JSON output")

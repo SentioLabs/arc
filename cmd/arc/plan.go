@@ -10,6 +10,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -49,7 +50,10 @@ var planCreateCmd = &cobra.Command{
 			return err
 		}
 
-		filePath := args[0]
+		filePath, err := filepath.Abs(args[0])
+		if err != nil {
+			return fmt.Errorf("resolve path: %w", err)
+		}
 
 		plan, err := c.CreatePlan(filePath)
 		if err != nil {
