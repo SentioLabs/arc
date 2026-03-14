@@ -131,7 +131,9 @@ func (s *Store) GetIssueLabels(ctx context.Context, issueID string) ([]string, e
 }
 
 // GetLabelsForIssues fetches labels for multiple issues in a single query.
-// Returns a map of issue_id -> []labels
+// Returns a map of issue_id -> []labels.
+// Uses dynamic SQL (not sqlc) because the issue ID list is variable-length
+// and sqlc.slice has positional placeholder incompatibilities (see ListIssues).
 func (s *Store) GetLabelsForIssues(ctx context.Context, issueIDs []string) (map[string][]string, error) {
 	if len(issueIDs) == 0 {
 		return make(map[string][]string), nil

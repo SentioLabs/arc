@@ -37,7 +37,8 @@ make docker-up
 
 1. **Storage Layer** (`internal/storage/`)
    - Interface in `storage.go`, SQLite implementation in `sqlite/`
-   - Uses sqlc for type-safe queries
+   - Uses sqlc for type-safe queries (159 generated queries)
+   - **Exception**: `ListIssues` and `GetLabelsForIssues` use hand-built dynamic SQL because sqlc's `sqlc.slice` macro is incompatible with positional `sqlc.narg`/`sqlc.arg` params in the same query (slice expansion shifts placeholder offsets at runtime). Do NOT attempt to convert these to sqlc queries — this is a known sqlc limitation, not tech debt.
 
 2. **API Layer** (`internal/api/`)
    - Echo framework for HTTP routing
