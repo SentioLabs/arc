@@ -151,35 +151,25 @@ CREATE TABLE child_counters (
     FOREIGN KEY (parent_id) REFERENCES issues(id) ON DELETE CASCADE
 );
 
--- Plans table for issue-associated planning
+-- Plans table (ephemeral review artifacts, content on filesystem)
 CREATE TABLE plans (
-    id TEXT PRIMARY KEY,              -- plan.xxxxx format
-    project_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL DEFAULT '',
+    id TEXT PRIMARY KEY,
+    file_path TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'draft',
-    issue_id TEXT REFERENCES issues(id) ON DELETE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    UNIQUE(issue_id)
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_plans_project ON plans(project_id);
-CREATE INDEX idx_plans_status ON plans(project_id, status);
-CREATE INDEX idx_plans_issue ON plans(issue_id);
-
--- Issue-plan links (many-to-many)
-CREATE TABLE issue_plans (
-    issue_id TEXT NOT NULL,
-    plan_id TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (issue_id, plan_id),
-    FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
-    FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
+-- Plan review comments (line-level and overall feedback)
+CREATE TABLE plan_comments (
+    id TEXT PRIMARY KEY,
+    plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+    line_number INTEGER,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_issue_plans_plan ON issue_plans(plan_id);
+CREATE INDEX idx_plan_comments_plan ON plan_comments(plan_id);
 
 -- AI sessions table (AI coding session tracking)
 CREATE TABLE ai_sessions (
