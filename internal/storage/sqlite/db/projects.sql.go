@@ -160,19 +160,6 @@ func (q *Queries) MoveIssuesToProject(ctx context.Context, arg MoveIssuesToProje
 	return q.db.ExecContext(ctx, moveIssuesToProject, arg.ProjectID, arg.ProjectID_2)
 }
 
-const movePlansToProject = `-- name: MovePlansToProject :execresult
-UPDATE plans SET project_id = ? WHERE project_id = ?
-`
-
-type MovePlansToProjectParams struct {
-	ProjectID   string `json:"project_id"`
-	ProjectID_2 string `json:"project_id_2"`
-}
-
-func (q *Queries) MovePlansToProject(ctx context.Context, arg MovePlansToProjectParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, movePlansToProject, arg.ProjectID, arg.ProjectID_2)
-}
-
 const updateProject = `-- name: UpdateProject :exec
 UPDATE projects
 SET name = ?, description = ?, updated_at = ?

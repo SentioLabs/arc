@@ -67,16 +67,14 @@ type Storage interface {
 	DeleteComment(ctx context.Context, commentID int64) error
 
 	// Plans
-	CreateOrUpdatePlan(ctx context.Context, plan *types.Plan) error
-	GetPlanByIssueID(ctx context.Context, issueID string) (*types.Plan, error)
+	CreatePlan(ctx context.Context, plan *types.Plan) error
 	GetPlan(ctx context.Context, id string) (*types.Plan, error)
-	ListPlans(ctx context.Context, projectID string, status string) ([]*types.Plan, error)
-	ListAllPlans(ctx context.Context, status string) ([]*types.Plan, error)
 	UpdatePlanStatus(ctx context.Context, id string, status string) error
-	UpdatePlanIssueID(ctx context.Context, id string, issueID string) error
-	UpdatePlanContent(ctx context.Context, id string, title string, content string) error
 	DeletePlan(ctx context.Context, id string) error
-	CountPlansByStatus(ctx context.Context, projectID string, status string) (int, error)
+
+	// Plan Comments
+	CreatePlanComment(ctx context.Context, comment *types.PlanComment) error
+	ListPlanComments(ctx context.Context, planID string) ([]*types.PlanComment, error)
 
 	// AI Sessions
 	CreateAISession(ctx context.Context, session *types.AISession) error

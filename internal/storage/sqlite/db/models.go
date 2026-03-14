@@ -104,12 +104,6 @@ type IssueLabel struct {
 	Label   string `json:"label"`
 }
 
-type IssuePlan struct {
-	IssueID   string    `json:"issue_id"`
-	PlanID    string    `json:"plan_id"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
 type Label struct {
 	Name        string         `json:"name"`
 	Color       sql.NullString `json:"color"`
@@ -117,14 +111,19 @@ type Label struct {
 }
 
 type Plan struct {
-	ID        string         `json:"id"`
-	ProjectID string         `json:"project_id"`
-	Title     string         `json:"title"`
-	Content   string         `json:"content"`
-	Status    string         `json:"status"`
-	IssueID   sql.NullString `json:"issue_id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	ID        string    `json:"id"`
+	FilePath  string    `json:"file_path"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type PlanComment struct {
+	ID         string        `json:"id"`
+	PlanID     string        `json:"plan_id"`
+	LineNumber sql.NullInt64 `json:"line_number"`
+	Content    string        `json:"content"`
+	CreatedAt  time.Time     `json:"created_at"`
 }
 
 type Project struct {
