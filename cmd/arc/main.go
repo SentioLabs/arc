@@ -796,16 +796,6 @@ var showCmd = &cobra.Command{
 			}
 		}
 
-		// Display plan if available
-		plan, planErr := c.GetPlanByIssue(wsID, details.ID)
-		if planErr == nil && plan != nil {
-			info := formatPlanInfo(plan)
-			if info != "" {
-				fmt.Println()
-				fmt.Print(info)
-			}
-		}
-
 		return nil
 	},
 }
@@ -1031,13 +1021,6 @@ var readyCmd = &cobra.Command{
 		for _, issue := range issues {
 			fmt.Println(formatIssue(issue.ID, string(issue.Status), string(issue.IssueType),
 				issue.Priority, issue.Title, issue.Labels))
-		}
-
-		// Show pending plan count
-		if count, err := c.GetPendingPlanCount(wsID); err == nil {
-			if notice := formatPendingPlanNotice(count); notice != "" {
-				fmt.Println(notice)
-			}
 		}
 
 		return nil
@@ -1267,7 +1250,7 @@ func formatPlanInfo(plan *types.Plan) string {
 	}
 	var sb strings.Builder
 	_, _ = fmt.Fprintf(&sb, "Plan [%s]:\n", plan.Status)
-	_, _ = fmt.Fprintf(&sb, "  %s\n", plan.Title)
+	_, _ = fmt.Fprintf(&sb, "  %s\n", plan.FilePath)
 	if plan.Status == "draft" {
 		_, _ = sb.WriteString("  (pending review)\n")
 	}

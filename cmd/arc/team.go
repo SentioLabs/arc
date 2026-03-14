@@ -24,7 +24,6 @@ type TeamContext struct {
 type TeamContextEpic struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
-	Plan  string `json:"plan,omitempty"`
 }
 
 // TeamRole groups issues assigned to a specific teammate role.
@@ -39,15 +38,11 @@ type TeamContextIssue struct {
 	Priority int      `json:"priority"`
 	Status   string   `json:"status"`
 	Type     string   `json:"type"`
-	Plan     string   `json:"plan,omitempty"`
 	Deps     []string `json:"deps,omitempty"`
 }
 
 // teamListLimit is the max number of issues to fetch per API call.
 const teamListLimit = 200
-
-// teamTruncateLen is the max length for truncated plan output.
-const teamTruncateLen = 80
 
 // teamCmd is the parent command for team operations.
 var teamCmd = &cobra.Command{
@@ -123,12 +118,6 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 			Type:     string(issue.IssueType),
 		}
 
-		// Check for plan
-		plan, err := c.GetPlanByIssue(wsID, issue.ID)
-		if err == nil && plan != nil {
-			tci.Plan = plan.Content
-		}
-
 		// Find teammate:* label
 		role := ""
 		for _, l := range issue.Labels {
@@ -177,11 +166,6 @@ func fetchEpicChildren(c *client.Client, wsID, epicID string, tc *TeamContext) (
 		Title: epic.Title,
 	}
 
-	plan, err := c.GetPlanByIssue(wsID, epicID)
-	if err == nil && plan != nil {
-		tc.Epic.Plan = plan.Content
-	}
-
 	children, err := c.ListIssues(wsID, client.ListIssuesOptions{
 		Parent: epicID,
 		Limit:  teamListLimit,
@@ -217,9 +201,6 @@ func fetchProjectIssues(c *client.Client, wsID string) ([]*types.Issue, error) {
 func printTeamContext(tc *TeamContext) error {
 	if tc.Epic != nil {
 		fmt.Printf("Epic: %s - %s\n", tc.Epic.ID, tc.Epic.Title)
-		if tc.Epic.Plan != "" {
-			fmt.Printf("Plan: %s\n", truncate(tc.Epic.Plan, teamTruncateLen))
-		}
 		fmt.Println()
 	}
 
@@ -246,10 +227,3 @@ func printTeamContext(tc *TeamContext) error {
 	return w.Flush()
 }
 
-// truncate returns s trimmed to maxLen characters with "..." appended if truncated.
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
-}

@@ -9,27 +9,27 @@ import (
 
 func TestFormatPlanInfo_DraftStatus(t *testing.T) {
 	plan := &types.Plan{
-		Title:  "Implement feature X",
-		Status: "draft",
+		FilePath: "plans/feature-x.md",
+		Status:   "draft",
 	}
 
 	result := formatPlanInfo(plan)
 
 	assert.Contains(t, result, "Plan [draft]:")
-	assert.Contains(t, result, "  Implement feature X")
+	assert.Contains(t, result, "  plans/feature-x.md")
 	assert.Contains(t, result, "  (pending review)")
 }
 
 func TestFormatPlanInfo_ApprovedStatus(t *testing.T) {
 	plan := &types.Plan{
-		Title:  "Implement feature X",
-		Status: "approved",
+		FilePath: "plans/feature-x.md",
+		Status:   "approved",
 	}
 
 	result := formatPlanInfo(plan)
 
 	assert.Contains(t, result, "Plan [approved]:")
-	assert.Contains(t, result, "  Implement feature X")
+	assert.Contains(t, result, "  plans/feature-x.md")
 	assert.NotContains(t, result, "(pending review)")
 }
 

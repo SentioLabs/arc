@@ -1,9 +1,12 @@
 package api
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/project"
@@ -12,204 +15,157 @@ import (
 
 // --- Request/Response types ---
 
-// setPlanRequest is the request body for setting a plan on an issue.
-type setPlanRequest struct {
-	Text   string `json:"text"`
-	Status string `json:"status"`
+type createPlanRequest struct {
+	FilePath string `json:"file_path" validate:"required"`
 }
 
-// updatePlanRequest is the request body for updating a plan's content.
-type updatePlanRequest struct {
-	Title   string  `json:"title"`
-	Content string  `json:"content"`
-	IssueID *string `json:"issue_id,omitempty"`
+type updatePlanContentRequest struct {
+	Content string `json:"content" validate:"required"`
 }
 
-// updateStatusRequest is the request body for updating a plan's status.
-type updateStatusRequest struct {
-	Status string `json:"status"`
+type updatePlanStatusRequest struct {
+	Status string `json:"status" validate:"required"`
+}
+
+type createPlanCommentRequest struct {
+	LineNumber *int   `json:"line_number,omitempty"`
+	Content    string `json:"content" validate:"required"`
 }
 
 // --- Plan Handlers ---
 
-// setIssuePlan creates or updates the plan for an issue.
-func (s *Server) setIssuePlan(c echo.Context) error {
-	id := c.Param("id")
-	wsID := workspaceID(c)
-
-	// Validate issue belongs to workspace
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
-			return errorJSON(c, http.StatusForbidden, "access denied")
-		}
-		return errorJSON(c, http.StatusNotFound, err.Error())
-	}
-
-	var req setPlanRequest
+// createPlan registers an ephemeral plan backed by a filesystem markdown file.
+func (s *Server) createPlan(c echo.Context) error {
+	var req createPlanRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	if req.Text == "" {
-		return errorJSON(c, http.StatusBadRequest, "plan text is required")
+	if req.FilePath == "" {
+		return errorJSON(c, http.StatusBadRequest, "file_path is required")
 	}
 
-	// Default status to "draft" if not specified
-	status := req.Status
-	if status == "" {
-		status = types.PlanStatusDraft
+	if err := s.validateFilePath(req.FilePath); err != nil {
+		return errorJSON(c, http.StatusBadRequest, err.Error())
 	}
 
-	// Get issue title for plan title generation
-	issue, err := s.store.GetIssue(c.Request().Context(), id)
-	if err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
-	}
-
+	now := time.Now()
 	plan := &types.Plan{
-		ID:        project.GeneratePlanID(issue.Title),
-		ProjectID: wsID,
-		Title:     "Plan for: " + issue.Title,
-		Content:   req.Text,
-		Status:    status,
-		IssueID:   id,
+		ID:        project.GeneratePlanID(filepath.Base(req.FilePath)),
+		FilePath:  req.FilePath,
+		Status:    types.PlanStatusDraft,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
-	if err := s.store.CreateOrUpdatePlan(c.Request().Context(), plan); err != nil {
+	if err := s.store.CreatePlan(c.Request().Context(), plan); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
 	return createdJSON(c, plan)
 }
 
-// getIssuePlan returns the plan for an issue.
-func (s *Server) getIssuePlan(c echo.Context) error {
-	id := c.Param("id")
-
-	// Validate issue belongs to workspace
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
-			return errorJSON(c, http.StatusForbidden, "access denied")
-		}
-		return errorJSON(c, http.StatusNotFound, err.Error())
-	}
-
-	ctx := c.Request().Context()
-	plan, err := s.store.GetPlanByIssueID(ctx, id)
-	if err != nil {
-		if strings.Contains(err.Error(), "no plan found") {
-			return errorJSON(c, http.StatusNotFound, "no plan found for issue")
-		}
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	return successJSON(c, plan)
-}
-
-// listAllPlans returns all plans across all projects, optionally filtered by status.
-func (s *Server) listAllPlans(c echo.Context) error {
-	status := c.QueryParam("status")
-	plans, err := s.store.ListAllPlans(c.Request().Context(), status)
-	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-	return successJSON(c, plans)
-}
-
-// listPlans returns all plans in a workspace, optionally filtered by status.
-func (s *Server) listPlans(c echo.Context) error {
-	wsID := workspaceID(c)
-	status := c.QueryParam("status")
-
-	plans, err := s.store.ListPlans(c.Request().Context(), wsID, status)
-	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	return successJSON(c, plans)
-}
-
-// getPlan returns a plan by ID.
+// getPlan returns plan metadata and file content.
 func (s *Server) getPlan(c echo.Context) error {
-	wsID := workspaceID(c)
-	planID := c.Param("pid")
-
+	planID := c.Param("planId")
 	ctx := c.Request().Context()
+
 	plan, err := s.store.GetPlan(ctx, planID)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
-	// Validate plan belongs to workspace
-	if plan.ProjectID != wsID {
-		return errorJSON(c, http.StatusForbidden, "access denied")
+	content, err := os.ReadFile(plan.FilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return errorJSON(c, http.StatusNotFound, "plan file not found")
+		}
+		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("reading plan file: %v", err))
 	}
 
-	return successJSON(c, plan)
+	result := types.PlanWithContent{
+		Plan:    *plan,
+		Content: string(content),
+	}
+
+	return successJSON(c, result)
 }
 
-// updatePlan updates a plan's content.
-func (s *Server) updatePlan(c echo.Context) error {
-	wsID := workspaceID(c)
-	planID := c.Param("pid")
-
+// updatePlanContent writes new content to the plan's file.
+func (s *Server) updatePlanContent(c echo.Context) error {
+	planID := c.Param("planId")
 	ctx := c.Request().Context()
 
-	// Validate plan exists and belongs to workspace
 	plan, err := s.store.GetPlan(ctx, planID)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
-	if plan.ProjectID != wsID {
-		return errorJSON(c, http.StatusForbidden, "access denied")
-	}
 
-	var req updatePlanRequest
+	var req updatePlanContentRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	// Use existing values if not provided
-	title := req.Title
-	if title == "" {
-		title = plan.Title
+	if req.Content == "" {
+		return errorJSON(c, http.StatusBadRequest, "content is required")
 	}
-	content := req.Content
 
-	if err := s.store.UpdatePlanContent(ctx, planID, title, content); err != nil {
+	if err := s.validateFilePath(plan.FilePath); err != nil {
+		return errorJSON(c, http.StatusBadRequest, err.Error())
+	}
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(plan.FilePath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("creating directory: %v", err))
+	}
+
+	if err := os.WriteFile(plan.FilePath, []byte(req.Content), 0o644); err != nil {
+		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("writing plan file: %v", err))
+	}
+
+	result := types.PlanWithContent{
+		Plan:    *plan,
+		Content: req.Content,
+	}
+
+	return successJSON(c, result)
+}
+
+// updatePlanStatus updates the status of a plan.
+func (s *Server) updatePlanStatus(c echo.Context) error {
+	planID := c.Param("planId")
+	ctx := c.Request().Context()
+
+	var req updatePlanStatusRequest
+	if err := c.Bind(&req); err != nil {
+		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	}
+
+	// Validate status
+	switch req.Status {
+	case types.PlanStatusDraft, types.PlanStatusInReview, types.PlanStatusApproved, types.PlanStatusRejected:
+		// valid
+	default:
+		return errorJSON(c, http.StatusBadRequest, "status must be one of: draft, in_review, approved, rejected")
+	}
+
+	if err := s.store.UpdatePlanStatus(ctx, planID, req.Status); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	// Return updated plan
-	plan.Title = title
-	plan.Content = content
-
-	// Handle issue_id update if provided
-	if req.IssueID != nil {
-		if err := s.store.UpdatePlanIssueID(ctx, planID, *req.IssueID); err != nil {
-			return errorJSON(c, http.StatusInternalServerError, err.Error())
-		}
-		plan.IssueID = *req.IssueID
+	plan, err := s.store.GetPlan(ctx, planID)
+	if err != nil {
+		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
 	return successJSON(c, plan)
 }
 
-// deletePlan deletes a plan.
+// deletePlan deletes a plan and its comments.
 func (s *Server) deletePlan(c echo.Context) error {
-	wsID := workspaceID(c)
-	planID := c.Param("pid")
-
+	planID := c.Param("planId")
 	ctx := c.Request().Context()
-
-	// Validate plan exists and belongs to workspace
-	plan, err := s.store.GetPlan(ctx, planID)
-	if err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
-	}
-	if plan.ProjectID != wsID {
-		return errorJSON(c, http.StatusForbidden, "access denied")
-	}
 
 	if err := s.store.DeletePlan(ctx, planID); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
@@ -218,52 +174,70 @@ func (s *Server) deletePlan(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// updatePlanStatus updates the status of a plan.
-func (s *Server) updatePlanStatus(c echo.Context) error {
-	wsID := workspaceID(c)
-	planID := c.Param("pid")
-
+// listPlanComments returns all comments for a plan.
+func (s *Server) listPlanComments(c echo.Context) error {
+	planID := c.Param("planId")
 	ctx := c.Request().Context()
 
-	// Validate plan exists and belongs to workspace
-	plan, err := s.store.GetPlan(ctx, planID)
+	comments, err := s.store.ListPlanComments(ctx, planID)
 	if err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
-	}
-	if plan.ProjectID != wsID {
-		return errorJSON(c, http.StatusForbidden, "access denied")
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	var req updateStatusRequest
+	if comments == nil {
+		comments = []*types.PlanComment{}
+	}
+
+	return successJSON(c, comments)
+}
+
+// createPlanComment adds a review comment to a plan.
+func (s *Server) createPlanComment(c echo.Context) error {
+	planID := c.Param("planId")
+	ctx := c.Request().Context()
+
+	// Verify plan exists
+	if _, err := s.store.GetPlan(ctx, planID); err != nil {
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+
+	var req createPlanCommentRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	// Validate status
-	switch req.Status {
-	case types.PlanStatusDraft, types.PlanStatusApproved, types.PlanStatusRejected:
-		// valid
-	default:
-		return errorJSON(c, http.StatusBadRequest, "status must be one of: draft, approved, rejected")
+	if req.Content == "" {
+		return errorJSON(c, http.StatusBadRequest, "content is required")
 	}
 
-	if err := s.store.UpdatePlanStatus(ctx, planID, req.Status); err != nil {
+	comment := &types.PlanComment{
+		ID:         fmt.Sprintf("pc.%s", project.GeneratePlanID("comment")),
+		PlanID:     planID,
+		LineNumber: req.LineNumber,
+		Content:    req.Content,
+		CreatedAt:  time.Now(),
+	}
+
+	if err := s.store.CreatePlanComment(ctx, comment); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	plan.Status = req.Status
-
-	return successJSON(c, plan)
+	return createdJSON(c, comment)
 }
 
-// getPendingCount returns the count of draft plans in a workspace.
-func (s *Server) getPendingCount(c echo.Context) error {
-	wsID := workspaceID(c)
-
-	count, err := s.store.CountPlansByStatus(c.Request().Context(), wsID, types.PlanStatusDraft)
+// validateFilePath checks that a file path is within the current working directory.
+func (s *Server) validateFilePath(filePath string) error {
+	absPath, err := filepath.Abs(filePath)
 	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return fmt.Errorf("invalid path: %w", err)
 	}
-
-	return successJSON(c, map[string]int{"count": count})
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cannot determine working directory: %w", err)
+	}
+	rel, err := filepath.Rel(wd, absPath)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return fmt.Errorf("path must be within project directory")
+	}
+	return nil
 }

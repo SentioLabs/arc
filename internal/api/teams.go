@@ -72,11 +72,6 @@ func (s *Server) fetchEpicChildIssues(
 
 	resp.Epic = &TeamContextEpic{ID: epic.ID, Title: epic.Title}
 
-	epicPlan, err := s.store.GetPlanByIssueID(ctx, epicID)
-	if err == nil && epicPlan != nil {
-		resp.Epic.Plan = &epicPlan.Content
-	}
-
 	dependents, err := s.store.GetDependents(ctx, epicID)
 	if err != nil {
 		return nil, errorJSON(c, http.StatusInternalServerError, err.Error())
@@ -153,7 +148,7 @@ func (s *Server) groupIssuesByRole(
 	return nil
 }
 
-// buildTeamContextIssue creates a TeamContextIssue with plan and dependency data.
+// buildTeamContextIssue creates a TeamContextIssue with dependency data.
 func (s *Server) buildTeamContextIssue(ctx context.Context, issue *types.Issue) TeamContextIssue {
 	tci := TeamContextIssue{
 		ID:       issue.ID,
@@ -161,11 +156,6 @@ func (s *Server) buildTeamContextIssue(ctx context.Context, issue *types.Issue) 
 		Priority: issue.Priority,
 		Status:   string(issue.Status),
 		Type:     string(issue.IssueType),
-	}
-
-	issuePlan, err := s.store.GetPlanByIssueID(ctx, issue.ID)
-	if err == nil && issuePlan != nil {
-		tci.Plan = &issuePlan.Content
 	}
 
 	deps, err := s.store.GetDependencies(ctx, issue.ID)

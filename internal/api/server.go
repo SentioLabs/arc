@@ -114,8 +114,14 @@ func (s *Server) registerRoutes() {
 	v1.PATCH("/projects/:id/workspaces/:pathId", s.updateWorkspace)
 	v1.DELETE("/projects/:id/workspaces/:pathId", s.deleteWorkspace)
 
-	// Global plans (cross-project)
-	v1.GET("/plans", s.listAllPlans)
+	// Plans (ephemeral review artifacts, not project-scoped)
+	v1.POST("/plans", s.createPlan)
+	v1.GET("/plans/:planId", s.getPlan)
+	v1.PUT("/plans/:planId", s.updatePlanContent)
+	v1.PATCH("/plans/:planId/status", s.updatePlanStatus)
+	v1.DELETE("/plans/:planId", s.deletePlan)
+	v1.GET("/plans/:planId/comments", s.listPlanComments)
+	v1.POST("/plans/:planId/comments", s.createPlanComment)
 
 	// Issues (project-scoped)
 	ws := v1.Group("/projects/:ws")
@@ -154,16 +160,6 @@ func (s *Server) registerRoutes() {
 	ws.POST("/issues/:id/comments", s.addComment)
 	ws.PUT("/issues/:id/comments/:cid", s.updateComment)
 	ws.DELETE("/issues/:id/comments/:cid", s.deleteComment)
-
-	// Plans (unified)
-	ws.POST("/issues/:id/plan", s.setIssuePlan)
-	ws.GET("/issues/:id/plan", s.getIssuePlan)
-	ws.GET("/plans", s.listPlans)
-	ws.GET("/plans/pending-count", s.getPendingCount)
-	ws.GET("/plans/:pid", s.getPlan)
-	ws.PUT("/plans/:pid", s.updatePlan)
-	ws.PATCH("/plans/:pid/status", s.updatePlanStatus)
-	ws.DELETE("/plans/:pid", s.deletePlan)
 
 	// Events (audit trail)
 	ws.GET("/issues/:id/events", s.getEvents)
