@@ -228,7 +228,7 @@
 
 		<!-- Overall Feedback -->
 		<div class="card p-4 space-y-3">
-			<label class="text-xs text-text-muted uppercase tracking-wide">Overall Feedback</label>
+			<label for="overall-feedback" class="text-xs text-text-muted uppercase tracking-wide">Overall Feedback</label>
 			{#if (commentsByLine.get(null) ?? []).length > 0}
 				<div class="space-y-2 mb-3">
 					{#each commentsByLine.get(null) ?? [] as comment}
@@ -242,6 +242,7 @@
 				</div>
 			{/if}
 			<textarea
+				id="overall-feedback"
 				bind:value={overallFeedback}
 				placeholder="Overall feedback on this plan..."
 				rows="3"
