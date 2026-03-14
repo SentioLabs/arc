@@ -63,7 +63,7 @@
 		}
 	}
 
-	function removeValue(val: string, e: MouseEvent) {
+	function removeValue(val: string, e: Event) {
 		e.stopPropagation();
 		onchange(values.filter((v) => v !== val));
 	}
@@ -127,10 +127,14 @@
 			{#each visibleChips as chip (chip.value)}
 				<span class="multi-select-chip">
 					{chip.label}
-					<!-- svelte-ignore a11y_click_events_have_key_events -->
-					<button type="button" onclick={(e) => removeValue(chip.value, e)} aria-label="Remove {chip.label}">
-						&times;
-					</button>
+					<span
+						role="button"
+						tabindex="0"
+						onclick={(e) => removeValue(chip.value, e)}
+						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); removeValue(chip.value, e); } }}
+						aria-label="Remove {chip.label}"
+						class="chip-remove"
+					>&times;</span>
 				</span>
 			{/each}
 			{#if overflowCount > 0}

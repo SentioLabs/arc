@@ -420,7 +420,7 @@
 		line-height: 1.25;
 	}
 
-	.multi-select-chip button {
+	.multi-select-chip .chip-remove {
 		display: inline-flex;
 		align-items: center;
 		padding: 0;
@@ -432,7 +432,7 @@
 		line-height: 1;
 	}
 
-	.multi-select-chip button:hover {
+	.multi-select-chip .chip-remove:hover {
 		color: var(--color-text-primary);
 	}
 
