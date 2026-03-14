@@ -38,9 +38,6 @@ func TestMergeProjects_Basic(t *testing.T) {
 	if result.IssuesMoved != 2 {
 		t.Errorf("IssuesMoved = %d, want 2", result.IssuesMoved)
 	}
-	if result.PlansMoved != 0 {
-		t.Errorf("PlansMoved = %d, want 0", result.PlansMoved)
-	}
 	if len(result.SourcesDeleted) != 1 {
 		t.Errorf("SourcesDeleted length = %d, want 1", len(result.SourcesDeleted))
 	} else if result.SourcesDeleted[0] != source.ID {
@@ -118,56 +115,6 @@ func TestMergeProjects_MultipleSources(t *testing.T) {
 	}
 	if len(issues) != 3 {
 		t.Errorf("target issue count = %d, want 3", len(issues))
-	}
-}
-
-func TestMergeProjects_WithPlans(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	ctx := context.Background()
-
-	target := &types.Project{Name: "Target", Prefix: "tgt"}
-	if err := store.CreateProject(ctx, target); err != nil {
-		t.Fatalf("create target: %v", err)
-	}
-	source := &types.Project{Name: "Source", Prefix: "src"}
-	if err := store.CreateProject(ctx, source); err != nil {
-		t.Fatalf("create source: %v", err)
-	}
-
-	// Create plans in source project
-	plan1 := &types.Plan{
-		ID: "plan.001", ProjectID: source.ID,
-		Title: "Plan 1", Content: "Content 1", Status: types.PlanStatusDraft,
-	}
-	if err := store.CreateOrUpdatePlan(ctx, plan1); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-	}
-	plan2 := &types.Plan{
-		ID: "plan.002", ProjectID: source.ID,
-		Title: "Plan 2", Content: "Content 2", Status: types.PlanStatusDraft,
-	}
-	if err := store.CreateOrUpdatePlan(ctx, plan2); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-	}
-
-	result, err := store.MergeProjects(ctx, target.ID, []string{source.ID}, "test-actor")
-	if err != nil {
-		t.Fatalf("MergeProjects failed: %v", err)
-	}
-
-	if result.PlansMoved != 2 {
-		t.Errorf("PlansMoved = %d, want 2", result.PlansMoved)
-	}
-
-	// Verify plans are now in target project
-	plans, err := store.ListPlans(ctx, target.ID, "")
-	if err != nil {
-		t.Fatalf("ListPlans failed: %v", err)
-	}
-	if len(plans) != 2 {
-		t.Errorf("target plan count = %d, want 2", len(plans))
 	}
 }
 

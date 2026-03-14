@@ -11,7 +11,6 @@ import (
 const (
 	maxProjectNameLength = 100 // maximum characters for project name
 	maxTitleLength       = 500 // maximum characters for issue title
-	maxPlanTitleLength   = 200 // maximum characters for plan title
 )
 
 // MaxPrefixLength is the maximum allowed project prefix length.
@@ -349,7 +348,6 @@ type Statistics struct {
 type MergeResult struct {
 	TargetProject  *Project `json:"target_project"`
 	IssuesMoved    int      `json:"issues_moved"`
-	PlansMoved     int      `json:"plans_moved"`
 	SourcesDeleted []string `json:"sources_deleted"`
 }
 
@@ -410,58 +408,33 @@ type IssueDetails struct {
 // Plan status constants.
 const (
 	PlanStatusDraft    = "draft"
+	PlanStatusInReview = "in_review"
 	PlanStatusApproved = "approved"
 	PlanStatusRejected = "rejected"
 )
 
-// Plan represents a plan that can be associated with an issue.
+// Plan represents an ephemeral review artifact backed by a filesystem markdown file.
 type Plan struct {
-	ID        string    `json:"id"` // plan.xxxxx format
-	ProjectID string    `json:"project_id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
+	ID        string    `json:"id"`
+	FilePath  string    `json:"file_path"`
 	Status    string    `json:"status"`
-	IssueID   string    `json:"issue_id,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// Validate checks if the plan has valid field values.
-func (p *Plan) Validate() error {
-	if p.Title == "" {
-		return errors.New("plan title is required")
-	}
-	if len(p.Title) > maxPlanTitleLength {
-		return fmt.Errorf("plan title must be %d characters or less", maxPlanTitleLength)
-	}
-	if p.ProjectID == "" {
-		return errors.New("project_id is required")
-	}
-	return nil
+// PlanComment is a review comment on a plan, optionally anchored to a line number.
+type PlanComment struct {
+	ID         string    `json:"id"`
+	PlanID     string    `json:"plan_id"`
+	LineNumber *int      `json:"line_number,omitempty"`
+	Content    string    `json:"content"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
-// PlanContext aggregates all plans relevant to an issue.
-// It supports three patterns:
-// 1. InlinePlan: A plan comment directly on the issue
-// 2. ParentPlan: A plan inherited from a parent issue (via parent-child dependency)
-// 3. SharedPlans: Standalone plans linked to this issue
-type PlanContext struct {
-	// InlinePlan is a plan comment directly on this issue
-	InlinePlan *Comment `json:"inline_plan,omitempty"`
-	// ParentPlan is a plan inherited from a parent issue
-	ParentPlan *Comment `json:"parent_plan,omitempty"`
-	// ParentIssueID is the ID of the parent issue if ParentPlan is set
-	ParentIssueID string `json:"parent_issue_id,omitempty"`
-	// SharedPlans are standalone plans linked to this issue
-	SharedPlans []*Plan `json:"shared_plans,omitempty"`
-}
-
-// HasPlan returns true if any plan is available in this context.
-func (pc *PlanContext) HasPlan() bool {
-	if pc == nil {
-		return false
-	}
-	return pc.InlinePlan != nil || pc.ParentPlan != nil || len(pc.SharedPlans) > 0
+// PlanWithContent combines plan metadata with the file content read from disk.
+type PlanWithContent struct {
+	Plan
+	Content string `json:"content"`
 }
 
 // AISession represents an AI coding session (e.g., a Claude Code conversation).

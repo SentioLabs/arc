@@ -28,8 +28,5 @@ SELECT COUNT(*) as count FROM projects WHERE name = ?;
 -- name: MoveIssuesToProject :execresult
 UPDATE issues SET project_id = ? WHERE project_id = ?;
 
--- name: MovePlansToProject :execresult
-UPDATE plans SET project_id = ? WHERE project_id = ?;
-
 -- name: DeleteConfigByProject :exec
 DELETE FROM config WHERE project_id = ?;

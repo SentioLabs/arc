@@ -153,16 +153,15 @@ func (s *Store) MergeProjects(
 		return nil, fmt.Errorf("target project not found: %s", targetID)
 	}
 
-	var totalIssues, totalPlans int64
+	var totalIssues int64
 	var deletedSources []string
 
 	for _, srcID := range sourceIDs {
-		issues, plans, err := mergeOneSource(ctx, qtx, targetID, srcID)
+		issues, err := mergeOneSource(ctx, qtx, targetID, srcID)
 		if err != nil {
 			return nil, err
 		}
 		totalIssues += issues
-		totalPlans += plans
 		deletedSources = append(deletedSources, srcID)
 	}
 
@@ -184,21 +183,20 @@ func (s *Store) MergeProjects(
 	return &types.MergeResult{
 		TargetProject:  target,
 		IssuesMoved:    int(totalIssues),
-		PlansMoved:     int(totalPlans),
 		SourcesDeleted: deletedSources,
 	}, nil
 }
 
-// mergeOneSource moves all issues and plans from a single source project
+// mergeOneSource moves all issues from a single source project
 // into the target, deletes the source config and project, and returns counts.
 func mergeOneSource(
 	ctx context.Context, qtx *db.Queries, targetID, srcID string,
-) (issues, plans int64, err error) {
+) (issues int64, err error) {
 	if srcID == targetID {
-		return 0, 0, fmt.Errorf("source project cannot be the same as target: %s", srcID)
+		return 0, fmt.Errorf("source project cannot be the same as target: %s", srcID)
 	}
 	if _, err := qtx.GetProject(ctx, srcID); err != nil {
-		return 0, 0, fmt.Errorf("source project not found: %s", srcID)
+		return 0, fmt.Errorf("source project not found: %s", srcID)
 	}
 
 	res, err := qtx.MoveIssuesToProject(ctx, db.MoveIssuesToProjectParams{
@@ -206,26 +204,17 @@ func mergeOneSource(
 		ProjectID_2: srcID,
 	})
 	if err != nil {
-		return 0, 0, fmt.Errorf("move issues from %s: %w", srcID, err)
+		return 0, fmt.Errorf("move issues from %s: %w", srcID, err)
 	}
 	issues, _ = res.RowsAffected()
 
-	res, err = qtx.MovePlansToProject(ctx, db.MovePlansToProjectParams{
-		ProjectID:   targetID,
-		ProjectID_2: srcID,
-	})
-	if err != nil {
-		return 0, 0, fmt.Errorf("move plans from %s: %w", srcID, err)
-	}
-	plans, _ = res.RowsAffected()
-
 	if err := qtx.DeleteConfigByProject(ctx, srcID); err != nil {
-		return 0, 0, fmt.Errorf("delete config for %s: %w", srcID, err)
+		return 0, fmt.Errorf("delete config for %s: %w", srcID, err)
 	}
 	if err := qtx.DeleteProject(ctx, srcID); err != nil {
-		return 0, 0, fmt.Errorf("delete project %s: %w", srcID, err)
+		return 0, fmt.Errorf("delete project %s: %w", srcID, err)
 	}
-	return issues, plans, nil
+	return issues, nil
 }
 
 // dbProjectToType converts a database project row to a types.Project.

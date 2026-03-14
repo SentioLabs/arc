@@ -14,6 +14,7 @@ func TestPlanStatusConstants(t *testing.T) {
 		expected string
 	}{
 		{"draft", types.PlanStatusDraft, "draft"},
+		{"in_review", types.PlanStatusInReview, "in_review"},
 		{"approved", types.PlanStatusApproved, "approved"},
 		{"rejected", types.PlanStatusRejected, "rejected"},
 	}
@@ -26,41 +27,44 @@ func TestPlanStatusConstants(t *testing.T) {
 	}
 }
 
-func TestPlanHasStatusField(t *testing.T) {
+func TestPlanHasFilePathField(t *testing.T) {
 	p := types.Plan{
-		ID:        "plan.abc",
-		ProjectID: "proj-1",
-		Title:     "Test Plan",
-		Status:    types.PlanStatusDraft,
+		ID:       "plan.abc",
+		FilePath: "/tmp/plan.md",
+		Status:   types.PlanStatusDraft,
 	}
-	if p.Status != "draft" {
-		t.Errorf("expected status 'draft', got %q", p.Status)
+	if p.FilePath != "/tmp/plan.md" {
+		t.Errorf("expected file_path '/tmp/plan.md', got %q", p.FilePath)
 	}
 }
 
-func TestPlanHasIssueIDField(t *testing.T) {
-	p := types.Plan{
-		ID:        "plan.abc",
-		ProjectID: "proj-1",
-		Title:     "Test Plan",
-		IssueID:   "issue-123",
+func TestPlanCommentLineNumber(t *testing.T) {
+	line := 42
+	c := types.PlanComment{
+		ID:         "comment-1",
+		PlanID:     "plan.abc",
+		LineNumber: &line,
+		Content:    "Looks good",
 	}
-	if p.IssueID != "issue-123" {
-		t.Errorf("expected issue_id 'issue-123', got %q", p.IssueID)
+	if c.LineNumber == nil || *c.LineNumber != 42 {
+		t.Errorf("expected line_number 42, got %v", c.LineNumber)
 	}
 }
 
-func TestPlanNoLinkedIssuesField(t *testing.T) {
-	p := types.Plan{
-		ID:        "plan.abc",
-		ProjectID: "proj-1",
-		Title:     "Test Plan",
-		Content:   "content",
-		Status:    types.PlanStatusDraft,
-		IssueID:   "issue-1",
+func TestPlanWithContent(t *testing.T) {
+	pwc := types.PlanWithContent{
+		Plan: types.Plan{
+			ID:       "plan.abc",
+			FilePath: "/tmp/plan.md",
+			Status:   types.PlanStatusDraft,
+		},
+		Content: "# My Plan",
 	}
-	if err := p.Validate(); err != nil {
-		t.Errorf("expected valid plan, got error: %v", err)
+	if pwc.Content != "# My Plan" {
+		t.Errorf("expected content '# My Plan', got %q", pwc.Content)
+	}
+	if pwc.FilePath != "/tmp/plan.md" {
+		t.Errorf("expected embedded file_path '/tmp/plan.md', got %q", pwc.FilePath)
 	}
 }
 
@@ -75,9 +79,4 @@ func TestCommentTypePlanRemoved(t *testing.T) {
 	if ct.IsValid() {
 		t.Error("expected 'plan' comment type to no longer be valid")
 	}
-}
-
-func TestPlanContextRemoved(t *testing.T) {
-	d := types.IssueDetails{}
-	_ = d // IssueDetails should compile without PlanContext
 }

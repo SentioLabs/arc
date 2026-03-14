@@ -61,8 +61,8 @@ Examples:
 			return nil
 		}
 
-		fmt.Printf("Merged %d issues and %d plans into %s\n",
-			result.IssuesMoved, result.PlansMoved, result.TargetProject.Name)
+		fmt.Printf("Merged %d issues into %s\n",
+			result.IssuesMoved, result.TargetProject.Name)
 		if len(result.SourcesDeleted) > 0 {
 			fmt.Printf("Deleted source projects: %s\n", strings.Join(result.SourcesDeleted, ", "))
 		}
