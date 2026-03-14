@@ -3,11 +3,7 @@
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import type { Project } from '$lib/api';
-	import { api } from '$lib/api/client';
-	import type { components } from '$lib/api/types';
-
-	type Plan = components['schemas']['Plan'];
+	import { listProjectPlans, type Plan, type Project } from '$lib/api';
 
 	// Get project from context
 	const projects = getContext<Writable<Project[]>>('projects');
@@ -32,14 +28,7 @@
 		loading = true;
 		error = '';
 		try {
-			const { data, error: apiError } = await api.GET('/projects/{projectId}/plans', {
-				params: {
-					path: { projectId },
-					query: { status: (statusFilter || undefined) as 'draft' | 'approved' | 'rejected' | undefined }
-				}
-			});
-			if (apiError) throw apiError;
-			plans = data ?? [];
+			plans = await listProjectPlans(projectId, statusFilter || undefined);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load plans';
 		} finally {
