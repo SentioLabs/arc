@@ -175,6 +175,15 @@ func (s *Store) GetIssueByExternalRef(ctx context.Context, externalRef string) (
 	return dbIssueToType(row), nil
 }
 
+// allStatuses contains every valid status string for use as a default filter.
+var allStatuses = []string{"open", "in_progress", "blocked", "deferred", "closed"}
+
+// allIssueTypes contains every valid issue type string for use as a default filter.
+var allIssueTypes = []string{"bug", "feature", "task", "epic", "chore"}
+
+// allPriorities contains every valid priority value for use as a default filter.
+var allPriorities = []int64{0, 1, 2, 3, 4}
+
 // ListIssues returns issues matching the filter.
 // All filter fields are composed with AND semantics so multiple filters
 // (e.g. --parent + --status) work together via a single sqlc query.
@@ -190,43 +199,147 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 		return s.searchIssuesFTS(ctx, filter.ProjectID, filter.Query, limit, offset)
 	}
 
-	// Convert pointer filters to nil-able interface{} values for sqlc.narg params.
-	// nil means "skip this filter", non-nil means "apply this filter".
-	params := db.ListIssuesFilteredParams{
-		ProjectID: filter.ProjectID,
-		Limit:     int64(limit),
-		Offset:    int64(offset),
+	// Build status filter: prefer new slice field, fall back to deprecated pointer.
+	statuses := make([]string, len(filter.Statuses))
+	for i, s := range filter.Statuses {
+		statuses[i] = string(s)
 	}
-	if filter.Status != nil {
-		params.Status = string(*filter.Status)
+	if len(statuses) == 0 && filter.Status != nil {
+		statuses = []string{string(*filter.Status)}
 	}
-	if filter.IssueType != nil {
-		params.IssueType = string(*filter.IssueType)
-	}
-	if filter.Assignee != nil {
-		params.Assignee = *filter.Assignee
-	}
-	if filter.Priority != nil {
-		params.Priority = *filter.Priority
-	}
-	if filter.AISessionID != nil {
-		params.AiSessionID = *filter.AISessionID
-	}
-	if filter.ParentID != "" {
-		params.ParentID = filter.ParentID
+	if len(statuses) == 0 {
+		statuses = allStatuses
 	}
 
-	rows, err := s.queries.ListIssuesFiltered(ctx, params)
+	// Build issue type filter: prefer new slice field, fall back to deprecated pointer.
+	issueTypes := make([]string, len(filter.IssueTypes))
+	for i, t := range filter.IssueTypes {
+		issueTypes[i] = string(t)
+	}
+	if len(issueTypes) == 0 && filter.IssueType != nil {
+		issueTypes = []string{string(*filter.IssueType)}
+	}
+	if len(issueTypes) == 0 {
+		issueTypes = allIssueTypes
+	}
+
+	// Build priority filter: prefer new slice field, fall back to deprecated pointer.
+	priorities := make([]int64, len(filter.Priorities))
+	for i, p := range filter.Priorities {
+		priorities[i] = int64(p)
+	}
+	if len(priorities) == 0 && filter.Priority != nil {
+		priorities = []int64{int64(*filter.Priority)}
+	}
+	if len(priorities) == 0 {
+		priorities = allPriorities
+	}
+
+	// Build the query dynamically with IN clauses for multi-value filters.
+	args := []any{filter.ProjectID}
+	argIdx := 2
+
+	// Status IN clause
+	statusPlaceholders := buildPlaceholders(&argIdx, len(statuses))
+	for _, s := range statuses {
+		args = append(args, s)
+	}
+
+	// Issue type IN clause
+	typePlaceholders := buildPlaceholders(&argIdx, len(issueTypes))
+	for _, t := range issueTypes {
+		args = append(args, t)
+	}
+
+	// Priority IN clause
+	priorityPlaceholders := buildPlaceholders(&argIdx, len(priorities))
+	for _, p := range priorities {
+		args = append(args, p)
+	}
+
+	// Optional scalar filters
+	var assigneeClause, sessionClause, parentClause string
+
+	if filter.Assignee != nil {
+		assigneeClause = fmt.Sprintf("AND i.assignee = ?%d", argIdx)
+		args = append(args, *filter.Assignee)
+		argIdx++
+	}
+	if filter.AISessionID != nil {
+		sessionClause = fmt.Sprintf("AND i.ai_session_id = ?%d", argIdx)
+		args = append(args, *filter.AISessionID)
+		argIdx++
+	}
+
+	parentJoin := ""
+	if filter.ParentID != "" {
+		parentJoin = "JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'"
+		parentClause = fmt.Sprintf("AND d.depends_on_id = ?%d", argIdx)
+		args = append(args, filter.ParentID)
+		argIdx++
+	}
+
+	// Offset and limit
+	offsetPlaceholder := fmt.Sprintf("?%d", argIdx)
+	args = append(args, int64(offset))
+	argIdx++
+	limitPlaceholder := fmt.Sprintf("?%d", argIdx)
+	args = append(args, int64(limit))
+
+	query := fmt.Sprintf(`
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
+       i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank,
+       i.created_at, i.updated_at, i.closed_at, i.close_reason
+FROM issues i
+%s
+WHERE i.project_id = ?1
+  AND i.status IN (%s)
+  AND i.issue_type IN (%s)
+  AND i.priority IN (%s)
+  %s
+  %s
+  %s
+ORDER BY i.priority ASC, i.updated_at DESC
+LIMIT %s OFFSET %s
+`, parentJoin, statusPlaceholders, typePlaceholders, priorityPlaceholders,
+		assigneeClause, sessionClause, parentClause,
+		limitPlaceholder, offsetPlaceholder)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list issues: %w", err)
 	}
+	defer rows.Close()
 
-	issues := make([]*types.Issue, len(rows))
-	for i, row := range rows {
-		issues[i] = dbIssueToType(row)
+	var issues []*types.Issue
+	for rows.Next() {
+		var row db.Issue
+		if err := rows.Scan(
+			&row.ID, &row.ProjectID, &row.Title, &row.Description,
+			&row.Status, &row.Priority, &row.IssueType, &row.Assignee,
+			&row.AiSessionID, &row.ExternalRef, &row.Rank,
+			&row.CreatedAt, &row.UpdatedAt, &row.ClosedAt, &row.CloseReason,
+		); err != nil {
+			return nil, fmt.Errorf("scan issue: %w", err)
+		}
+		issues = append(issues, dbIssueToType(&row))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list issues rows: %w", err)
 	}
 
 	return issues, nil
+}
+
+// buildPlaceholders generates a comma-separated string of SQL placeholders
+// like "?2, ?3, ?4" and advances the argIdx accordingly.
+func buildPlaceholders(argIdx *int, count int) string {
+	placeholders := make([]string, count)
+	for i := range count {
+		placeholders[i] = fmt.Sprintf("?%d", *argIdx)
+		*argIdx++
+	}
+	return strings.Join(placeholders, ", ")
 }
 
 // UpdateIssue updates an issue with the given updates.

@@ -238,11 +238,10 @@ func TestListIssuesByParentAndStatusFilter(t *testing.T) {
 	}
 
 	// Filter by parent + status=open should only return child1
-	openStatus := types.StatusOpen
 	issues, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
 		ParentID:  parent.ID,
-		Status:    &openStatus,
+		Statuses:  []types.Status{types.StatusOpen},
 	})
 	if err != nil {
 		t.Fatalf("ListIssues with ParentID+Status failed: %v", err)
