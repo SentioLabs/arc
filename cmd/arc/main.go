@@ -799,10 +799,10 @@ var showCmd = &cobra.Command{
 		// Display plan if available
 		plan, planErr := c.GetPlanByIssue(wsID, details.ID)
 		if planErr == nil && plan != nil {
-			fmt.Println()
-			fmt.Printf("Plan [%s]:\n", plan.Status)
-			for line := range strings.SplitSeq(plan.Content, "\n") {
-				fmt.Printf("  %s\n", line)
+			info := formatPlanInfo(plan)
+			if info != "" {
+				fmt.Println()
+				fmt.Print(info)
 			}
 		}
 
@@ -1032,6 +1032,14 @@ var readyCmd = &cobra.Command{
 			fmt.Println(formatIssue(issue.ID, string(issue.Status), string(issue.IssueType),
 				issue.Priority, issue.Title, issue.Labels))
 		}
+
+		// Show pending plan count
+		if count, err := c.GetPendingPlanCount(wsID); err == nil {
+			if notice := formatPendingPlanNotice(count); notice != "" {
+				fmt.Println(notice)
+			}
+		}
+
 		return nil
 	},
 }
@@ -1249,6 +1257,30 @@ func formatBlockedIssue(id, issueType string, priority int, title string, labels
 
 	return fmt.Sprintf("%s %s [%s] [%s]%s - %s (blocked by %d)",
 		icon, id, priorityStr, issueType, labelStr, title, blockedByCount)
+}
+
+// formatPlanInfo returns a formatted string describing a plan.
+// Returns an empty string if the plan is nil.
+func formatPlanInfo(plan *types.Plan) string {
+	if plan == nil {
+		return ""
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Plan [%s]:\n", plan.Status)
+	fmt.Fprintf(&sb, "  %s\n", plan.Title)
+	if plan.Status == "draft" {
+		sb.WriteString("  (pending review)\n")
+	}
+	return sb.String()
+}
+
+// formatPendingPlanNotice returns a notice string for pending plan reviews.
+// Returns an empty string if count is zero.
+func formatPendingPlanNotice(count int) string {
+	if count == 0 {
+		return ""
+	}
+	return fmt.Sprintf("⚠ %d plan(s) pending review", count)
 }
 
 // colorPriority returns a color-coded priority string.
