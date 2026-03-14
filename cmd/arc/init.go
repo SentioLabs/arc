@@ -207,6 +207,7 @@ func addLandingThePlaneInstructions(verbose bool) error {
 	}
 	newContent += landingSection
 
+	//nolint:gosec // filename is a hardcoded constant ("AGENTS.md")
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}
@@ -289,6 +290,7 @@ func updateClaudeMdReference(verbose bool) error {
 		newContent += "\n" + reference
 	}
 
+	//nolint:gosec // filename is a hardcoded constant ("CLAUDE.md")
 	if err := os.WriteFile(filename, []byte(newContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to update %s: %w", filename, err)
 	}

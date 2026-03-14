@@ -315,7 +315,7 @@ func editInEditor(content string) (string, error) {
 	}
 
 	// Read result
-	result, err := os.ReadFile(tmpFile.Name()) //nolint:gosec // reading back our own temp file
+	result, err := os.ReadFile(tmpFile.Name())
 	if err != nil {
 		return "", err
 	}
