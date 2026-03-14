@@ -61,30 +61,21 @@ func setupTestIssue(t *testing.T, store *sqlite.Store, proj *types.Project, titl
 	return issue
 }
 
-func TestCreateOrUpdatePlan_Create(t *testing.T) {
+func TestCreatePlan(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue with plan")
 
 	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Test Plan",
-		Content:   "Plan content here",
-		Status:    types.PlanStatusDraft,
+		ID:       "plan.abc123",
+		FilePath: "/tmp/plans/my-plan.md",
+		Status:   types.PlanStatusDraft,
 	}
 
-	err := store.CreateOrUpdatePlan(ctx, plan)
+	err := store.CreatePlan(ctx, plan)
 	if err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-	}
-
-	// ID should be generated
-	if plan.ID == "" {
-		t.Error("expected plan ID to be generated")
+		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
 	// Timestamps should be set
@@ -95,223 +86,37 @@ func TestCreateOrUpdatePlan_Create(t *testing.T) {
 		t.Error("UpdatedAt should be set")
 	}
 
-	// Status should be returned
-	if plan.Status != types.PlanStatusDraft {
-		t.Errorf("Status = %q, want %q", plan.Status, types.PlanStatusDraft)
-	}
-
 	// Verify we can retrieve it
 	got, err := store.GetPlan(ctx, plan.ID)
 	if err != nil {
 		t.Fatalf("GetPlan failed: %v", err)
 	}
-	if got.Title != "Test Plan" {
-		t.Errorf("Title = %q, want %q", got.Title, "Test Plan")
-	}
-	if got.IssueID != issue.ID {
-		t.Errorf("IssueID = %q, want %q", got.IssueID, issue.ID)
-	}
-}
-
-func TestCreateOrUpdatePlan_Upsert(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue for upsert")
-
-	// Create initial plan
-	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Original Title",
-		Content:   "Original Content",
-		Status:    types.PlanStatusDraft,
-	}
-	if err := store.CreateOrUpdatePlan(ctx, plan); err != nil {
-		t.Fatalf("first CreateOrUpdatePlan failed: %v", err)
-	}
-	originalID := plan.ID
-
-	// Update plan for same issue
-	plan2 := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Updated Title",
-		Content:   "Updated Content",
-		Status:    types.PlanStatusDraft,
-	}
-	if err := store.CreateOrUpdatePlan(ctx, plan2); err != nil {
-		t.Fatalf("second CreateOrUpdatePlan failed: %v", err)
-	}
-
-	// Should keep the same ID (upsert on issue_id)
-	if plan2.ID != originalID {
-		t.Errorf("upsert should keep original ID %q, got %q", originalID, plan2.ID)
-	}
-
-	// Verify content was updated
-	got, err := store.GetPlan(ctx, originalID)
-	if err != nil {
-		t.Fatalf("GetPlan failed: %v", err)
-	}
-	if got.Title != "Updated Title" {
-		t.Errorf("Title = %q, want %q", got.Title, "Updated Title")
-	}
-	if got.Content != "Updated Content" {
-		t.Errorf("Content = %q, want %q", got.Content, "Updated Content")
-	}
-
-	// Verify no duplicates
-	plans, err := store.ListPlans(ctx, proj.ID, "")
-	if err != nil {
-		t.Fatalf("ListPlans failed: %v", err)
-	}
-	if len(plans) != 1 {
-		t.Errorf("expected 1 plan after upsert, got %d", len(plans))
-	}
-}
-
-func TestGetPlanByIssueID(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue with plan")
-
-	// No plan yet — should return an error
-	got, err := store.GetPlanByIssueID(ctx, issue.ID)
-	if err == nil {
-		t.Fatal("GetPlanByIssueID should return error for missing plan")
-	}
-	if got != nil {
-		t.Error("GetPlanByIssueID should return nil plan when not found")
-	}
-
-	// Create a plan
-	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Test Plan",
-		Content:   "Content",
-		Status:    types.PlanStatusDraft,
-	}
-	if err := store.CreateOrUpdatePlan(ctx, plan); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-	}
-
-	// Now should find it
-	got, err = store.GetPlanByIssueID(ctx, issue.ID)
-	if err != nil {
-		t.Fatalf("GetPlanByIssueID failed: %v", err)
-	}
-	if got == nil {
-		t.Fatal("GetPlanByIssueID returned nil after creating plan")
-	}
-	if got.Title != "Test Plan" {
-		t.Errorf("Title = %q, want %q", got.Title, "Test Plan")
-	}
-	if got.IssueID != issue.ID {
-		t.Errorf("IssueID = %q, want %q", got.IssueID, issue.ID)
-	}
-}
-
-func TestGetPlan(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue for GetPlan")
-
-	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Get Plan Test",
-		Content:   "Content for get",
-		Status:    types.PlanStatusDraft,
-	}
-	if err := store.CreateOrUpdatePlan(ctx, plan); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-	}
-
-	got, err := store.GetPlan(ctx, plan.ID)
-	if err != nil {
-		t.Fatalf("GetPlan failed: %v", err)
-	}
-
 	if got.ID != plan.ID {
 		t.Errorf("ID = %q, want %q", got.ID, plan.ID)
 	}
-	if got.ProjectID != proj.ID {
-		t.Errorf("ProjectID = %q, want %q", got.ProjectID, proj.ID)
-	}
-	if got.Title != "Get Plan Test" {
-		t.Errorf("Title = %q, want %q", got.Title, "Get Plan Test")
-	}
-	if got.Content != "Content for get" {
-		t.Errorf("Content = %q, want %q", got.Content, "Content for get")
+	if got.FilePath != "/tmp/plans/my-plan.md" {
+		t.Errorf("FilePath = %q, want %q", got.FilePath, "/tmp/plans/my-plan.md")
 	}
 	if got.Status != types.PlanStatusDraft {
 		t.Errorf("Status = %q, want %q", got.Status, types.PlanStatusDraft)
 	}
-
-	// Not found case
-	_, err = store.GetPlan(ctx, "plan.nonexistent")
-	if err == nil {
-		t.Error("GetPlan should return error for nonexistent plan")
+	if got.CreatedAt.IsZero() {
+		t.Error("CreatedAt should be set on retrieved plan")
+	}
+	if got.UpdatedAt.IsZero() {
+		t.Error("UpdatedAt should be set on retrieved plan")
 	}
 }
 
-func TestListPlans(t *testing.T) {
+func TestGetPlan_NotFound(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
-	proj := setupTestProject(t, store)
 
-	issue1 := setupTestIssue(t, store, proj, "Issue 1")
-	issue2 := setupTestIssue(t, store, proj, "Issue 2")
-	issue3 := setupTestIssue(t, store, proj, "Issue 3")
-
-	// Create plans with different statuses
-	plans := []*types.Plan{
-		{ProjectID: proj.ID, IssueID: issue1.ID, Title: "Plan 1", Content: "C1", Status: types.PlanStatusDraft},
-		{ProjectID: proj.ID, IssueID: issue2.ID, Title: "Plan 2", Content: "C2", Status: types.PlanStatusApproved},
-		{ProjectID: proj.ID, IssueID: issue3.ID, Title: "Plan 3", Content: "C3", Status: types.PlanStatusDraft},
-	}
-	for _, p := range plans {
-		if err := store.CreateOrUpdatePlan(ctx, p); err != nil {
-			t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-		}
-	}
-
-	// List all plans (no status filter)
-	all, err := store.ListPlans(ctx, proj.ID, "")
-	if err != nil {
-		t.Fatalf("ListPlans failed: %v", err)
-	}
-	if len(all) != 3 {
-		t.Errorf("ListPlans (no filter) returned %d plans, want 3", len(all))
-	}
-
-	// List with status filter
-	drafts, err := store.ListPlans(ctx, proj.ID, types.PlanStatusDraft)
-	if err != nil {
-		t.Fatalf("ListPlans (draft) failed: %v", err)
-	}
-	if len(drafts) != 2 {
-		t.Errorf("ListPlans (draft) returned %d plans, want 2", len(drafts))
-	}
-
-	approved, err := store.ListPlans(ctx, proj.ID, types.PlanStatusApproved)
-	if err != nil {
-		t.Fatalf("ListPlans (approved) failed: %v", err)
-	}
-	if len(approved) != 1 {
-		t.Errorf("ListPlans (approved) returned %d plans, want 1", len(approved))
+	_, err := store.GetPlan(ctx, "plan.nonexistent")
+	if err == nil {
+		t.Error("GetPlan should return error for nonexistent plan")
 	}
 }
 
@@ -320,75 +125,43 @@ func TestUpdatePlanStatus(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue for status update")
 
 	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Status Plan",
-		Content:   "Content",
-		Status:    types.PlanStatusDraft,
+		ID:       "plan.status1",
+		FilePath: "/tmp/plans/status-test.md",
+		Status:   types.PlanStatusDraft,
 	}
-	if err := store.CreateOrUpdatePlan(ctx, plan); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
-	// Update status
-	if err := store.UpdatePlanStatus(ctx, plan.ID, types.PlanStatusApproved); err != nil {
-		t.Fatalf("UpdatePlanStatus failed: %v", err)
+	// Update to in_review
+	if err := store.UpdatePlanStatus(ctx, plan.ID, types.PlanStatusInReview); err != nil {
+		t.Fatalf("UpdatePlanStatus to in_review failed: %v", err)
 	}
 
-	// Verify
 	got, err := store.GetPlan(ctx, plan.ID)
 	if err != nil {
-		t.Fatalf("GetPlan failed: %v", err)
+		t.Fatalf("GetPlan after in_review failed: %v", err)
 	}
-	if got.Status != types.PlanStatusApproved {
-		t.Errorf("Status = %q, want %q", got.Status, types.PlanStatusApproved)
+	if got.Status != types.PlanStatusInReview {
+		t.Errorf("Status = %q, want %q", got.Status, types.PlanStatusInReview)
 	}
 	if !got.UpdatedAt.After(got.CreatedAt) {
 		t.Error("UpdatedAt should be after CreatedAt after status update")
 	}
-}
 
-func TestUpdatePlanContent(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue for content update")
-
-	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Original Title",
-		Content:   "Original Content",
-		Status:    types.PlanStatusDraft,
-	}
-	if err := store.CreateOrUpdatePlan(ctx, plan); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
+	// Update to approved
+	if err := store.UpdatePlanStatus(ctx, plan.ID, types.PlanStatusApproved); err != nil {
+		t.Fatalf("UpdatePlanStatus to approved failed: %v", err)
 	}
 
-	// Update content
-	if err := store.UpdatePlanContent(ctx, plan.ID, "New Title", "New Content"); err != nil {
-		t.Fatalf("UpdatePlanContent failed: %v", err)
-	}
-
-	// Verify
-	got, err := store.GetPlan(ctx, plan.ID)
+	got, err = store.GetPlan(ctx, plan.ID)
 	if err != nil {
-		t.Fatalf("GetPlan failed: %v", err)
+		t.Fatalf("GetPlan after approved failed: %v", err)
 	}
-	if got.Title != "New Title" {
-		t.Errorf("Title = %q, want %q", got.Title, "New Title")
-	}
-	if got.Content != "New Content" {
-		t.Errorf("Content = %q, want %q", got.Content, "New Content")
-	}
-	if !got.UpdatedAt.After(got.CreatedAt) {
-		t.Error("UpdatedAt should be after CreatedAt after content update")
+	if got.Status != types.PlanStatusApproved {
+		t.Errorf("Status = %q, want %q", got.Status, types.PlanStatusApproved)
 	}
 }
 
@@ -397,18 +170,14 @@ func TestDeletePlan(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue for delete")
 
 	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "To Delete",
-		Content:   "Will be deleted",
-		Status:    types.PlanStatusDraft,
+		ID:       "plan.todelete",
+		FilePath: "/tmp/plans/delete-me.md",
+		Status:   types.PlanStatusDraft,
 	}
-	if err := store.CreateOrUpdatePlan(ctx, plan); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
 	// Delete
@@ -423,166 +192,158 @@ func TestDeletePlan(t *testing.T) {
 	}
 }
 
-func TestCountPlansByStatus(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	proj := setupTestProject(t, store)
-
-	issue1 := setupTestIssue(t, store, proj, "Count Issue 1")
-	issue2 := setupTestIssue(t, store, proj, "Count Issue 2")
-	issue3 := setupTestIssue(t, store, proj, "Count Issue 3")
-
-	plans := []*types.Plan{
-		{ProjectID: proj.ID, IssueID: issue1.ID, Title: "Plan 1", Content: "C1", Status: types.PlanStatusDraft},
-		{ProjectID: proj.ID, IssueID: issue2.ID, Title: "Plan 2", Content: "C2", Status: types.PlanStatusDraft},
-		{ProjectID: proj.ID, IssueID: issue3.ID, Title: "Plan 3", Content: "C3", Status: types.PlanStatusApproved},
-	}
-	for _, p := range plans {
-		if err := store.CreateOrUpdatePlan(ctx, p); err != nil {
-			t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-		}
-	}
-
-	draftCount, err := store.CountPlansByStatus(ctx, proj.ID, types.PlanStatusDraft)
-	if err != nil {
-		t.Fatalf("CountPlansByStatus (draft) failed: %v", err)
-	}
-	if draftCount != 2 {
-		t.Errorf("draft count = %d, want 2", draftCount)
-	}
-
-	approvedCount, err := store.CountPlansByStatus(ctx, proj.ID, types.PlanStatusApproved)
-	if err != nil {
-		t.Fatalf("CountPlansByStatus (approved) failed: %v", err)
-	}
-	if approvedCount != 1 {
-		t.Errorf("approved count = %d, want 1", approvedCount)
-	}
-
-	rejectedCount, err := store.CountPlansByStatus(ctx, proj.ID, types.PlanStatusRejected)
-	if err != nil {
-		t.Fatalf("CountPlansByStatus (rejected) failed: %v", err)
-	}
-	if rejectedCount != 0 {
-		t.Errorf("rejected count = %d, want 0", rejectedCount)
-	}
-}
-
-func TestListAllPlans(t *testing.T) {
+func TestCreatePlanComment(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
 
 	ctx := context.Background()
 
-	// Create two projects
-	proj1 := &types.Project{Name: "Project 1", Prefix: "p1"}
-	if err := store.CreateProject(ctx, proj1); err != nil {
-		t.Fatalf("failed to create project 1: %v", err)
-	}
-	proj2 := &types.Project{Name: "Project 2", Prefix: "p2"}
-	if err := store.CreateProject(ctx, proj2); err != nil {
-		t.Fatalf("failed to create project 2: %v", err)
-	}
-
-	// Create issues in each project
-	issue1 := setupTestIssue(t, store, proj1, "Issue in P1")
-	issue2 := setupTestIssue(t, store, proj2, "Issue in P2")
-	issue3 := setupTestIssue(t, store, proj1, "Another issue in P1")
-
-	// Create plans across projects
-	plans := []*types.Plan{
-		{ProjectID: proj1.ID, IssueID: issue1.ID, Title: "Plan P1-1", Content: "C1", Status: types.PlanStatusDraft},
-		{ProjectID: proj2.ID, IssueID: issue2.ID, Title: "Plan P2-1", Content: "C2", Status: types.PlanStatusApproved},
-		{ProjectID: proj1.ID, IssueID: issue3.ID, Title: "Plan P1-2", Content: "C3", Status: types.PlanStatusDraft},
-	}
-	for _, p := range plans {
-		if err := store.CreateOrUpdatePlan(ctx, p); err != nil {
-			t.Fatalf("CreateOrUpdatePlan failed: %v", err)
-		}
-	}
-
-	// ListAllPlans should return all plans across projects
-	all, err := store.ListAllPlans(ctx, "")
-	if err != nil {
-		t.Fatalf("ListAllPlans failed: %v", err)
-	}
-	if len(all) != 3 {
-		t.Errorf("ListAllPlans (no filter) returned %d plans, want 3", len(all))
-	}
-
-	// Filter by status
-	drafts, err := store.ListAllPlans(ctx, types.PlanStatusDraft)
-	if err != nil {
-		t.Fatalf("ListAllPlans (draft) failed: %v", err)
-	}
-	if len(drafts) != 2 {
-		t.Errorf("ListAllPlans (draft) returned %d plans, want 2", len(drafts))
-	}
-
-	approved, err := store.ListAllPlans(ctx, types.PlanStatusApproved)
-	if err != nil {
-		t.Fatalf("ListAllPlans (approved) failed: %v", err)
-	}
-	if len(approved) != 1 {
-		t.Errorf("ListAllPlans (approved) returned %d plans, want 1", len(approved))
-	}
-}
-
-func TestUpdatePlanIssueID(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	ctx := context.Background()
-	proj := setupTestProject(t, store)
-	issue := setupTestIssue(t, store, proj, "Issue for linking")
-
-	// Create a plan with an issue_id
 	plan := &types.Plan{
-		ProjectID: proj.ID,
-		IssueID:   issue.ID,
-		Title:     "Linkable Plan",
-		Content:   "Content",
-		Status:    types.PlanStatusDraft,
+		ID:       "plan.comments1",
+		FilePath: "/tmp/plans/commented.md",
+		Status:   types.PlanStatusDraft,
 	}
-	if err := store.CreateOrUpdatePlan(ctx, plan); err != nil {
-		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
-	// Verify initial issue_id
-	got, err := store.GetPlan(ctx, plan.ID)
+	// Add a line-level comment (line_number=42)
+	line42 := 42
+	comment1 := &types.PlanComment{
+		ID:         "pc.line42",
+		PlanID:     plan.ID,
+		LineNumber: &line42,
+		Content:    "This line needs rework",
+	}
+	if err := store.CreatePlanComment(ctx, comment1); err != nil {
+		t.Fatalf("CreatePlanComment (line-level) failed: %v", err)
+	}
+	if comment1.CreatedAt.IsZero() {
+		t.Error("CreatedAt should be set on line-level comment")
+	}
+
+	// Add an overall comment (nil line_number)
+	comment2 := &types.PlanComment{
+		ID:      "pc.overall",
+		PlanID:  plan.ID,
+		Content: "Overall looks good",
+	}
+	if err := store.CreatePlanComment(ctx, comment2); err != nil {
+		t.Fatalf("CreatePlanComment (overall) failed: %v", err)
+	}
+
+	// List comments
+	comments, err := store.ListPlanComments(ctx, plan.ID)
 	if err != nil {
-		t.Fatalf("GetPlan failed: %v", err)
+		t.Fatalf("ListPlanComments failed: %v", err)
 	}
-	if got.IssueID != issue.ID {
-		t.Errorf("IssueID = %q, want %q", got.IssueID, issue.ID)
-	}
-
-	// Create another issue and link the plan to it
-	issue2 := setupTestIssue(t, store, proj, "Second issue")
-	if err := store.UpdatePlanIssueID(ctx, plan.ID, issue2.ID); err != nil {
-		t.Fatalf("UpdatePlanIssueID failed: %v", err)
+	if len(comments) != 2 {
+		t.Fatalf("expected 2 comments, got %d", len(comments))
 	}
 
-	got, err = store.GetPlan(ctx, plan.ID)
+	// Verify first comment (line-level)
+	if comments[0].ID != "pc.line42" {
+		t.Errorf("first comment ID = %q, want %q", comments[0].ID, "pc.line42")
+	}
+	if comments[0].LineNumber == nil || *comments[0].LineNumber != 42 {
+		t.Errorf("first comment LineNumber = %v, want 42", comments[0].LineNumber)
+	}
+	if comments[0].Content != "This line needs rework" {
+		t.Errorf("first comment Content = %q, want %q", comments[0].Content, "This line needs rework")
+	}
+
+	// Verify second comment (overall, nil line_number)
+	if comments[1].ID != "pc.overall" {
+		t.Errorf("second comment ID = %q, want %q", comments[1].ID, "pc.overall")
+	}
+	if comments[1].LineNumber != nil {
+		t.Errorf("second comment LineNumber = %v, want nil", comments[1].LineNumber)
+	}
+	if comments[1].Content != "Overall looks good" {
+		t.Errorf("second comment Content = %q, want %q", comments[1].Content, "Overall looks good")
+	}
+}
+
+func TestListPlanComments_Empty(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	plan := &types.Plan{
+		ID:       "plan.nocomments",
+		FilePath: "/tmp/plans/empty-comments.md",
+		Status:   types.PlanStatusDraft,
+	}
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
+	}
+
+	comments, err := store.ListPlanComments(ctx, plan.ID)
 	if err != nil {
-		t.Fatalf("GetPlan failed: %v", err)
+		t.Fatalf("ListPlanComments failed: %v", err)
 	}
-	if got.IssueID != issue2.ID {
-		t.Errorf("IssueID = %q, want %q", got.IssueID, issue2.ID)
+	if len(comments) != 0 {
+		t.Errorf("expected 0 comments, got %d", len(comments))
+	}
+}
+
+func TestDeletePlan_CascadesComments(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	plan := &types.Plan{
+		ID:       "plan.cascade1",
+		FilePath: "/tmp/plans/cascade-test.md",
+		Status:   types.PlanStatusDraft,
+	}
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
 	}
 
-	// Unlink (empty string)
-	if err := store.UpdatePlanIssueID(ctx, plan.ID, ""); err != nil {
-		t.Fatalf("UpdatePlanIssueID (unlink) failed: %v", err)
+	// Add comments
+	line10 := 10
+	comment1 := &types.PlanComment{
+		ID:         "pc.cascade1",
+		PlanID:     plan.ID,
+		LineNumber: &line10,
+		Content:    "Comment 1",
+	}
+	if err := store.CreatePlanComment(ctx, comment1); err != nil {
+		t.Fatalf("CreatePlanComment 1 failed: %v", err)
 	}
 
-	got, err = store.GetPlan(ctx, plan.ID)
+	comment2 := &types.PlanComment{
+		ID:      "pc.cascade2",
+		PlanID:  plan.ID,
+		Content: "Comment 2",
+	}
+	if err := store.CreatePlanComment(ctx, comment2); err != nil {
+		t.Fatalf("CreatePlanComment 2 failed: %v", err)
+	}
+
+	// Verify comments exist
+	comments, err := store.ListPlanComments(ctx, plan.ID)
 	if err != nil {
-		t.Fatalf("GetPlan failed: %v", err)
+		t.Fatalf("ListPlanComments before delete failed: %v", err)
 	}
-	if got.IssueID != "" {
-		t.Errorf("IssueID = %q, want empty string after unlink", got.IssueID)
+	if len(comments) != 2 {
+		t.Fatalf("expected 2 comments before delete, got %d", len(comments))
+	}
+
+	// Delete plan
+	if err := store.DeletePlan(ctx, plan.ID); err != nil {
+		t.Fatalf("DeletePlan failed: %v", err)
+	}
+
+	// Verify comments are gone (cascade)
+	comments, err = store.ListPlanComments(ctx, plan.ID)
+	if err != nil {
+		t.Fatalf("ListPlanComments after delete failed: %v", err)
+	}
+	if len(comments) != 0 {
+		t.Errorf("expected 0 comments after plan deletion (cascade), got %d", len(comments))
 	}
 }
