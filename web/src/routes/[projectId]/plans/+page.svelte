@@ -118,7 +118,7 @@
 			<div class="space-y-3">
 				{#each plans as plan (plan.id)}
 					<a
-						href="/plans/{plan.id}"
+						href={plan.status === 'draft' ? `/${projectId}/plans/${plan.id}` : `/plans/${plan.id}`}
 						class="card p-4 flex items-center gap-4 hover:bg-surface-700 transition-colors cursor-pointer block"
 					>
 						<div class="flex-1 min-w-0">
