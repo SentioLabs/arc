@@ -235,11 +235,7 @@ func (m *mockWPStore) UpdateComment(_ context.Context, _ int64, _ string) error 
 	panic("not implemented")
 }
 func (m *mockWPStore) DeleteComment(_ context.Context, _ int64) error { panic("not implemented") }
-func (m *mockWPStore) CreateOrUpdatePlan(_ context.Context, _ *types.Plan) error {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) GetPlanByIssueID(_ context.Context, _ string) (*types.Plan, error) {
+func (m *mockWPStore) CreatePlan(_ context.Context, _ *types.Plan) error {
 	panic("not implemented")
 }
 
@@ -247,29 +243,17 @@ func (m *mockWPStore) GetPlan(_ context.Context, _ string) (*types.Plan, error) 
 	panic("not implemented")
 }
 
-func (m *mockWPStore) ListPlans(_ context.Context, _, _ string) ([]*types.Plan, error) {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) ListAllPlans(_ context.Context, _ string) ([]*types.Plan, error) {
-	panic("not implemented")
-}
-
 func (m *mockWPStore) UpdatePlanStatus(_ context.Context, _, _ string) error {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) UpdatePlanContent(_ context.Context, _, _, _ string) error {
-	panic("not implemented")
-}
-
-func (m *mockWPStore) UpdatePlanIssueID(_ context.Context, _, _ string) error {
 	panic("not implemented")
 }
 
 func (m *mockWPStore) DeletePlan(_ context.Context, _ string) error { panic("not implemented") }
 
-func (m *mockWPStore) CountPlansByStatus(_ context.Context, _, _ string) (int, error) {
+func (m *mockWPStore) CreatePlanComment(_ context.Context, _ *types.PlanComment) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) ListPlanComments(_ context.Context, _ string) ([]*types.PlanComment, error) {
 	panic("not implemented")
 }
 

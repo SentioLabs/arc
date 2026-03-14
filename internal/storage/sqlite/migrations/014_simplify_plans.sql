@@ -1,3 +1,4 @@
+-- +goose Up
 -- Migration 014: Simplify plans to ephemeral review artifacts
 -- Drop the current plans infrastructure (from migrations 004 + 013)
 DROP INDEX IF EXISTS idx_plans_project;

@@ -272,23 +272,21 @@ func TestFTSPlanSearchNotIndexed(t *testing.T) {
 	ctx := context.Background()
 	ws := setupTestProject(t, store)
 
-	issue := setupTestIssue(t, store, ws, "Issue with plan")
+	setupTestIssue(t, store, ws, "Issue with plan")
 
-	// Create a plan with unique text
+	// Create a plan (ephemeral, file-based — no content stored in DB)
 	plan := &types.Plan{
-		ProjectID: ws.ID,
-		IssueID:   issue.ID,
-		Title:     "Zigzag Plan",
-		Content:   "Implement the zigzag algorithm for sorting",
-		Status:    types.PlanStatusDraft,
+		ID:       "plan.zigzag1",
+		FilePath: "/tmp/plans/zigzag-plan.md",
+		Status:   types.PlanStatusDraft,
 	}
-	err := store.CreateOrUpdatePlan(ctx, plan)
+	err := store.CreatePlan(ctx, plan)
 	if err != nil {
 		t.Fatalf("failed to create plan: %v", err)
 	}
 
-	// FTS only indexes title and description (simplified in migration 010).
-	// Plan text is not indexed, so searching for plan-only text returns no results.
+	// FTS only indexes issue title and description.
+	// Plan metadata is not indexed, so searching for plan-related text returns no results.
 	results, err := store.ListIssues(ctx, types.IssueFilter{
 		ProjectID: ws.ID,
 		Query:     "zigzag",
