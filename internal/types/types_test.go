@@ -6,85 +6,8 @@ import (
 	"time"
 )
 
-func TestPlanValidate(t *testing.T) {
-	tests := []struct {
-		name    string
-		plan    Plan
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid plan",
-			plan: Plan{
-				ID:        "plan.abc123",
-				ProjectID: "proj-test",
-				Title:     "Test Plan",
-				Content:   "Plan content here",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing title",
-			plan: Plan{
-				ID:        "plan.abc123",
-				ProjectID: "proj-test",
-				Title:     "",
-				Content:   "Plan content",
-			},
-			wantErr: true,
-			errMsg:  "plan title is required",
-		},
-		{
-			name: "title too long",
-			plan: Plan{
-				ID:        "plan.abc123",
-				ProjectID: "proj-test",
-				Title:     string(make([]byte, 201)), // 201 chars
-				Content:   "Content",
-			},
-			wantErr: true,
-			errMsg:  "plan title must be 200 characters or less",
-		},
-		{
-			name: "missing project_id",
-			plan: Plan{
-				ID:        "plan.abc123",
-				ProjectID: "",
-				Title:     "Test Plan",
-				Content:   "Content",
-			},
-			wantErr: true,
-			errMsg:  "project_id is required",
-		},
-		{
-			name: "empty content is valid",
-			plan: Plan{
-				ID:        "plan.abc123",
-				ProjectID: "proj-test",
-				Title:     "Test Plan",
-				Content:   "",
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.plan.Validate()
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("Plan.Validate() expected error, got nil")
-				} else if tt.errMsg != "" && err.Error() != tt.errMsg {
-					t.Errorf("Plan.Validate() error = %q, want %q", err.Error(), tt.errMsg)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Plan.Validate() unexpected error: %v", err)
-				}
-			}
-		})
-	}
-}
+// TestPlanValidate removed — Plan no longer has Validate() method.
+// New plan types are tested in plan_test.go.
 
 func TestCommentTypeIsValid(t *testing.T) {
 	tests := []struct {
@@ -722,7 +645,6 @@ func TestMergeResultTargetProject(t *testing.T) {
 	result := MergeResult{
 		TargetProject:  &Project{ID: "proj-1", Name: "Test"},
 		IssuesMoved:    5,
-		PlansMoved:     2,
 		SourcesDeleted: []string{"proj-2"},
 	}
 
