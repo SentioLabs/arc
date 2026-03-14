@@ -10,9 +10,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -38,6 +35,7 @@ func init() {
 	planCmd.AddCommand(planShowCmd)
 	planCmd.AddCommand(planApproveCmd)
 	planCmd.AddCommand(planRejectCmd)
+	planCmd.AddCommand(planCommentsCmd)
 }
 
 // planCreateCmd registers a new plan from a file path.
@@ -145,50 +143,40 @@ var planRejectCmd = &cobra.Command{
 	},
 }
 
-// ============ Editor Helper ============
+// planCommentsCmd lists review comments for a plan in a structured format.
+var planCommentsCmd = &cobra.Command{
+	Use:   "comments <plan-id>",
+	Short: "List review comments for a plan",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
 
-// editInEditor opens the user's $EDITOR with the given content and returns the edited result.
-// It creates a temporary file, writes the initial content, launches the editor, and reads
-// back the result. Falls back to $VISUAL and then "vi" if $EDITOR is not set.
-func editInEditor(content string) (string, error) {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = os.Getenv("VISUAL")
-	}
-	if editor == "" {
-		editor = "vi"
-	}
+		comments, err := c.ListPlanComments(args[0])
+		if err != nil {
+			return err
+		}
 
-	// Create temp file
-	tmpFile, err := os.CreateTemp("", "arc-plan-*.md")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(tmpFile.Name())
+		if outputJSON {
+			outputResult(comments)
+			return nil
+		}
 
-	// Write initial content
-	if _, err := tmpFile.WriteString(content); err != nil {
-		_ = tmpFile.Close()
-		return "", err
-	}
-	_ = tmpFile.Close()
+		if len(comments) == 0 {
+			fmt.Println("No comments")
+			return nil
+		}
 
-	// Open editor
-	//nolint:gosec // editor is from user's $EDITOR/$VISUAL env; this is intentional
-	execCmd := exec.Command(editor, tmpFile.Name())
-	execCmd.Stdin = os.Stdin
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-	if err := execCmd.Run(); err != nil {
-		return "", err
-	}
-
-	// Read result
-	result, err := os.ReadFile(tmpFile.Name())
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(string(result)), nil
+		for _, comment := range comments {
+			if comment.LineNumber != nil {
+				fmt.Printf("[L%d] %s\n", *comment.LineNumber, comment.Content)
+			} else {
+				fmt.Printf("[overall] %s\n", comment.Content)
+			}
+		}
+		return nil
+	},
 }
 
