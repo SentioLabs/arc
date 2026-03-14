@@ -37,6 +37,7 @@
 		{ label: 'Issues', href: 'issues', icon: 'issues' },
 		{ label: 'Ready', href: 'ready', icon: 'ready' },
 		{ label: 'Blocked', href: 'blocked', icon: 'blocked' },
+		{ label: 'Plans', href: 'plans', icon: 'plans' },
 		{ label: 'Teams', href: 'teams', icon: 'teams' }
 	];
 
@@ -50,6 +51,7 @@
 			'M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z',
 		teams:
 			'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
+		plans: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2z',
 		ai: 'M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z',
 		project:
 			'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z'
@@ -185,6 +187,12 @@
 					</svg>
 					AI Sessions
 				</a>
+				<a href="/plans" class="nav-link {$page.url.pathname.startsWith('/plans') ? 'active' : ''}">
+					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+						<path d={icons.plans} />
+					</svg>
+					Plans
+				</a>
 			</div>
 
 			<!-- Create Issue button -->
@@ -265,6 +273,12 @@
 						<path d={icons.ai} />
 					</svg>
 					AI Sessions
+				</a>
+				<a href="/plans" class="nav-link {$page.url.pathname.startsWith('/plans') ? 'active' : ''}">
+					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+						<path d={icons.plans} />
+					</svg>
+					Plans
 				</a>
 			</div>
 		</nav>
