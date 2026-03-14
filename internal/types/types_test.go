@@ -739,3 +739,112 @@ func TestStatisticsProjectID(t *testing.T) {
 		t.Errorf("Statistics.ProjectID = %q, want %q", stats.ProjectID, "proj-test")
 	}
 }
+
+func TestAISessionStruct(t *testing.T) {
+	now := time.Now()
+	session := AISession{
+		ID:             "session-abc123",
+		TranscriptPath: "/home/user/.claude/projects/test/transcript.jsonl",
+		CWD:            "/home/user/project",
+		StartedAt:      now,
+	}
+
+	if session.ID != "session-abc123" {
+		t.Errorf("AISession.ID = %q, want %q", session.ID, "session-abc123")
+	}
+	if session.TranscriptPath != "/home/user/.claude/projects/test/transcript.jsonl" {
+		t.Errorf("AISession.TranscriptPath = %q, want expected path", session.TranscriptPath)
+	}
+	if session.CWD != "/home/user/project" {
+		t.Errorf("AISession.CWD = %q, want %q", session.CWD, "/home/user/project")
+	}
+	if !session.StartedAt.Equal(now) {
+		t.Errorf("AISession.StartedAt = %v, want %v", session.StartedAt, now)
+	}
+}
+
+func TestAISessionOptionalCWD(t *testing.T) {
+	session := AISession{
+		ID:             "session-abc123",
+		TranscriptPath: "/path/to/transcript.jsonl",
+		StartedAt:      time.Now(),
+	}
+
+	if session.CWD != "" {
+		t.Errorf("AISession.CWD should be empty by default, got %q", session.CWD)
+	}
+}
+
+func TestAIAgentStruct(t *testing.T) {
+	now := time.Now()
+	durationMs := 5000
+	totalTokens := 1500
+	toolUseCount := 10
+
+	agent := AIAgent{
+		ID:           "agent-xyz789",
+		SessionID:    "session-abc123",
+		Description:  "Implementing feature X",
+		Prompt:       "Build the thing",
+		AgentType:    "task",
+		Model:        "claude-sonnet-4-20250514",
+		Status:       "completed",
+		DurationMs:   &durationMs,
+		TotalTokens:  &totalTokens,
+		ToolUseCount: &toolUseCount,
+		CreatedAt:    now,
+	}
+
+	if agent.ID != "agent-xyz789" {
+		t.Errorf("AIAgent.ID = %q, want %q", agent.ID, "agent-xyz789")
+	}
+	if agent.SessionID != "session-abc123" {
+		t.Errorf("AIAgent.SessionID = %q, want %q", agent.SessionID, "session-abc123")
+	}
+	if agent.Description != "Implementing feature X" {
+		t.Errorf("AIAgent.Description = %q, want expected value", agent.Description)
+	}
+	if agent.Status != "completed" {
+		t.Errorf("AIAgent.Status = %q, want %q", agent.Status, "completed")
+	}
+	if *agent.DurationMs != 5000 {
+		t.Errorf("AIAgent.DurationMs = %d, want 5000", *agent.DurationMs)
+	}
+	if *agent.TotalTokens != 1500 {
+		t.Errorf("AIAgent.TotalTokens = %d, want 1500", *agent.TotalTokens)
+	}
+	if *agent.ToolUseCount != 10 {
+		t.Errorf("AIAgent.ToolUseCount = %d, want 10", *agent.ToolUseCount)
+	}
+}
+
+func TestAIAgentOptionalFields(t *testing.T) {
+	agent := AIAgent{
+		ID:        "agent-xyz789",
+		SessionID: "session-abc123",
+		Status:    "running",
+		CreatedAt: time.Now(),
+	}
+
+	if agent.Description != "" {
+		t.Errorf("AIAgent.Description should be empty by default, got %q", agent.Description)
+	}
+	if agent.Prompt != "" {
+		t.Errorf("AIAgent.Prompt should be empty by default, got %q", agent.Prompt)
+	}
+	if agent.AgentType != "" {
+		t.Errorf("AIAgent.AgentType should be empty by default, got %q", agent.AgentType)
+	}
+	if agent.Model != "" {
+		t.Errorf("AIAgent.Model should be empty by default, got %q", agent.Model)
+	}
+	if agent.DurationMs != nil {
+		t.Errorf("AIAgent.DurationMs should be nil by default, got %v", agent.DurationMs)
+	}
+	if agent.TotalTokens != nil {
+		t.Errorf("AIAgent.TotalTokens should be nil by default, got %v", agent.TotalTokens)
+	}
+	if agent.ToolUseCount != nil {
+		t.Errorf("AIAgent.ToolUseCount should be nil by default, got %v", agent.ToolUseCount)
+	}
+}

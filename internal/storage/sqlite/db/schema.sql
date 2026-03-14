@@ -40,6 +40,7 @@ CREATE TABLE issues (
     priority INTEGER NOT NULL DEFAULT 2,
     issue_type TEXT NOT NULL DEFAULT 'task',
     assignee TEXT,
+    ai_session_id TEXT,
     external_ref TEXT,
     rank INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -167,3 +168,40 @@ CREATE TABLE plans (
 CREATE INDEX idx_plans_project ON plans(project_id);
 CREATE INDEX idx_plans_status ON plans(project_id, status);
 CREATE INDEX idx_plans_issue ON plans(issue_id);
+
+-- Issue-plan links (many-to-many)
+CREATE TABLE issue_plans (
+    issue_id TEXT NOT NULL,
+    plan_id TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (issue_id, plan_id),
+    FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_issue_plans_plan ON issue_plans(plan_id);
+
+-- AI sessions table (AI coding session tracking)
+CREATE TABLE ai_sessions (
+    id TEXT PRIMARY KEY,
+    transcript_path TEXT NOT NULL,
+    cwd TEXT,
+    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- AI agents table (sub-agents spawned within sessions)
+CREATE TABLE ai_agents (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES ai_sessions(id) ON DELETE CASCADE,
+    description TEXT,
+    prompt TEXT,
+    agent_type TEXT,
+    model TEXT,
+    status TEXT NOT NULL DEFAULT 'running',
+    duration_ms INTEGER,
+    total_tokens INTEGER,
+    tool_use_count INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_ai_agents_session ON ai_agents(session_id);

@@ -312,9 +312,9 @@
 <p class="subtitle">Side-by-side: Option A (truncation fix) vs Option C (two-line compact)</p>
 
 <div class="controls">
-  <button class="control-btn active" id="btn-side">Side by Side</button>
-  <button class="control-btn" id="btn-a-only">Option A Only</button>
-  <button class="control-btn" id="btn-c-only">Option C Only</button>
+  <button type="button" class="control-btn active" id="btn-side">Side by Side</button>
+  <button type="button" class="control-btn" id="btn-a-only">Option A Only</button>
+  <button type="button" class="control-btn" id="btn-c-only">Option C Only</button>
 </div>
 
 <div class="comparison-grid" id="grid">
@@ -338,9 +338,9 @@
 </div>
 
 <script>
-  var NS = "http://www.w3.org/2000/svg";
+  const NS = "http://www.w3.org/2000/svg";
 
-  var projects = [
+  const projects = [
     { name: "BACSTACK", id: "ws-02m4x6", description: "BACnet/IP protocol stack and tooling", workspaces: 1 },
     { name: "LUMEN-MAIN-A8D484", id: "ws-02m4x6", description: "No description", workspaces: 1 },
     { name: "LUMEN-VESPA-MULTILAN-9391E2", id: "ws-068m", description: "No description", workspaces: 1 },
@@ -350,43 +350,43 @@
   ];
 
   function makeFolderIcon() {
-    var svg = document.createElementNS(NS, "svg");
+    const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "none");
     svg.setAttribute("stroke", "currentColor");
     svg.setAttribute("stroke-width", "2.5");
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
-    var path = document.createElementNS(NS, "path");
+    const path = document.createElementNS(NS, "path");
     path.setAttribute("d", "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z");
     svg.appendChild(path);
     return svg;
   }
 
   function makeChevronIcon() {
-    var svg = document.createElementNS(NS, "svg");
+    const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("fill", "currentColor");
-    var path = document.createElementNS(NS, "path");
+    const path = document.createElementNS(NS, "path");
     path.setAttribute("d", "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z");
     svg.appendChild(path);
     return svg;
   }
 
   function makeTrailing(p) {
-    var trailing = document.createElement("div");
+    const trailing = document.createElement("div");
     trailing.className = "trailing";
 
     if (p.workspaces > 0) {
-      var ws = document.createElement("span");
+      const ws = document.createElement("span");
       ws.className = "workspace-count";
       ws.appendChild(makeFolderIcon());
-      var ct = document.createTextNode(" " + p.workspaces);
+      const ct = document.createTextNode(` ${p.workspaces}`);
       ws.appendChild(ct);
       trailing.appendChild(ws);
     }
 
-    var chev = document.createElement("span");
+    const chev = document.createElement("span");
     chev.className = "chevron";
     chev.appendChild(makeChevronIcon());
     trailing.appendChild(chev);
@@ -396,22 +396,22 @@
 
   function renderOptionA(container) {
     container.textContent = "";
-    for (var i = 0; i < projects.length; i++) {
-      var p = projects[i];
-      var card = document.createElement("div");
+    for (let i = 0; i < projects.length; i++) {
+      const p = projects[i];
+      const card = document.createElement("div");
       card.className = "card card-a";
 
-      var nameId = document.createElement("div");
+      const nameId = document.createElement("div");
       nameId.className = "name-id";
 
-      var h3 = document.createElement("h3");
+      const h3 = document.createElement("h3");
       h3.textContent = p.name;
       h3.title = p.name;
 
-      var divider = document.createElement("span");
+      const divider = document.createElement("span");
       divider.className = "divider";
 
-      var pid = document.createElement("span");
+      const pid = document.createElement("span");
       pid.className = "project-id";
       pid.textContent = p.id;
 
@@ -419,7 +419,7 @@
       nameId.appendChild(divider);
       nameId.appendChild(pid);
 
-      var desc = document.createElement("p");
+      const desc = document.createElement("p");
       desc.className = "description";
       desc.textContent = p.description;
 
@@ -432,24 +432,24 @@
 
   function renderOptionC(container) {
     container.textContent = "";
-    for (var i = 0; i < projects.length; i++) {
-      var p = projects[i];
-      var card = document.createElement("div");
+    for (let i = 0; i < projects.length; i++) {
+      const p = projects[i];
+      const card = document.createElement("div");
       card.className = "card card-c";
 
-      var content = document.createElement("div");
+      const content = document.createElement("div");
       content.className = "content";
 
-      var topLine = document.createElement("div");
+      const topLine = document.createElement("div");
       topLine.className = "top-line";
 
-      var h3 = document.createElement("h3");
+      const h3 = document.createElement("h3");
       h3.textContent = p.name;
 
-      var divider = document.createElement("span");
+      const divider = document.createElement("span");
       divider.className = "divider";
 
-      var pid = document.createElement("span");
+      const pid = document.createElement("span");
       pid.className = "project-id";
       pid.textContent = p.id;
 
@@ -457,7 +457,7 @@
       topLine.appendChild(divider);
       topLine.appendChild(pid);
 
-      var bottomLine = document.createElement("p");
+      const bottomLine = document.createElement("p");
       bottomLine.className = "bottom-line";
       bottomLine.textContent = p.description;
 
@@ -473,12 +473,12 @@
   renderOptionA(document.getElementById("list-a"));
   renderOptionC(document.getElementById("list-c"));
 
-  var btnSide = document.getElementById("btn-side");
-  var btnA = document.getElementById("btn-a-only");
-  var btnC = document.getElementById("btn-c-only");
-  var grid = document.getElementById("grid");
-  var sectionA = document.getElementById("section-a");
-  var sectionC = document.getElementById("section-c");
+  const btnSide = document.getElementById("btn-side");
+  const btnA = document.getElementById("btn-a-only");
+  const btnC = document.getElementById("btn-c-only");
+  const grid = document.getElementById("grid");
+  const sectionA = document.getElementById("section-a");
+  const sectionC = document.getElementById("section-c");
 
   function setView(mode) {
     btnSide.classList.remove("active");
@@ -503,9 +503,9 @@
     }
   }
 
-  btnSide.addEventListener("click", function() { setView("side"); });
-  btnA.addEventListener("click", function() { setView("a"); });
-  btnC.addEventListener("click", function() { setView("c"); });
+  btnSide.addEventListener("click", () => { setView("side"); });
+  btnA.addEventListener("click", () => { setView("a"); });
+  btnC.addEventListener("click", () => { setView("c"); });
 </script>
 
 </body>

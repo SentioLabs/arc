@@ -11,21 +11,6 @@ import (
 	"testing"
 )
 
-// arcCmdWithStdin runs the arc binary with data piped to stdin.
-func arcCmdWithStdin(t *testing.T, homeDir string, stdin string, args ...string) (string, error) {
-	t.Helper()
-
-	cmd := exec.Command(arcBinary, args...)
-	cmd.Env = append(os.Environ(),
-		"HOME="+homeDir,
-		"ARC_SERVER="+serverURL,
-	)
-	cmd.Stdin = strings.NewReader(stdin)
-
-	out, err := cmd.CombinedOutput()
-	return string(out), err
-}
-
 // arcCmdInDirWithStdin runs the arc binary in a working directory with stdin.
 func arcCmdInDirWithStdin(t *testing.T, homeDir, workDir, stdin string, args ...string) (string, error) {
 	t.Helper()

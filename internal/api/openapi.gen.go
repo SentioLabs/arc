@@ -76,6 +76,53 @@ const (
 	Priority GetReadyWorkParamsSort = "priority"
 )
 
+// AIAgentResponse defines model for AIAgentResponse.
+type AIAgentResponse struct {
+	// AgentType Type of agent (e.g., "task", "code")
+	AgentType *string   `json:"agent_type,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Description Agent task description
+	Description *string `json:"description,omitempty"`
+
+	// DurationMs Duration in milliseconds
+	DurationMs *int `json:"duration_ms,omitempty"`
+
+	// ID Unique AI agent ID
+	ID string `json:"id"`
+
+	// Model AI model used
+	Model *string `json:"model,omitempty"`
+
+	// Prompt Agent prompt text
+	Prompt *string `json:"prompt,omitempty"`
+
+	// SessionID Parent session ID
+	SessionID string `json:"session_id"`
+
+	// Status Agent status (running, completed, error)
+	Status string `json:"status"`
+
+	// ToolUseCount Number of tool uses
+	ToolUseCount *int `json:"tool_use_count,omitempty"`
+
+	// TotalTokens Total tokens consumed
+	TotalTokens *int `json:"total_tokens,omitempty"`
+}
+
+// AISessionResponse defines model for AISessionResponse.
+type AISessionResponse struct {
+	// Cwd Working directory for the session
+	Cwd *string `json:"cwd,omitempty"`
+
+	// ID Unique AI session ID
+	ID        string    `json:"id"`
+	StartedAt time.Time `json:"started_at"`
+
+	// TranscriptPath Path to the session transcript file
+	TranscriptPath string `json:"transcript_path"`
+}
+
 // AddCommentRequest defines model for AddCommentRequest.
 type AddCommentRequest struct {
 	Text string `json:"text"`
@@ -95,6 +142,8 @@ type AddLabelToIssueRequest struct {
 
 // BlockedIssue defines model for BlockedIssue.
 type BlockedIssue struct {
+	// AiSessionID AI coding session UUID (e.g., Claude Code session ID)
+	AiSessionID    *string       `json:"ai_session_id,omitempty"`
 	Assignee       *string       `json:"assignee,omitempty"`
 	BlockedBy      []string      `json:"blocked_by"`
 	BlockedByCount int           `json:"blocked_by_count"`
@@ -140,8 +189,49 @@ type Comment struct {
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
+// CreateAIAgentRequest defines model for CreateAIAgentRequest.
+type CreateAIAgentRequest struct {
+	// AgentType Type of agent
+	AgentType *string `json:"agent_type,omitempty"`
+
+	// Description Agent task description
+	Description *string `json:"description,omitempty"`
+
+	// ID AI agent ID
+	ID string `json:"id"`
+
+	// Model AI model used
+	Model *string `json:"model,omitempty"`
+
+	// Prompt Agent prompt text
+	Prompt *string `json:"prompt,omitempty"`
+
+	// SessionID Parent session ID
+	SessionID string `json:"session_id"`
+
+	// Status Agent status (defaults to "running")
+	Status *string `json:"status,omitempty"`
+}
+
+// CreateAISessionRequest defines model for CreateAISessionRequest.
+type CreateAISessionRequest struct {
+	// Cwd Working directory for the session
+	Cwd *string `json:"cwd,omitempty"`
+
+	// ID AI session ID
+	ID string `json:"id"`
+
+	// StartedAt Session start time (defaults to current time)
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// TranscriptPath Path to the session transcript file
+	TranscriptPath string `json:"transcript_path"`
+}
+
 // CreateIssueRequest defines model for CreateIssueRequest.
 type CreateIssueRequest struct {
+	// AiSessionID AI coding session UUID
+	AiSessionID *string    `json:"ai_session_id,omitempty"`
 	Assignee    *string    `json:"assignee,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	ExternalRef *string    `json:"external_ref,omitempty"`
@@ -214,6 +304,8 @@ type EventType string
 
 // Issue defines model for Issue.
 type Issue struct {
+	// AiSessionID AI coding session UUID (e.g., Claude Code session ID)
+	AiSessionID  *string       `json:"ai_session_id,omitempty"`
 	Assignee     *string       `json:"assignee,omitempty"`
 	CloseReason  *string       `json:"close_reason,omitempty"`
 	ClosedAt     *time.Time    `json:"closed_at,omitempty"`
@@ -243,6 +335,8 @@ type Issue struct {
 
 // IssueDetails defines model for IssueDetails.
 type IssueDetails struct {
+	// AiSessionID AI coding session UUID (e.g., Claude Code session ID)
+	AiSessionID  *string       `json:"ai_session_id,omitempty"`
 	Assignee     *string       `json:"assignee,omitempty"`
 	CloseReason  *string       `json:"close_reason,omitempty"`
 	ClosedAt     *time.Time    `json:"closed_at,omitempty"`
@@ -410,6 +504,8 @@ type UpdateCommentRequest struct {
 
 // UpdateIssueRequest defines model for UpdateIssueRequest.
 type UpdateIssueRequest struct {
+	// AiSessionID AI coding session UUID
+	AiSessionID *string    `json:"ai_session_id,omitempty"`
 	Assignee    *string    `json:"assignee,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	ExternalRef *string    `json:"external_ref,omitempty"`
@@ -466,6 +562,15 @@ type InternalError = Error
 // NotFound defines model for NotFound.
 type NotFound = Error
 
+// ListAISessionsParams defines parameters for ListAISessions.
+type ListAISessionsParams struct {
+	// Limit Maximum results to return
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Pagination offset
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // GetBlockedIssuesParams defines parameters for GetBlockedIssues.
 type GetBlockedIssuesParams struct {
 	// Limit Maximum results to return
@@ -485,6 +590,9 @@ type ListIssuesParams struct {
 
 	// Assignee Filter by assignee
 	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty"`
+
+	// AiSessionID Filter by AI session ID
+	AiSessionID *string `form:"ai_session_id,omitempty" json:"ai_session_id,omitempty"`
 
 	// ParentID Filter by parent issue ID (returns children via parent-child dependency)
 	ParentID *string `form:"parent_id,omitempty" json:"parent_id,omitempty"`
@@ -610,6 +718,12 @@ type GetTeamContextParams struct {
 	EpicID *string `form:"epic_id,omitempty" json:"epic_id,omitempty"`
 }
 
+// CreateAISessionJSONRequestBody defines body for CreateAISession for application/json ContentType.
+type CreateAISessionJSONRequestBody = CreateAISessionRequest
+
+// CreateAIAgentJSONRequestBody defines body for CreateAIAgent for application/json ContentType.
+type CreateAIAgentJSONRequestBody = CreateAIAgentRequest
+
 // CreateLabelJSONRequestBody defines body for CreateLabel for application/json ContentType.
 type CreateLabelJSONRequestBody = CreateLabelRequest
 
@@ -654,6 +768,27 @@ type UpdatePlanStatusJSONRequestBody = UpdatePlanStatusRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List AI sessions
+	// (GET /ai/sessions)
+	ListAISessions(ctx echo.Context, params ListAISessionsParams) error
+	// Create a new AI session
+	// (POST /ai/sessions)
+	CreateAISession(ctx echo.Context) error
+	// Delete AI session
+	// (DELETE /ai/sessions/{sessionId})
+	DeleteAISession(ctx echo.Context, sessionID string) error
+	// Get AI session by ID
+	// (GET /ai/sessions/{sessionId})
+	GetAISession(ctx echo.Context, sessionID string) error
+	// List AI agents for a session
+	// (GET /ai/sessions/{sessionId}/agents)
+	ListAIAgents(ctx echo.Context, sessionID string) error
+	// Create a new AI agent
+	// (POST /ai/sessions/{sessionId}/agents)
+	CreateAIAgent(ctx echo.Context, sessionID string) error
+	// Get AI agent by ID
+	// (GET /ai/sessions/{sessionId}/agents/{agentId})
+	GetAIAgent(ctx echo.Context, sessionID string, agentID string) error
 	// List all global labels
 	// (GET /labels)
 	ListLabels(ctx echo.Context) error
@@ -770,6 +905,128 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// ListAISessions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListAISessions(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAISessionsParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListAISessions(ctx, params)
+	return err
+}
+
+// CreateAISession converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateAISession(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateAISession(ctx)
+	return err
+}
+
+// DeleteAISession converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteAISession(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "sessionId" -------------
+	var sessionID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", ctx.Param("sessionId"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sessionId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteAISession(ctx, sessionID)
+	return err
+}
+
+// GetAISession converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAISession(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "sessionId" -------------
+	var sessionID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", ctx.Param("sessionId"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sessionId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAISession(ctx, sessionID)
+	return err
+}
+
+// ListAIAgents converts echo context to params.
+func (w *ServerInterfaceWrapper) ListAIAgents(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "sessionId" -------------
+	var sessionID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", ctx.Param("sessionId"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sessionId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListAIAgents(ctx, sessionID)
+	return err
+}
+
+// CreateAIAgent converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateAIAgent(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "sessionId" -------------
+	var sessionID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", ctx.Param("sessionId"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sessionId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateAIAgent(ctx, sessionID)
+	return err
+}
+
+// GetAIAgent converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAIAgent(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "sessionId" -------------
+	var sessionID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", ctx.Param("sessionId"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sessionId: %s", err))
+	}
+
+	// ------------- Path parameter "agentId" -------------
+	var agentID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "agentId", ctx.Param("agentId"), &agentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter agentId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAIAgent(ctx, sessionID, agentID)
+	return err
 }
 
 // ListLabels converts echo context to params.
@@ -952,6 +1209,13 @@ func (w *ServerInterfaceWrapper) ListIssues(ctx echo.Context) error {
 	err = runtime.BindQueryParameter("form", true, false, "assignee", ctx.QueryParams(), &params.Assignee)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter assignee: %s", err))
+	}
+
+	// ------------- Optional query parameter "ai_session_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "ai_session_id", ctx.QueryParams(), &params.AiSessionID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter ai_session_id: %s", err))
 	}
 
 	// ------------- Optional query parameter "parent_id" -------------
@@ -1884,6 +2148,13 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/ai/sessions", wrapper.ListAISessions)
+	router.POST(baseURL+"/ai/sessions", wrapper.CreateAISession)
+	router.DELETE(baseURL+"/ai/sessions/:sessionId", wrapper.DeleteAISession)
+	router.GET(baseURL+"/ai/sessions/:sessionId", wrapper.GetAISession)
+	router.GET(baseURL+"/ai/sessions/:sessionId/agents", wrapper.ListAIAgents)
+	router.POST(baseURL+"/ai/sessions/:sessionId/agents", wrapper.CreateAIAgent)
+	router.GET(baseURL+"/ai/sessions/:sessionId/agents/:agentId", wrapper.GetAIAgent)
 	router.GET(baseURL+"/labels", wrapper.ListLabels)
 	router.POST(baseURL+"/labels", wrapper.CreateLabel)
 	router.DELETE(baseURL+"/labels/:labelName", wrapper.DeleteLabel)
@@ -1929,6 +2200,252 @@ type BadRequestJSONResponse Error
 type InternalErrorJSONResponse Error
 
 type NotFoundJSONResponse Error
+
+type ListAISessionsRequestObject struct {
+	Params ListAISessionsParams
+}
+
+type ListAISessionsResponseObject interface {
+	VisitListAISessionsResponse(w http.ResponseWriter) error
+}
+
+type ListAISessions200JSONResponse []AISessionResponse
+
+func (response ListAISessions200JSONResponse) VisitListAISessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAISessions500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListAISessions500JSONResponse) VisitListAISessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAISessionRequestObject struct {
+	Body *CreateAISessionJSONRequestBody
+}
+
+type CreateAISessionResponseObject interface {
+	VisitCreateAISessionResponse(w http.ResponseWriter) error
+}
+
+type CreateAISession201JSONResponse AISessionResponse
+
+func (response CreateAISession201JSONResponse) VisitCreateAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAISession400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateAISession400JSONResponse) VisitCreateAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAISession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateAISession500JSONResponse) VisitCreateAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAISessionRequestObject struct {
+	SessionID string `json:"sessionId"`
+}
+
+type DeleteAISessionResponseObject interface {
+	VisitDeleteAISessionResponse(w http.ResponseWriter) error
+}
+
+type DeleteAISession204Response struct {
+}
+
+func (response DeleteAISession204Response) VisitDeleteAISessionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAISession404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAISession404JSONResponse) VisitDeleteAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAISession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteAISession500JSONResponse) VisitDeleteAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAISessionRequestObject struct {
+	SessionID string `json:"sessionId"`
+}
+
+type GetAISessionResponseObject interface {
+	VisitGetAISessionResponse(w http.ResponseWriter) error
+}
+
+type GetAISession200JSONResponse AISessionResponse
+
+func (response GetAISession200JSONResponse) VisitGetAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAISession404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAISession404JSONResponse) VisitGetAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAISession500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetAISession500JSONResponse) VisitGetAISessionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAIAgentsRequestObject struct {
+	SessionID string `json:"sessionId"`
+}
+
+type ListAIAgentsResponseObject interface {
+	VisitListAIAgentsResponse(w http.ResponseWriter) error
+}
+
+type ListAIAgents200JSONResponse []AIAgentResponse
+
+func (response ListAIAgents200JSONResponse) VisitListAIAgentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAIAgents404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListAIAgents404JSONResponse) VisitListAIAgentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListAIAgents500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListAIAgents500JSONResponse) VisitListAIAgentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAIAgentRequestObject struct {
+	SessionID string `json:"sessionId"`
+	Body      *CreateAIAgentJSONRequestBody
+}
+
+type CreateAIAgentResponseObject interface {
+	VisitCreateAIAgentResponse(w http.ResponseWriter) error
+}
+
+type CreateAIAgent201JSONResponse AIAgentResponse
+
+func (response CreateAIAgent201JSONResponse) VisitCreateAIAgentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAIAgent400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateAIAgent400JSONResponse) VisitCreateAIAgentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAIAgent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateAIAgent404JSONResponse) VisitCreateAIAgentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAIAgent500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateAIAgent500JSONResponse) VisitCreateAIAgentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAIAgentRequestObject struct {
+	SessionID string `json:"sessionId"`
+	AgentID   string `json:"agentId"`
+}
+
+type GetAIAgentResponseObject interface {
+	VisitGetAIAgentResponse(w http.ResponseWriter) error
+}
+
+type GetAIAgent200JSONResponse AIAgentResponse
+
+func (response GetAIAgent200JSONResponse) VisitGetAIAgentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAIAgent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAIAgent404JSONResponse) VisitGetAIAgentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAIAgent500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetAIAgent500JSONResponse) VisitGetAIAgentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
 
 type ListLabelsRequestObject struct {
 }
@@ -3304,6 +3821,27 @@ func (response GetTeamContext500JSONResponse) VisitGetTeamContextResponse(w http
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List AI sessions
+	// (GET /ai/sessions)
+	ListAISessions(ctx context.Context, request ListAISessionsRequestObject) (ListAISessionsResponseObject, error)
+	// Create a new AI session
+	// (POST /ai/sessions)
+	CreateAISession(ctx context.Context, request CreateAISessionRequestObject) (CreateAISessionResponseObject, error)
+	// Delete AI session
+	// (DELETE /ai/sessions/{sessionId})
+	DeleteAISession(ctx context.Context, request DeleteAISessionRequestObject) (DeleteAISessionResponseObject, error)
+	// Get AI session by ID
+	// (GET /ai/sessions/{sessionId})
+	GetAISession(ctx context.Context, request GetAISessionRequestObject) (GetAISessionResponseObject, error)
+	// List AI agents for a session
+	// (GET /ai/sessions/{sessionId}/agents)
+	ListAIAgents(ctx context.Context, request ListAIAgentsRequestObject) (ListAIAgentsResponseObject, error)
+	// Create a new AI agent
+	// (POST /ai/sessions/{sessionId}/agents)
+	CreateAIAgent(ctx context.Context, request CreateAIAgentRequestObject) (CreateAIAgentResponseObject, error)
+	// Get AI agent by ID
+	// (GET /ai/sessions/{sessionId}/agents/{agentId})
+	GetAIAgent(ctx context.Context, request GetAIAgentRequestObject) (GetAIAgentResponseObject, error)
 	// List all global labels
 	// (GET /labels)
 	ListLabels(ctx context.Context, request ListLabelsRequestObject) (ListLabelsResponseObject, error)
@@ -3427,6 +3965,192 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// ListAISessions operation middleware
+func (sh *strictHandler) ListAISessions(ctx echo.Context, params ListAISessionsParams) error {
+	var request ListAISessionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAISessions(ctx.Request().Context(), request.(ListAISessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAISessions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListAISessionsResponseObject); ok {
+		return validResponse.VisitListAISessionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateAISession operation middleware
+func (sh *strictHandler) CreateAISession(ctx echo.Context) error {
+	var request CreateAISessionRequestObject
+
+	var body CreateAISessionJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAISession(ctx.Request().Context(), request.(CreateAISessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAISession")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateAISessionResponseObject); ok {
+		return validResponse.VisitCreateAISessionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteAISession operation middleware
+func (sh *strictHandler) DeleteAISession(ctx echo.Context, sessionID string) error {
+	var request DeleteAISessionRequestObject
+
+	request.SessionID = sessionID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAISession(ctx.Request().Context(), request.(DeleteAISessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAISession")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteAISessionResponseObject); ok {
+		return validResponse.VisitDeleteAISessionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAISession operation middleware
+func (sh *strictHandler) GetAISession(ctx echo.Context, sessionID string) error {
+	var request GetAISessionRequestObject
+
+	request.SessionID = sessionID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAISession(ctx.Request().Context(), request.(GetAISessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAISession")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAISessionResponseObject); ok {
+		return validResponse.VisitGetAISessionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListAIAgents operation middleware
+func (sh *strictHandler) ListAIAgents(ctx echo.Context, sessionID string) error {
+	var request ListAIAgentsRequestObject
+
+	request.SessionID = sessionID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAIAgents(ctx.Request().Context(), request.(ListAIAgentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAIAgents")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListAIAgentsResponseObject); ok {
+		return validResponse.VisitListAIAgentsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateAIAgent operation middleware
+func (sh *strictHandler) CreateAIAgent(ctx echo.Context, sessionID string) error {
+	var request CreateAIAgentRequestObject
+
+	request.SessionID = sessionID
+
+	var body CreateAIAgentJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAIAgent(ctx.Request().Context(), request.(CreateAIAgentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAIAgent")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateAIAgentResponseObject); ok {
+		return validResponse.VisitCreateAIAgentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAIAgent operation middleware
+func (sh *strictHandler) GetAIAgent(ctx echo.Context, sessionID string, agentID string) error {
+	var request GetAIAgentRequestObject
+
+	request.SessionID = sessionID
+	request.AgentID = agentID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAIAgent(ctx.Request().Context(), request.(GetAIAgentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAIAgent")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAIAgentResponseObject); ok {
+		return validResponse.VisitGetAIAgentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // ListLabels operation middleware
@@ -4473,80 +5197,91 @@ func (sh *strictHandler) GetTeamContext(ctx echo.Context, projectID ProjectID, p
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"ffq/AAAA//+uLzVCXn0AAA==",
+	"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",
+	"AA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -37,6 +37,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "arc ai agent register --stdin"
+          }
+        ]
+      }
     ]
   }
 }

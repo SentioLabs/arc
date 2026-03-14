@@ -145,9 +145,11 @@ test-coverage: ## Run tests and generate coverage report
 	@echo "Coverage report: coverage.html"
 
 .PHONY: lint
-lint: ## Run golangci-lint
-	@echo "==> Running linter..."
+lint: ## Run golangci-lint and frontend linter
+	@echo "==> Running Go linter..."
 	golangci-lint run
+	@echo "==> Running frontend linter..."
+	cd web && bun lint
 
 .PHONY: lint-fix
 lint-fix: ## Run linter and fix issues

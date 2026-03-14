@@ -14,7 +14,10 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-const testPathID = "p-1"
+const (
+	testPathID          = "p-1"
+	testUserProjectPath = "/home/user/project"
+)
 
 // mockWPStore implements storage.Storage for workspace (directory path) tests.
 // Only workspace methods are implemented; all others panic.
@@ -269,6 +272,35 @@ func (m *mockWPStore) GetEvents(_ context.Context, _ string, _ int) ([]*types.Ev
 func (m *mockWPStore) GetStatistics(_ context.Context, _ string) (*types.Statistics, error) {
 	panic("not implemented")
 }
+
+func (m *mockWPStore) CreateAISession(_ context.Context, _ *types.AISession) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) GetAISession(_ context.Context, _ string) (*types.AISession, error) {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) ListAISessions(_ context.Context, _, _ int) ([]*types.AISession, error) {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) DeleteAISession(_ context.Context, _ string) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) CreateAIAgent(_ context.Context, _ *types.AIAgent) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) GetAIAgent(_ context.Context, _ string) (*types.AIAgent, error) {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) ListAIAgents(_ context.Context, _ string) ([]*types.AIAgent, error) {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) Close() error { return nil }
 func (m *mockWPStore) Path() string { return "" }
 
@@ -289,7 +321,7 @@ func TestListWorkspaces(t *testing.T) {
 	store.workspaces = append(store.workspaces, &types.Workspace{
 		ID:        "p-1",
 		ProjectID: "proj-abc",
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 		Label:     "main",
 	})
 
@@ -316,7 +348,7 @@ func TestListWorkspaces(t *testing.T) {
 func TestCreateWorkspace(t *testing.T) {
 	e, _ := setupWorkspaceTest(t)
 
-	body := `{"path":"/home/user/project","label":"main",` +
+	body := `{"path":"` + testUserProjectPath + `","label":"main",` +
 		`"hostname":"dev-machine","git_remote":"git@github.com:user/repo.git"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-abc/workspaces", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -331,7 +363,7 @@ func TestCreateWorkspace(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &ws); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if ws.Path != "/home/user/project" {
+	if ws.Path != testUserProjectPath {
 		t.Errorf("expected path /home/user/project, got %s", ws.Path)
 	}
 	if ws.Label != "main" {
@@ -355,10 +387,10 @@ func TestCreateWorkspace_Duplicate(t *testing.T) {
 	store.workspaces = append(store.workspaces, &types.Workspace{
 		ID:        "p-1",
 		ProjectID: "proj-abc",
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 	})
 
-	body := `{"path":"/home/user/project"}`
+	body := `{"path":"` + testUserProjectPath + `"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-abc/workspaces", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -376,7 +408,7 @@ func TestUpdateWorkspace(t *testing.T) {
 	store.workspaces = append(store.workspaces, &types.Workspace{
 		ID:        "p-1",
 		ProjectID: "proj-abc",
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 		Label:     "original",
 	})
 
@@ -400,7 +432,7 @@ func TestUpdateWorkspace(t *testing.T) {
 	if ws.Hostname != "new-host" {
 		t.Errorf("expected hostname new-host, got %s", ws.Hostname)
 	}
-	if ws.Path != "/home/user/project" {
+	if ws.Path != testUserProjectPath {
 		t.Errorf("expected path unchanged, got %s", ws.Path)
 	}
 }
@@ -412,7 +444,7 @@ func TestDeleteWorkspace(t *testing.T) {
 	store.workspaces = append(store.workspaces, &types.Workspace{
 		ID:        "p-1",
 		ProjectID: "proj-abc",
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 	})
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/proj-abc/workspaces/p-1", nil)
@@ -435,7 +467,7 @@ func TestResolveProject(t *testing.T) {
 	store.workspaces = append(store.workspaces, &types.Workspace{
 		ID:        "p-1",
 		ProjectID: "proj-abc",
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/resolve?path=/home/user/project", nil)

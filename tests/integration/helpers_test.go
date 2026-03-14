@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -90,6 +91,46 @@ func arcCmdSuccess(t *testing.T, homeDir string, args ...string) string {
 	t.Helper()
 
 	output, err := arcCmd(t, homeDir, args...)
+	if err != nil {
+		t.Fatalf("arc %v failed: %v\noutput: %s", args, err, output)
+	}
+	return output
+}
+
+// arcCmdSuccessWithEnv runs the arc binary with extra env vars and fails the test on error.
+func arcCmdSuccessWithEnv(t *testing.T, home string, env []string, args ...string) string {
+	t.Helper()
+	baseEnv := append(os.Environ(), "HOME="+home, "ARC_SERVER="+serverURL)
+	cmd := exec.Command(arcBinary, args...)
+	cmd.Env = append(baseEnv, env...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("arc %v failed: %v\noutput: %s", args, err, string(out))
+	}
+	return string(out)
+}
+
+// arcCmdWithStdin runs the arc binary with the given stdin data and returns
+// the combined output and any error.
+func arcCmdWithStdin(t *testing.T, homeDir string, stdin string, args ...string) (string, error) {
+	t.Helper()
+
+	cmd := exec.Command(arcBinary, args...)
+	cmd.Env = append(os.Environ(),
+		"HOME="+homeDir,
+		"ARC_SERVER="+serverURL,
+	)
+	cmd.Stdin = strings.NewReader(stdin)
+
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// arcCmdWithStdinSuccess runs the arc binary with stdin and fails the test on error.
+func arcCmdWithStdinSuccess(t *testing.T, homeDir string, stdin string, args ...string) string {
+	t.Helper()
+
+	output, err := arcCmdWithStdin(t, homeDir, stdin, args...)
 	if err != nil {
 		t.Fatalf("arc %v failed: %v\noutput: %s", args, err, output)
 	}

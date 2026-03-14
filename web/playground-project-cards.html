@@ -172,6 +172,7 @@
     border-color: oklch(0.48 0.22 270 / 0.4);
   }
 
+  /* biome-ignore lint/style/noDescendingSpecificity: targets different elements than .card-new svg */
   .toolbar-btn svg { width: 0.85rem; height: 0.85rem; flex-shrink: 0; }
 
   .toolbar-divider {
@@ -186,7 +187,7 @@
   }
 
   .card-new.list-item .card-header {
-    margin-bottom: 0; flex-shrink: 0; min-width: 0; flex: 1;
+    margin-bottom: 0; min-width: 0; flex: 1;
   }
 
   .card-new.list-item .description {
@@ -230,7 +231,7 @@
   <div class="toolbar">
     <div class="toolbar-group">
       <button class="toolbar-btn active" id="sortBtn" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/>
         </svg>
         <span id="sortLabel">A–Z</span>
@@ -238,14 +239,14 @@
     </div>
     <div class="toolbar-group">
       <button class="toolbar-btn active" id="gridBtn" type="button" title="Grid view">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
           <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
         </svg>
       </button>
       <span class="toolbar-divider"></span>
       <button class="toolbar-btn" id="listBtn" type="button" title="List view">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
           <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
           <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
@@ -258,7 +259,7 @@
 </div>
 
 <script>
-  var projects = [
+  const projects = [
     { name: 'bacstack', prefix: 'BS', id: 'BACSTACK-00BY', description: 'BACnet protocol stack implementation with modern Go interfaces and virtual device support', paths: 3 },
     { name: 'arc', prefix: 'AR', id: 'ARC-00BZ', description: 'Central issue tracking server for AI-assisted coding workflows', paths: 2 },
     { name: 'sentiolabs', prefix: 'SL', id: 'SENTIOLABS-00C1', description: 'Company-wide monorepo for shared libraries, tooling, and infrastructure', paths: 5 },
@@ -267,49 +268,49 @@
     { name: 'claude-plugins', prefix: 'CP', id: 'CPLUGINS-00C4', description: 'Custom Claude Code plugins for enhanced AI-assisted development workflows', paths: 4 },
   ];
 
-  var sortAsc = true;
-  var layoutMode = 'grid'; // 'grid' or 'list'
+  let sortAsc = true;
+  let layoutMode = 'grid'; // 'grid' or 'list'
 
   function getSortedProjects() {
-    return projects.slice().sort(function(a, b) {
-      var cmp = a.name.localeCompare(b.name);
+    return projects.slice().sort((a, b) => {
+      const cmp = a.name.localeCompare(b.name);
       return sortAsc ? cmp : -cmp;
     });
   }
 
   function createOldCard(project) {
-    var card = document.createElement('div');
+    const card = document.createElement('div');
     card.className = 'card-old';
 
-    var topRow = document.createElement('div');
+    const topRow = document.createElement('div');
     topRow.className = 'top-row';
-    var prefixIcon = document.createElement('div');
+    const prefixIcon = document.createElement('div');
     prefixIcon.className = 'prefix-icon';
     prefixIcon.textContent = project.prefix;
-    var chevron = document.createElement('span');
+    const chevron = document.createElement('span');
     chevron.className = 'chevron';
     chevron.textContent = '\u203A';
     topRow.appendChild(prefixIcon);
     topRow.appendChild(chevron);
     card.appendChild(topRow);
 
-    var nameRow = document.createElement('div');
+    const nameRow = document.createElement('div');
     nameRow.className = 'name-row';
-    var name = document.createElement('span');
+    const name = document.createElement('span');
     name.className = 'name';
     name.textContent = project.name;
     nameRow.appendChild(name);
     card.appendChild(nameRow);
 
-    var desc = document.createElement('p');
+    const desc = document.createElement('p');
     desc.className = 'description';
     desc.textContent = project.description || 'No description';
     if (!project.description) desc.style.color = 'var(--text-muted)';
     card.appendChild(desc);
 
-    var pathsDiv = document.createElement('div');
+    const pathsDiv = document.createElement('div');
     pathsDiv.style.marginTop = '0.5rem';
-    var showBtn = document.createElement('button');
+    const showBtn = document.createElement('button');
     showBtn.className = 'show-paths';
     showBtn.textContent = '\u203A Show paths';
     pathsDiv.appendChild(showBtn);
@@ -319,28 +320,28 @@
   }
 
   function createNewCard(project) {
-    var pathLabel = project.paths === 1 ? 'workspace' : 'workspaces';
+    const pathLabel = project.paths === 1 ? 'workspace' : 'workspaces';
 
-    var card = document.createElement('div');
+    const card = document.createElement('div');
     card.className = 'card-new';
 
     // Header: name | id  +  path-count pill
-    var header = document.createElement('div');
+    const header = document.createElement('div');
     header.className = 'card-header';
 
-    var nameIdRow = document.createElement('div');
+    const nameIdRow = document.createElement('div');
     nameIdRow.className = 'name-id-row';
 
-    var nameEl = document.createElement('span');
+    const nameEl = document.createElement('span');
     nameEl.className = 'project-name';
     nameEl.textContent = project.name;
     nameIdRow.appendChild(nameEl);
 
-    var divider = document.createElement('span');
+    const divider = document.createElement('span');
     divider.className = 'name-id-divider';
     nameIdRow.appendChild(divider);
 
-    var idEl = document.createElement('span');
+    const idEl = document.createElement('span');
     idEl.className = 'project-id';
     idEl.textContent = project.id;
     nameIdRow.appendChild(idEl);
@@ -348,47 +349,47 @@
     header.appendChild(nameIdRow);
 
     if (project.paths > 0) {
-      var pathCount = document.createElement('span');
+      const pathCount = document.createElement('span');
       pathCount.className = 'path-count';
 
-      var folderSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const folderSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       folderSvg.setAttribute('viewBox', '0 0 24 24');
       folderSvg.setAttribute('fill', 'none');
       folderSvg.setAttribute('stroke', 'currentColor');
       folderSvg.setAttribute('stroke-width', '2.5');
       folderSvg.setAttribute('stroke-linecap', 'round');
       folderSvg.setAttribute('stroke-linejoin', 'round');
-      var pathD = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const pathD = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       pathD.setAttribute('d', 'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z');
       folderSvg.appendChild(pathD);
 
       pathCount.appendChild(folderSvg);
-      pathCount.appendChild(document.createTextNode(project.paths + ' ' + pathLabel));
+      pathCount.appendChild(document.createTextNode(`${project.paths} ${pathLabel}`));
       header.appendChild(pathCount);
     }
 
     card.appendChild(header);
 
     // Description
-    var desc = document.createElement('p');
-    desc.className = 'description' + (project.description ? '' : ' empty');
+    const desc = document.createElement('p');
+    desc.className = `description${project.description ? '' : ' empty'}`;
     desc.textContent = project.description || 'No description';
     card.appendChild(desc);
 
     // Footer
-    var footer = document.createElement('div');
+    const footer = document.createElement('div');
     footer.className = 'card-footer';
 
-    var showBtn = document.createElement('button');
+    const showBtn = document.createElement('button');
     showBtn.className = 'show-paths-btn';
-    showBtn.onclick = function(e) { e.stopPropagation(); };
+    showBtn.onclick = (e) => { e.stopPropagation(); };
 
-    var chevSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const chevSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     chevSvg.setAttribute('width', '10');
     chevSvg.setAttribute('height', '10');
     chevSvg.setAttribute('viewBox', '0 0 24 24');
     chevSvg.setAttribute('fill', 'currentColor');
-    var chevPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const chevPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     chevPath.setAttribute('d', 'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z');
     chevSvg.appendChild(chevPath);
 
@@ -396,9 +397,9 @@
     showBtn.appendChild(document.createTextNode('Show paths'));
     footer.appendChild(showBtn);
 
-    var chevLink = document.createElement('span');
+    const chevLink = document.createElement('span');
     chevLink.className = 'chevron-link';
-    var linkSvg = chevSvg.cloneNode(true);
+    const linkSvg = chevSvg.cloneNode(true);
     linkSvg.setAttribute('width', '16');
     linkSvg.setAttribute('height', '16');
     chevLink.appendChild(linkSvg);
@@ -410,34 +411,34 @@
   }
 
   function createListCard(project) {
-    var card = createNewCard(project);
+    const card = createNewCard(project);
     card.classList.add('list-item');
     return card;
   }
 
   function render() {
-    var sorted = getSortedProjects();
+    const sorted = getSortedProjects();
 
     // Old cards (first 2)
-    var oldContainer = document.getElementById('oldCards');
+    const oldContainer = document.getElementById('oldCards');
     oldContainer.replaceChildren();
-    sorted.slice(0, 2).forEach(function(p) { oldContainer.appendChild(createOldCard(p)); });
+    sorted.slice(0, 2).forEach((p) => { oldContainer.appendChild(createOldCard(p)); });
 
     // New cards preview (first 2)
-    var newPreview = document.getElementById('newCardsPreview');
+    const newPreview = document.getElementById('newCardsPreview');
     newPreview.replaceChildren();
-    sorted.slice(0, 2).forEach(function(p) { newPreview.appendChild(createNewCard(p)); });
+    sorted.slice(0, 2).forEach((p) => { newPreview.appendChild(createNewCard(p)); });
 
     // Full preview — grid or list
-    var grid = document.getElementById('fullGrid');
+    const grid = document.getElementById('fullGrid');
     grid.replaceChildren();
 
     if (layoutMode === 'grid') {
       grid.className = 'card-grid';
-      sorted.forEach(function(p) { grid.appendChild(createNewCard(p)); });
+      sorted.forEach((p) => { grid.appendChild(createNewCard(p)); });
     } else {
       grid.className = 'card-list';
-      sorted.forEach(function(p) { grid.appendChild(createListCard(p)); });
+      sorted.forEach((p) => { grid.appendChild(createListCard(p)); });
     }
 
     // Update button states
@@ -446,17 +447,17 @@
     document.getElementById('listBtn').classList.toggle('active', layoutMode === 'list');
   }
 
-  document.getElementById('sortBtn').addEventListener('click', function() {
+  document.getElementById('sortBtn').addEventListener('click', () => {
     sortAsc = !sortAsc;
     render();
   });
 
-  document.getElementById('gridBtn').addEventListener('click', function() {
+  document.getElementById('gridBtn').addEventListener('click', () => {
     layoutMode = 'grid';
     render();
   });
 
-  document.getElementById('listBtn').addEventListener('click', function() {
+  document.getElementById('listBtn').addEventListener('click', () => {
     layoutMode = 'list';
     render();
   });

@@ -76,6 +76,15 @@ type Storage interface {
 	DeletePlan(ctx context.Context, id string) error
 	CountPlansByStatus(ctx context.Context, projectID string, status string) (int, error)
 
+	// AI Sessions
+	CreateAISession(ctx context.Context, session *types.AISession) error
+	GetAISession(ctx context.Context, id string) (*types.AISession, error)
+	ListAISessions(ctx context.Context, limit, offset int) ([]*types.AISession, error)
+	DeleteAISession(ctx context.Context, id string) error
+	CreateAIAgent(ctx context.Context, agent *types.AIAgent) error
+	GetAIAgent(ctx context.Context, id string) (*types.AIAgent, error)
+	ListAIAgents(ctx context.Context, sessionID string) ([]*types.AIAgent, error)
+
 	// Events (audit trail)
 	GetEvents(ctx context.Context, issueID string, limit int) ([]*types.Event, error)
 

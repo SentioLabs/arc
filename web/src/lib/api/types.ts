@@ -219,6 +219,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List AI sessions */
+        get: operations["listAISessions"];
+        put?: never;
+        /** Create a new AI session */
+        post: operations["createAISession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        /** Get AI session by ID */
+        get: operations["getAISession"];
+        put?: never;
+        post?: never;
+        /** Delete AI session */
+        delete: operations["deleteAISession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/sessions/{sessionId}/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        /** List AI agents for a session */
+        get: operations["listAIAgents"];
+        put?: never;
+        /** Create a new AI agent */
+        post: operations["createAIAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/sessions/{sessionId}/agents/{agentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+                /** @description AI agent ID */
+                agentId: string;
+            };
+            cookie?: never;
+        };
+        /** Get AI agent by ID */
+        get: operations["getAIAgent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/issues/{issueId}/deps": {
         parameters: {
             query?: never;
@@ -583,6 +665,8 @@ export interface components {
             rank?: number;
             issue_type: components["schemas"]["IssueType"];
             assignee?: string;
+            /** @description AI coding session UUID (e.g., Claude Code session ID) */
+            ai_session_id?: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -648,6 +732,8 @@ export interface components {
             priority: number;
             issue_type?: components["schemas"]["IssueType"];
             assignee?: string;
+            /** @description AI coding session UUID */
+            ai_session_id?: string;
             external_ref?: string;
         };
         UpdateIssueRequest: {
@@ -657,6 +743,8 @@ export interface components {
             priority?: number;
             issue_type?: components["schemas"]["IssueType"];
             assignee?: string;
+            /** @description AI coding session UUID */
+            ai_session_id?: string;
             external_ref?: string;
         };
         CloseIssueRequest: {
@@ -726,6 +814,69 @@ export interface components {
             comment?: string;
             /** Format: date-time */
             created_at: string;
+        };
+        AISessionResponse: {
+            /** @description Unique AI session ID */
+            id: string;
+            /** @description Path to the session transcript file */
+            transcript_path: string;
+            /** @description Working directory for the session */
+            cwd?: string;
+            /** Format: date-time */
+            started_at: string;
+        };
+        CreateAISessionRequest: {
+            /** @description AI session ID */
+            id: string;
+            /** @description Path to the session transcript file */
+            transcript_path: string;
+            /** @description Working directory for the session */
+            cwd?: string;
+            /**
+             * Format: date-time
+             * @description Session start time (defaults to current time)
+             */
+            started_at?: string;
+        };
+        AIAgentResponse: {
+            /** @description Unique AI agent ID */
+            id: string;
+            /** @description Parent session ID */
+            session_id: string;
+            /** @description Agent task description */
+            description?: string;
+            /** @description Agent prompt text */
+            prompt?: string;
+            /** @description Type of agent (e.g., "task", "code") */
+            agent_type?: string;
+            /** @description AI model used */
+            model?: string;
+            /** @description Agent status (running, completed, error) */
+            status: string;
+            /** @description Duration in milliseconds */
+            duration_ms?: number;
+            /** @description Total tokens consumed */
+            total_tokens?: number;
+            /** @description Number of tool uses */
+            tool_use_count?: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CreateAIAgentRequest: {
+            /** @description AI agent ID */
+            id: string;
+            /** @description Parent session ID */
+            session_id: string;
+            /** @description Agent task description */
+            description?: string;
+            /** @description Agent prompt text */
+            prompt?: string;
+            /** @description Type of agent */
+            agent_type?: string;
+            /** @description AI model used */
+            model?: string;
+            /** @description Agent status (defaults to "running") */
+            status?: string;
         };
         /** @enum {string} */
         PlanStatus: "draft" | "approved" | "rejected";
@@ -965,6 +1116,8 @@ export interface operations {
                 priority?: number;
                 /** @description Filter by assignee */
                 assignee?: string;
+                /** @description Filter by AI session ID */
+                ai_session_id?: string;
                 /** @description Filter by parent issue ID (returns children via parent-child dependency) */
                 parent_id?: string;
                 /** @description Full-text search query */
@@ -1274,6 +1427,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamContext"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAISessions: {
+        parameters: {
+            query?: {
+                /** @description Maximum results to return */
+                limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of AI sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISessionResponse"][];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createAISession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAISessionRequest"];
+            };
+        };
+        responses: {
+            /** @description AI session created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISessionResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getAISession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI session details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISessionResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteAISession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI session deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAIAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of AI agents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIAgentResponse"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createAIAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAIAgentRequest"];
+            };
+        };
+        responses: {
+            /** @description AI agent created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIAgentResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getAIAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description AI session ID */
+                sessionId: string;
+                /** @description AI agent ID */
+                agentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI agent details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIAgentResponse"];
                 };
             };
             404: components["responses"]["NotFound"];

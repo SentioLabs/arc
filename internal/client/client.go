@@ -682,6 +682,161 @@ func (c *Client) ResolveProjectByPath(fsPath string) (*types.ProjectResolution, 
 	return &result, nil
 }
 
+// AI Session methods provide CRUD operations for AI coding sessions.
+
+// AI Session and Agent methods provide operations for tracking AI agent
+// observability data. Sessions are global (not project-scoped) and agents
+// are registered under sessions via PostToolUse hooks.
+
+// AISessionResponse extends AISession with its agents for detail views.
+// Used by GetAISession to return the session along with all registered agents.
+type AISessionResponse struct {
+	types.AISession
+	Agents []*types.AIAgent `json:"agents"`
+}
+
+// CreateAISession creates a new AI session. The operation is idempotent:
+// if a session with the same ID already exists, the existing record is returned.
+func (c *Client) CreateAISession(session *types.AISession) (*types.AISession, error) {
+	resp, err := c.post("/api/v1/ai/sessions", session)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result types.AISession
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &result, nil
+}
+
+// GetAISession retrieves an AI session by ID. The response includes the Agents field.
+func (c *Client) GetAISession(id string) (*AISessionResponse, error) {
+	resp, err := c.get("/api/v1/ai/sessions/" + id)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result AISessionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &result, nil
+}
+
+// ListAISessions returns a paginated list of AI sessions.
+func (c *Client) ListAISessions(limit, offset int) ([]*types.AISession, error) {
+	path := "/api/v1/ai/sessions"
+
+	query := url.Values{}
+	if limit > 0 {
+		query.Set("limit", strconv.Itoa(limit))
+	}
+	if offset > 0 {
+		query.Set("offset", strconv.Itoa(offset))
+	}
+	if len(query) > 0 {
+		path += "?" + query.Encode()
+	}
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Data []*types.AISession `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return result.Data, nil
+}
+
+// DeleteAISession deletes an AI session by ID.
+func (c *Client) DeleteAISession(id string) error {
+	resp, err := c.delete("/api/v1/ai/sessions/" + id)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// AI Agent methods manage sub-agents within AI sessions.
+
+// CreateAIAgent creates a new AI agent for a session.
+func (c *Client) CreateAIAgent(sessionID string, agent *types.AIAgent) (*types.AIAgent, error) {
+	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents", sessionID)
+
+	resp, err := c.post(path, agent)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result types.AIAgent
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &result, nil
+}
+
+// ListAIAgents returns all agents for a session.
+func (c *Client) ListAIAgents(sessionID string) ([]*types.AIAgent, error) {
+	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents", sessionID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var agents []*types.AIAgent
+	if err := json.NewDecoder(resp.Body).Decode(&agents); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return agents, nil
+}
+
+// GetAIAgent retrieves a single agent by ID within a session.
+func (c *Client) GetAIAgent(sessionID, agentID string) (*types.AIAgent, error) {
+	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents/%s", sessionID, agentID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var agent types.AIAgent
+	if err := json.NewDecoder(resp.Body).Decode(&agent); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &agent, nil
+}
+
+// GetAgentTranscript retrieves the transcript for an agent as a slice of
+// JSON objects. The transcript is read from the agent's JSONL file on the server.
+func (c *Client) GetAgentTranscript(sessionID, agentID string) ([]map[string]any, error) {
+	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents/%s/transcript", sessionID, agentID)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var entries []map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return entries, nil
+}
+
 // HTTP helpers - low-level methods for making requests to the arc server.
 // All methods set the X-Actor header and check for error responses.
 

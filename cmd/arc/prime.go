@@ -1,13 +1,24 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"strings"
 	"text/template"
+	"time"
 
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/spf13/cobra"
 )
+
+// stdinReadTimeout is the maximum time to wait for hook JSON on stdin.
+const stdinReadTimeout = 2 * time.Second
+
+// envFilePermissions is the file mode for Claude env files written by persistSessionID.
+const envFilePermissions = 0o600
 
 var (
 	primeFullMode bool
@@ -40,6 +51,17 @@ Install hooks:
 Workflow customization:
 - Place a .arc/PRIME.md file to override the default output entirely.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Read hook stdin and persist session ID if available
+		sessionID := readHookStdin()
+		if sessionID != "" {
+			persistSessionID(sessionID)
+		}
+
+		// Also check env var (may have been set by a previous SessionStart hook)
+		if sessionID == "" {
+			sessionID = os.Getenv("ARC_SESSION_ID")
+		}
+
 		// Check if this project has arc configured via workspace path resolution
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -78,12 +100,12 @@ Workflow customization:
 
 		// Role-based output takes precedence over mode flags
 		if role == "lead" {
-			if err := outputTeamLeadContext(os.Stdout); err != nil {
+			if err := outputTeamLeadContext(os.Stdout, sessionID); err != nil {
 				os.Exit(0)
 			}
 			return
 		} else if role != "" {
-			if err := outputTeammateContext(os.Stdout, role); err != nil {
+			if err := outputTeammateContext(os.Stdout, role, sessionID); err != nil {
 				os.Exit(0)
 			}
 			return
@@ -96,10 +118,111 @@ Workflow customization:
 		}
 
 		// Output workflow context
-		if err := outputPrimeContext(os.Stdout, mcpMode); err != nil {
+		if err := outputPrimeContext(os.Stdout, mcpMode, sessionID); err != nil {
 			os.Exit(0)
 		}
 	},
+}
+
+// hookInput represents the JSON payload sent by Claude Code to hooks via stdin.
+type hookInput struct {
+	SessionID      string `json:"session_id"`
+	TranscriptPath string `json:"transcript_path"`
+	CWD            string `json:"cwd"`
+	HookEventName  string `json:"hook_event_name"`
+	Source         string `json:"source"`
+}
+
+// uuidPattern validates session IDs as UUIDs to prevent shell injection.
+var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// parseHookInput attempts to parse Claude Code hook JSON from the given reader.
+// Returns empty string if not parseable or session_id is invalid.
+// Separated from stdin detection for testability.
+func parseHookInput(r io.Reader) string {
+	// Read with a 2-second deadline to avoid hanging
+	done := make(chan []byte, 1)
+	go func() {
+		data, err := io.ReadAll(r)
+		if err != nil {
+			done <- nil
+			return
+		}
+		done <- data
+	}()
+
+	var data []byte
+	select {
+	case data = <-done:
+	case <-time.After(stdinReadTimeout):
+		return ""
+	}
+
+	if len(data) == 0 {
+		return ""
+	}
+
+	var input hookInput
+	if err := json.Unmarshal(data, &input); err != nil {
+		return ""
+	}
+
+	if !uuidPattern.MatchString(input.SessionID) {
+		return ""
+	}
+
+	return input.SessionID
+}
+
+// readHookStdin attempts to read and parse Claude Code hook JSON from stdin.
+// Returns empty string if stdin is a TTY, not parseable, or session_id is invalid.
+func readHookStdin() string {
+	info, err := os.Stdin.Stat()
+	if err != nil || info.Mode()&os.ModeCharDevice != 0 {
+		return "" // stdin is a TTY, not a pipe
+	}
+	return parseHookInput(os.Stdin)
+}
+
+// persistSessionID writes the session ID to CLAUDE_ENV_FILE for the session's
+// Bash environment. Idempotent — replaces any existing ARC_SESSION_ID line.
+func persistSessionID(sessionID string) {
+	envFile := os.Getenv("CLAUDE_ENV_FILE")
+	if envFile == "" || sessionID == "" {
+		return
+	}
+
+	line := fmt.Sprintf("export ARC_SESSION_ID=%s\n", sessionID)
+
+	// Read existing content to check for existing ARC_SESSION_ID
+	existing, err := os.ReadFile(envFile) //nolint:gosec // envFile from trusted CLAUDE_ENV_FILE env var
+	if err == nil {
+		lines := strings.Split(string(existing), "\n")
+		var filtered []string
+		for _, l := range lines {
+			if !strings.HasPrefix(l, "export ARC_SESSION_ID=") {
+				filtered = append(filtered, l)
+			}
+		}
+		content := strings.Join(filtered, "\n")
+		if !strings.HasSuffix(content, "\n") && content != "" {
+			content += "\n"
+		}
+		content += line
+		//nolint:gosec // envFile from trusted CLAUDE_ENV_FILE env var
+		_ = os.WriteFile(envFile, []byte(content), envFilePermissions)
+		return
+	}
+
+	// File doesn't exist yet, create it
+	//nolint:gosec // envFile from trusted CLAUDE_ENV_FILE env var
+	_ = os.WriteFile(envFile, []byte(line), envFilePermissions)
+}
+
+// primeData holds template data for prime output templates.
+type primeData struct {
+	SessionID string
+	Role      string // only used by teammate template
 }
 
 func init() {
@@ -110,43 +233,46 @@ func init() {
 }
 
 // outputPrimeContext outputs workflow context in markdown format
-func outputPrimeContext(w io.Writer, mcpMode bool) error {
+func outputPrimeContext(w io.Writer, mcpMode bool, sessionID string) error {
 	if mcpMode {
-		return outputMCPContext(w)
+		return outputMCPContext(w, sessionID)
 	}
-	return outputCLIContext(w)
+	return outputCLIContext(w, sessionID)
 }
 
 // outputMCPContext outputs minimal context for MCP users
-func outputMCPContext(w io.Writer) error {
-	return tmplMCP.Execute(w, nil)
+func outputMCPContext(w io.Writer, sessionID string) error {
+	return tmplMCP.Execute(w, primeData{SessionID: sessionID})
 }
 
 // outputTeamLeadContext outputs context for the team lead role.
 // Includes the full CLI reference plus team sync protocol.
-func outputTeamLeadContext(w io.Writer) error {
-	if err := outputCLIContext(w); err != nil {
+func outputTeamLeadContext(w io.Writer, sessionID string) error {
+	if err := outputCLIContext(w, sessionID); err != nil {
 		return err
 	}
-	return tmplTeamLead.Execute(w, nil)
+	return tmplTeamLead.Execute(w, primeData{SessionID: sessionID})
 }
 
 // outputTeammateContext outputs context for a specific teammate role.
 // Concise — no full CLI reference or session close protocol.
 // Teammates coordinate via TaskList and report to the team lead.
-func outputTeammateContext(w io.Writer, role string) error {
-	return tmplTeammate.Execute(w, map[string]string{"Role": role})
+func outputTeammateContext(w io.Writer, role string, sessionID string) error {
+	return tmplTeammate.Execute(w, primeData{SessionID: sessionID, Role: role})
 }
 
 // outputCLIContext outputs full CLI reference for non-MCP users
-func outputCLIContext(w io.Writer) error {
-	return tmplCLI.Execute(w, nil)
+func outputCLIContext(w io.Writer, sessionID string) error {
+	return tmplCLI.Execute(w, primeData{SessionID: sessionID})
 }
 
 // Prime output templates — each renders markdown context for a specific audience.
 // Using text/template keeps the markdown readable without string concatenation.
 
 var tmplMCP = template.Must(template.New("mcp").Parse(`# Arc Issue Tracker Active
+{{- if .SessionID}}
+> **Session**: ` + "`{{.SessionID}}`" + `
+{{- end}}
 
 # 🚨 SESSION CLOSE PROTOCOL 🚨
 
@@ -177,6 +303,9 @@ You are the **team lead**. You coordinate teammates and verify their work.
 `))
 
 var tmplTeammate = template.Must(template.New("teammate").Parse(`# Arc Teammate Context
+{{- if .SessionID}}
+> **Session**: ` + "`{{.SessionID}}`" + `
+{{- end}}
 
 You are the **{{.Role}}** teammate.
 
@@ -190,6 +319,9 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 
 > **Context Recovery**: Run ` + "`arc prime`" + ` after compaction, clear, or new session
 > Hooks auto-call this in Claude Code when project config detected
+{{- if .SessionID}}
+> **Session**: ` + "`{{.SessionID}}`" + `
+{{- end}}
 
 # 🚨 SESSION CLOSE PROTOCOL 🚨
 
@@ -235,6 +367,7 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
     ` + "`EOF`" + `
 - ` + "`arc update <id> --status=in_progress`" + ` - Claim work
 - ` + "`arc update <id> --assignee=username`" + ` - Assign to someone
+- ` + "`arc update <id> --take`" + ` - Take issue for current AI session (sets session ID + in_progress)
 - ` + "`arc update <id> --title=\"new title\"`" + ` - Update fields
 - ` + "`arc update <id> --stdin <<'EOF'`" + ` - Update description via stdin heredoc
 - ` + "`arc close <id>`" + ` - Mark complete
@@ -260,7 +393,7 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 ` + "```bash" + `
 arc ready           # Find available work
 arc show <id>       # Review issue details
-arc update <id> --status=in_progress  # Claim it
+arc update <id> --take  # Take it (sets session ID + in_progress)
 ` + "```" + `
 
 **Completing work:**

@@ -66,6 +66,9 @@ type Issue struct {
 	// Assignment
 	Assignee string `json:"assignee,omitempty"`
 
+	// AI Session Tracking
+	AISessionID string `json:"ai_session_id,omitempty"` // Claude Code session UUID
+
 	// Timestamps
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -302,17 +305,18 @@ const (
 
 // IssueFilter is used to filter issue queries.
 type IssueFilter struct {
-	ProjectID string     // Required: filter by project
-	Status    *Status    // Filter by status
-	Priority  *int       // Filter by priority
-	IssueType *IssueType // Filter by issue type
-	Assignee  *string    // Filter by assignee
-	Labels    []string   // AND semantics: issue must have ALL these labels
-	ParentID  string     // Filter by parent issue (via parent-child dependency)
-	Query     string     // Full-text search in title/description
-	IDs       []string   // Filter by specific issue IDs
-	Limit     int        // Maximum results to return
-	Offset    int        // Pagination offset
+	ProjectID   string     // Required: filter by project
+	Status      *Status    // Filter by status
+	Priority    *int       // Filter by priority
+	IssueType   *IssueType // Filter by issue type
+	Assignee    *string    // Filter by assignee
+	AISessionID *string    // Filter by AI session ID
+	Labels      []string   // AND semantics: issue must have ALL these labels
+	ParentID    string     // Filter by parent issue (via parent-child dependency)
+	Query       string     // Full-text search in title/description
+	IDs         []string   // Filter by specific issue IDs
+	Limit       int        // Maximum results to return
+	Offset      int        // Pagination offset
 }
 
 // WorkFilter is used to filter ready work queries.
@@ -434,6 +438,53 @@ func (p *Plan) Validate() error {
 		return errors.New("project_id is required")
 	}
 	return nil
+}
+
+// PlanContext aggregates all plans relevant to an issue.
+// It supports three patterns:
+// 1. InlinePlan: A plan comment directly on the issue
+// 2. ParentPlan: A plan inherited from a parent issue (via parent-child dependency)
+// 3. SharedPlans: Standalone plans linked to this issue
+type PlanContext struct {
+	// InlinePlan is a plan comment directly on this issue
+	InlinePlan *Comment `json:"inline_plan,omitempty"`
+	// ParentPlan is a plan inherited from a parent issue
+	ParentPlan *Comment `json:"parent_plan,omitempty"`
+	// ParentIssueID is the ID of the parent issue if ParentPlan is set
+	ParentIssueID string `json:"parent_issue_id,omitempty"`
+	// SharedPlans are standalone plans linked to this issue
+	SharedPlans []*Plan `json:"shared_plans,omitempty"`
+}
+
+// HasPlan returns true if any plan is available in this context.
+func (pc *PlanContext) HasPlan() bool {
+	if pc == nil {
+		return false
+	}
+	return pc.InlinePlan != nil || pc.ParentPlan != nil || len(pc.SharedPlans) > 0
+}
+
+// AISession represents an AI coding session (e.g., a Claude Code conversation).
+type AISession struct {
+	ID             string    `json:"id"`
+	TranscriptPath string    `json:"transcript_path"`
+	CWD            string    `json:"cwd,omitempty"`
+	StartedAt      time.Time `json:"started_at"`
+}
+
+// AIAgent represents a sub-agent spawned within an AI session.
+type AIAgent struct {
+	ID           string    `json:"id"`
+	SessionID    string    `json:"session_id"`
+	Description  string    `json:"description,omitempty"`
+	Prompt       string    `json:"prompt,omitempty"`
+	AgentType    string    `json:"agent_type,omitempty"`
+	Model        string    `json:"model,omitempty"`
+	Status       string    `json:"status"`
+	DurationMs   *int      `json:"duration_ms,omitempty"`
+	TotalTokens  *int      `json:"total_tokens,omitempty"`
+	ToolUseCount *int      `json:"tool_use_count,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // ProjectResolution contains the result of resolving a project by path.
