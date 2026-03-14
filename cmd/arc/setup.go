@@ -555,6 +555,7 @@ func copyFile(srcPath, dstPath string) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", srcPath, err)
 	}
+	//nolint:gosec // dstPath constructed from arc home dir
 	if err := os.WriteFile(dstPath, data, filePermissions); err != nil {
 		return fmt.Errorf("write %s: %w", dstPath, err)
 	}

@@ -328,7 +328,7 @@ func (c *Client) CloseIssue(projID, id, reason string, cascade bool) (*types.Iss
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -875,7 +875,7 @@ func (c *Client) get(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -911,7 +911,7 @@ func (c *Client) delete(path string) (*http.Response, error) {
 	}
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -938,7 +938,7 @@ func (c *Client) doJSON(method, path string, body any) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Actor", c.actor)
 
-	resp, err := c.httpClient.Do(req) //nolint:gosec // URL constructed from configured baseURL
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

@@ -260,7 +260,7 @@ func (s *Server) getAgentTranscript(c echo.Context) error {
 // slice of json.RawMessage values. Empty lines are skipped. Returns
 // os.ErrNotExist if the file does not exist on disk.
 func readJSONLFile(path string) ([]json.RawMessage, error) {
-	f, err := os.Open(path) //nolint:gosec // path derived from trusted DB transcript_path field
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
