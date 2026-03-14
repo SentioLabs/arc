@@ -33,7 +33,7 @@ Arc is a central issue tracking system for AI-assisted coding workflows.
   arc docs dependencies  - Dependency types and when to use each
   arc docs boundaries    - When to use arc vs TodoWrite
   arc docs resumability  - Writing notes that survive compaction
-  arc docs plans         - Plan patterns (inline, parent-epic, shared)
+  arc docs plans         - Plan workflow (create, review, approve)
   arc docs plugin        - Claude Code plugin and Codex CLI integration guide
 
 ## Quick Reference
@@ -43,8 +43,11 @@ Arc is a central issue tracking system for AI-assisted coding workflows.
   arc create "title"    - Create new issue
   arc show <id>         - View issue details
   arc close <id>        - Complete an issue
-  arc plan set <id>     - Set inline plan on issue
-  arc plan show <id>    - View all plans for issue
+  arc plan create --file <path> - Register plan for review
+  arc plan show <plan-id>       - View plan content and status
+  arc plan approve <plan-id>    - Approve plan
+  arc plan reject <plan-id>     - Reject plan
+  arc plan comments <plan-id>   - List review comments
   arc which             - Show active project
   arc paths             - Manage workspace path registrations
   arc project list      - List all projects

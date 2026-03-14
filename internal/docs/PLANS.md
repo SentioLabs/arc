@@ -1,149 +1,63 @@
 # Plans
 
-Plans provide structured context for how work should be executed. Arc supports three plan patterns, each suited to different coordination needs.
+Plans are ephemeral review artifacts backed by filesystem markdown files. They support a review workflow with approval, rejection, and comments.
 
-## Three Plan Patterns
+## Workflow
 
-| Pattern | When to Use | How It Works |
-|---------|------------|--------------|
-| **Inline Plan** | Single issue with clear steps | Plan stored directly on the issue as a special comment |
-| **Parent Epic** | Epic with children that share a plan | Set plan on parent; children inherit via parent-child dependency |
-| **Shared Plan** | Initiative spanning unrelated issues | Standalone plan object linked to multiple issues |
+1. Write your design to a markdown file in `docs/plans/`
+2. Register it with `arc plan create --file <path>` — returns a plan ID
+3. Review via web UI or CLI (add comments, discuss)
+4. Approve or reject the plan
+5. If approved, write the design content into the epic's description
 
----
-
-## Inline Plans
-
-Attach a plan directly to an issue. The plan is stored as a comment with type `plan`, and only the latest version is shown (previous versions are kept as history).
-
-### Commands
+## Commands
 
 ```bash
-# Set a plan (provide text directly)
-arc plan set <issue-id> "Step 1: Do X. Step 2: Do Y."
+# Register a plan for review
+arc plan create --file docs/plans/2026-03-14-auth-system.md
 
-# Set a plan (open $EDITOR)
-arc plan set <issue-id> --editor
+# View plan content, status, and comments
+arc plan show <plan-id>
 
-# View the plan
-arc plan show <issue-id>
+# Approve the plan
+arc plan approve <plan-id>
 
-# View plan version history
-arc plan history <issue-id>
+# Reject the plan
+arc plan reject <plan-id>
+
+# List review comments
+arc plan comments <plan-id>
 ```
 
-### When to Use
+## File Naming Convention
 
-- Single-issue work with a clear sequence of steps
-- Recording implementation decisions before starting work
-- Updating the plan as understanding evolves (history is preserved)
+Use `YYYY-MM-DD-<topic>.md` for plan files:
 
----
+```
+docs/plans/2026-03-14-auth-system.md
+docs/plans/2026-03-15-api-redesign.md
+```
 
-## Parent Epic Pattern
+## Review Cycle
 
-Set an inline plan on a parent issue. Any child issue linked via `parent-child` dependency automatically inherits the parent's plan. This is displayed when viewing child issues with `arc show` or `arc plan show`.
+Plans go through a review cycle:
 
-### Commands
+```
+create → review (with comments) → approve or reject
+                ↑                       |
+                └── revise and re-register ←─┘ (if rejected)
+```
+
+After registration, the plan is visible in the web planner UI where reviewers can add comments. Use `arc plan comments <plan-id>` to read feedback, revise the file, and re-register if needed.
+
+## Integration with Epics
+
+Once a plan is approved, the design content is written into the epic's description field:
 
 ```bash
-# Create the epic with a plan
-arc create "Auth system overhaul" -t epic
-arc plan set <epic-id> "Phase 1: JWT tokens. Phase 2: OAuth. Phase 3: RBAC."
-
-# Create children — they inherit the plan automatically
-arc create "Implement JWT tokens" -t task --parent <epic-id>
-arc create "Add OAuth provider" -t task --parent <epic-id>
-
-# Viewing a child shows the inherited plan
-arc plan show <child-id>
+arc update <epic-id> --stdin <<'EOF'
+<approved design content with task breakdown>
+EOF
 ```
 
-### When to Use
-
-- Epic with multiple subtasks that need shared context
-- Work breakdown where children should see the bigger picture
-- Plans that evolve as the epic progresses
-
-**Note**: `parent-child` dependencies affect ready work — children are excluded from `arc ready` until the parent is closed.
-
----
-
-## Shared Plans
-
-Standalone plan objects that can be linked to multiple unrelated issues across the project. Useful for cross-cutting initiatives.
-
-### Commands
-
-```bash
-# Create a shared plan
-arc plan create "Q1 Performance Initiative"
-
-# Create with $EDITOR for longer content
-arc plan create "Q1 Performance Initiative" --editor
-
-# List all shared plans
-arc plan list
-
-# Edit a shared plan
-arc plan edit <plan-id>
-
-# Link issues to the plan
-arc plan link <plan-id> <issue-1> <issue-2> ...
-
-# Unlink an issue
-arc plan unlink <plan-id> <issue-id>
-
-# Delete a shared plan (removes all linkages)
-arc plan delete <plan-id>
-```
-
-### When to Use
-
-- Cross-cutting initiatives that span multiple unrelated issues
-- Coordination plans that aren't tied to a single epic hierarchy
-- Shared context for issues that need to reference the same strategy
-
----
-
-## Plan Context Aggregation
-
-When you run `arc show <issue-id>`, arc aggregates all plan context for that issue:
-
-1. **Inline plan** — set directly on this issue
-2. **Parent plan** — inherited from parent issue (via parent-child dependency)
-3. **Shared plans** — linked to this issue
-
-All three sources are displayed together, giving a complete picture of the planning context.
-
-`arc plan show <issue-id>` provides a more detailed view of the same information.
-
----
-
-## Plan History
-
-Inline plans are versioned automatically. Each time you run `arc plan set`, a new version is created. The latest version is displayed by default.
-
-```bash
-# View all versions
-arc plan history <issue-id>
-```
-
-History shows each version with its timestamp and author, newest first.
-
----
-
-## Choosing the Right Pattern
-
-```
-Single issue, clear steps?
-  → Inline plan
-
-Epic with subtasks sharing context?
-  → Parent epic pattern (set plan on parent, children inherit)
-
-Multiple unrelated issues, shared strategy?
-  → Shared plan (link to each issue)
-```
-
-You can combine patterns — an issue can have an inline plan, inherit a parent plan, and be linked to shared plans simultaneously. All are shown together in `arc show`.
+This keeps the implementation context directly on the epic for reference during execution.

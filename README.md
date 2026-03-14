@@ -157,20 +157,16 @@ arc prime --role backend        # Filtered context for backend agent
 #### Plans
 
 ```bash
-# Inline plan on a single issue
-arc plan set mp-abc123 "Step 1: do X. Step 2: do Y."
-arc plan set mp-abc123 --editor          # Open $EDITOR
-arc plan show mp-abc123
-arc plan history mp-abc123
+# Register a plan for review (from a markdown file)
+arc plan create --file docs/plans/2026-03-14-auth-system.md
 
-# Shared plans (linkable to multiple issues)
-arc plan create "Q1 Initiative"
-arc plan create "Q1 Initiative" --editor
-arc plan link plan.xxxxx mp-abc123 mp-def456
-arc plan unlink plan.xxxxx mp-abc123
-arc plan list
-arc plan edit plan.xxxxx
-arc plan delete plan.xxxxx
+# View plan content, status, and comments
+arc plan show <plan-id>
+
+# Review workflow
+arc plan approve <plan-id>
+arc plan reject <plan-id>
+arc plan comments <plan-id>
 ```
 
 #### Documentation & Help
