@@ -459,12 +459,10 @@ func (c *Client) RemoveDependency(projID, issueID, dependsOnID string) error {
 
 // --- Plan methods ---
 
-// SetPlan creates or updates the plan for an issue.
-func (c *Client) SetPlan(projID, issueID, text, status string) (*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan", projID, issueID)
-
-	body := map[string]string{"text": text, "status": status}
-	resp, err := c.post(path, body)
+// CreatePlan registers an ephemeral plan backed by a filesystem markdown file.
+func (c *Client) CreatePlan(filePath string) (*types.Plan, error) {
+	body := map[string]string{"file_path": filePath}
+	resp, err := c.post("/api/v1/plans", body)
 	if err != nil {
 		return nil, err
 	}
@@ -477,9 +475,9 @@ func (c *Client) SetPlan(projID, issueID, text, status string) (*types.Plan, err
 	return &plan, nil
 }
 
-// GetPlanByIssue returns the plan associated with an issue.
-func (c *Client) GetPlanByIssue(projID, issueID string) (*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/plan", projID, issueID)
+// GetPlan retrieves a plan by ID, including file content.
+func (c *Client) GetPlan(planID string) (*types.PlanWithContent, error) {
+	path := fmt.Sprintf("/api/v1/plans/%s", planID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -487,56 +485,29 @@ func (c *Client) GetPlanByIssue(projID, issueID string) (*types.Plan, error) {
 	}
 	defer resp.Body.Close()
 
-	var plan types.Plan
+	var plan types.PlanWithContent
 	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return &plan, nil
 }
 
-// ListPlans returns plans in a project, optionally filtered by status.
-func (c *Client) ListPlans(projID, status string) ([]*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans", projID)
+// UpdatePlanContent writes new content to the plan's file.
+func (c *Client) UpdatePlanContent(planID string, content string) error {
+	path := fmt.Sprintf("/api/v1/plans/%s", planID)
 
-	if status != "" {
-		query := url.Values{}
-		query.Set("status", status)
-		path += "?" + query.Encode()
-	}
-
-	resp, err := c.get(path)
+	body := map[string]string{"content": content}
+	resp, err := c.put(path, body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
-
-	var plans []*types.Plan
-	if err := json.NewDecoder(resp.Body).Decode(&plans); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return plans, nil
-}
-
-// GetPlan retrieves a plan by ID.
-func (c *Client) GetPlan(projID, planID string) (*types.Plan, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
-
-	resp, err := c.get(path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var plan types.Plan
-	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &plan, nil
+	return nil
 }
 
 // UpdatePlanStatus updates the status of a plan.
-func (c *Client) UpdatePlanStatus(projID, planID, status string) error {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s/status", projID, planID)
+func (c *Client) UpdatePlanStatus(planID string, status string) error {
+	path := fmt.Sprintf("/api/v1/plans/%s/status", planID)
 
 	body := map[string]string{"status": status}
 	resp, err := c.patch(path, body)
@@ -547,22 +518,9 @@ func (c *Client) UpdatePlanStatus(projID, planID, status string) error {
 	return nil
 }
 
-// UpdatePlanContent updates a plan's title and content.
-func (c *Client) UpdatePlanContent(projID, planID, title, content string) error {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
-
-	body := map[string]string{"title": title, "content": content}
-	resp, err := c.put(path, body)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
-}
-
-// DeletePlan deletes a plan.
-func (c *Client) DeletePlan(projID, planID string) error {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans/%s", projID, planID)
+// DeletePlan deletes a plan and its comments.
+func (c *Client) DeletePlan(planID string) error {
+	path := fmt.Sprintf("/api/v1/plans/%s", planID)
 
 	resp, err := c.delete(path)
 	if err != nil {
@@ -572,23 +530,42 @@ func (c *Client) DeletePlan(projID, planID string) error {
 	return nil
 }
 
-// GetPendingPlanCount returns the count of draft plans in a project.
-func (c *Client) GetPendingPlanCount(projID string) (int, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/plans/pending-count", projID)
+// ListPlanComments returns all comments for a plan.
+func (c *Client) ListPlanComments(planID string) ([]*types.PlanComment, error) {
+	path := fmt.Sprintf("/api/v1/plans/%s/comments", planID)
 
 	resp, err := c.get(path)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var result struct {
-		Count int `json:"count"`
+	var comments []*types.PlanComment
+	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return 0, fmt.Errorf("decode response: %w", err)
+	return comments, nil
+}
+
+// CreatePlanComment adds a review comment to a plan.
+func (c *Client) CreatePlanComment(planID string, lineNumber *int, content string) (*types.PlanComment, error) {
+	path := fmt.Sprintf("/api/v1/plans/%s/comments", planID)
+
+	body := map[string]any{"content": content}
+	if lineNumber != nil {
+		body["line_number"] = *lineNumber
 	}
-	return result.Count, nil
+	resp, err := c.post(path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var comment types.PlanComment
+	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &comment, nil
 }
 
 // Workspace types and methods manage directory paths associated with projects.
