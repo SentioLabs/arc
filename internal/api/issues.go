@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/types"
@@ -59,14 +60,16 @@ func (s *Server) listIssues(c echo.Context) error {
 		Query:     c.QueryParam("q"),
 	}
 
-	// Parse optional filters from query parameters
-	if status := c.QueryParam("status"); status != "" {
-		s := types.Status(status)
-		filter.Status = &s
+	// Parse optional filters from query parameters (supports repeated params)
+	if statuses := c.QueryParams()["status"]; len(statuses) > 0 {
+		for _, s := range statuses {
+			filter.Statuses = append(filter.Statuses, types.Status(s))
+		}
 	}
-	if issueType := c.QueryParam("type"); issueType != "" {
-		t := types.IssueType(issueType)
-		filter.IssueType = &t
+	if issueTypes := c.QueryParams()["type"]; len(issueTypes) > 0 {
+		for _, t := range issueTypes {
+			filter.IssueTypes = append(filter.IssueTypes, types.IssueType(t))
+		}
 	}
 	if assignee := c.QueryParam("assignee"); assignee != "" {
 		filter.Assignee = &assignee
@@ -74,9 +77,13 @@ func (s *Server) listIssues(c echo.Context) error {
 	if aiSessionID := c.QueryParam("ai_session_id"); aiSessionID != "" {
 		filter.AISessionID = &aiSessionID
 	}
-	if priority := c.QueryParam("priority"); priority != "" {
-		p := queryInt(c, "priority", defaultPriority)
-		filter.Priority = &p
+	if priorities := c.QueryParams()["priority"]; len(priorities) > 0 {
+		for _, p := range priorities {
+			val, err := strconv.Atoi(p)
+			if err == nil {
+				filter.Priorities = append(filter.Priorities, val)
+			}
+		}
 	}
 	if parentID := c.QueryParam("parent_id"); parentID != "" {
 		filter.ParentID = parentID
