@@ -71,7 +71,9 @@ type Storage interface {
 	GetPlanByIssueID(ctx context.Context, issueID string) (*types.Plan, error)
 	GetPlan(ctx context.Context, id string) (*types.Plan, error)
 	ListPlans(ctx context.Context, projectID string, status string) ([]*types.Plan, error)
+	ListAllPlans(ctx context.Context, status string) ([]*types.Plan, error)
 	UpdatePlanStatus(ctx context.Context, id string, status string) error
+	UpdatePlanIssueID(ctx context.Context, id string, issueID string) error
 	UpdatePlanContent(ctx context.Context, id string, title string, content string) error
 	DeletePlan(ctx context.Context, id string) error
 	CountPlansByStatus(ctx context.Context, projectID string, status string) (int, error)

@@ -415,6 +415,82 @@ export async function browseFilesystem(dir: string): Promise<BrowseEntry[]> {
 	return data ?? [];
 }
 
+// Plan APIs
+export type Plan = components['schemas']['Plan'];
+
+// List all plans across projects (global view)
+export async function listAllPlans(status?: string): Promise<Plan[]> {
+	const params: Record<string, string> = {};
+	if (status) params.status = status;
+	const query = new URLSearchParams(params).toString();
+	const response = await fetch(`/api/v1/plans${query ? '?' + query : ''}`);
+	if (!response.ok) {
+		const body = await response.json().catch(() => ({ error: 'Failed to list plans' }));
+		handleError(body);
+	}
+	return response.json();
+}
+
+// List plans for a specific project
+export async function listProjectPlans(projectId: string, status?: string): Promise<Plan[]> {
+	const { data, error } = await api.GET('/projects/{projectId}/plans', {
+		params: {
+			path: { projectId },
+			query: { status: status as 'draft' | 'approved' | 'rejected' | undefined }
+		}
+	});
+	if (error) handleError(error);
+	return data ?? [];
+}
+
+// Get a single plan by ID
+export async function getPlan(projectId: string, planId: string): Promise<Plan> {
+	const { data, error } = await api.GET('/projects/{projectId}/plans/{planId}', {
+		params: { path: { projectId, planId } }
+	});
+	if (error) handleError(error);
+	if (!data) throw new Error('Plan not found');
+	return data;
+}
+
+// Update plan content and optionally link/unlink issue
+export async function updatePlan(
+	projectId: string,
+	planId: string,
+	updates: { title?: string; content?: string; issue_id?: string }
+): Promise<Plan> {
+	const { data, error } = await api.PUT('/projects/{projectId}/plans/{planId}', {
+		params: { path: { projectId, planId } },
+		body: updates as any
+	});
+	if (error) handleError(error);
+	if (!data) throw new Error('Failed to update plan');
+	return data;
+}
+
+// Update plan status (draft/approved/rejected)
+export async function updatePlanStatus(
+	projectId: string,
+	planId: string,
+	status: 'draft' | 'approved' | 'rejected'
+): Promise<Plan> {
+	const { data, error } = await api.PATCH('/projects/{projectId}/plans/{planId}/status', {
+		params: { path: { projectId, planId } },
+		body: { status }
+	});
+	if (error) handleError(error);
+	if (!data) throw new Error('Failed to update plan status');
+	return data;
+}
+
+// Delete a plan
+export async function deletePlan(projectId: string, planId: string): Promise<void> {
+	const { error } = await api.DELETE('/projects/{projectId}/plans/{planId}', {
+		params: { path: { projectId, planId } }
+	});
+	if (error) handleError(error);
+}
+
 // Team Context APIs
 export async function getTeamContext(
 	projectId: string,

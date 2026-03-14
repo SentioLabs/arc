@@ -251,11 +251,19 @@ func (m *mockWPStore) ListPlans(_ context.Context, _, _ string) ([]*types.Plan, 
 	panic("not implemented")
 }
 
+func (m *mockWPStore) ListAllPlans(_ context.Context, _ string) ([]*types.Plan, error) {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) UpdatePlanStatus(_ context.Context, _, _ string) error {
 	panic("not implemented")
 }
 
 func (m *mockWPStore) UpdatePlanContent(_ context.Context, _, _, _ string) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) UpdatePlanIssueID(_ context.Context, _, _ string) error {
 	panic("not implemented")
 }
 

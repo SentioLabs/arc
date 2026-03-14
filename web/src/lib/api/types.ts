@@ -503,6 +503,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all plans across projects */
+        get: operations["listAllPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/plans": {
         parameters: {
             query?: never;
@@ -904,6 +921,8 @@ export interface components {
         UpdatePlanContentRequest: {
             title: string;
             content: string;
+            /** @description Associated issue ID (set to empty string to unlink) */
+            issue_id?: string;
         };
         UpdatePlanStatusRequest: {
             status: components["schemas"]["PlanStatus"];
@@ -2018,6 +2037,30 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAllPlans: {
+        parameters: {
+            query?: {
+                /** @description Filter by plan status (draft, approved, rejected) */
+                status?: components["schemas"]["PlanStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of plans */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"][];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };

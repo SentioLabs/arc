@@ -1027,7 +1027,33 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # ====================
-  # Plans
+  # Plans (Global)
+  # ====================
+  /plans:
+    get:
+      operationId: listAllPlans
+      tags: [plans]
+      summary: List all plans across projects
+      parameters:
+        - name: status
+          in: query
+          description: Filter by plan status (draft, approved, rejected)
+          schema:
+            $ref: "#/components/schemas/PlanStatus"
+      responses:
+        "200":
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Plans (Project-scoped)
   # ====================
   /projects/{projectId}/plans:
     parameters:
@@ -1993,6 +2019,9 @@ components:
           maxLength: 200
         content:
           type: string
+        issue_id:
+          type: string
+          description: Associated issue ID (set to empty string to unlink)
 
     UpdatePlanStatusRequest:
       type: object

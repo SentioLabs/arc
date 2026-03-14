@@ -111,6 +111,36 @@ func (s *Store) UpdatePlanContent(ctx context.Context, id string, title string, 
 	return nil
 }
 
+// ListAllPlans returns all plans across all projects. If status is non-empty, filters by status.
+func (s *Store) ListAllPlans(ctx context.Context, status string) ([]*types.Plan, error) {
+	rows, err := s.queries.ListAllPlans(ctx, db.ListAllPlansParams{
+		Column1: status,
+		Status:  status,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list all plans: %w", err)
+	}
+
+	plans := make([]*types.Plan, len(rows))
+	for i, row := range rows {
+		plans[i] = dbPlanToType(row)
+	}
+	return plans, nil
+}
+
+// UpdatePlanIssueID updates the issue_id of a plan. Pass empty string to unlink.
+func (s *Store) UpdatePlanIssueID(ctx context.Context, id string, issueID string) error {
+	err := s.queries.UpdatePlanIssueID(ctx, db.UpdatePlanIssueIDParams{
+		ID:        id,
+		IssueID:   toNullString(issueID),
+		UpdatedAt: time.Now(),
+	})
+	if err != nil {
+		return fmt.Errorf("update plan issue ID: %w", err)
+	}
+	return nil
+}
+
 // DeletePlan deletes a plan.
 func (s *Store) DeletePlan(ctx context.Context, id string) error {
 	err := s.queries.DeletePlan(ctx, id)

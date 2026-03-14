@@ -118,6 +118,49 @@ func (q *Queries) GetPlanByIssueID(ctx context.Context, issueID sql.NullString) 
 	return &i, err
 }
 
+const listAllPlans = `-- name: ListAllPlans :many
+SELECT id, project_id, title, content, status, issue_id, created_at, updated_at FROM plans
+WHERE (? = '' OR status = ?)
+ORDER BY updated_at DESC
+`
+
+type ListAllPlansParams struct {
+	Column1 interface{} `json:"column_1"`
+	Status  string      `json:"status"`
+}
+
+func (q *Queries) ListAllPlans(ctx context.Context, arg ListAllPlansParams) ([]*Plan, error) {
+	rows, err := q.db.QueryContext(ctx, listAllPlans, arg.Column1, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Plan{}
+	for rows.Next() {
+		var i Plan
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Content,
+			&i.Status,
+			&i.IssueID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlans = `-- name: ListPlans :many
 SELECT id, project_id, title, content, status, issue_id, created_at, updated_at FROM plans
 WHERE project_id = ? AND (? = '' OR status = ?)
@@ -180,6 +223,21 @@ func (q *Queries) UpdatePlanContent(ctx context.Context, arg UpdatePlanContentPa
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const updatePlanIssueID = `-- name: UpdatePlanIssueID :exec
+UPDATE plans SET issue_id = ?, updated_at = ? WHERE id = ?
+`
+
+type UpdatePlanIssueIDParams struct {
+	IssueID   sql.NullString `json:"issue_id"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	ID        string         `json:"id"`
+}
+
+func (q *Queries) UpdatePlanIssueID(ctx context.Context, arg UpdatePlanIssueIDParams) error {
+	_, err := q.db.ExecContext(ctx, updatePlanIssueID, arg.IssueID, arg.UpdatedAt, arg.ID)
 	return err
 }
 

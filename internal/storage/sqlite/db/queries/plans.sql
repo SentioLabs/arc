@@ -26,6 +26,14 @@ DELETE FROM plans WHERE id = ?;
 -- name: CountPlansByStatus :one
 SELECT COUNT(*) as count FROM plans WHERE project_id = ? AND status = ?;
 
+-- name: ListAllPlans :many
+SELECT * FROM plans
+WHERE (? = '' OR status = ?)
+ORDER BY updated_at DESC;
+
+-- name: UpdatePlanIssueID :exec
+UPDATE plans SET issue_id = ?, updated_at = ? WHERE id = ?;
+
 -- name: UpsertPlan :one
 INSERT INTO plans (id, project_id, issue_id, title, content, status, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)

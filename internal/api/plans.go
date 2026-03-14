@@ -20,8 +20,9 @@ type setPlanRequest struct {
 
 // updatePlanRequest is the request body for updating a plan's content.
 type updatePlanRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Title   string  `json:"title"`
+	Content string  `json:"content"`
+	IssueID *string `json:"issue_id,omitempty"`
 }
 
 // updateStatusRequest is the request body for updating a plan's status.
@@ -105,6 +106,16 @@ func (s *Server) getIssuePlan(c echo.Context) error {
 	return successJSON(c, plan)
 }
 
+// listAllPlans returns all plans across all projects, optionally filtered by status.
+func (s *Server) listAllPlans(c echo.Context) error {
+	status := c.QueryParam("status")
+	plans, err := s.store.ListAllPlans(c.Request().Context(), status)
+	if err != nil {
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+	return successJSON(c, plans)
+}
+
 // listPlans returns all plans in a workspace, optionally filtered by status.
 func (s *Server) listPlans(c echo.Context) error {
 	wsID := workspaceID(c)
@@ -172,6 +183,14 @@ func (s *Server) updatePlan(c echo.Context) error {
 	// Return updated plan
 	plan.Title = title
 	plan.Content = content
+
+	// Handle issue_id update if provided
+	if req.IssueID != nil {
+		if err := s.store.UpdatePlanIssueID(ctx, planID, *req.IssueID); err != nil {
+			return errorJSON(c, http.StatusInternalServerError, err.Error())
+		}
+		plan.IssueID = *req.IssueID
+	}
 
 	return successJSON(c, plan)
 }

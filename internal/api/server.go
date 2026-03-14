@@ -114,6 +114,9 @@ func (s *Server) registerRoutes() {
 	v1.PATCH("/projects/:id/workspaces/:pathId", s.updateWorkspace)
 	v1.DELETE("/projects/:id/workspaces/:pathId", s.deleteWorkspace)
 
+	// Global plans (cross-project)
+	v1.GET("/plans", s.listAllPlans)
+
 	// Issues (project-scoped)
 	ws := v1.Group("/projects/:ws")
 	ws.GET("/issues", s.listIssues)
