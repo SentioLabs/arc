@@ -417,7 +417,7 @@ export async function listAllPlans(status?: string): Promise<Plan[]> {
 	const params: Record<string, string> = {};
 	if (status) params.status = status;
 	const query = new URLSearchParams(params).toString();
-	const response = await fetch(`/api/v1/plans${query ? '?' + query : ''}`);
+	const response = await fetch(`/api/v1/plans${query ? `?${query}` : ''}`);
 	if (!response.ok) {
 		const body = await response.json().catch(() => ({ error: 'Failed to list plans' }));
 		handleError(body);

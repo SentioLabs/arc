@@ -154,6 +154,49 @@ func updateTestIssueStatus(t *testing.T, e *echo.Echo, wsID, issueID, status str
 	}
 }
 
+// fetchIssues is a test helper that GETs the given URL and returns parsed issues.
+func fetchIssues(t *testing.T, e *echo.Echo, url string) []*types.Issue {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("listIssues returned %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp paginatedResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	dataBytes, err := json.Marshal(resp.Data)
+	if err != nil {
+		t.Fatalf("failed to marshal data: %v", err)
+	}
+	var issues []*types.Issue
+	if err := json.Unmarshal(dataBytes, &issues); err != nil {
+		t.Fatalf("failed to parse issues: %v", err)
+	}
+	return issues
+}
+
+// assertIssueIDs verifies that issues contains exactly the expected IDs.
+func assertIssueIDs(t *testing.T, issues []*types.Issue, expectedIDs ...string) {
+	t.Helper()
+	if len(issues) != len(expectedIDs) {
+		t.Errorf("expected %d issues, got %d", len(expectedIDs), len(issues))
+	}
+	found := make(map[string]bool)
+	for _, iss := range issues {
+		found[iss.ID] = true
+	}
+	for _, id := range expectedIDs {
+		if !found[id] {
+			t.Errorf("expected issue %s not found in results", id)
+		}
+	}
+}
+
 func TestListIssuesMultiFilter(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -161,112 +204,23 @@ func TestListIssuesMultiFilter(t *testing.T) {
 
 	wsID := createTestWorkspace(t, e)
 
-	// Create 3 issues: one open bug, one in_progress feature, one closed task
 	bugID := createTestIssueWithType(t, e, wsID, "Open Bug", "bug")
 	featureID := createTestIssueWithType(t, e, wsID, "InProgress Feature", "feature")
 	taskID := createTestIssueWithType(t, e, wsID, "Closed Task", "task")
 
-	// Update statuses
 	updateTestIssueStatus(t, e, wsID, featureID, "in_progress")
-	// Close the task via the close endpoint
 	closeTestIssue(t, e, wsID, taskID, `{}`)
 
-	// Test 1: Filter by multiple statuses: ?status=open&status=in_progress
 	t.Run("multi_status_filter", func(t *testing.T) {
 		url := fmt.Sprintf("/api/v1/projects/%s/issues?status=open&status=in_progress", wsID)
-		req := httptest.NewRequest(http.MethodGet, url, nil)
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("listIssues returned %d: %s", rec.Code, rec.Body.String())
-		}
-
-		var resp paginatedResponse
-		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("failed to parse response: %v", err)
-		}
-
-		dataBytes, err := json.Marshal(resp.Data)
-		if err != nil {
-			t.Fatalf("failed to marshal data: %v", err)
-		}
-
-		var issues []*types.Issue
-		if err := json.Unmarshal(dataBytes, &issues); err != nil {
-			t.Fatalf("failed to parse issues: %v", err)
-		}
-
-		if len(issues) != 2 {
-			t.Errorf("expected 2 issues (open + in_progress), got %d", len(issues))
-			for _, iss := range issues {
-				t.Logf("  issue: %s %q status=%s", iss.ID, iss.Title, iss.Status)
-			}
-		}
-
-		// Verify the returned issues are the bug and the feature
-		expectedIDs := map[string]bool{bugID: false, featureID: false}
-		for _, iss := range issues {
-			if _, ok := expectedIDs[iss.ID]; ok {
-				expectedIDs[iss.ID] = true
-			} else {
-				t.Errorf("unexpected issue in results: %s %q", iss.ID, iss.Title)
-			}
-		}
-		for id, found := range expectedIDs {
-			if !found {
-				t.Errorf("expected issue %s not found in results", id)
-			}
-		}
+		issues := fetchIssues(t, e, url)
+		assertIssueIDs(t, issues, bugID, featureID)
 	})
 
-	// Test 2: Filter by multiple types: ?type=bug&type=feature
 	t.Run("multi_type_filter", func(t *testing.T) {
 		url := fmt.Sprintf("/api/v1/projects/%s/issues?type=bug&type=feature", wsID)
-		req := httptest.NewRequest(http.MethodGet, url, nil)
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("listIssues returned %d: %s", rec.Code, rec.Body.String())
-		}
-
-		var resp paginatedResponse
-		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("failed to parse response: %v", err)
-		}
-
-		dataBytes, err := json.Marshal(resp.Data)
-		if err != nil {
-			t.Fatalf("failed to marshal data: %v", err)
-		}
-
-		var issues []*types.Issue
-		if err := json.Unmarshal(dataBytes, &issues); err != nil {
-			t.Fatalf("failed to parse issues: %v", err)
-		}
-
-		if len(issues) != 2 {
-			t.Errorf("expected 2 issues (bug + feature), got %d", len(issues))
-			for _, iss := range issues {
-				t.Logf("  issue: %s %q type=%s", iss.ID, iss.Title, iss.IssueType)
-			}
-		}
-
-		// Verify the returned issues are the bug and the feature
-		expectedIDs := map[string]bool{bugID: false, featureID: false}
-		for _, iss := range issues {
-			if _, ok := expectedIDs[iss.ID]; ok {
-				expectedIDs[iss.ID] = true
-			} else {
-				t.Errorf("unexpected issue in results: %s %q", iss.ID, iss.Title)
-			}
-		}
-		for id, found := range expectedIDs {
-			if !found {
-				t.Errorf("expected issue %s not found in results", id)
-			}
-		}
+		issues := fetchIssues(t, e, url)
+		assertIssueIDs(t, issues, bugID, featureID)
 	})
 }
 

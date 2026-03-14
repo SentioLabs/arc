@@ -197,105 +197,11 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 	}
 	offset := max(filter.Offset, 0)
 
-	// Full-text search has its own dedicated path.
 	if filter.Query != "" {
 		return s.searchIssuesFTS(ctx, filter.ProjectID, filter.Query, limit, offset)
 	}
 
-	// Convert filter slices, defaulting to "all" when empty.
-	statuses := make([]string, len(filter.Statuses))
-	for i, s := range filter.Statuses {
-		statuses[i] = string(s)
-	}
-	if len(statuses) == 0 {
-		statuses = allStatuses
-	}
-
-	issueTypes := make([]string, len(filter.IssueTypes))
-	for i, t := range filter.IssueTypes {
-		issueTypes[i] = string(t)
-	}
-	if len(issueTypes) == 0 {
-		issueTypes = allIssueTypes
-	}
-
-	priorities := make([]int64, len(filter.Priorities))
-	for i, p := range filter.Priorities {
-		priorities[i] = int64(p)
-	}
-	if len(priorities) == 0 {
-		priorities = allPriorities
-	}
-
-	// Build the query dynamically with IN clauses for multi-value filters.
-	args := []any{filter.ProjectID}
-	argIdx := 2
-
-	// Status IN clause
-	statusPlaceholders := buildPlaceholders(&argIdx, len(statuses))
-	for _, s := range statuses {
-		args = append(args, s)
-	}
-
-	// Issue type IN clause
-	typePlaceholders := buildPlaceholders(&argIdx, len(issueTypes))
-	for _, t := range issueTypes {
-		args = append(args, t)
-	}
-
-	// Priority IN clause
-	priorityPlaceholders := buildPlaceholders(&argIdx, len(priorities))
-	for _, p := range priorities {
-		args = append(args, p)
-	}
-
-	// Optional scalar filters
-	var assigneeClause, sessionClause, parentClause string
-
-	if filter.Assignee != nil {
-		assigneeClause = fmt.Sprintf("AND i.assignee = ?%d", argIdx)
-		args = append(args, *filter.Assignee)
-		argIdx++
-	}
-	if filter.AISessionID != nil {
-		sessionClause = fmt.Sprintf("AND i.ai_session_id = ?%d", argIdx)
-		args = append(args, *filter.AISessionID)
-		argIdx++
-	}
-
-	parentJoin := ""
-	if filter.ParentID != "" {
-		parentJoin = "JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'"
-		parentClause = fmt.Sprintf("AND d.depends_on_id = ?%d", argIdx)
-		args = append(args, filter.ParentID)
-		argIdx++
-	}
-
-	// Offset and limit
-	offsetPlaceholder := fmt.Sprintf("?%d", argIdx)
-	args = append(args, int64(offset))
-	argIdx++
-	limitPlaceholder := fmt.Sprintf("?%d", argIdx)
-	args = append(args, int64(limit))
-
-	query := fmt.Sprintf(`
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
-       i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank,
-       i.created_at, i.updated_at, i.closed_at, i.close_reason
-FROM issues i
-%s
-WHERE i.project_id = ?1
-  AND i.status IN (%s)
-  AND i.issue_type IN (%s)
-  AND i.priority IN (%s)
-  %s
-  %s
-  %s
-ORDER BY i.priority ASC, i.updated_at DESC
-LIMIT %s OFFSET %s
-`, parentJoin, statusPlaceholders, typePlaceholders, priorityPlaceholders,
-		assigneeClause, sessionClause, parentClause,
-		limitPlaceholder, offsetPlaceholder)
+	query, args := buildListIssuesQuery(filter, limit, offset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -321,6 +227,101 @@ LIMIT %s OFFSET %s
 	}
 
 	return issues, nil
+}
+
+// buildListIssuesQuery constructs the dynamic SQL and args for ListIssues.
+// All string interpolation uses only positional placeholder references (?N),
+// never user-supplied values directly.
+func buildListIssuesQuery(filter types.IssueFilter, limit, offset int) (string, []any) {
+	statuses := toStringSliceOrDefault(filter.Statuses, allStatuses)
+	issueTypes := toStringSliceOrDefault(filter.IssueTypes, allIssueTypes)
+	priorities := toInt64SliceOrDefault(filter.Priorities, allPriorities)
+
+	args := []any{filter.ProjectID}
+	argIdx := 2
+
+	statusPH := appendSlice(&args, &argIdx, statuses)
+	typePH := appendSlice(&args, &argIdx, issueTypes)
+	priorityPH := appendSlice(&args, &argIdx, priorities)
+
+	var assigneeClause, sessionClause, parentClause, parentJoin string
+
+	if filter.Assignee != nil {
+		assigneeClause = fmt.Sprintf("AND i.assignee = ?%d", argIdx)
+		args = append(args, *filter.Assignee)
+		argIdx++
+	}
+	if filter.AISessionID != nil {
+		sessionClause = fmt.Sprintf("AND i.ai_session_id = ?%d", argIdx)
+		args = append(args, *filter.AISessionID)
+		argIdx++
+	}
+	if filter.ParentID != "" {
+		parentJoin = "JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'"
+		parentClause = fmt.Sprintf("AND d.depends_on_id = ?%d", argIdx)
+		args = append(args, filter.ParentID)
+		argIdx++
+	}
+
+	offsetPH := fmt.Sprintf("?%d", argIdx)
+	args = append(args, int64(offset))
+	argIdx++
+	limitPH := fmt.Sprintf("?%d", argIdx)
+	args = append(args, int64(limit))
+
+	query := fmt.Sprintf(`
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
+       i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank,
+       i.created_at, i.updated_at, i.closed_at, i.close_reason
+FROM issues i
+%s
+WHERE i.project_id = ?1
+  AND i.status IN (%s)
+  AND i.issue_type IN (%s)
+  AND i.priority IN (%s)
+  %s
+  %s
+  %s
+ORDER BY i.priority ASC, i.updated_at DESC
+LIMIT %s OFFSET %s
+`, parentJoin, statusPH, typePH, priorityPH,
+		assigneeClause, sessionClause, parentClause,
+		limitPH, offsetPH)
+
+	return query, args
+}
+
+// toStringSliceOrDefault converts a typed slice to []string, returning defaults if empty.
+func toStringSliceOrDefault[T ~string](vals []T, defaults []string) []string {
+	if len(vals) == 0 {
+		return defaults
+	}
+	out := make([]string, len(vals))
+	for i, v := range vals {
+		out[i] = string(v)
+	}
+	return out
+}
+
+// toInt64SliceOrDefault converts []int to []int64, returning defaults if empty.
+func toInt64SliceOrDefault(vals []int, defaults []int64) []int64 {
+	if len(vals) == 0 {
+		return defaults
+	}
+	out := make([]int64, len(vals))
+	for i, v := range vals {
+		out[i] = int64(v)
+	}
+	return out
+}
+
+// appendSlice adds slice values to args and returns the SQL placeholder string.
+func appendSlice[T any](args *[]any, argIdx *int, vals []T) string {
+	ph := buildPlaceholders(argIdx, len(vals))
+	for _, v := range vals {
+		*args = append(*args, v)
+	}
+	return ph
 }
 
 // buildPlaceholders generates a comma-separated string of SQL placeholders

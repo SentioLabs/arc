@@ -1,6 +1,6 @@
-# Arc AI Issue Tracker
+Arc AI Issue Tracker
 
-A central issue tracking server for AI-assisted coding workflows
+Acentral issue tracking server for AI-assisted coding workflows
 This is heavily inspired by the amazing work over at [beads](https://github.com/steveyegge/beads)
 
 Key Differences:
@@ -12,8 +12,14 @@ Key Differences:
 
 ## Features
 
+<<<<<<< Updated upstream
 - **Central Server**: Single server managing multiple projects
 - **Web UI**: Svelte client app embedded in Go server
+=======
+8vc2VhcmNoLXNuYXBzaG90LXRyYW5zbGF0aW9uLXBpcGVsaW5lLXpoLXByb2Qvb3V0cHV0LyA=- **Central Server**: Single server managing multiple workspaces
+
+- **Web UI**: Svelete client app embedded in go server
+>>>>>>> Stashed changes
 - **REST API**: Clean JSON API for all operations
 - **Projects**: First-class project management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
@@ -277,6 +283,7 @@ arc setup codex
 ```
 
 **Notes:**
+
 - Codex CLI does not support lifecycle hooks. Run `arc onboard` at session start.
 - Use `arc prime` after compaction or if workflow context is stale.
 

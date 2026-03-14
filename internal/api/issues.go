@@ -60,34 +60,7 @@ func (s *Server) listIssues(c echo.Context) error {
 		Query:     c.QueryParam("q"),
 	}
 
-	// Parse optional filters from query parameters (supports repeated params)
-	if statuses := c.QueryParams()["status"]; len(statuses) > 0 {
-		for _, s := range statuses {
-			filter.Statuses = append(filter.Statuses, types.Status(s))
-		}
-	}
-	if issueTypes := c.QueryParams()["type"]; len(issueTypes) > 0 {
-		for _, t := range issueTypes {
-			filter.IssueTypes = append(filter.IssueTypes, types.IssueType(t))
-		}
-	}
-	if assignee := c.QueryParam("assignee"); assignee != "" {
-		filter.Assignee = &assignee
-	}
-	if aiSessionID := c.QueryParam("ai_session_id"); aiSessionID != "" {
-		filter.AISessionID = &aiSessionID
-	}
-	if priorities := c.QueryParams()["priority"]; len(priorities) > 0 {
-		for _, p := range priorities {
-			val, err := strconv.Atoi(p)
-			if err == nil {
-				filter.Priorities = append(filter.Priorities, val)
-			}
-		}
-	}
-	if parentID := c.QueryParam("parent_id"); parentID != "" {
-		filter.ParentID = parentID
-	}
+	parseIssueFilterParams(c, &filter)
 
 	issues, err := s.store.ListIssues(c.Request().Context(), filter)
 	if err != nil {
@@ -110,6 +83,32 @@ func (s *Server) listIssues(c echo.Context) error {
 	}
 
 	return paginatedJSON(c, issues, len(issues), filter.Limit, filter.Offset)
+}
+
+// parseIssueFilterParams extracts optional filter params from query string into the filter.
+// Supports repeated params for multi-select (e.g. ?status=open&status=blocked).
+func parseIssueFilterParams(c echo.Context, filter *types.IssueFilter) {
+	for _, s := range c.QueryParams()["status"] {
+		filter.Statuses = append(filter.Statuses, types.Status(s))
+	}
+	for _, t := range c.QueryParams()["type"] {
+		filter.IssueTypes = append(filter.IssueTypes, types.IssueType(t))
+	}
+	for _, p := range c.QueryParams()["priority"] {
+		val, err := strconv.Atoi(p)
+		if err == nil {
+			filter.Priorities = append(filter.Priorities, val)
+		}
+	}
+	if assignee := c.QueryParam("assignee"); assignee != "" {
+		filter.Assignee = &assignee
+	}
+	if aiSessionID := c.QueryParam("ai_session_id"); aiSessionID != "" {
+		filter.AISessionID = &aiSessionID
+	}
+	if parentID := c.QueryParam("parent_id"); parentID != "" {
+		filter.ParentID = parentID
+	}
 }
 
 // createIssue creates a new issue in the specified workspace.

@@ -19,7 +19,9 @@ func TestListIssuesMultiFilterStatuses(t *testing.T) {
 	// issueOpen is already StatusOpen from setupTestIssue
 
 	issueInProgress := setupTestIssue(t, store, proj, "In Progress Issue")
-	if err := store.UpdateIssue(ctx, issueInProgress.ID, map[string]any{"status": string(types.StatusInProgress)}, "test-actor"); err != nil {
+	err := store.UpdateIssue(ctx, issueInProgress.ID,
+		map[string]any{"status": string(types.StatusInProgress)}, "test-actor")
+	if err != nil {
 		t.Fatalf("failed to update issue status: %v", err)
 	}
 
@@ -206,7 +208,9 @@ func TestListIssuesMultiFilterEmptySlicesReturnAll(t *testing.T) {
 	// Create issues with different statuses
 	_ = setupTestIssue(t, store, proj, "Issue 1")
 	issue2 := setupTestIssue(t, store, proj, "Issue 2")
-	if err := store.UpdateIssue(ctx, issue2.ID, map[string]any{"status": string(types.StatusInProgress)}, "test-actor"); err != nil {
+	err := store.UpdateIssue(ctx, issue2.ID,
+		map[string]any{"status": string(types.StatusInProgress)}, "test-actor")
+	if err != nil {
 		t.Fatalf("failed to update issue: %v", err)
 	}
 
@@ -265,7 +269,9 @@ func TestListIssuesMultiFilterCombined(t *testing.T) {
 	if err := store.CreateIssue(ctx, issue3, "test-actor"); err != nil {
 		t.Fatalf("failed to create issue: %v", err)
 	}
-	if err := store.UpdateIssue(ctx, issue3.ID, map[string]any{"status": string(types.StatusInProgress)}, "test-actor"); err != nil {
+	err := store.UpdateIssue(ctx, issue3.ID,
+		map[string]any{"status": string(types.StatusInProgress)}, "test-actor")
+	if err != nil {
 		t.Fatalf("failed to update issue: %v", err)
 	}
 

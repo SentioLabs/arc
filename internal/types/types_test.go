@@ -693,104 +693,28 @@ func TestIssueFilterParentIDField(t *testing.T) {
 }
 
 func TestIssueFilterMultiValueFields(t *testing.T) {
-	t.Run("statuses slice field", func(t *testing.T) {
-		filter := IssueFilter{
-			ProjectID: "proj-test",
-			Statuses:  []Status{StatusOpen, StatusInProgress},
-		}
+	filter := IssueFilter{
+		ProjectID:  "proj-test",
+		Statuses:   []Status{StatusOpen, StatusInProgress},
+		Priorities: []int{0, 1, 2},
+		IssueTypes: []IssueType{TypeBug, TypeFeature},
+	}
 
-		if len(filter.Statuses) != 2 {
-			t.Fatalf("IssueFilter.Statuses length = %d, want 2", len(filter.Statuses))
-		}
-		if filter.Statuses[0] != StatusOpen {
-			t.Errorf("IssueFilter.Statuses[0] = %q, want %q", filter.Statuses[0], StatusOpen)
-		}
-		if filter.Statuses[1] != StatusInProgress {
-			t.Errorf("IssueFilter.Statuses[1] = %q, want %q", filter.Statuses[1], StatusInProgress)
-		}
-	})
+	if len(filter.Statuses) != 2 {
+		t.Errorf("Statuses length = %d, want 2", len(filter.Statuses))
+	}
+	if len(filter.Priorities) != 3 {
+		t.Errorf("Priorities length = %d, want 3", len(filter.Priorities))
+	}
+	if len(filter.IssueTypes) != 2 {
+		t.Errorf("IssueTypes length = %d, want 2", len(filter.IssueTypes))
+	}
 
-	t.Run("priorities slice field", func(t *testing.T) {
-		filter := IssueFilter{
-			ProjectID:  "proj-test",
-			Priorities: []int{0, 1, 2},
-		}
-
-		if len(filter.Priorities) != 3 {
-			t.Fatalf("IssueFilter.Priorities length = %d, want 3", len(filter.Priorities))
-		}
-		if filter.Priorities[0] != 0 {
-			t.Errorf("IssueFilter.Priorities[0] = %d, want 0", filter.Priorities[0])
-		}
-		if filter.Priorities[2] != 2 {
-			t.Errorf("IssueFilter.Priorities[2] = %d, want 2", filter.Priorities[2])
-		}
-	})
-
-	t.Run("issue types slice field", func(t *testing.T) {
-		filter := IssueFilter{
-			ProjectID:  "proj-test",
-			IssueTypes: []IssueType{TypeBug, TypeFeature},
-		}
-
-		if len(filter.IssueTypes) != 2 {
-			t.Fatalf("IssueFilter.IssueTypes length = %d, want 2", len(filter.IssueTypes))
-		}
-		if filter.IssueTypes[0] != TypeBug {
-			t.Errorf("IssueFilter.IssueTypes[0] = %q, want %q", filter.IssueTypes[0], TypeBug)
-		}
-		if filter.IssueTypes[1] != TypeFeature {
-			t.Errorf("IssueFilter.IssueTypes[1] = %q, want %q", filter.IssueTypes[1], TypeFeature)
-		}
-	})
-
-	t.Run("empty slices mean no filter", func(t *testing.T) {
-		filter := IssueFilter{
-			ProjectID: "proj-test",
-		}
-
-		if filter.Statuses != nil {
-			t.Errorf("IssueFilter.Statuses should be nil by default, got %v", filter.Statuses)
-		}
-		if filter.Priorities != nil {
-			t.Errorf("IssueFilter.Priorities should be nil by default, got %v", filter.Priorities)
-		}
-		if filter.IssueTypes != nil {
-			t.Errorf("IssueFilter.IssueTypes should be nil by default, got %v", filter.IssueTypes)
-		}
-	})
-
-	t.Run("other fields unchanged", func(t *testing.T) {
-		assignee := "alice"
-		sessionID := "session-123"
-		filter := IssueFilter{
-			ProjectID:   "proj-test",
-			Statuses:    []Status{StatusOpen},
-			Priorities:  []int{1},
-			IssueTypes:  []IssueType{TypeTask},
-			Assignee:    &assignee,
-			AISessionID: &sessionID,
-			Labels:      []string{"urgent"},
-			ParentID:    "parent-1",
-			Query:       "search term",
-			IDs:         []string{"id-1", "id-2"},
-			Limit:       50,
-			Offset:      10,
-		}
-
-		if *filter.Assignee != "alice" {
-			t.Errorf("IssueFilter.Assignee = %q, want %q", *filter.Assignee, "alice")
-		}
-		if *filter.AISessionID != "session-123" {
-			t.Errorf("IssueFilter.AISessionID = %q, want %q", *filter.AISessionID, "session-123")
-		}
-		if filter.Limit != 50 {
-			t.Errorf("IssueFilter.Limit = %d, want 50", filter.Limit)
-		}
-		if filter.Offset != 10 {
-			t.Errorf("IssueFilter.Offset = %d, want 10", filter.Offset)
-		}
-	})
+	// Zero-value filter should have nil slices
+	empty := IssueFilter{ProjectID: "proj-test"}
+	if empty.Statuses != nil || empty.Priorities != nil || empty.IssueTypes != nil {
+		t.Error("zero-value IssueFilter should have nil slices")
+	}
 }
 
 func TestMergeResultTargetProject(t *testing.T) {

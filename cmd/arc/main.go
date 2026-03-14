@@ -1266,10 +1266,10 @@ func formatPlanInfo(plan *types.Plan) string {
 		return ""
 	}
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Plan [%s]:\n", plan.Status)
-	fmt.Fprintf(&sb, "  %s\n", plan.Title)
+	_, _ = fmt.Fprintf(&sb, "Plan [%s]:\n", plan.Status)
+	_, _ = fmt.Fprintf(&sb, "  %s\n", plan.Title)
 	if plan.Status == "draft" {
-		sb.WriteString("  (pending review)\n")
+		_, _ = sb.WriteString("  (pending review)\n")
 	}
 	return sb.String()
 }

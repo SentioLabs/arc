@@ -1,3 +1,5 @@
+// Plans implements the storage layer for plan CRUD operations,
+// including issue linking and status management.
 package sqlite
 
 import (
