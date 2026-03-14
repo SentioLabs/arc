@@ -42,12 +42,12 @@ func (s *Store) CreateOrUpdatePlan(ctx context.Context, plan *types.Plan) error 
 	return nil
 }
 
-// GetPlanByIssueID retrieves a plan by issue ID. Returns nil, nil if not found.
+// GetPlanByIssueID retrieves a plan by issue ID. Returns an error if not found.
 func (s *Store) GetPlanByIssueID(ctx context.Context, issueID string) (*types.Plan, error) {
 	row, err := s.queries.GetPlanByIssueID(ctx, toNullString(issueID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, fmt.Errorf("no plan found for issue: %s", issueID)
 		}
 		return nil, fmt.Errorf("get plan by issue ID: %w", err)
 	}

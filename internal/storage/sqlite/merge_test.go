@@ -137,11 +137,17 @@ func TestMergeProjects_WithPlans(t *testing.T) {
 	}
 
 	// Create plans in source project
-	plan1 := &types.Plan{ID: "plan.001", ProjectID: source.ID, Title: "Plan 1", Content: "Content 1", Status: types.PlanStatusDraft}
+	plan1 := &types.Plan{
+		ID: "plan.001", ProjectID: source.ID,
+		Title: "Plan 1", Content: "Content 1", Status: types.PlanStatusDraft,
+	}
 	if err := store.CreateOrUpdatePlan(ctx, plan1); err != nil {
 		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
 	}
-	plan2 := &types.Plan{ID: "plan.002", ProjectID: source.ID, Title: "Plan 2", Content: "Content 2", Status: types.PlanStatusDraft}
+	plan2 := &types.Plan{
+		ID: "plan.002", ProjectID: source.ID,
+		Title: "Plan 2", Content: "Content 2", Status: types.PlanStatusDraft,
+	}
 	if err := store.CreateOrUpdatePlan(ctx, plan2); err != nil {
 		t.Fatalf("CreateOrUpdatePlan failed: %v", err)
 	}

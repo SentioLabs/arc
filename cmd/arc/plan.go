@@ -1,5 +1,12 @@
 // Package main provides the plan management commands for the arc CLI.
 // Plans are attached to individual issues and support draft/approved/rejected workflow.
+//
+// Commands:
+//   - plan set: create or update a plan on an issue (inline text, stdin, or editor)
+//   - plan show: display the current plan for an issue
+//   - plan list: list all plans in the project with optional status filter
+//   - plan approve: mark a plan as approved
+//   - plan reject: mark a plan as rejected
 package main
 
 import (
@@ -308,7 +315,7 @@ func editInEditor(content string) (string, error) {
 	}
 
 	// Read result
-	result, err := os.ReadFile(tmpFile.Name())
+	result, err := os.ReadFile(tmpFile.Name()) //nolint:gosec // reading back our own temp file
 	if err != nil {
 		return "", err
 	}

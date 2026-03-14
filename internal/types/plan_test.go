@@ -1,7 +1,9 @@
-package types
+package types_test
 
 import (
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 func TestPlanStatusConstants(t *testing.T) {
@@ -11,9 +13,9 @@ func TestPlanStatusConstants(t *testing.T) {
 		constant string
 		expected string
 	}{
-		{"draft", PlanStatusDraft, "draft"},
-		{"approved", PlanStatusApproved, "approved"},
-		{"rejected", PlanStatusRejected, "rejected"},
+		{"draft", types.PlanStatusDraft, "draft"},
+		{"approved", types.PlanStatusApproved, "approved"},
+		{"rejected", types.PlanStatusRejected, "rejected"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -25,11 +27,11 @@ func TestPlanStatusConstants(t *testing.T) {
 }
 
 func TestPlanHasStatusField(t *testing.T) {
-	p := Plan{
+	p := types.Plan{
 		ID:        "plan.abc",
 		ProjectID: "proj-1",
 		Title:     "Test Plan",
-		Status:    PlanStatusDraft,
+		Status:    types.PlanStatusDraft,
 	}
 	if p.Status != "draft" {
 		t.Errorf("expected status 'draft', got %q", p.Status)
@@ -37,7 +39,7 @@ func TestPlanHasStatusField(t *testing.T) {
 }
 
 func TestPlanHasIssueIDField(t *testing.T) {
-	p := Plan{
+	p := types.Plan{
 		ID:        "plan.abc",
 		ProjectID: "proj-1",
 		Title:     "Test Plan",
@@ -49,42 +51,33 @@ func TestPlanHasIssueIDField(t *testing.T) {
 }
 
 func TestPlanNoLinkedIssuesField(t *testing.T) {
-	// This test verifies at compile time that Plan does NOT have a LinkedIssues field.
-	// If LinkedIssues were still present, this would compile but we verify the struct
-	// only has the expected fields by checking JSON serialization.
-	p := Plan{
+	p := types.Plan{
 		ID:        "plan.abc",
 		ProjectID: "proj-1",
 		Title:     "Test Plan",
 		Content:   "content",
-		Status:    PlanStatusDraft,
+		Status:    types.PlanStatusDraft,
 		IssueID:   "issue-1",
 	}
-	// Verify the plan validates successfully
 	if err := p.Validate(); err != nil {
 		t.Errorf("expected valid plan, got error: %v", err)
 	}
 }
 
 func TestCommentTypeCommentIsValid(t *testing.T) {
-	// CommentTypeComment should still be valid
-	if !CommentTypeComment.IsValid() {
+	if !types.CommentTypeComment.IsValid() {
 		t.Error("expected CommentTypeComment to be valid")
 	}
 }
 
 func TestCommentTypePlanRemoved(t *testing.T) {
-	// After removal, "plan" should no longer be a valid comment type
-	ct := CommentType("plan")
+	ct := types.CommentType("plan")
 	if ct.IsValid() {
 		t.Error("expected 'plan' comment type to no longer be valid")
 	}
 }
 
 func TestPlanContextRemoved(t *testing.T) {
-	// Verify IssueDetails no longer has PlanContext field.
-	// This is a compile-time check - if PlanContext still existed on IssueDetails,
-	// using a field that doesn't exist would cause a compile error.
-	d := IssueDetails{}
+	d := types.IssueDetails{}
 	_ = d // IssueDetails should compile without PlanContext
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/project"
@@ -95,10 +96,10 @@ func (s *Server) getIssuePlan(c echo.Context) error {
 	ctx := c.Request().Context()
 	plan, err := s.store.GetPlanByIssueID(ctx, id)
 	if err != nil {
+		if strings.Contains(err.Error(), "no plan found") {
+			return errorJSON(c, http.StatusNotFound, "no plan found for issue")
+		}
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-	if plan == nil {
-		return errorJSON(c, http.StatusNotFound, "no plan found for issue")
 	}
 
 	return successJSON(c, plan)

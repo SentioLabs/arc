@@ -257,11 +257,7 @@ const (
 
 // IsValid checks if the comment type value is valid.
 func (c CommentType) IsValid() bool {
-	switch c {
-	case CommentTypeComment:
-		return true
-	}
-	return false
+	return c == CommentTypeComment
 }
 
 // Comment represents a comment on an issue.

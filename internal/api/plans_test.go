@@ -13,6 +13,8 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+const testPlanBody = `{"text": "Plan content"}`
+
 // testServer creates a test server with a temporary SQLite database.
 func testServer(t *testing.T) (*Server, func()) {
 	t.Helper()
@@ -282,10 +284,10 @@ func TestListPlansFilterByStatus(t *testing.T) {
 	wsID := createTestWorkspace(t, e)
 
 	// Create two plans (both default to "draft")
-	var planIDs []string
+	planIDs := make([]string, 0, 2)
 	for i := range 2 {
 		issueID := createTestIssue(t, e, wsID, "Issue "+string(rune('A'+i)))
-		body := `{"text": "Plan content"}`
+		body := testPlanBody
 		planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
 		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -303,7 +305,8 @@ func TestListPlansFilterByStatus(t *testing.T) {
 
 	// Approve the first plan
 	statusBody := `{"status": "approved"}`
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/"+wsID+"/plans/"+planIDs[0]+"/status", bytes.NewBufferString(statusBody))
+	statusURL := "/api/v1/projects/" + wsID + "/plans/" + planIDs[0] + "/status"
+	req := httptest.NewRequest(http.MethodPatch, statusURL, bytes.NewBufferString(statusBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -339,7 +342,7 @@ func TestUpdatePlanStatus(t *testing.T) {
 	issueID := createTestIssue(t, e, wsID, "Issue for Status")
 
 	// Create plan
-	body := `{"text": "Plan content"}`
+	body := testPlanBody
 	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
 	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -353,7 +356,8 @@ func TestUpdatePlanStatus(t *testing.T) {
 
 	// Update status to approved
 	statusBody := `{"status": "approved"}`
-	req = httptest.NewRequest(http.MethodPatch, "/api/v1/projects/"+wsID+"/plans/"+plan.ID+"/status", bytes.NewBufferString(statusBody))
+	statusURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/status"
+	req = httptest.NewRequest(http.MethodPatch, statusURL, bytes.NewBufferString(statusBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -386,7 +390,7 @@ func TestUpdatePlanStatusInvalid(t *testing.T) {
 	issueID := createTestIssue(t, e, wsID, "Issue for Invalid Status")
 
 	// Create plan
-	body := `{"text": "Plan content"}`
+	body := testPlanBody
 	planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
 	req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -400,7 +404,8 @@ func TestUpdatePlanStatusInvalid(t *testing.T) {
 
 	// Try invalid status
 	statusBody := `{"status": "invalid_status"}`
-	req = httptest.NewRequest(http.MethodPatch, "/api/v1/projects/"+wsID+"/plans/"+plan.ID+"/status", bytes.NewBufferString(statusBody))
+	statusURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID + "/status"
+	req = httptest.NewRequest(http.MethodPatch, statusURL, bytes.NewBufferString(statusBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -433,7 +438,8 @@ func TestUpdatePlanContent(t *testing.T) {
 
 	// Update content
 	updateBody := `{"title": "Updated Title", "content": "Updated content"}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+wsID+"/plans/"+plan.ID, bytes.NewBufferString(updateBody))
+	updateURL := "/api/v1/projects/" + wsID + "/plans/" + plan.ID
+	req = httptest.NewRequest(http.MethodPut, updateURL, bytes.NewBufferString(updateBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -505,7 +511,7 @@ func TestGetPendingCount(t *testing.T) {
 	// Create two draft plans
 	for i := range 2 {
 		issueID := createTestIssue(t, e, wsID, "Issue "+string(rune('A'+i)))
-		body := `{"text": "Plan content"}`
+		body := testPlanBody
 		planURL := "/api/v1/projects/" + wsID + "/issues/" + issueID + "/plan"
 		req := httptest.NewRequest(http.MethodPost, planURL, bytes.NewBufferString(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

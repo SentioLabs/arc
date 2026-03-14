@@ -98,7 +98,7 @@ func runDocs(cmd *cobra.Command, args []string) error {
 			topic, strings.Join(validDocTopics, ", "))
 	}
 
-	fmt.Fprint(os.Stdout, content)
+	_, _ = fmt.Fprint(os.Stdout, content)
 	return nil
 }
 

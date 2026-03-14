@@ -181,13 +181,13 @@ func TestGetPlanByIssueID(t *testing.T) {
 	proj := setupTestProject(t, store)
 	issue := setupTestIssue(t, store, proj, "Issue with plan")
 
-	// No plan yet - should return nil, nil
+	// No plan yet — should return an error
 	got, err := store.GetPlanByIssueID(ctx, issue.ID)
-	if err != nil {
-		t.Fatalf("GetPlanByIssueID should not error for missing plan: %v", err)
+	if err == nil {
+		t.Fatal("GetPlanByIssueID should return error for missing plan")
 	}
 	if got != nil {
-		t.Error("GetPlanByIssueID should return nil when no plan exists")
+		t.Error("GetPlanByIssueID should return nil plan when not found")
 	}
 
 	// Create a plan

@@ -935,11 +935,11 @@ func formatOpenChildrenError(e *types.OpenChildrenError) string {
 	if len(e.Children) == 1 {
 		plural = "issue"
 	}
-	fmt.Fprintf(&b, "Error: cannot close %s: %d open child %s must be closed first\n",
+	_, _ = fmt.Fprintf(&b, "Error: cannot close %s: %d open child %s must be closed first\n",
 		e.IssueID, len(e.Children), plural)
 
 	// Children list
-	b.WriteString("\n  Open children:\n")
+	_, _ = b.WriteString("\n  Open children:\n")
 
 	// Calculate max widths for alignment
 	maxIDLen := 0
@@ -954,14 +954,14 @@ func formatOpenChildrenError(e *types.OpenChildrenError) string {
 	}
 
 	for _, child := range e.Children {
-		fmt.Fprintf(&b, "    %-*s  %-*s  (%s)\n",
+		_, _ = fmt.Fprintf(&b, "    %-*s  %-*s  (%s)\n",
 			maxIDLen, child.ID,
 			maxTitleLen, child.Title,
 			child.Status)
 	}
 
 	// Hint
-	b.WriteString("\n  Use --cascade to close all children, or close them individually first.\n")
+	_, _ = b.WriteString("\n  Use --cascade to close all children, or close them individually first.\n")
 
 	return b.String()
 }
