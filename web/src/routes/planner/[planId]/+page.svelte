@@ -15,16 +15,21 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
-	let editing = $state(false);
+	// View modes: 'read' (rendered markdown), 'review' (line numbers + comments), 'edit' (raw editor)
+	type ViewMode = 'read' | 'review' | 'edit';
+	let viewMode = $state<ViewMode>('read');
 	let editContent = $state('');
 
+	// Comment state
 	let activeCommentLine = $state<number | null>(null);
 	let commentText = $state('');
 	let overallFeedback = $state('');
 	let submitting = $state(false);
 
+	// Split content into lines for the review/edit views
 	let contentLines = $derived((plan?.content ?? '').split('\n'));
 
+	// Group comments by line number for indicators
 	let commentsByLine = $derived.by(() => {
 		const map = new Map<number | null, PlanComment[]>();
 		for (const c of comments) {
@@ -34,6 +39,11 @@
 		}
 		return map;
 	});
+
+	// Count of lines that have comments (for the review tab badge)
+	let lineCommentCount = $derived(
+		[...commentsByLine.entries()].filter(([k]) => k !== null).reduce((sum, [, v]) => sum + v.length, 0)
+	);
 
 	let hasAnyComments = $derived(comments.length > 0 || overallFeedback.trim().length > 0);
 
@@ -62,7 +72,7 @@
 		try {
 			const updated = await updatePlanContent(planId, editContent);
 			plan = updated;
-			editing = false;
+			viewMode = 'read';
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save';
 		}
@@ -99,9 +109,9 @@
 		}
 	}
 
-	function startEdit() {
+	function switchToEdit() {
 		editContent = plan?.content ?? '';
-		editing = true;
+		viewMode = 'edit';
 	}
 
 	function statusColor(status: string): string {
@@ -138,40 +148,51 @@
 			</span>
 		</div>
 
-		<!-- Rendered Markdown (read-only view) -->
-		{#if !editing}
-			<div class="card p-6">
+		<!-- View Mode Tabs -->
+		<div class="flex gap-1 border-b border-surface-600">
+			<button
+				onclick={() => viewMode = 'read'}
+				class="px-4 py-2 text-sm transition-colors {viewMode === 'read'
+					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
+					: 'text-text-muted hover:text-text-secondary'}"
+			>
+				Preview
+			</button>
+			<button
+				onclick={() => viewMode = 'review'}
+				class="px-4 py-2 text-sm transition-colors flex items-center gap-1.5 {viewMode === 'review'
+					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
+					: 'text-text-muted hover:text-text-secondary'}"
+			>
+				Review
+				{#if lineCommentCount > 0}
+					<span class="px-1.5 py-0.5 text-xs rounded-full bg-yellow-900/30 text-yellow-400">{lineCommentCount}</span>
+				{/if}
+			</button>
+			<button
+				onclick={switchToEdit}
+				class="px-4 py-2 text-sm transition-colors {viewMode === 'edit'
+					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
+					: 'text-text-muted hover:text-text-secondary'}"
+			>
+				Edit
+			</button>
+		</div>
+
+		<!-- Preview Mode: Rendered Markdown -->
+		{#if viewMode === 'read'}
+			<div class="card p-6 markdown">
 				<Markdown content={plan.content ?? ''} />
 			</div>
 		{/if}
 
-		<!-- Raw Editor (edit mode) -->
-		{#if editing}
-			<div class="card p-4 space-y-3">
-				<textarea
-					bind:value={editContent}
-					class="w-full h-96 bg-surface-700 text-text-primary font-mono text-sm p-4 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
-				></textarea>
-				<div class="flex gap-2 justify-end">
-					<button onclick={() => editing = false}
-						class="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary">
-						Cancel
-					</button>
-					<button onclick={handleSaveEdit}
-						class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500">
-						Save
-					</button>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Line Reference View (for commenting) -->
-		{#if !editing}
+		<!-- Review Mode: Line numbers with commenting -->
+		{#if viewMode === 'review'}
 			<div class="card">
-				<div class="px-4 py-2 border-b border-surface-600 text-xs text-text-muted uppercase tracking-wide">
-					Line Comments — click a line number to add a comment
+				<div class="px-4 py-2 border-b border-surface-600 text-xs text-text-muted">
+					Click a line number to add a comment
 				</div>
-				<div class="font-mono text-sm">
+				<div class="font-mono text-sm overflow-x-auto">
 					{#each contentLines as line, i}
 						{@const lineNum = i + 1}
 						{@const lineComments = commentsByLine.get(lineNum) ?? []}
@@ -187,7 +208,7 @@
 									{line || '\u00A0'}
 								</div>
 								{#if lineComments.length > 0}
-									<span class="pr-3 py-0.5 text-xs text-yellow-400">
+									<span class="pr-3 py-0.5 text-xs text-yellow-400 shrink-0">
 										{lineComments.length}
 									</span>
 								{/if}
@@ -229,38 +250,55 @@
 			</div>
 		{/if}
 
-		<!-- Overall Feedback -->
-		<div class="card p-4 space-y-3">
-			<label for="overall-feedback" class="text-xs text-text-muted uppercase tracking-wide">Overall Feedback</label>
-			{#if (commentsByLine.get(null) ?? []).length > 0}
-				<div class="space-y-2 mb-3">
-					{#each commentsByLine.get(null) ?? [] as comment}
-						<div class="text-sm text-text-secondary bg-surface-700 rounded p-3">
-							{comment.content}
-							<span class="text-xs text-text-muted ml-2">
-								{formatRelativeTime(comment.created_at)}
-							</span>
-						</div>
-					{/each}
+		<!-- Edit Mode: Raw markdown editor with line numbers -->
+		{#if viewMode === 'edit'}
+			<div class="card p-4 space-y-3">
+				<textarea
+					bind:value={editContent}
+					class="w-full h-[32rem] bg-surface-700 text-text-primary font-mono text-sm p-4 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
+					spellcheck="false"
+				></textarea>
+				<div class="flex gap-2 justify-end">
+					<button onclick={() => viewMode = 'read'}
+						class="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary">
+						Cancel
+					</button>
+					<button onclick={handleSaveEdit}
+						class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500">
+						Save
+					</button>
 				</div>
-			{/if}
-			<textarea
-				id="overall-feedback"
-				bind:value={overallFeedback}
-				placeholder="Overall feedback on this plan..."
-				rows="3"
-				class="w-full bg-surface-700 text-text-primary text-sm p-3 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
-			></textarea>
-		</div>
+			</div>
+		{/if}
+
+		<!-- Overall Feedback (visible in read and review modes) -->
+		{#if viewMode !== 'edit'}
+			<div class="card p-4 space-y-3">
+				<label for="overall-feedback" class="text-xs text-text-muted uppercase tracking-wide">Overall Feedback</label>
+				{#if (commentsByLine.get(null) ?? []).length > 0}
+					<div class="space-y-2 mb-3">
+						{#each commentsByLine.get(null) ?? [] as comment}
+							<div class="text-sm text-text-secondary bg-surface-700 rounded p-3">
+								{comment.content}
+								<span class="text-xs text-text-muted ml-2">
+									{formatRelativeTime(comment.created_at)}
+								</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+				<textarea
+					id="overall-feedback"
+					bind:value={overallFeedback}
+					placeholder="Overall feedback on this plan..."
+					rows="3"
+					class="w-full bg-surface-700 text-text-primary text-sm p-3 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
+				></textarea>
+			</div>
+		{/if}
 
 		<!-- Action Buttons -->
 		<div class="flex gap-3 justify-end">
-			{#if !editing}
-				<button onclick={startEdit}
-					class="px-4 py-2 text-sm text-text-secondary border border-surface-500 rounded hover:bg-surface-700">
-					Edit
-				</button>
-			{/if}
 			<button onclick={() => handleUpdateStatus('rejected')}
 				disabled={submitting}
 				class="px-4 py-2 text-sm text-red-400 border border-red-800 rounded hover:bg-red-900/30 disabled:opacity-50">
