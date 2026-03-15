@@ -42,6 +42,11 @@ func New(baseURL string) *Client {
 	}
 }
 
+// BaseURL returns the server's base URL.
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
 // SetActor sets the actor identity sent via the X-Actor header on all requests.
 func (c *Client) SetActor(actor string) {
 	c.actor = actor

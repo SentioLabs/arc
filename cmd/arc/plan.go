@@ -66,6 +66,7 @@ var planCreateCmd = &cobra.Command{
 		}
 
 		_, _ = fmt.Printf("Plan created: %s (file: %s, status: %s)\n", plan.ID, plan.FilePath, plan.Status)
+		_, _ = fmt.Printf("Review at: %s/planner/%s\n", c.BaseURL(), plan.ID)
 		return nil
 	},
 }

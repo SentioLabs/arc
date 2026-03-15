@@ -92,18 +92,22 @@ EOF
 arc plan create --file docs/plans/YYYY-MM-DD-<topic>.md
 ```
 
-The `arc plan create` command returns a plan ID and a planner URL for web-based review.
+The `arc plan create` command returns a plan ID. Use the plan ID to construct the planner URL in the next step.
 
 ### 7. Review Loop
 
-Present the user with the planner URL and CLI options for review:
+After `arc plan create` returns the plan ID, present the user with the **planner URL** for web-based review. Determine the server URL from the arc config (default: `http://localhost:7432`):
 
-**Use the AskUserQuestion tool:**
 ```
-Question: "Plan registered for review. How would you like to proceed?"
+Plan ready for review: http://localhost:7432/planner/<plan-id>
+```
+
+Then use the **AskUserQuestion tool:**
+```
+Question: "Plan registered for review at the URL above. How would you like to proceed?"
 Options:
   - "Approve it" (approve and proceed to /arc:plan for implementation breakdown)
-  - "I've submitted review comments" (read comments, revise, re-register)
+  - "I've submitted review comments in the planner" (read comments, revise, re-register)
   - "Reject it" (reject and start over)
 ```
 
