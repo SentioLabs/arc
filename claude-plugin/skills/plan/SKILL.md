@@ -57,32 +57,43 @@ Break the design into self-contained implementation units. Each task should:
 
 When identifying tasks, assign **file ownership** — each file should be owned by exactly one task. If two tasks need to modify the same file, either merge them into one task, serialize them with a dependency, or extract the shared file into the foundation task.
 
-### 4. Create Arc Issues via arc-issue-tracker
+### 4. Create Epic and Tasks via arc-issue-tracker
 
 **Never run `arc create` directly** — always delegate to the `arc-issue-tracker` agent. This keeps bulk CLI output in a disposable subagent context.
 
-Build a task manifest and dispatch it:
+Read the full plan content first (`arc plan show <plan-id>`), then build a task manifest that includes:
+1. **The epic** with the **full plan content** as its description (not a summary or file reference)
+2. **All child tasks** with self-contained descriptions
+
+Dispatch the manifest:
 
 ```
 Use the Agent tool with subagent_type="arc:arc-issue-tracker":
 
-Create the following tasks under epic <epic-id>.
+Create the following epic and tasks.
 After creation, set dependencies and labels as listed.
 Return a summary table mapping task names to arc IDs.
+
+## Epic
+
+### <epic title>
+Type: epic
+Description:
+<FULL content of the approved plan markdown file — paste it entirely, do NOT summarize>
 
 ## Tasks
 
 ### T1: <title>
 Type: task
-Parent: <epic-id>
+Parent: <epic-id from above>
 Description:
-<full multi-line description>
+<full multi-line self-contained description>
 
 ### T2: <title>
 Type: task
-Parent: <epic-id>
+Parent: <epic-id from above>
 Description:
-<full multi-line description>
+<full multi-line self-contained description>
 
 ## Dependencies
 - T2 blocked by T1
@@ -94,8 +105,11 @@ Description:
 ## Required Output
 | Task | Arc ID | Title |
 |------|--------|-------|
+| Epic | ...    | ...   |
 | T1   | ...    | ...   |
 ```
+
+**IMPORTANT**: The epic description MUST contain the complete approved design — the full markdown content from `arc plan show <plan-id>`. Do NOT summarize it or replace it with a file reference. The plan file is ephemeral; the epic description is the permanent record.
 
 For each task, check whether **all** files in its `## Files` section are documentation (`.md`, `.txt`, `README`, `CHANGELOG`, or anything under `docs/`). If so, include it in the `## Labels` section with `docs-only`. Doc-only tasks skip TDD — the `implement` skill routes them to `arc-doc-writer` instead of `arc-implementer`.
 
@@ -107,17 +121,23 @@ Before proceeding, verify the agent's output:
 2. **Spot-check**: Run `arc show <id>` on one returned task to confirm it exists and has the correct parent
 3. **If mismatch**: Re-dispatch the agent for missing tasks only, or create them manually
 
-### 6. Update Epic with Implementation Breakdown
+### 6. Append Task Breakdown to Epic Description
 
-Using the task IDs from the agent's returned summary table, write the approved design content and task breakdown into the epic's description field:
+The epic was created in step 4 with the full design content. Now append the task breakdown table (with actual arc IDs from step 5) to the epic's description:
 
 ```bash
 arc update <epic-id> --stdin <<'EOF'
-<approved design content with task listing>
+<existing epic description — the full design content from step 4>
+
+---
+
+## Implementation Tasks
+
+<task breakdown table with arc IDs, titles, statuses, and dependency info>
 EOF
 ```
 
-This stores the implementation breakdown directly on the epic for reference during execution.
+**IMPORTANT**: Preserve the full design content already in the description — do not replace it with a summary. The epic description is the permanent record of the design. Only append the task breakdown table at the end.
 
 ### 7. Choose Execution Path
 
