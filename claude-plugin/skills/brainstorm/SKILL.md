@@ -13,7 +13,7 @@ Explore requirements through Socratic dialogue before any implementation begins.
 
 ## Workflow
 
-Create a TodoWrite checklist with these steps and work through them:
+Create a task for each step below using `TaskCreate`. Mark each as `in_progress` when starting and `completed` when done. This creates a visible progress list in the CLI that carries forward into the plan skill.
 
 ### 1. Explore Project Context
 
@@ -155,6 +155,6 @@ Options:
 - The ONLY next skill after brainstorm is `plan` (or `implement` for small work)
 - Never invoke implementation skills from brainstorm
 - Design documents go in `docs/plans/` and are registered via `arc plan create --file`
-- Arc issues track persistent work; TodoWrite tracks your brainstorming checklist steps
+- Arc issues track persistent work; TaskCreate/TaskUpdate tracks workflow progress in the CLI
 - YAGNI: if the user didn't ask for it, don't design it
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

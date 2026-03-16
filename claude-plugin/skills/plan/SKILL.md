@@ -22,7 +22,7 @@ Each task step is **ONE action, 2-5 minutes**. Assume the implementer has **zero
 
 ## Workflow
 
-Create a TodoWrite checklist with these steps and work through them:
+Add tasks for each step below using `TaskCreate`. If continuing from the brainstorm skill, the brainstorm tasks will already be visible — add the planning tasks alongside them so the user sees the full brainstorm→plan progression. Mark each as `in_progress` when starting and `completed` when done.
 
 ### 1. Read the Design
 
