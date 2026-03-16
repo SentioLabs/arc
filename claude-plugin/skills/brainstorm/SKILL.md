@@ -96,51 +96,58 @@ The `arc plan create` command returns a plan ID. Use the plan ID to construct th
 
 ### 7. Review Loop
 
-After `arc plan create` returns the plan ID, present the user with the **planner URL** for web-based review. Determine the server URL from the arc config (default: `http://localhost:7432`):
+After `arc plan create` returns the plan ID, **ALWAYS output the planner URL** so the user can click it directly in their terminal. The `arc plan create` command prints this URL, but also output it yourself to be sure:
 
 ```
-Plan ready for review: http://localhost:7432/planner/<plan-id>
+Plan ready for review:
+
+  http://localhost:7432/planner/<plan-id>
+
 ```
+
+Replace `localhost:7432` with the actual server URL if different (check `ARC_SERVER` env var or the arc config).
 
 Then use the **AskUserQuestion tool:**
 ```
-Question: "Plan registered for review at the URL above. How would you like to proceed?"
+Question: "How would you like to proceed?"
 Options:
-  - "Approve it" (approve and proceed to /arc:plan for implementation breakdown)
-  - "I've submitted review comments in the planner" (read comments, revise, re-register)
-  - "Reject it" (reject and start over)
+  - "Approve" (approve and proceed to /arc:plan for implementation breakdown)
+  - "I've submitted feedback in the planner" (read comments, revise the plan, re-present)
+  - "Save for later" (leave the plan as draft — can resume in a new session)
 ```
 
 **If user approves:**
 ```bash
 arc plan approve <plan-id>
 ```
-Then proceed to the `plan` skill.
+Then proceed to step 8.
 
-**If user says "review submitted":**
+**If user says "feedback submitted":**
 ```bash
 # Read review comments
 arc plan comments <plan-id>
-# Revise the design file based on feedback, then re-register
-arc plan create --file docs/plans/YYYY-MM-DD-<topic>.md
-# Loop back to present review options
+# Also re-read the file content in case the user edited it in the planner
+arc plan show <plan-id>
 ```
+Revise the design file based on the feedback, then re-present the planner URL and options. Repeat until approved.
+
+**If user says "save for later":**
+Tell the user they can resume by running `/arc:brainstorm` in a new session and referencing the plan file and plan ID.
 
 ### 8. Transition
 
-After the plan is approved:
-
-- For large/medium work: invoke the `plan` skill to break the design into implementation tasks
-- For small work: invoke the `implement` skill directly
-
-**Example AskUserQuestion usage:**
+After the plan is approved, use the **AskUserQuestion tool:**
 ```
-Question: "Design is approved. What's next?"
+Question: "Design approved! What's next?"
 Options:
-  - "Move to /arc:plan to break this into trackable tasks"
-  - "Move to /arc:implement to start building directly"
-  - "I want to revise the design first"
+  - "Break into tasks with /arc:plan" (create epic + implementation tasks)
+  - "Implement directly with /arc:implement" (for small, single-task work)
+  - "Done for now" (design is saved — continue in a new session)
 ```
+
+- **Break into tasks**: invoke the `plan` skill, passing the plan ID
+- **Implement directly**: invoke the `implement` skill
+- **Done for now**: tell the user the plan is approved and they can run `/arc:plan` in a new session
 
 ## Scale Detection
 

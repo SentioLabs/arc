@@ -144,21 +144,27 @@ EOF
 **Use the AskUserQuestion tool** to let the user choose:
 
 ```
-Question: "How should we execute these tasks?"
+Question: "Epic and tasks created. How should we proceed with implementation?"
 Options:
-  - "Single-agent + subagents" (invoke /arc:implement now — main agent orchestrates, arc-implementer subagents do TDD per task)
-  - "Agentic team" (add teammate labels, invoke arc team-deploy — best for parallel multi-role work)
-  - "New session" (start a fresh session and run /arc:implement there — keeps this session free for other work)
+  - "Start implementing now" (invoke /arc:implement in this session — subagents handle TDD per task)
+  - "Implement in a new session" (provides the exact prompt to use)
+  - "Done for now" (tasks are tracked in arc — implement manually or later)
 ```
 
-All three paths lead to `/arc:implement` — the only difference is where and how it runs. After the user chooses, explicitly state the next step:
-- Single-agent: invoke the `implement` skill immediately
-- Agentic team: add teammate labels, then invoke the `implement` skill
-- New session: tell the user to run `/arc:implement <epic-id>` in the new session
+After the user chooses:
 
-If team, add teammate labels when creating the issues — include `teammate:<role>` in the task description for the `arc-issue-tracker` agent to handle during creation, or apply them via the web UI.
+**Start implementing now**: Invoke the `implement` skill immediately with the epic ID.
 
-Available roles: `teammate:frontend`, `teammate:backend`, `teammate:architect`, `teammate:tests`, `teammate:devops`, or custom.
+**Implement in a new session**: Output the exact command for the user to copy-paste:
+```
+Run this in a new Claude Code session:
+
+  /arc:implement <epic-id>
+
+```
+Replace `<epic-id>` with the actual epic ID.
+
+**Done for now**: Confirm the epic and tasks are saved in arc. The user can run `/arc:implement <epic-id>` whenever they're ready.
 
 ## Task Description Format
 
