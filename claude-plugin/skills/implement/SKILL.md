@@ -35,7 +35,16 @@ Multiple tasks dispatched simultaneously using `isolation: "worktree"`. Use this
 
 By default, use sequential dispatch. For independent tasks, see [Parallel Dispatch Protocol](#parallel-dispatch-protocol) below.
 
-Create a TodoWrite checklist and work through this loop for each task:
+**Task tracking**: At the start of implementation, create a task list using `TaskCreate` with one entry per arc issue to implement. This provides a visible progress tracker in the CLI. Update each task as you work:
+- `in_progress` when dispatching the subagent
+- `completed` when the task is closed in arc
+
+```bash
+# Get the list of tasks to implement
+arc list --parent=<epic-id> --status=open --json
+```
+
+Create a `TaskCreate` entry for each, then work through this loop:
 
 ### 1. Find Next Task
 
