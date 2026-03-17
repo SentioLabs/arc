@@ -379,7 +379,7 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 - ` + "`arc show <id>`" + ` - See what's blocking/blocked by this issue
 
 ### Plans
-- ` + "`arc plan create --file <path>`" + ` - Register ephemeral plan for review
+- ` + "`arc plan create <file-path>`" + ` - Register ephemeral plan for review
 - ` + "`arc plan show <plan-id>`" + ` - Show plan content, status, and comments
 - ` + "`arc plan approve <plan-id>`" + ` - Approve plan
 - ` + "`arc plan reject <plan-id>`" + ` - Reject plan

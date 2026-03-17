@@ -10,7 +10,7 @@ Break an approved design into bite-sized, self-contained tasks with exact file p
 ## Plan Commands
 
 Plans are ephemeral review artifacts backed by filesystem markdown files:
-- `arc plan create --file <path>` — Register a plan for review, returns plan ID
+- `arc plan create <path>` — Register a plan for review, returns plan ID
 - `arc plan show <plan-id>` — Show plan content, status, and comments
 - `arc plan approve <plan-id>` — Approve the plan
 - `arc plan reject <plan-id>` — Reject the plan
@@ -210,7 +210,7 @@ For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
 ## Rules
 
 - Never reference external docs or the full plan in task descriptions — everything needed is in the description
-- Design documents live in `docs/plans/` and are registered via `arc plan create --file`
+- Design documents live in `docs/plans/` and are registered via `arc plan create`
 - Task descriptions must include actual code guidance, not vague instructions
 - Team preparation (teammate labels) is optional — only if user chooses team execution
 - The plan skill creates tasks; it does not implement them

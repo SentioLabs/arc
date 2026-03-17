@@ -88,8 +88,8 @@ cat > docs/plans/YYYY-MM-DD-<topic>.md <<'EOF'
 <design content>
 EOF
 
-# Register the plan for review (returns a plan ID)
-arc plan create --file docs/plans/YYYY-MM-DD-<topic>.md
+# Register the plan for review (returns a plan ID + planner URL)
+arc plan create docs/plans/YYYY-MM-DD-<topic>.md
 ```
 
 The `arc plan create` command returns a plan ID. Use the plan ID to construct the planner URL in the next step.
@@ -107,13 +107,13 @@ Plan ready for review:
 
 Replace `localhost:7432` with the actual server URL if different (check `ARC_SERVER` env var or the arc config).
 
-Then use the **AskUserQuestion tool:**
+Then use the **AskUserQuestion tool** — include the planner URL directly in the options so the user sees it without scrolling:
 ```
-Question: "How would you like to proceed?"
+Question: "Plan ready for review at http://localhost:7432/planner/<plan-id> — how would you like to proceed?"
 Options:
-  - "Approve" (approve and proceed to /arc:plan for implementation breakdown)
-  - "I've submitted feedback in the planner" (read comments, revise the plan, re-present)
-  - "Save for later" (leave the plan as draft — can resume in a new session)
+  - "Approve" (proceed to /arc:plan for implementation breakdown)
+  - "I've submitted feedback in the planner (http://localhost:7432/planner/<plan-id>)" (read comments, revise, re-present)
+  - "Save for later" (leave as draft — resume in a new session)
 ```
 
 **If user approves:**
@@ -161,7 +161,7 @@ Options:
 
 - The ONLY next skill after brainstorm is `plan` (or `implement` for small work)
 - Never invoke implementation skills from brainstorm
-- Design documents go in `docs/plans/` and are registered via `arc plan create --file`
+- Design documents go in `docs/plans/` and are registered via `arc plan create <file-path>`
 - Arc issues track persistent work; TaskCreate/TaskUpdate tracks workflow progress in the CLI
 - YAGNI: if the user didn't ask for it, don't design it
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

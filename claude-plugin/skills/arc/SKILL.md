@@ -147,7 +147,7 @@ Plans are ephemeral review artifacts backed by filesystem markdown files in `doc
 
 | Command | Purpose |
 |---------|---------|
-| `arc plan create --file <path>` | Register an ephemeral plan, returns plan ID |
+| `arc plan create <file-path>` | Register an ephemeral plan, returns plan ID |
 | `arc plan show <plan-id>` | Show plan content, status, and comments |
 | `arc plan approve <plan-id>` | Approve the plan |
 | `arc plan reject <plan-id>` | Reject the plan |
