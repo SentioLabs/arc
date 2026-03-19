@@ -43,11 +43,14 @@ async function getMarkedInstance(): Promise<Marked> {
 		breaks: true
 	});
 
+	const loadedLangs = new Set(highlighter.getLoadedLanguages());
+
 	marked.use(
 		markedShiki({
 			highlight(code, lang) {
+				const resolved = lang && loadedLangs.has(lang) ? lang : 'text';
 				return highlighter.codeToHtml(code, {
-					lang: lang || 'text',
+					lang: resolved,
 					theme: THEME
 				});
 			}

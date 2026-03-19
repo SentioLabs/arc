@@ -14,9 +14,13 @@
 			return;
 		}
 
-		renderMarkdown(content).then((result) => {
-			html = result;
-		});
+		renderMarkdown(content)
+			.then((result) => {
+				html = result;
+			})
+			.catch(() => {
+				html = '';
+			});
 	});
 </script>
 

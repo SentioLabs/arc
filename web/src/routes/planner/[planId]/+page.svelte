@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import {
-		getPlan, updatePlanContent, updatePlanStatus,
+		getPlan, updatePlanContent,
 		listPlanComments, createPlanComment
 	} from '$lib/api';
 	import type { PlanWithContent, PlanComment } from '$lib/api';
@@ -17,14 +17,13 @@
 
 	// View modes: 'read' (rendered markdown), 'review' (line numbers + comments), 'edit' (raw editor)
 	type ViewMode = 'read' | 'review' | 'edit';
-	let viewMode = $state<ViewMode>('read');
+	let viewMode = $state<ViewMode>('review');
 	let editContent = $state('');
 
 	// Comment state
 	let activeCommentLine = $state<number | null>(null);
 	let commentText = $state('');
 	let overallFeedback = $state('');
-	let submitting = $state(false);
 
 	// Split content into lines for the review/edit views
 	let contentLines = $derived((plan?.content ?? '').split('\n'));
@@ -45,7 +44,7 @@
 		[...commentsByLine.entries()].filter(([k]) => k !== null).reduce((sum, [, v]) => sum + v.length, 0)
 	);
 
-	let hasAnyComments = $derived(comments.length > 0 || overallFeedback.trim().length > 0);
+	let overallComments = $derived(commentsByLine.get(null) ?? []);
 
 	$effect(() => { if (planId) loadData(); });
 
@@ -93,22 +92,6 @@
 		}
 	}
 
-	async function handleUpdateStatus(status: string) {
-		if (!planId) return;
-		submitting = true;
-		try {
-			if (status === 'in_review' && overallFeedback.trim()) {
-				await handleAddComment(null);
-			}
-			const updated = await updatePlanStatus(planId, status);
-			plan = { ...plan!, ...updated };
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to update status';
-		} finally {
-			submitting = false;
-		}
-	}
-
 	function switchToEdit() {
 		editContent = plan?.content ?? '';
 		viewMode = 'edit';
@@ -137,27 +120,19 @@
 	<div class="max-w-5xl mx-auto p-6 space-y-6">
 		<!-- Header -->
 		<div class="flex items-center justify-between">
-			<div>
-				<h1 class="text-xl font-semibold text-text-primary">
+			<div class="min-w-0">
+				<h1 class="text-xl font-semibold text-text-primary truncate">
 					{plan.file_path.split('/').pop()}
 				</h1>
-				<p class="text-sm text-text-muted mt-1">{plan.file_path}</p>
+				<p class="text-sm text-text-muted mt-1 truncate">{plan.file_path}</p>
 			</div>
-			<span class="px-3 py-1 rounded-full text-xs font-medium {statusColor(plan.status)}">
+			<span class="px-3 py-1 rounded-full text-xs font-medium shrink-0 {statusColor(plan.status)}">
 				{plan.status}
 			</span>
 		</div>
 
 		<!-- View Mode Tabs -->
 		<div class="flex gap-1 border-b border-surface-600">
-			<button
-				onclick={() => viewMode = 'read'}
-				class="px-4 py-2 text-sm transition-colors {viewMode === 'read'
-					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
-					: 'text-text-muted hover:text-text-secondary'}"
-			>
-				Preview
-			</button>
 			<button
 				onclick={() => viewMode = 'review'}
 				class="px-4 py-2 text-sm transition-colors flex items-center gap-1.5 {viewMode === 'review'
@@ -170,6 +145,14 @@
 				{/if}
 			</button>
 			<button
+				onclick={() => viewMode = 'read'}
+				class="px-4 py-2 text-sm transition-colors {viewMode === 'read'
+					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
+					: 'text-text-muted hover:text-text-secondary'}"
+			>
+				Preview
+			</button>
+			<button
 				onclick={switchToEdit}
 				class="px-4 py-2 text-sm transition-colors {viewMode === 'edit'
 					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
@@ -178,13 +161,6 @@
 				Edit
 			</button>
 		</div>
-
-		<!-- Preview Mode: Rendered Markdown -->
-		{#if viewMode === 'read'}
-			<div class="card p-6 markdown">
-				<Markdown content={plan.content ?? ''} />
-			</div>
-		{/if}
 
 		<!-- Review Mode: Line numbers with commenting -->
 		{#if viewMode === 'review'}
@@ -250,7 +226,14 @@
 			</div>
 		{/if}
 
-		<!-- Edit Mode: Raw markdown editor with line numbers -->
+		<!-- Preview Mode: Rendered Markdown -->
+		{#if viewMode === 'read'}
+			<div class="card p-6 markdown">
+				<Markdown content={plan.content ?? ''} />
+			</div>
+		{/if}
+
+		<!-- Edit Mode: Raw markdown editor -->
 		{#if viewMode === 'edit'}
 			<div class="card p-4 space-y-3">
 				<textarea
@@ -274,10 +257,15 @@
 		<!-- Overall Feedback (visible in read and review modes) -->
 		{#if viewMode !== 'edit'}
 			<div class="card p-4 space-y-3">
-				<label for="overall-feedback" class="text-xs text-text-muted uppercase tracking-wide">Overall Feedback</label>
-				{#if (commentsByLine.get(null) ?? []).length > 0}
+				<label for="overall-feedback" class="text-xs text-text-muted uppercase tracking-wide">
+					Overall Feedback
+					{#if overallComments.length > 0}
+						<span class="ml-1.5 px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400 normal-case">{overallComments.length}</span>
+					{/if}
+				</label>
+				{#if overallComments.length > 0}
 					<div class="space-y-2 mb-3">
-						{#each commentsByLine.get(null) ?? [] as comment}
+						{#each overallComments as comment}
 							<div class="text-sm text-text-secondary bg-surface-700 rounded p-3">
 								{comment.content}
 								<span class="text-xs text-text-muted ml-2">
@@ -287,34 +275,25 @@
 						{/each}
 					</div>
 				{/if}
-				<textarea
-					id="overall-feedback"
-					bind:value={overallFeedback}
-					placeholder="Overall feedback on this plan..."
-					rows="3"
-					class="w-full bg-surface-700 text-text-primary text-sm p-3 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
-				></textarea>
+				<div class="flex gap-2">
+					<textarea
+						id="overall-feedback"
+						bind:value={overallFeedback}
+						placeholder="Overall feedback on this plan..."
+						rows="2"
+						class="flex-1 bg-surface-700 text-text-primary text-sm p-3 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
+						onkeydown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment(null); }}
+					></textarea>
+					<button
+						onclick={() => handleAddComment(null)}
+						disabled={!overallFeedback.trim()}
+						class="self-end px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed"
+					>
+						Add
+					</button>
+				</div>
+				<p class="text-xs text-text-muted">Press Ctrl+Enter to submit</p>
 			</div>
 		{/if}
-
-		<!-- Action Buttons -->
-		<div class="flex gap-3 justify-end">
-			<button onclick={() => handleUpdateStatus('rejected')}
-				disabled={submitting}
-				class="px-4 py-2 text-sm text-red-400 border border-red-800 rounded hover:bg-red-900/30 disabled:opacity-50">
-				Reject
-			</button>
-			<button onclick={() => handleUpdateStatus('in_review')}
-				disabled={submitting || !hasAnyComments}
-				title={hasAnyComments ? '' : 'Add at least one comment before submitting review'}
-				class="px-4 py-2 text-sm text-yellow-400 border border-yellow-800 rounded hover:bg-yellow-900/30 disabled:opacity-50">
-				Submit Review
-			</button>
-			<button onclick={() => handleUpdateStatus('approved')}
-				disabled={submitting}
-				class="px-4 py-2 text-sm text-green-400 border border-green-800 rounded hover:bg-green-900/30 disabled:opacity-50">
-				Approve
-			</button>
-		</div>
 	</div>
 {/if}
