@@ -44,6 +44,72 @@ If shared contracts exist and parallel execution is likely:
 
 This ensures parallel agents inherit shared definitions from HEAD rather than inventing them independently.
 
+**T0 task descriptions must be literal, not prose.** The description should contain:
+- **Exact type/interface code** to write to specific files (sourced from the brainstorm design's shared contracts)
+- **Inline contract test assertions** to write in each relevant test file, so downstream tasks can verify they are using the correct types
+- Steps that say "write this exact code to this exact file" — not vague instructions like "define the memory type"
+
+Example T0 task description:
+
+```markdown
+## Summary
+Establish shared types and contract tests for the memory feature.
+
+## Files
+- Create: `internal/types/memory.go`
+- Create: `internal/memory/memory_test.go`
+
+## Scope Boundary
+Do NOT create or modify any files outside the Files section above.
+
+## Steps
+1. Create `internal/types/memory.go` with this exact content:
+   ```go
+   package types
+
+   import "time"
+
+   type Memory struct {
+       ID        int64     `json:"id" db:"id"`
+       Content   string    `json:"content" db:"content"`
+       CreatedAt time.Time `json:"created_at" db:"created_at"`
+   }
+   ```
+2. Create contract assertions in `internal/memory/memory_test.go`:
+   ```go
+   package memory
+
+   import (
+       "testing"
+       "time"
+
+       "yourmodule/internal/types"
+   )
+
+   // --- Contract assertions ---
+   // These verify the design spec. Do NOT modify
+   // without updating the approved plan.
+
+   func TestMemoryContract(t *testing.T) {
+       m := types.Memory{}
+       var _ int64 = m.ID
+       var _ string = m.Content
+       var _ time.Time = m.CreatedAt
+   }
+
+   // --- Behavior tests (added by implementer) ---
+   ```
+3. Run `go build ./internal/types/...` — confirm it compiles
+4. Run `go test ./internal/memory/...` — confirm contract tests pass
+5. Commit: `feat(types): add foundation types and contract tests`
+
+## Test Command
+go test ./internal/memory/...
+
+## Expected Outcome
+Shared types compile and contract assertions pass. Parallel tasks can now import these types from HEAD.
+```
+
 **Skip this step** if the work is purely sequential or no shared contracts were identified.
 
 ### 3. Identify Tasks
@@ -183,6 +249,21 @@ Do NOT create or modify any files outside the Files section above.
 If you need a type, interface, or constant that doesn't exist, do NOT create it —
 the foundation task or a prior task is responsible for shared definitions.
 
+## Design Contracts
+
+### Shared (use verbatim — defined in T0: Foundation)
+```go
+type Memory struct {
+    ID        int64     `json:"id" db:"id"`
+    Content   string    `json:"content" db:"content"`
+    CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+```
+
+### Task-internal
+- `FeedbackRequest { memory_id: i64, rating: i8, comment: String? }`
+- `MemoryStore.InsertMemory(content string) → (int64, error)`
+
 ## Steps
 1. Write failing test for <specific behavior> in `path/to/file_test.go`
 2. Run `go test ./path/to/...` — confirm it fails with <expected error>
@@ -197,6 +278,15 @@ go test ./path/to/...
 ## Expected Outcome
 <what should work when this task is done>
 ```
+
+### Design Contracts guidance
+
+Include a `## Design Contracts` section in every non-T0 task description, placed after `## Scope Boundary` and before `## Steps`. This section has two subsections:
+
+- **Shared (use verbatim)**: Exact type definitions copied from the T0 foundation task. The subagent MUST use these types exactly as written — same field names, same tags, same package. These are the canonical contracts established by T0 and committed to HEAD.
+- **Task-internal**: Pseudocode descriptions of types and signatures that are private to this task. The subagent adapts these to language idioms (naming conventions, error handling patterns, etc.) as appropriate.
+
+If a type the subagent needs is not listed in Design Contracts and is not already on HEAD from T0, the subagent must NOT create it. This rule complements the Scope Boundary section — Scope Boundary restricts file ownership, Design Contracts restricts type ownership.
 
 For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
 
