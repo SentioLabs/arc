@@ -64,16 +64,55 @@ Options:
 
 If the design will produce multiple implementation tasks that could run in parallel, explicitly identify the **shared contracts** — types, interfaces, config keys, constants, and function signatures that multiple tasks will reference.
 
-Present these to the user as a "foundation layer":
+Contracts fall into two tiers:
 
-```
-Shared contracts (referenced by multiple tasks):
-- Type: `SessionConfig` in `internal/types/config.go`
-- Config key: `user.session.timeout`
-- Interface method: `Storage.GetSession(id string) (*Session, error)`
+- **Shared contracts** (referenced by 2+ tasks): produce **exact, copy-pasteable code blocks** including the type definition AND a contract test assertion. The T0 foundation task will write these verbatim.
+- **Task-internal types** (used within a single task): use typed pseudocode (e.g., `FeedbackRequest { memory_id: i64, rating: i8 }`) — the subagent adapts to language idioms during implementation.
+
+Present shared contracts to the user as a "foundation layer" with exact code:
+
+```go
+// internal/types/config.go
+
+// SessionConfig holds session-related settings.
+type SessionConfig struct {
+	Timeout  time.Duration `json:"timeout"`
+	MaxIdle  int           `json:"max_idle"`
+	Secure   bool          `json:"secure"`
+}
 ```
 
-These contracts become a **foundation task** during planning — implemented sequentially before any parallel work begins. This prevents parallel agents from independently inventing conflicting names or duplicating shared types.
+```go
+// internal/storage/storage.go
+
+// GetSession retrieves a session by ID.
+// Returns nil and no error if the session does not exist.
+GetSession(ctx context.Context, id string) (*Session, error)
+```
+
+Contract test assertions verify that the shared types satisfy compile-time expectations. Place these **inline in each relevant test file** with a clear separator:
+
+```go
+// internal/types/config_test.go
+
+// --- Contract assertions ---
+
+// Verify SessionConfig fields exist with expected types.
+var _ time.Duration = SessionConfig{}.Timeout
+var _ int = SessionConfig{}.MaxIdle
+var _ bool = SessionConfig{}.Secure
+```
+
+```go
+// internal/storage/sqlite/sqlite_test.go
+
+// --- Contract assertions ---
+
+// Verify SQLiteStore satisfies the Storage interface.
+var _ storage.Storage = (*SQLiteStore)(nil)
+```
+
+These exact definitions and contract tests become the **T0 foundation task** during planning — implemented sequentially before any parallel work begins. The T0 task writes the shared type files and embeds contract test assertions inline in each relevant test file, so that parallel agents can import these types immediately and any drift is caught at compile time.
 
 **Skip this step** if the design maps to a single task or purely sequential work.
 
