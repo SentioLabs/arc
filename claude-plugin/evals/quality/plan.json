@@ -28,6 +28,11 @@
         "id": 5,
         "text": "Each task description includes a ## Scope Boundary section",
         "type": "quality"
+      },
+      {
+        "id": 6,
+        "text": "Each non-T0 task description includes a ## Design Contracts section with shared types (verbatim code) and task-internal types (pseudocode)",
+        "type": "quality"
       }
     ]
   },
@@ -82,8 +87,8 @@
   },
   {
     "eval_id": 4,
-    "eval_name": "Plan creates foundation task for shared contracts",
-    "prompt": "Create tasks for the notification system. The design identified shared contracts: Notifier interface, NotificationPayload type, and config keys. Tasks for email, Slack, and webhook channels will run in parallel.",
+    "eval_name": "Plan creates foundation task with contract tests",
+    "prompt": "Create tasks for the notification system. The design identified shared contracts: Notifier interface with Send(payload NotificationPayload) error method, NotificationPayload struct with ID int64, Channel string, Message string, CreatedAt time.Time fields, and config key notification.retry_count. Tasks for email, Slack, and webhook channels will run in parallel.",
     "assertions": [
       {
         "id": 1,
@@ -93,6 +98,21 @@
       {
         "id": 2,
         "text": "Parallel channel tasks (email, Slack, webhook) are marked as blocked by the foundation task",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "T0 task Steps contain literal 'write this exact code' instructions with copy-pasteable type definitions, not prose like 'create the Notifier interface'",
+        "type": "quality"
+      },
+      {
+        "id": 4,
+        "text": "T0 task Steps include inline contract test assertions (e.g., TestNotificationPayloadContract with compile-time field type checks) to write in test files",
+        "type": "quality"
+      },
+      {
+        "id": 5,
+        "text": "T0 task Steps include a build/test verification step to confirm contract tests pass before committing",
         "type": "quality"
       }
     ]

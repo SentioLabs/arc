@@ -1,8 +1,8 @@
 [
   {
     "eval_id": 1,
-    "eval_name": "Review dispatches arc-reviewer with correct context",
-    "prompt": "Review the implementation of ARC-5.2 (OAuth integration). PRE_TASK_SHA is abc1234.",
+    "eval_name": "Review dispatches arc-reviewer with correct context including design spec",
+    "prompt": "Review the implementation of ARC-5.2 (OAuth integration). PRE_TASK_SHA is abc1234. This task is a child of epic ARC-5.",
     "assertions": [
       {
         "id": 1,
@@ -23,6 +23,16 @@
         "id": 4,
         "text": "Output does NOT write code changes itself — review skill is read-only",
         "type": "constraint"
+      },
+      {
+        "id": 5,
+        "text": "Output retrieves the parent epic's design context (via arc show on the parent) before dispatching",
+        "type": "quality"
+      },
+      {
+        "id": 6,
+        "text": "Dispatch prompt includes a ## Design Spec section with the design excerpt relevant to this task",
+        "type": "quality"
       }
     ]
   },
@@ -110,6 +120,50 @@
       {
         "id": 2,
         "text": "Output does NOT skip re-review and assume the fix is correct",
+        "type": "constraint"
+      }
+    ]
+  },
+  {
+    "eval_id": 6,
+    "eval_name": "Review handles deviation-fix recommendation",
+    "prompt": "The arc-reviewer reported: Plan Adherence — DEVIATION: The design specifies MemoryID as int64 but the implementation uses string. RATIONALE: Subagent may have followed common API patterns where IDs are strings. RECOMMENDATION: fix.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output re-dispatches arc-implementer with the specific deviation to correct (change string to int64)",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output does NOT accept the string type despite it being a common pattern — the design spec takes precedence",
+        "type": "constraint"
+      },
+      {
+        "id": 3,
+        "text": "Re-dispatch prompt includes the original task spec AND the specific deviation finding to fix",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 7,
+    "eval_name": "Review handles deviation-accept recommendation",
+    "prompt": "The arc-reviewer reported: Plan Adherence — DEVIATION: The design specifies HandleError returns (error) but implementation returns (*AppError, error) which provides structured error context. RATIONALE: The codebase already uses *AppError throughout the API layer. RECOMMENDATION: accept — aligns with existing codebase conventions and provides richer error context.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output evaluates the deviation rationale against codebase conventions rather than blindly enforcing the plan",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output accepts the deviation and logs it as an arc comment on the task for traceability",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output does NOT re-dispatch the implementer to revert a deviation that aligns with existing conventions",
         "type": "constraint"
       }
     ]

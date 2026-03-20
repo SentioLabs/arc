@@ -91,6 +91,21 @@
         "id": 2,
         "text": "Output presents shared contracts as a 'foundation layer' to be implemented before parallel work",
         "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Shared contracts include exact, copy-pasteable code blocks with type definitions (e.g., Go structs with field names and types), not just descriptive text like 'Notifier interface in notifier.go'",
+        "type": "quality"
+      },
+      {
+        "id": 4,
+        "text": "Shared contracts include contract test assertions (e.g., compile-time type checks like `var _ int64 = n.ID`) alongside the type definitions",
+        "type": "quality"
+      },
+      {
+        "id": 5,
+        "text": "Task-internal types are presented as typed pseudocode (e.g., `EmailConfig { smtp_host: String, port: u16 }`) separate from the exact shared contracts",
+        "type": "quality"
       }
     ]
   }

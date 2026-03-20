@@ -50,8 +50,8 @@
   },
   {
     "eval_id": 3,
-    "eval_name": "Implement verifies subagent result independently",
-    "prompt": "The arc-implementer just reported back with PASS on all gate checks for ARC-5.1.",
+    "eval_name": "Implement verifies result and dispatches mandatory review",
+    "prompt": "The arc-implementer just reported back with PASS on all gate checks for ARC-5.1. This task is a child of epic ARC-5.",
     "assertions": [
       {
         "id": 1,
@@ -60,7 +60,12 @@
       },
       {
         "id": 2,
-        "text": "Output closes the task with `arc close` only after independent verification passes",
+        "text": "Output dispatches the review skill after tests pass (review is mandatory, not optional)",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output closes the task with `arc close` only after both independent test verification AND review pass",
         "type": "quality"
       }
     ]
@@ -144,6 +149,50 @@
       {
         "id": 1,
         "text": "Output runs integration tests (make test-integration or equivalent) before starting ARC-5.3",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 8,
+    "eval_name": "Implement handles deviation from review — fix path",
+    "prompt": "The review skill reported a Deviation (fix) for ARC-5.1: the implementer used string IDs but the design specifies int64. The reviewer recommends fixing to match the design.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output re-dispatches arc-implementer with explicit instruction to change string IDs to int64",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output does NOT close the task until the deviation is resolved",
+        "type": "constraint"
+      },
+      {
+        "id": 3,
+        "text": "Output re-dispatches review after the fix to confirm the deviation is resolved",
+        "type": "quality"
+      }
+    ]
+  },
+  {
+    "eval_id": 9,
+    "eval_name": "Implement handles deviation from review — accept path",
+    "prompt": "The review skill reported a Deviation (accept) for ARC-5.3: the implementer used a custom error type instead of the plain error return specified in the design. The reviewer says the deviation aligns with existing codebase conventions.",
+    "assertions": [
+      {
+        "id": 1,
+        "text": "Output accepts the deviation rather than forcing a fix",
+        "type": "quality"
+      },
+      {
+        "id": 2,
+        "text": "Output logs the accepted deviation as an arc comment on the task with description and rationale",
+        "type": "quality"
+      },
+      {
+        "id": 3,
+        "text": "Output proceeds to close the task (does not re-dispatch for accepted deviations)",
         "type": "quality"
       }
     ]
