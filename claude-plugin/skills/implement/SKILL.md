@@ -105,22 +105,22 @@ When the subagent reports back, check the **Result** and **Gate Results** in its
 
 **If `PASS`** (all gate checks passed):
 - Run the project test command fresh yourself to confirm — do NOT trust the subagent's report alone
-- If tests pass → proceed to step 6
+- If tests pass → proceed to step 5 (Dispatch Review)
 
 **If `PARTIAL`** (gate identified unresolved issues):
 - Read the `Gate: Unresolved` section carefully
 - Decide: is this a re-dispatch or a debug situation?
-- See step 5
+- Handle issues before proceeding (see below)
 
 **If the subagent did not include gate results** (it skipped the gate):
 - Treat this as a failed result — re-dispatch with explicit reminder to complete all gate checks
 
-### 5. Handle Issues
+**Handling issues from PARTIAL results**:
 
-- **Subagent reports `PARTIAL` with clear gaps** → re-dispatch `arc-implementer` with the specific gaps listed in `Gate: Unresolved`, plus the original task description
-- **Subagent reports test failures it can't resolve** → invoke the `debug` skill
-- **3+ implementation attempts fail on same issue** → invoke the `debug` skill
-- **Approach was wrong** → re-dispatch the appropriate agent with corrected guidance
+- **Subagent reports `PARTIAL` with clear gaps** — re-dispatch `arc-implementer` with the specific gaps listed in `Gate: Unresolved`, plus the original task description
+- **Subagent reports test failures it can't resolve** — invoke the `debug` skill
+- **3+ implementation attempts fail on same issue** — invoke the `debug` skill
+- **Approach was wrong** — re-dispatch the appropriate agent with corrected guidance
 
 When re-dispatching, include the previous gate feedback so the implementer knows exactly what to fix:
 
@@ -139,13 +139,39 @@ Continue implementing this task. A previous attempt was made but the gate check 
 Fix the identified issues, re-run all gate checks, and commit when complete.
 ```
 
-### 6. Close Task
+### 5. Dispatch Review
+
+After confirming tests pass, invoke the `review` skill to check both code quality and plan adherence:
+
+```bash
+# Get the design context from the parent epic
+PARENT=$(arc show <task-id> --json | jq -r '.parent_id // empty')
+```
+
+The review skill handles retrieving the full design excerpt and dispatching the reviewer. Pass the task ID and the PRE_TASK_SHA recorded in step 3.
+
+> **Note**: For `docs-only` tasks, review remains optional. Skip this step unless the documentation changes are substantial or affect developer-facing API docs.
+
+### 6. Handle Review Findings
+
+Process the review skill's triage results:
+
+| Finding | Action |
+|---------|--------|
+| **Critical/Important** | Re-dispatch `arc-implementer` with fixes. Re-review after. |
+| **Minor** | Note in arc comment. Proceed. |
+| **Deviation (fix)** | Re-dispatch `arc-implementer` to match the design. |
+| **Deviation (accept)** | Log as arc comment: "Accepted deviation: \<description\>. Rationale: \<why\>." Proceed. |
+
+For accepted deviations, the orchestrator decides — not the reviewer. If unsure whether a deviation is an improvement, default to fixing it to match the plan.
+
+### 7. Close Task
 
 ```bash
 arc close <task-id> -r "Implemented: <summary>"
 ```
 
-### 7. Integration Checkpoint
+### 8. Integration Checkpoint
 
 After closing 2-3 related tasks, or before switching to a new epic phase, run the full integration test suite:
 
@@ -160,15 +186,9 @@ If integration tests fail:
 - Re-dispatch `arc-implementer` with the failing test details and the relevant task context
 - If the failure spans multiple tasks, invoke the `debug` skill
 
-### 8. Repeat
+### 9. Repeat
 
 Go to step 1 for the next task. Continue until all tasks in the epic are closed.
-
-## Optional: Deep Code Review
-
-For high-stakes tasks (security-sensitive, public API changes, complex algorithms), invoke the `review` skill after step 4 to get a separate-eyes code review from the `arc-reviewer` subagent. This is optional because the implementer's gate already covers functional completeness and code quality — the separate review adds value when you want an independent perspective.
-
-For `docs-only` tasks, code review is optional — skip it unless the documentation changes are substantial or affect developer-facing API docs.
 
 ## Parallel Dispatch Protocol
 
