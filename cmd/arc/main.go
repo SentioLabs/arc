@@ -717,7 +717,7 @@ var createCmd = &cobra.Command{
 		labels, _ := cmd.Flags().GetStringSlice("label")
 		for _, lbl := range labels {
 			if labelErr := c.AddLabelToIssue(wsID, issue.ID, lbl); labelErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
+				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
 			}
 		}
 
@@ -908,14 +908,14 @@ var updateCmd = &cobra.Command{
 		// Apply label additions
 		for _, lbl := range labelsAdd {
 			if labelErr := c.AddLabelToIssue(wsID, args[0], lbl); labelErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
+				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
 			}
 		}
 
 		// Apply label removals
 		for _, lbl := range labelsRemove {
 			if labelErr := c.RemoveLabelFromIssue(wsID, args[0], lbl); labelErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to remove label %q: %v\n", lbl, labelErr)
+				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to remove label %q: %v\n", lbl, labelErr)
 			}
 		}
 

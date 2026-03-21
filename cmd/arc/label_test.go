@@ -21,7 +21,7 @@ func TestLabelCmdExists(t *testing.T) {
 }
 
 func TestLabelCmdSubcommands(t *testing.T) {
-	var names []string
+	names := make([]string, 0, len(labelCmd.Commands()))
 	for _, cmd := range labelCmd.Commands() {
 		names = append(names, cmd.Name())
 	}
@@ -50,9 +50,11 @@ func TestLabelCreateCmdFlags(t *testing.T) {
 	require.NotNil(t, createSub, "create subcommand should exist")
 }
 
+const labelSubcmdUpdate = "update"
+
 func TestLabelUpdateCmdFlags(t *testing.T) {
 	for _, cmd := range labelCmd.Commands() {
-		if cmd.Name() == "update" {
+		if cmd.Name() == labelSubcmdUpdate {
 			colorFlag := cmd.Flags().Lookup("color")
 			assert.NotNil(t, colorFlag, "--color flag should exist")
 
@@ -97,10 +99,10 @@ func TestPrimeOutputContainsLabelCommands(t *testing.T) {
 func TestLabelUpdateRequiresFlag(t *testing.T) {
 	// Find the update subcommand and verify its RunE checks for at least one flag
 	for _, cmd := range labelCmd.Commands() {
-		if cmd.Name() == "update" {
+		if cmd.Name() == labelSubcmdUpdate {
 			// Calling RunE with no flags set should return an error
 			err := cmd.RunE(cmd, []string{"test-label"})
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "at least one of --color or --description is required")
 			return
 		}
@@ -113,7 +115,7 @@ func TestLabelUpdateAcceptsEmptyDescription(t *testing.T) {
 	// empty-string checks. When --description="" is passed, the command should
 	// not reject it with "at least one of" error.
 	for _, cmd := range labelCmd.Commands() {
-		if cmd.Name() == "update" {
+		if cmd.Name() == labelSubcmdUpdate {
 			// Simulate passing --description=""
 			require.NoError(t, cmd.Flags().Set("description", ""))
 			// RunE should NOT return the "at least one of" error since the flag was explicitly set.

@@ -74,7 +74,7 @@ func TestUpdateLabelClearDescription(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "bug", updated.Name)
 	assert.Equal(t, "#ff0000", updated.Color) // color unchanged
-	assert.Equal(t, "", updated.Description)  // description cleared
+	assert.Empty(t, updated.Description)      // description cleared
 }
 
 func TestUpdateLabelPartialUpdate(t *testing.T) {

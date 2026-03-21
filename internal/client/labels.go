@@ -1,3 +1,6 @@
+// Label client methods for global label CRUD and issue-label associations.
+// Labels are global resources (not project-scoped); issue-label endpoints
+// require a project ID for workspace validation.
 package client
 
 import (

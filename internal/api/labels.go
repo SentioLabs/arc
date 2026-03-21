@@ -1,3 +1,6 @@
+// Label API handlers for global label CRUD and issue-label associations.
+// Labels are global resources; issue-label endpoints validate workspace
+// ownership before modifying associations.
 package api
 
 import (

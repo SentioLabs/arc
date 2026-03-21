@@ -1,3 +1,6 @@
+// Label management commands for creating, listing, updating, and deleting
+// global labels. Labels are shared across all projects and can be associated
+// with issues for categorization and filtering.
 package main
 
 import (
@@ -10,6 +13,7 @@ import (
 )
 
 // labelCmd is the parent command for label management.
+// Subcommands: list, create, update, delete.
 var labelCmd = &cobra.Command{
 	Use:   "label",
 	Short: "Manage labels",
@@ -23,6 +27,7 @@ func init() {
 }
 
 // labelListCmd lists all global labels.
+// Output is a table (NAME, COLOR, DESCRIPTION) or JSON when --json is set.
 var labelListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all labels",
@@ -48,15 +53,16 @@ var labelListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, tabwriterPadding, ' ', 0)
-		fmt.Fprintln(w, "NAME\tCOLOR\tDESCRIPTION")
+		_, _ = fmt.Fprintln(w, "NAME\tCOLOR\tDESCRIPTION")
 		for _, l := range labels {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", l.Name, l.Color, l.Description)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", l.Name, l.Color, l.Description)
 		}
 		return w.Flush()
 	},
 }
 
-// labelCreateCmd creates a new global label.
+// labelCreateCmd creates a new global label with optional color and description.
+// The label name is a required positional argument.
 var labelCreateCmd = &cobra.Command{
 	Use:   "create <name>",
 	Short: "Create a label",
@@ -90,7 +96,9 @@ func init() {
 	labelCreateCmd.Flags().String("description", "", "Label description")
 }
 
-// labelUpdateCmd updates a label's metadata.
+// labelUpdateCmd updates a label's metadata (color and/or description).
+// At least one of --color or --description must be provided.
+// Uses cmd.Flags().Changed() to distinguish "not set" from "set to empty".
 var labelUpdateCmd = &cobra.Command{
 	Use:   "update <name>",
 	Short: "Update a label",
@@ -138,7 +146,8 @@ func init() {
 	labelUpdateCmd.Flags().String("description", "", "New label description")
 }
 
-// labelDeleteCmd deletes a global label.
+// labelDeleteCmd deletes a global label by name.
+// Removing a label definition does not affect existing issue-label associations.
 var labelDeleteCmd = &cobra.Command{
 	Use:   "delete <name>",
 	Short: "Delete a label",
