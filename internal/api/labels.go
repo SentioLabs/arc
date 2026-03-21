@@ -15,12 +15,6 @@ type createLabelRequest struct {
 	Description string `json:"description,omitempty"`
 }
 
-// updateLabelRequest is the request body for updating a label.
-type updateLabelRequest struct {
-	Color       string `json:"color,omitempty"`
-	Description string `json:"description,omitempty"`
-}
-
 // addLabelToIssueRequest is the request body for adding a label to an issue.
 type addLabelToIssueRequest struct {
 	Label string `json:"label"`
@@ -60,8 +54,8 @@ func (s *Server) createLabel(c echo.Context) error {
 func (s *Server) updateLabel(c echo.Context) error {
 	name := c.Param("name")
 
-	var req updateLabelRequest
-	if err := c.Bind(&req); err != nil {
+	var fields map[string]string
+	if err := c.Bind(&fields); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
@@ -70,11 +64,11 @@ func (s *Server) updateLabel(c echo.Context) error {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
 
-	if req.Color != "" {
-		label.Color = req.Color
+	if v, ok := fields["color"]; ok {
+		label.Color = v
 	}
-	if req.Description != "" {
-		label.Description = req.Description
+	if v, ok := fields["description"]; ok {
+		label.Description = v
 	}
 
 	if err := s.store.UpdateLabel(c.Request().Context(), label); err != nil {

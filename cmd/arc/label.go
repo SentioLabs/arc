@@ -96,11 +96,21 @@ var labelUpdateCmd = &cobra.Command{
 	Short: "Update a label",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		color, _ := cmd.Flags().GetString("color")
-		description, _ := cmd.Flags().GetString("description")
+		colorChanged := cmd.Flags().Changed("color")
+		descChanged := cmd.Flags().Changed("description")
 
-		if color == "" && description == "" {
+		if !colorChanged && !descChanged {
 			return errors.New("at least one of --color or --description is required")
+		}
+
+		fields := map[string]string{}
+		if colorChanged {
+			color, _ := cmd.Flags().GetString("color")
+			fields["color"] = color
+		}
+		if descChanged {
+			description, _ := cmd.Flags().GetString("description")
+			fields["description"] = description
 		}
 
 		c, err := getClient()
@@ -108,7 +118,7 @@ var labelUpdateCmd = &cobra.Command{
 			return err
 		}
 
-		label, err := c.UpdateLabel(args[0], color, description)
+		label, err := c.UpdateLabel(args[0], fields)
 		if err != nil {
 			return err
 		}

@@ -44,16 +44,9 @@ func (c *Client) CreateLabel(name, color, description string) (*types.Label, err
 }
 
 // UpdateLabel updates a label's color or description.
-func (c *Client) UpdateLabel(name, color, description string) (*types.Label, error) {
-	body := map[string]string{}
-	if color != "" {
-		body["color"] = color
-	}
-	if description != "" {
-		body["description"] = description
-	}
-
-	resp, err := c.put("/api/v1/labels/"+name, body)
+// The fields map should contain only the fields that were explicitly set by the caller.
+func (c *Client) UpdateLabel(name string, fields map[string]string) (*types.Label, error) {
+	resp, err := c.put("/api/v1/labels/"+name, fields)
 	if err != nil {
 		return nil, err
 	}

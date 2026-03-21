@@ -722,6 +722,15 @@ var createCmd = &cobra.Command{
 		}
 
 		if outputJSON {
+			// Re-fetch with details so JSON includes labels
+			if len(labels) > 0 {
+				details, fetchErr := c.GetIssueDetails(wsID, issue.ID)
+				if fetchErr == nil {
+					outputResult(details)
+					return nil
+				}
+				// Fall back to the original issue if re-fetch fails
+			}
 			outputResult(issue)
 			return nil
 		}
@@ -911,6 +920,15 @@ var updateCmd = &cobra.Command{
 		}
 
 		if outputJSON {
+			// If labels were changed or issue is nil, re-fetch with details
+			if len(labelsAdd) > 0 || len(labelsRemove) > 0 || issue == nil {
+				details, fetchErr := c.GetIssueDetails(wsID, args[0])
+				if fetchErr == nil {
+					outputResult(details)
+					return nil
+				}
+				// Fall back to the original issue if re-fetch fails
+			}
 			if issue != nil {
 				outputResult(issue)
 			}

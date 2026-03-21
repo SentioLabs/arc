@@ -107,3 +107,26 @@ func TestLabelUpdateRequiresFlag(t *testing.T) {
 	}
 	t.Fatal("update subcommand should exist")
 }
+
+func TestLabelUpdateAcceptsEmptyDescription(t *testing.T) {
+	// Verify that the update command uses cmd.Flags().Changed() instead of
+	// empty-string checks. When --description="" is passed, the command should
+	// not reject it with "at least one of" error.
+	for _, cmd := range labelCmd.Commands() {
+		if cmd.Name() == "update" {
+			// Simulate passing --description=""
+			require.NoError(t, cmd.Flags().Set("description", ""))
+			// RunE should NOT return the "at least one of" error since the flag was explicitly set.
+			// It will fail with a client error (no server), but the validation should pass.
+			err := cmd.RunE(cmd, []string{"test-label"})
+			if err != nil {
+				assert.NotContains(t, err.Error(), "at least one of --color or --description is required",
+					"should not reject explicitly-set empty --description flag")
+			}
+			// Reset the flag for other tests
+			require.NoError(t, cmd.Flags().Set("description", ""))
+			return
+		}
+	}
+	t.Fatal("update subcommand should exist")
+}
