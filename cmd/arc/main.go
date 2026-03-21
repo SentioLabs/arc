@@ -410,6 +410,7 @@ func init() {
 	rootCmd.AddCommand(readyCmd)
 	rootCmd.AddCommand(blockedCmd)
 	rootCmd.AddCommand(depCmd)
+	rootCmd.AddCommand(labelCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(selfCmd)
@@ -712,6 +713,14 @@ var createCmd = &cobra.Command{
 			return err
 		}
 
+		// Apply labels (warn on failure, don't fail the create)
+		labels, _ := cmd.Flags().GetStringSlice("label")
+		for _, lbl := range labels {
+			if labelErr := c.AddLabelToIssue(wsID, issue.ID, lbl); labelErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
+			}
+		}
+
 		if outputJSON {
 			outputResult(issue)
 			return nil
@@ -730,6 +739,7 @@ func init() {
 	createCmd.Flags().StringP("description", "d", "", "Description")
 	createCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	createCmd.Flags().String("parent", "", "Parent issue ID (creates child with .N suffix)")
+	createCmd.Flags().StringSlice("label", nil, "Label to apply (repeatable)")
 }
 
 // showCmd displays full details for a single issue.
@@ -870,21 +880,44 @@ var updateCmd = &cobra.Command{
 			}
 		}
 
-		if len(updates) == 0 {
+		labelsAdd, _ := cmd.Flags().GetStringSlice("label-add")
+		labelsRemove, _ := cmd.Flags().GetStringSlice("label-remove")
+
+		if len(updates) == 0 && len(labelsAdd) == 0 && len(labelsRemove) == 0 {
 			return errors.New("no updates specified")
 		}
 
-		issue, err := c.UpdateIssue(wsID, args[0], updates)
-		if err != nil {
-			return err
+		// Apply field updates first (if any)
+		var issue *types.Issue
+		if len(updates) > 0 {
+			issue, err = c.UpdateIssue(wsID, args[0], updates)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Apply label additions
+		for _, lbl := range labelsAdd {
+			if labelErr := c.AddLabelToIssue(wsID, args[0], lbl); labelErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
+			}
+		}
+
+		// Apply label removals
+		for _, lbl := range labelsRemove {
+			if labelErr := c.RemoveLabelFromIssue(wsID, args[0], lbl); labelErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to remove label %q: %v\n", lbl, labelErr)
+			}
 		}
 
 		if outputJSON {
-			outputResult(issue)
+			if issue != nil {
+				outputResult(issue)
+			}
 			return nil
 		}
 
-		fmt.Printf("Updated: %s\n", issue.ID)
+		fmt.Printf("Updated: %s\n", args[0])
 		return nil
 	},
 }
@@ -900,6 +933,8 @@ func init() {
 	updateCmd.Flags().Bool("take", false,
 		"Take this issue for the current AI session (sets ai_session_id + status=in_progress)")
 	updateCmd.Flags().String("session-id", "", "Explicit AI session ID (used with --take)")
+	updateCmd.Flags().StringSlice("label-add", nil, "Label to add (repeatable)")
+	updateCmd.Flags().StringSlice("label-remove", nil, "Label to remove (repeatable)")
 }
 
 // closeCmd marks one or more issues as closed.

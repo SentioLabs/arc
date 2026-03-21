@@ -373,6 +373,14 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 - ` + "`arc close <id>`" + ` - Mark complete
 - ` + "`arc close <id1> <id2> ...`" + ` - Close multiple issues at once
 
+### Labels
+- ` + "`arc label list`" + ` - List all labels
+- ` + "`arc label create <name> [--color=#hex] [--description=\"...\"]`" + ` - Create a label
+- ` + "`arc label update <name> [--color=#hex] [--description=\"...\"]`" + ` - Update label metadata
+- ` + "`arc label delete <name>`" + ` - Delete a label
+- ` + "`arc create \"title\" --label=bug --label=urgent`" + ` - Create issue with labels
+- ` + "`arc update <id> --label-add=critical --label-remove=stale`" + ` - Add/remove labels
+
 ### Dependencies & Blocking
 - ` + "`arc dep add <issue> <depends-on>`" + ` - Add dependency (issue depends on depends-on)
 - ` + "`arc blocked`" + ` - Show all blocked issues
