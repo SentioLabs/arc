@@ -12,14 +12,8 @@ Key Differences:
 
 ## Features
 
-<<<<<<< Updated upstream
 - **Central Server**: Single server managing multiple projects
 - **Web UI**: Svelte client app embedded in Go server
-=======
-8vc2VhcmNoLXNuYXBzaG90LXRyYW5zbGF0aW9uLXBpcGVsaW5lLXpoLXByb2Qvb3V0cHV0LyA=- **Central Server**: Single server managing multiple workspaces
-
-- **Web UI**: Svelete client app embedded in go server
->>>>>>> Stashed changes
 - **REST API**: Clean JSON API for all operations
 - **Projects**: First-class project management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
@@ -101,7 +95,8 @@ arc blocked                     # Issues waiting on dependencies
 
 # Create issues
 arc create "Implement feature X" -p 1 -t feature
-arc create "Fix bug Y" -p 0 -t bug
+arc create "Fix bug Y" -p 0 -t bug --label=bug
+arc create "Refactor auth" --label=backend --label=tech-debt
 
 # View and update issues
 arc show mp-abc123
@@ -110,6 +105,7 @@ arc list --status open --type bug
 arc list --parent mp-abc123     # List children of an epic
 arc update mp-abc123 --status in_progress
 arc update mp-abc123 --assignee alice
+arc update mp-abc123 --label-add=urgent --label-remove=backlog
 
 # Close issues
 arc close mp-abc123 --reason "Fixed in commit abc"
@@ -139,12 +135,27 @@ arc create "JWT tokens" -t task --parent mp-abc123
 arc create "OAuth provider" -t task --parent mp-abc123
 ```
 
+#### Labels
+
+```bash
+# Manage global labels
+arc label list                              # List all labels
+arc label create bug --color="#ff0000"       # Create a label
+arc label create feature --color="#00ff00" --description="New feature"
+arc label update bug --description="Something is broken"
+arc label delete stale                      # Delete a label
+
+# Apply labels when creating or updating issues
+arc create "Fix login" --label=bug --label=urgent
+arc update mp-abc123 --label-add=critical --label-remove=backlog
+```
+
 #### Agent Teams
 
 ```bash
 # Label tasks for team members
-arc label add mp-def456 teammate:backend
-arc label add mp-ghi789 teammate:frontend
+arc update mp-def456 --label-add=teammate:backend
+arc update mp-ghi789 --label-add=teammate:frontend
 
 # View team context (issues grouped by role)
 arc team context mp-abc123      # For a specific epic

@@ -545,4 +545,4 @@ Research or investigation work:
 1. Use arc list with filters (priority, type)
 2. Use arc ready to focus on unblocked work
 3. Consider closing old issues that no longer matter
-4. Use labels for organization
+4. Use labels for organization (`arc label create`, `arc update <id> --label-add=X`)
