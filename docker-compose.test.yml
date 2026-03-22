@@ -11,6 +11,7 @@ services:
       - /data
     environment:
       - TZ=UTC
+      - ARC_SERVER=http://localhost:7432
     profiles:
       - integration
 
