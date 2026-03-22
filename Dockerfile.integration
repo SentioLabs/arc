@@ -1,6 +1,8 @@
+# syntax=docker/dockerfile:1
+
 # Self-contained integration test image.
-# Builds the arc binary and the compiled test binary, then runs both
-# inside a single container — no host filesystem coupling.
+# Builds the arc binary and compiled test binary, starts the server,
+# and runs the tests — all inside a single container.
 
 # ===========================================================================
 # Stage 1: Build arc binary + integration test binary
@@ -16,22 +18,56 @@ RUN go mod download
 
 COPY . .
 
-# Build the arc binary (no web UI needed for integration tests)
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /arc ./cmd/arc
+# Build the arc CLI binary (no web UI needed for integration tests)
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/arc ./cmd/arc
 
 # Compile the integration test binary
-RUN CGO_ENABLED=0 go test -c -tags integration -o /integration.test ./tests/integration/
+RUN CGO_ENABLED=0 go test -c -tags integration -o /out/integration.test ./tests/integration/
 
 # ===========================================================================
-# Stage 2: Runtime
+# Stage 2: Runtime — minimal image with both binaries
 # ===========================================================================
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata git
 
-COPY --from=builder /arc /usr/local/bin/arc
-COPY --from=builder /integration.test /usr/local/bin/integration.test
-COPY scripts/run-integration-tests.sh /run-tests.sh
-RUN chmod +x /run-tests.sh
+COPY --from=builder /out/arc /usr/local/bin/arc
+COPY --from=builder /out/integration.test /usr/local/bin/integration.test
 
-ENTRYPOINT ["/run-tests.sh"]
+# Inline entrypoint: start server, wait for health, run tests.
+COPY <<'EOF' /entrypoint.sh
+#!/bin/sh
+set -e
+
+PORT=7432
+DB_PATH="/tmp/arc-integration-test.db"
+
+# Start the arc server in the background
+arc server start --foreground --port "$PORT" --db "$DB_PATH" &
+SERVER_PID=$!
+
+# Wait for the server to become healthy
+echo "Waiting for arc server on port $PORT..."
+attempts=0
+until wget -q --spider "http://127.0.0.1:${PORT}/health" 2>/dev/null; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 30 ]; then
+        echo "Server failed to start within 30s"
+        kill "$SERVER_PID" 2>/dev/null || true
+        exit 1
+    fi
+    sleep 1
+done
+echo "Server ready."
+
+# Run the integration tests
+ARC_BINARY=/usr/local/bin/arc /usr/local/bin/integration.test -test.v -test.count=1
+TEST_EXIT=$?
+
+# Clean up
+kill "$SERVER_PID" 2>/dev/null || true
+exit "$TEST_EXIT"
+EOF
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
