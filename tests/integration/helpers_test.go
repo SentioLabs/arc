@@ -19,7 +19,9 @@ import (
 )
 
 // serverURL is the address of the test server.
-const serverURL = "http://localhost:7433"
+// Reads from ARC_SERVER env var, defaulting to localhost:7432 (the
+// standard port when running self-contained inside the test container).
+var serverURL = getenvDefault("ARC_SERVER", "http://localhost:7432")
 
 // arcBinary holds the path to the arc CLI binary, set from ARC_BINARY env var.
 var arcBinary string
@@ -163,4 +165,12 @@ func setupHome(t *testing.T) string {
 	}
 
 	return home
+}
+
+// getenvDefault returns the value of the environment variable or a default.
+func getenvDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

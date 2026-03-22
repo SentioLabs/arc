@@ -1,0 +1,37 @@
+# Self-contained integration test image.
+# Builds the arc binary and the compiled test binary, then runs both
+# inside a single container — no host filesystem coupling.
+
+# ===========================================================================
+# Stage 1: Build arc binary + integration test binary
+# ===========================================================================
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /build
+
+RUN apk add --no-cache git
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Build the arc binary (no web UI needed for integration tests)
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /arc ./cmd/arc
+
+# Compile the integration test binary
+RUN CGO_ENABLED=0 go test -c -tags integration -o /integration.test ./tests/integration/
+
+# ===========================================================================
+# Stage 2: Runtime
+# ===========================================================================
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY --from=builder /arc /usr/local/bin/arc
+COPY --from=builder /integration.test /usr/local/bin/integration.test
+COPY scripts/run-integration-tests.sh /run-tests.sh
+RUN chmod +x /run-tests.sh
+
+ENTRYPOINT ["/run-tests.sh"]

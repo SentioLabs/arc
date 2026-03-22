@@ -1,16 +1,29 @@
 services:
+  # Self-contained integration tests: server + tests in one container.
+  # No host filesystem coupling — everything runs inside Docker.
+  integration-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.integration
+    container_name: arc-integration-tests
+    tmpfs:
+      - /tmp
+      - /data
+    environment:
+      - TZ=UTC
+    profiles:
+      - integration
+
+  # Standalone server for playwright E2E tests (run from host).
   arc-test-server:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: arc-test-server
-    user: "${UID:-1000}:${GID:-1000}"
     ports:
       - "7433:7432"
     tmpfs:
-      - /data
-    volumes:
-      - /tmp:/tmp:rw
+      - /data:uid=1000,gid=1000
     environment:
       - TZ=UTC
     healthcheck:
@@ -19,3 +32,5 @@ services:
       timeout: 3s
       retries: 10
       start_period: 3s
+    profiles:
+      - playwright

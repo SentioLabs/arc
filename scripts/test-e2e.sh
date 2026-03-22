@@ -8,26 +8,17 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.test.yml"
 MODE="${1:-all}"
 
-cleanup() { docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null; }
+cleanup() { docker compose -f "$COMPOSE_FILE" --profile integration --profile playwright down -v 2>/dev/null; }
 trap cleanup EXIT
-
-# Export UID/GID so the test container runs as the same user as the host.
-# This ensures the server can read/write files created by the test runner.
-export UID GID="$(id -g)"
-
-echo "==> Building arc binary..."
-"$PROJECT_ROOT/scripts/build.sh"
-
-echo "==> Starting test server..."
-docker compose -f "$COMPOSE_FILE" up -d --build --wait
 
 case "$MODE" in
   integration)
-    echo "==> Running Go integration tests..."
-    cd "$PROJECT_ROOT"
-    ARC_BINARY="$PROJECT_ROOT/bin/arc" go test -tags integration -v -count=1 ./tests/integration/...
+    echo "==> Running self-contained integration tests in Docker..."
+    docker compose -f "$COMPOSE_FILE" --profile integration up --build --exit-code-from integration-tests
     ;;
   playwright)
+    echo "==> Starting test server for Playwright..."
+    docker compose -f "$COMPOSE_FILE" --profile playwright up -d --build --wait
     echo "==> Ensuring Playwright browsers are installed..."
     cd "$PROJECT_ROOT/web"
     bunx playwright install --with-deps chromium
@@ -35,9 +26,11 @@ case "$MODE" in
     bun playwright test --config playwright.e2e.config.ts
     ;;
   all)
-    echo "==> Running Go integration tests..."
-    cd "$PROJECT_ROOT"
-    ARC_BINARY="$PROJECT_ROOT/bin/arc" go test -tags integration -v -count=1 ./tests/integration/...
+    echo "==> Running self-contained integration tests in Docker..."
+    docker compose -f "$COMPOSE_FILE" --profile integration up --build --exit-code-from integration-tests
+
+    echo "==> Starting test server for Playwright..."
+    docker compose -f "$COMPOSE_FILE" --profile playwright up -d --build --wait
     echo "==> Ensuring Playwright browsers are installed..."
     cd "$PROJECT_ROOT/web"
     bunx playwright install --with-deps chromium
