@@ -20,7 +20,7 @@ import (
 
 // serverURL is the address of the test server used for health checks
 // in TestMain. The arc CLI reads ARC_SERVER from the environment directly.
-const serverURL = "http://localhost:7432"
+const serverURL = "http://127.0.0.1:7432"
 
 // arcBinary holds the path to the arc CLI binary, set from ARC_BINARY env var.
 var arcBinary string

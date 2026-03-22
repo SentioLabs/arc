@@ -13,7 +13,7 @@ SERVER_PID=$!
 # Wait for the server to become healthy
 echo "Waiting for server on port $PORT..."
 for i in $(seq 1 30); do
-    if wget -q --spider "http://localhost:${PORT}/health" 2>/dev/null; then
+    if wget -q --spider "http://127.0.0.1:${PORT}/health" 2>/dev/null; then
         echo "Server ready."
         break
     fi

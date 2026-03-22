@@ -11,7 +11,7 @@ services:
       - /data
     environment:
       - TZ=UTC
-      - ARC_SERVER=http://localhost:7432
+      - ARC_SERVER=http://127.0.0.1:7432
     profiles:
       - integration
 
@@ -28,7 +28,7 @@ services:
     environment:
       - TZ=UTC
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7432/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:7432/health"]
       interval: 2s
       timeout: 3s
       retries: 10
