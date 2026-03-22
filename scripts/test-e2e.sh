@@ -11,6 +11,10 @@ MODE="${1:-all}"
 cleanup() { docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null; }
 trap cleanup EXIT
 
+# Export UID/GID so the test container runs as the same user as the host.
+# This ensures the server can read/write files created by the test runner.
+export UID GID="$(id -g)"
+
 echo "==> Building arc binary..."
 "$PROJECT_ROOT/scripts/build.sh"
 
