@@ -16,6 +16,18 @@ func setupPlanEnv(t *testing.T, projName string) (string, string) {
 	t.Helper()
 
 	home := setupHome(t)
+
+	// Make the temp directory tree world-traversable so the Docker-hosted
+	// server (running as uid 1000) can read plan files written by the test
+	// runner. t.TempDir() creates directories with 0o700, blocking other users.
+	// We chmod both the home dir and its parent (Go creates /tmp/TestName/NNN/).
+	if err := os.Chmod(filepath.Dir(home), 0o755); err != nil {
+		t.Fatalf("chmod temp parent dir: %v", err)
+	}
+	if err := os.Chmod(home, 0o755); err != nil {
+		t.Fatalf("chmod home dir: %v", err)
+	}
+
 	workDir := filepath.Join(home, "project")
 	if err := os.MkdirAll(filepath.Join(workDir, "docs", "plans"), 0o755); err != nil {
 		t.Fatalf("create docs/plans dir: %v", err)
