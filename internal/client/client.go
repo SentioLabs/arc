@@ -297,6 +297,102 @@ func (c *Client) GetIssueDetailsByID(id string) (*types.IssueDetails, error) {
 	return &details, nil
 }
 
+// UpdateIssueByID updates an issue by its globally-unique ID without requiring project context.
+func (c *Client) UpdateIssueByID(id string, updates map[string]any) (*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/issues/%s", id)
+
+	resp, err := c.put(path, updates)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var issue types.Issue
+	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &issue, nil
+}
+
+// CloseIssueByID closes an issue by its globally-unique ID without requiring project context.
+func (c *Client) CloseIssueByID(id, reason string, cascade bool) (*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/issues/%s/close", id)
+
+	body := map[string]any{"reason": reason, "cascade": cascade}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal body: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", c.baseURL+path, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Actor", c.actor)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusConflict {
+		respBody, _ := io.ReadAll(resp.Body)
+		var conflictResp struct {
+			Error        string        `json:"error"`
+			Code         string        `json:"code"`
+			OpenChildren []types.Issue `json:"open_children"`
+		}
+		if json.Unmarshal(respBody, &conflictResp) == nil && conflictResp.Code == "open_children" {
+			return nil, &types.OpenChildrenError{
+				IssueID:  id,
+				Children: conflictResp.OpenChildren,
+			}
+		}
+		return nil, fmt.Errorf("%s", string(respBody))
+	}
+
+	if err := c.checkError(resp); err != nil {
+		return nil, err
+	}
+
+	var issue types.Issue
+	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &issue, nil
+}
+
+// AddDependencyByID adds a dependency between two issues by globally-unique IDs.
+func (c *Client) AddDependencyByID(issueID, dependsOnID, depType string) error {
+	path := fmt.Sprintf("/api/v1/issues/%s/deps", issueID)
+
+	body := map[string]string{
+		"depends_on_id": dependsOnID,
+		"type":          depType,
+	}
+
+	resp, err := c.post(path, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// RemoveDependencyByID removes a dependency between two issues by globally-unique IDs.
+func (c *Client) RemoveDependencyByID(issueID, dependsOnID string) error {
+	path := fmt.Sprintf("/api/v1/issues/%s/deps/%s", issueID, dependsOnID)
+
+	resp, err := c.delete(path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
 // GetIssue retrieves an issue by ID.
 func (c *Client) GetIssue(projID, id string) (*types.Issue, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s", projID, id)

@@ -123,10 +123,25 @@ func (s *Server) registerRoutes() {
 	v1.GET("/plans/:planId/comments", s.listPlanComments)
 	v1.POST("/plans/:planId/comments", s.createPlanComment)
 
-	// Issues (global lookup by unique ID)
-	v1.GET("/issues/:id", s.getIssueByID)
+	// Issues (global lookup by unique ID — no project context required)
+	issues := v1.Group("/issues")
+	issues.GET("/:id", s.getIssue)
+	issues.PUT("/:id", s.updateIssue)
+	issues.DELETE("/:id", s.deleteIssue)
+	issues.POST("/:id/close", s.closeIssue)
+	issues.POST("/:id/reopen", s.reopenIssue)
+	issues.GET("/:id/deps", s.getDependencies)
+	issues.POST("/:id/deps", s.addDependency)
+	issues.DELETE("/:id/deps/:dep", s.removeDependency)
+	issues.POST("/:id/labels", s.addLabelToIssue)
+	issues.DELETE("/:id/labels/:label", s.removeLabelFromIssue)
+	issues.GET("/:id/comments", s.getComments)
+	issues.POST("/:id/comments", s.addComment)
+	issues.PUT("/:id/comments/:cid", s.updateComment)
+	issues.DELETE("/:id/comments/:cid", s.deleteComment)
+	issues.GET("/:id/events", s.getEvents)
 
-	// Issues (project-scoped)
+	// Issues (project-scoped — same handlers, with workspace validation)
 	ws := v1.Group("/projects/:ws")
 	ws.GET("/issues", s.listIssues)
 	ws.POST("/issues", s.createIssue)
@@ -288,6 +303,7 @@ func (s *Server) validateIssueWorkspace(c echo.Context, issueID string) error {
 }
 
 // getIssueInWorkspace fetches an issue and validates it belongs to the specified workspace.
+// When called from a project-agnostic route (no :ws param), the workspace check is skipped.
 // Returns the issue if valid, or an error if not found or workspace mismatch.
 func (s *Server) getIssueInWorkspace(c echo.Context, issueID string) (*types.Issue, error) {
 	wsID := workspaceID(c)
@@ -298,7 +314,8 @@ func (s *Server) getIssueInWorkspace(c echo.Context, issueID string) (*types.Iss
 		return nil, err
 	}
 
-	if issue.ProjectID != wsID {
+	// Skip workspace validation on project-agnostic routes (no :ws param)
+	if wsID != "" && issue.ProjectID != wsID {
 		return nil, errWorkspaceMismatch
 	}
 

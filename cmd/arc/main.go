@@ -825,11 +825,6 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
 		updates := make(map[string]any)
 
 		if val, _ := cmd.Flags().GetString("status"); val != "" {
@@ -894,7 +889,7 @@ var updateCmd = &cobra.Command{
 		// Apply field updates first (if any)
 		var issue *types.Issue
 		if len(updates) > 0 {
-			issue, err = c.UpdateIssue(wsID, args[0], updates)
+			issue, err = c.UpdateIssueByID(args[0], updates)
 			if err != nil {
 				return err
 			}
@@ -902,14 +897,14 @@ var updateCmd = &cobra.Command{
 
 		// Apply label additions
 		for _, lbl := range labelsAdd {
-			if labelErr := c.AddLabelToIssue(wsID, args[0], lbl); labelErr != nil {
+			if labelErr := c.AddLabelToIssueByID(args[0], lbl); labelErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
 			}
 		}
 
 		// Apply label removals
 		for _, lbl := range labelsRemove {
-			if labelErr := c.RemoveLabelFromIssue(wsID, args[0], lbl); labelErr != nil {
+			if labelErr := c.RemoveLabelFromIssueByID(args[0], lbl); labelErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to remove label %q: %v\n", lbl, labelErr)
 			}
 		}
@@ -917,7 +912,7 @@ var updateCmd = &cobra.Command{
 		if outputJSON {
 			// If labels were changed or issue is nil, re-fetch with details
 			if len(labelsAdd) > 0 || len(labelsRemove) > 0 || issue == nil {
-				details, fetchErr := c.GetIssueDetails(wsID, args[0])
+				details, fetchErr := c.GetIssueDetailsByID(args[0])
 				if fetchErr == nil {
 					outputResult(details)
 					return nil
@@ -961,16 +956,11 @@ var closeCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
 		reason, _ := cmd.Flags().GetString("reason")
 		cascade, _ := cmd.Flags().GetBool("cascade")
 
 		for _, id := range args {
-			issue, err := c.CloseIssue(wsID, id, reason, cascade)
+			issue, err := c.CloseIssueByID(id, reason, cascade)
 			if err != nil {
 				var openChildrenErr *types.OpenChildrenError
 				if errors.As(err, &openChildrenErr) {
@@ -1150,17 +1140,12 @@ var depAddCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
 		depType, _ := cmd.Flags().GetString("type")
 		if depType == "" {
 			depType = "blocks"
 		}
 
-		if err := c.AddDependency(wsID, args[0], args[1], depType); err != nil {
+		if err := c.AddDependencyByID(args[0], args[1], depType); err != nil {
 			return err
 		}
 
@@ -1184,12 +1169,7 @@ var depRemoveCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
-		if err := c.RemoveDependency(wsID, args[0], args[1]); err != nil {
+		if err := c.RemoveDependencyByID(args[0], args[1]); err != nil {
 			return err
 		}
 

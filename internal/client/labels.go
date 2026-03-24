@@ -72,6 +72,34 @@ func (c *Client) DeleteLabel(name string) error {
 	return nil
 }
 
+// AddLabelToIssueByID associates a label with an issue by its globally-unique ID.
+func (c *Client) AddLabelToIssueByID(issueID, label string) error {
+	path := fmt.Sprintf("/api/v1/issues/%s/labels", issueID)
+
+	body := map[string]string{
+		"label": label,
+	}
+
+	resp, err := c.post(path, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// RemoveLabelFromIssueByID removes a label association from an issue by its globally-unique ID.
+func (c *Client) RemoveLabelFromIssueByID(issueID, label string) error {
+	path := fmt.Sprintf("/api/v1/issues/%s/labels/%s", issueID, label)
+
+	resp, err := c.delete(path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
 // AddLabelToIssue associates a label with an issue.
 func (c *Client) AddLabelToIssue(projectID, issueID, label string) error {
 	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s/labels", projectID, issueID)
