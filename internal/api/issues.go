@@ -142,6 +142,27 @@ func (s *Server) createIssue(c echo.Context) error {
 	return createdJSON(c, issue)
 }
 
+// getIssueByID retrieves an issue by its globally-unique ID without requiring
+// project context. Supports the same details=true query parameter as getIssue.
+func (s *Server) getIssueByID(c echo.Context) error {
+	id := c.Param("id")
+	ctx := c.Request().Context()
+
+	if c.QueryParam("details") == "true" {
+		details, err := s.store.GetIssueDetails(ctx, id)
+		if err != nil {
+			return errorJSON(c, http.StatusNotFound, err.Error())
+		}
+		return successJSON(c, details)
+	}
+
+	issue, err := s.store.GetIssue(ctx, id)
+	if err != nil {
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+	return successJSON(c, issue)
+}
+
 // getIssue retrieves an issue by ID, with optional detailed view including
 // dependencies, labels, and comments when details=true is specified.
 func (s *Server) getIssue(c echo.Context) error {

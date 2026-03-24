@@ -123,6 +123,9 @@ func (s *Server) registerRoutes() {
 	v1.GET("/plans/:planId/comments", s.listPlanComments)
 	v1.POST("/plans/:planId/comments", s.createPlanComment)
 
+	// Issues (global lookup by unique ID)
+	v1.GET("/issues/:id", s.getIssueByID)
+
 	// Issues (project-scoped)
 	ws := v1.Group("/projects/:ws")
 	ws.GET("/issues", s.listIssues)

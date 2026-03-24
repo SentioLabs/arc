@@ -264,15 +264,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /projects/{projectId}/issues/{issueId}:
+  /issues/{issueId}:
     parameters:
-      - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
     get:
-      operationId: getIssue
+      operationId: getIssueByID
       tags: [issues]
-      summary: Get issue by ID
+      summary: Get issue by globally-unique ID
+      description: >
+        Retrieves an issue by its globally-unique ID without requiring project context.
+        Use this endpoint when you have an issue ID but don't know or need the project.
       parameters:
         - name: details
           in: query
@@ -293,6 +295,11 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/issues/{issueId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/IssueId"
 
     put:
       operationId: updateIssue

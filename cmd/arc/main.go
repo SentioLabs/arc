@@ -762,12 +762,7 @@ var showCmd = &cobra.Command{
 			return err
 		}
 
-		wsID, err := getProjectID()
-		if err != nil {
-			return err
-		}
-
-		details, err := c.GetIssueDetails(wsID, args[0])
+		details, err := c.GetIssueDetailsByID(args[0])
 		if err != nil {
 			return err
 		}

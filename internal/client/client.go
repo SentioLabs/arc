@@ -263,6 +263,40 @@ type CreateIssueRequest struct {
 	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs
 }
 
+// GetIssueByID retrieves an issue by its globally-unique ID without requiring project context.
+func (c *Client) GetIssueByID(id string) (*types.Issue, error) {
+	path := fmt.Sprintf("/api/v1/issues/%s", id)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var issue types.Issue
+	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &issue, nil
+}
+
+// GetIssueDetailsByID retrieves an issue with all relational data by its globally-unique ID.
+func (c *Client) GetIssueDetailsByID(id string) (*types.IssueDetails, error) {
+	path := fmt.Sprintf("/api/v1/issues/%s?details=true", id)
+
+	resp, err := c.get(path)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var details types.IssueDetails
+	if err := json.NewDecoder(resp.Body).Decode(&details); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &details, nil
+}
+
 // GetIssue retrieves an issue by ID.
 func (c *Client) GetIssue(projID, id string) (*types.Issue, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/issues/%s", projID, id)
