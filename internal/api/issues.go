@@ -14,6 +14,8 @@ const (
 	defaultListLimit = 100
 	// defaultPriority is the default priority for issues when parsing query parameters.
 	defaultPriority = 2
+	// queryTrue is the string value for boolean query parameters.
+	queryTrue = "true"
 )
 
 // createIssueRequest is the request body for creating an issue.
@@ -148,7 +150,7 @@ func (s *Server) getIssueByID(c echo.Context) error {
 	id := c.Param("id")
 	ctx := c.Request().Context()
 
-	if c.QueryParam("details") == "true" {
+	if c.QueryParam("details") == queryTrue {
 		details, err := s.store.GetIssueDetails(ctx, id)
 		if err != nil {
 			return errorJSON(c, http.StatusNotFound, err.Error())
@@ -178,7 +180,7 @@ func (s *Server) getIssue(c echo.Context) error {
 	}
 
 	// Return detailed view if requested
-	if c.QueryParam("details") == "true" {
+	if c.QueryParam("details") == queryTrue {
 		details, err := s.store.GetIssueDetails(c.Request().Context(), id)
 		if err != nil {
 			return errorJSON(c, http.StatusNotFound, err.Error())
@@ -354,7 +356,7 @@ func (s *Server) getReadyWork(c echo.Context) error {
 	if assignee := c.QueryParam("assignee"); assignee != "" {
 		filter.Assignee = &assignee
 	}
-	if c.QueryParam("unassigned") == "true" {
+	if c.QueryParam("unassigned") == queryTrue {
 		filter.Unassigned = true
 	}
 	if priority := c.QueryParam("priority"); priority != "" {

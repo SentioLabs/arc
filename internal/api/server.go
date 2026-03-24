@@ -133,7 +133,19 @@ func (s *Server) registerRoutes() {
 	issues.POST("/:id/labels", s.addLabelToIssue)
 	issues.DELETE("/:id/labels/:label", s.removeLabelFromIssue)
 
-	// Issues (project-scoped — same handlers, with workspace validation)
+	// Labels (global)
+	v1.GET("/labels", s.listLabels)
+	v1.POST("/labels", s.createLabel)
+	v1.PUT("/labels/:name", s.updateLabel)
+	v1.DELETE("/labels/:name", s.deleteLabel)
+
+	// Project-scoped and AI routes
+	s.registerProjectRoutes(v1)
+	s.registerAIRoutes(v1)
+}
+
+// registerProjectRoutes sets up project-scoped issue, dependency, label, comment, and event routes.
+func (s *Server) registerProjectRoutes(v1 *echo.Group) {
 	ws := v1.Group("/projects/:ws")
 	ws.GET("/issues", s.listIssues)
 	ws.POST("/issues", s.createIssue)
@@ -142,39 +154,23 @@ func (s *Server) registerRoutes() {
 	ws.DELETE("/issues/:id", s.deleteIssue)
 	ws.POST("/issues/:id/close", s.closeIssue)
 	ws.POST("/issues/:id/reopen", s.reopenIssue)
-
-	// Ready work and blocked issues
 	ws.GET("/ready", s.getReadyWork)
 	ws.GET("/blocked", s.getBlockedIssues)
-
-	// Team context
 	ws.GET("/team-context", s.getTeamContext)
-
-	// Dependencies
 	ws.GET("/issues/:id/deps", s.getDependencies)
 	ws.POST("/issues/:id/deps", s.addDependency)
 	ws.DELETE("/issues/:id/deps/:dep", s.removeDependency)
-
-	// Labels (global)
-	v1.GET("/labels", s.listLabels)
-	v1.POST("/labels", s.createLabel)
-	v1.PUT("/labels/:name", s.updateLabel)
-	v1.DELETE("/labels/:name", s.deleteLabel)
-
-	// Issue-label associations (project-scoped)
 	ws.POST("/issues/:id/labels", s.addLabelToIssue)
 	ws.DELETE("/issues/:id/labels/:label", s.removeLabelFromIssue)
-
-	// Comments
 	ws.GET("/issues/:id/comments", s.getComments)
 	ws.POST("/issues/:id/comments", s.addComment)
 	ws.PUT("/issues/:id/comments/:cid", s.updateComment)
 	ws.DELETE("/issues/:id/comments/:cid", s.deleteComment)
-
-	// Events (audit trail)
 	ws.GET("/issues/:id/events", s.getEvents)
+}
 
-	// AI Session observability (global, not project-scoped)
+// registerAIRoutes sets up AI session observability routes.
+func (s *Server) registerAIRoutes(v1 *echo.Group) {
 	ai := v1.Group("/ai")
 	ai.POST("/sessions", s.createAISession)
 	ai.GET("/sessions", s.listAISessions)

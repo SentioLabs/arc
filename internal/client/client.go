@@ -263,9 +263,13 @@ type CreateIssueRequest struct {
 	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs
 }
 
+// Project-agnostic issue methods operate on issues by their globally-unique ID
+// without requiring the caller to know or resolve the project. These are used by
+// CLI commands (show, update, close, dep) that accept an issue ID directly.
+
 // GetIssueByID retrieves an issue by its globally-unique ID without requiring project context.
 func (c *Client) GetIssueByID(id string) (*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/issues/%s", id)
+	path := "/api/v1/issues/" + id
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -299,7 +303,7 @@ func (c *Client) GetIssueDetailsByID(id string) (*types.IssueDetails, error) {
 
 // UpdateIssueByID updates an issue by its globally-unique ID without requiring project context.
 func (c *Client) UpdateIssueByID(id string, updates map[string]any) (*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/issues/%s", id)
+	path := "/api/v1/issues/" + id
 
 	resp, err := c.put(path, updates)
 	if err != nil {
