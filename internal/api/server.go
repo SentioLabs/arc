@@ -125,7 +125,7 @@ func (s *Server) registerRoutes() {
 
 	// Issues (global lookup by unique ID — no project context required)
 	issues := v1.Group("/issues")
-	issues.GET("/:id", s.getIssue)
+	issues.GET("/:id", s.getIssueByID)
 	issues.PUT("/:id", s.updateIssue)
 	issues.DELETE("/:id", s.deleteIssue)
 	issues.POST("/:id/close", s.closeIssue)
