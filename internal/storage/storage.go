@@ -80,6 +80,7 @@ type Storage interface {
 	CreateAISession(ctx context.Context, session *types.AISession) error
 	GetAISession(ctx context.Context, id string) (*types.AISession, error)
 	ListAISessions(ctx context.Context, limit, offset int) ([]*types.AISession, error)
+	CountAISessions(ctx context.Context) (int64, error)
 	DeleteAISession(ctx context.Context, id string) error
 	CreateAIAgent(ctx context.Context, agent *types.AIAgent) error
 	GetAIAgent(ctx context.Context, id string) (*types.AIAgent, error)

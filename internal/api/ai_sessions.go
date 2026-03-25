@@ -100,13 +100,19 @@ func (s *Server) getAISession(c echo.Context) error {
 func (s *Server) listAISessions(c echo.Context) error {
 	limit := queryInt(c, "limit", defaultListLimit)
 	offset := queryInt(c, "offset", 0)
+	ctx := c.Request().Context()
 
-	sessions, err := s.store.ListAISessions(c.Request().Context(), limit, offset)
+	sessions, err := s.store.ListAISessions(ctx, limit, offset)
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return paginatedJSON(c, sessions, len(sessions), limit, offset)
+	total, err := s.store.CountAISessions(ctx)
+	if err != nil {
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+
+	return paginatedJSON(c, sessions, int(total), limit, offset)
 }
 
 // deleteAISession deletes an AI session by ID.

@@ -56,6 +56,15 @@ func (s *Store) ListAISessions(ctx context.Context, limit, offset int) ([]*types
 	return sessions, nil
 }
 
+// CountAISessions returns the total number of AI sessions.
+func (s *Store) CountAISessions(ctx context.Context) (int64, error) {
+	count, err := s.queries.CountAISessions(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("count ai sessions: %w", err)
+	}
+	return count, nil
+}
+
 // DeleteAISession deletes an AI session and its associated agents.
 // Agents are deleted explicitly to ensure cascade behavior regardless of
 // whether the SQLite driver honours the ON DELETE CASCADE pragma.

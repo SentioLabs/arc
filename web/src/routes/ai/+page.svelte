@@ -5,6 +5,14 @@
 		batchDeleteAISessions,
 		type AISessionResponse
 	} from '$lib/api/ai';
+	import Select from '$lib/components/Select.svelte';
+
+	const PAGE_SIZES = [
+		{ value: '25', label: '25 per page' },
+		{ value: '50', label: '50 per page' },
+		{ value: '100', label: '100 per page' },
+		{ value: '0', label: 'All' }
+	];
 
 	let sessions = $state<AISessionResponse[]>([]);
 	let total = $state(0);
@@ -15,10 +23,27 @@
 	let confirmDeleteId = $state<string | null>(null);
 	let confirmBatchDelete = $state(false);
 
+	let pageSize = $state('25');
+	let currentPage = $state(0);
+
+	const limit = $derived(pageSize === '0' ? 10000 : parseInt(pageSize));
+	const offset = $derived(currentPage * limit);
+	const totalPages = $derived(pageSize === '0' ? 1 : Math.max(1, Math.ceil(total / limit)));
+	const hasNextPage = $derived(currentPage < totalPages - 1);
+	const hasPrevPage = $derived(currentPage > 0);
+
 	const allSelected = $derived(sessions.length > 0 && selected.size === sessions.length);
 	const someSelected = $derived(selected.size > 0 && selected.size < sessions.length);
 
+	// Showing range text: "1-25 of 52"
+	const rangeStart = $derived(total === 0 ? 0 : offset + 1);
+	const rangeEnd = $derived(Math.min(offset + sessions.length, total));
+
 	$effect(() => {
+		// Re-fetch when pageSize or currentPage changes
+		// Using both as dependencies by reading them
+		void pageSize;
+		void currentPage;
 		loadSessions();
 	});
 
@@ -26,13 +51,33 @@
 		loading = true;
 		error = null;
 		try {
-			const result = await listAISessions(100, 0);
+			const result = await listAISessions(limit, offset);
 			sessions = result.data ?? [];
 			total = result.total ?? sessions.length;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load AI sessions';
 		} finally {
 			loading = false;
+		}
+	}
+
+	function handlePageSizeChange(value: string) {
+		pageSize = value;
+		currentPage = 0;
+		selected = new Set();
+	}
+
+	function nextPage() {
+		if (hasNextPage) {
+			currentPage++;
+			selected = new Set();
+		}
+	}
+
+	function prevPage() {
+		if (hasPrevPage) {
+			currentPage--;
+			selected = new Set();
 		}
 	}
 
@@ -152,7 +197,7 @@
 		{/if}
 	</header>
 
-	{#if loading}
+	{#if loading && sessions.length === 0}
 		<div class="flex items-center justify-center py-12">
 			<div class="text-text-muted animate-pulse">Loading...</div>
 		</div>
@@ -161,7 +206,7 @@
 			<p class="text-status-blocked mb-4">{error}</p>
 			<button class="btn btn-primary" onclick={loadSessions}>Retry</button>
 		</div>
-	{:else if sessions.length === 0}
+	{:else if sessions.length === 0 && total === 0}
 		<div class="card p-12 text-center">
 			<div
 				class="w-16 h-16 bg-surface-700 rounded-2xl flex items-center justify-center mx-auto mb-4"
@@ -196,7 +241,7 @@
 						<th class="px-4 py-3 w-10"></th>
 					</tr>
 				</thead>
-				<tbody>
+				<tbody class:opacity-50={loading}>
 					{#each sessions as session (session.id)}
 						{@const isSelected = selected.has(session.id)}
 						<tr
@@ -271,6 +316,48 @@
 					{/each}
 				</tbody>
 			</table>
+
+			<!-- Pagination footer -->
+			<div class="flex items-center justify-between px-4 py-3 border-t border-border">
+				<div class="flex items-center gap-3">
+					<Select
+						options={PAGE_SIZES}
+						value={pageSize}
+						onchange={handlePageSizeChange}
+					/>
+					<span class="text-sm text-text-muted">
+						{rangeStart}–{rangeEnd} of {total}
+					</span>
+				</div>
+
+				{#if pageSize !== '0' && totalPages > 1}
+					<div class="flex items-center gap-1">
+						<button
+							class="btn btn-sm btn-ghost"
+							onclick={prevPage}
+							disabled={!hasPrevPage || loading}
+							aria-label="Previous page"
+						>
+							<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<polyline points="15 18 9 12 15 6" />
+							</svg>
+						</button>
+						<span class="text-sm text-text-secondary px-2 tabular-nums">
+							{currentPage + 1} / {totalPages}
+						</span>
+						<button
+							class="btn btn-sm btn-ghost"
+							onclick={nextPage}
+							disabled={!hasNextPage || loading}
+							aria-label="Next page"
+						>
+							<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<polyline points="9 6 15 12 9 18" />
+							</svg>
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>

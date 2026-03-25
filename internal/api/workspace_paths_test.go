@@ -277,6 +277,10 @@ func (m *mockWPStore) ListAISessions(_ context.Context, _, _ int) ([]*types.AISe
 	panic("not implemented")
 }
 
+func (m *mockWPStore) CountAISessions(_ context.Context) (int64, error) {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) DeleteAISession(_ context.Context, _ string) error {
 	panic("not implemented")
 }

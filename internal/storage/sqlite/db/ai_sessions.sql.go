@@ -22,6 +22,17 @@ func (q *Queries) CountAIAgentsBySession(ctx context.Context, sessionID string) 
 	return count, err
 }
 
+const countAISessions = `-- name: CountAISessions :one
+SELECT COUNT(*) FROM ai_sessions
+`
+
+func (q *Queries) CountAISessions(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAISessions)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAIAgent = `-- name: CreateAIAgent :one
 INSERT INTO ai_agents (id, session_id, description, prompt, agent_type, model, status, duration_ms, total_tokens, tool_use_count, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

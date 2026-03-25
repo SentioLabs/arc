@@ -9,6 +9,9 @@ SELECT * FROM ai_sessions WHERE id = ?;
 -- name: ListAISessions :many
 SELECT * FROM ai_sessions ORDER BY started_at DESC LIMIT ? OFFSET ?;
 
+-- name: CountAISessions :one
+SELECT COUNT(*) FROM ai_sessions;
+
 -- name: DeleteAISession :exec
 DELETE FROM ai_sessions WHERE id = ?;
 
