@@ -194,11 +194,6 @@ paths:
               maximum: 4
           style: form
           explode: true
-        - name: assignee
-          in: query
-          description: Filter by assignee
-          schema:
-            type: string
         - name: ai_session_id
           in: query
           description: Filter by AI session ID
@@ -418,17 +413,6 @@ paths:
             type: integer
             minimum: 0
             maximum: 4
-        - name: assignee
-          in: query
-          description: Filter by assignee
-          schema:
-            type: string
-        - name: unassigned
-          in: query
-          description: Filter for unassigned issues only
-          schema:
-            type: boolean
-            default: false
         - name: limit
           in: query
           description: Maximum results to return
@@ -1443,8 +1427,6 @@ components:
           description: "0 = unranked (sorts last), 1+ = lower rank = work on first"
         issue_type:
           $ref: "#/components/schemas/IssueType"
-        assignee:
-          type: string
         ai_session_id:
           type: string
           description: AI coding session UUID (e.g., Claude Code session ID)
@@ -1540,7 +1522,6 @@ components:
       required:
         - project
         - roles
-        - unassigned
       properties:
         project:
           type: string
@@ -1552,11 +1533,6 @@ components:
           additionalProperties:
             $ref: "#/components/schemas/TeamContextRole"
           description: Issues grouped by teammate role name
-        unassigned:
-          type: array
-          items:
-            $ref: "#/components/schemas/TeamContextIssue"
-          description: Issues without a teammate label (only present with epic filter)
 
     TeamContextEpic:
       type: object
@@ -1625,8 +1601,6 @@ components:
           default: 2
         issue_type:
           $ref: "#/components/schemas/IssueType"
-        assignee:
-          type: string
         ai_session_id:
           type: string
           description: AI coding session UUID
@@ -1649,8 +1623,6 @@ components:
           maximum: 4
         issue_type:
           $ref: "#/components/schemas/IssueType"
-        assignee:
-          type: string
         ai_session_id:
           type: string
           description: AI coding session UUID

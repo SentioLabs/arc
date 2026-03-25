@@ -676,7 +676,6 @@ export interface components {
             /** @description 0 = unranked (sorts last), 1+ = lower rank = work on first */
             rank?: number;
             issue_type: components["schemas"]["IssueType"];
-            assignee?: string;
             /** @description AI coding session UUID (e.g., Claude Code session ID) */
             ai_session_id?: string;
             /** Format: date-time */
@@ -719,8 +718,6 @@ export interface components {
             roles: {
                 [key: string]: components["schemas"]["TeamContextRole"];
             };
-            /** @description Issues without a teammate label (only present with epic filter) */
-            unassigned: components["schemas"]["TeamContextIssue"][];
         };
         TeamContextEpic: {
             id: string;
@@ -745,7 +742,6 @@ export interface components {
             /** @default 2 */
             priority: number;
             issue_type?: components["schemas"]["IssueType"];
-            assignee?: string;
             /** @description AI coding session UUID */
             ai_session_id?: string;
             external_ref?: string;
@@ -756,7 +752,6 @@ export interface components {
             status?: components["schemas"]["Status"];
             priority?: number;
             issue_type?: components["schemas"]["IssueType"];
-            assignee?: string;
             /** @description AI coding session UUID */
             ai_session_id?: string;
             external_ref?: string;
@@ -1134,8 +1129,6 @@ export interface operations {
                 type?: components["schemas"]["IssueType"][];
                 /** @description Filter by priority (supports multiple values, 0-4) */
                 priority?: number[];
-                /** @description Filter by assignee */
-                assignee?: string;
                 /** @description Filter by AI session ID */
                 ai_session_id?: string;
                 /** @description Filter by parent issue ID (returns children via parent-child dependency) */
@@ -1361,10 +1354,6 @@ export interface operations {
                 type?: components["schemas"]["IssueType"];
                 /** @description Filter by priority (0-4) */
                 priority?: number;
-                /** @description Filter by assignee */
-                assignee?: string;
-                /** @description Filter for unassigned issues only */
-                unassigned?: boolean;
                 /** @description Maximum results to return */
                 limit?: number;
                 /**

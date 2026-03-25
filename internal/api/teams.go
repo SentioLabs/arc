@@ -25,9 +25,8 @@ func (s *Server) getTeamContext(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	resp := TeamContext{
-		Project:    pID,
-		Roles:      make(map[string]TeamContextRole),
-		Unassigned: []TeamContextIssue{},
+		Project: pID,
+		Roles:   make(map[string]TeamContextRole),
 	}
 
 	issues, err := s.fetchTeamContextIssues(ctx, c, pID, epicID, &resp)
@@ -39,7 +38,7 @@ func (s *Server) getTeamContext(c echo.Context) error {
 		return successJSON(c, resp)
 	}
 
-	if err := s.groupIssuesByRole(ctx, pID, epicID, issues, &resp); err != nil {
+	if err := s.groupIssuesByRole(ctx, issues, &resp); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
@@ -117,7 +116,7 @@ func (s *Server) fetchNonClosedIssues(
 
 // groupIssuesByRole fetches labels for all issues and groups them by teammate:* label.
 func (s *Server) groupIssuesByRole(
-	ctx context.Context, pID, epicID string, issues []*types.Issue, resp *TeamContext,
+	ctx context.Context, issues []*types.Issue, resp *TeamContext,
 ) error {
 	issueIDs := make([]string, len(issues))
 	for i, issue := range issues {
@@ -134,9 +133,6 @@ func (s *Server) groupIssuesByRole(
 		role := extractTeammateRole(labelsMap[issue.ID])
 
 		if role == "" {
-			if epicID != "" {
-				resp.Unassigned = append(resp.Unassigned, tci)
-			}
 			continue
 		}
 

@@ -25,7 +25,6 @@ type createIssueRequest struct {
 	Status      string `json:"status,omitempty"`
 	Priority    int    `json:"priority,omitempty"`
 	IssueType   string `json:"issue_type,omitempty"`
-	Assignee    string `json:"assignee,omitempty"`
 	AISessionID string `json:"ai_session_id,omitempty"`
 	ExternalRef string `json:"external_ref,omitempty"`
 	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs
@@ -38,7 +37,6 @@ type updateIssueRequest struct {
 	Status      *string `json:"status,omitempty"`
 	Priority    *int    `json:"priority,omitempty"`
 	IssueType   *string `json:"issue_type,omitempty"`
-	Assignee    *string `json:"assignee,omitempty"`
 	AISessionID *string `json:"ai_session_id,omitempty"`
 	ExternalRef *string `json:"external_ref,omitempty"`
 }
@@ -50,7 +48,7 @@ type closeIssueRequest struct {
 }
 
 // listIssues returns issues for a project with optional filtering and pagination.
-// Supports filtering by status, type, assignee, priority, parent_id, and free-text query.
+// Supports filtering by status, type, priority, parent_id, and free-text query.
 // Results include batch-fetched labels for each issue.
 func (s *Server) listIssues(c echo.Context) error {
 	pID := projectID(c)
@@ -102,9 +100,6 @@ func parseIssueFilterParams(c echo.Context, filter *types.IssueFilter) {
 			filter.Priorities = append(filter.Priorities, val)
 		}
 	}
-	if assignee := c.QueryParam("assignee"); assignee != "" {
-		filter.Assignee = &assignee
-	}
 	if aiSessionID := c.QueryParam("ai_session_id"); aiSessionID != "" {
 		filter.AISessionID = &aiSessionID
 	}
@@ -132,7 +127,6 @@ func (s *Server) createIssue(c echo.Context) error {
 		Status:      types.Status(req.Status),
 		Priority:    req.Priority,
 		IssueType:   types.IssueType(req.IssueType),
-		Assignee:    req.Assignee,
 		AISessionID: req.AISessionID,
 		ExternalRef: req.ExternalRef,
 	}
@@ -226,9 +220,6 @@ func (s *Server) updateIssue(c echo.Context) error {
 	}
 	if req.IssueType != nil {
 		updates["issue_type"] = *req.IssueType
-	}
-	if req.Assignee != nil {
-		updates["assignee"] = *req.Assignee
 	}
 	if req.AISessionID != nil {
 		updates["ai_session_id"] = *req.AISessionID
@@ -339,7 +330,7 @@ func (s *Server) reopenIssue(c echo.Context) error {
 }
 
 // getReadyWork returns issues that are ready to work on (no unresolved blockers).
-// Supports filtering by type, assignee, and priority.
+// Supports filtering by type and priority.
 func (s *Server) getReadyWork(c echo.Context) error {
 	pID := projectID(c)
 
@@ -352,12 +343,6 @@ func (s *Server) getReadyWork(c echo.Context) error {
 	if issueType := c.QueryParam("type"); issueType != "" {
 		t := types.IssueType(issueType)
 		filter.IssueType = &t
-	}
-	if assignee := c.QueryParam("assignee"); assignee != "" {
-		filter.Assignee = &assignee
-	}
-	if c.QueryParam("unassigned") == queryTrue {
-		filter.Unassigned = true
 	}
 	if priority := c.QueryParam("priority"); priority != "" {
 		p := queryInt(c, "priority", defaultPriority)
