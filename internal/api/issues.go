@@ -49,14 +49,14 @@ type closeIssueRequest struct {
 	Cascade bool   `json:"cascade"`
 }
 
-// listIssues returns issues for a workspace with optional filtering and pagination.
+// listIssues returns issues for a project with optional filtering and pagination.
 // Supports filtering by status, type, assignee, priority, parent_id, and free-text query.
 // Results include batch-fetched labels for each issue.
 func (s *Server) listIssues(c echo.Context) error {
-	wsID := workspaceID(c)
+	pID := projectID(c)
 
 	filter := types.IssueFilter{
-		ProjectID: wsID,
+		ProjectID: pID,
 		Limit:     queryInt(c, "limit", defaultListLimit),
 		Offset:    queryInt(c, "offset", 0),
 		Query:     c.QueryParam("q"),
@@ -113,10 +113,10 @@ func parseIssueFilterParams(c echo.Context, filter *types.IssueFilter) {
 	}
 }
 
-// createIssue creates a new issue in the specified workspace.
+// createIssue creates a new issue in the specified project.
 // The issue type, priority, and other fields are set from the request body.
 func (s *Server) createIssue(c echo.Context) error {
-	wsID := workspaceID(c)
+	pID := projectID(c)
 	actor := getActor(c)
 
 	var req createIssueRequest
@@ -125,7 +125,7 @@ func (s *Server) createIssue(c echo.Context) error {
 	}
 
 	issue := &types.Issue{
-		ProjectID:   wsID,
+		ProjectID:   pID,
 		ParentID:    req.ParentID,
 		Title:       req.Title,
 		Description: req.Description,
@@ -170,10 +170,10 @@ func (s *Server) getIssueByID(c echo.Context) error {
 func (s *Server) getIssue(c echo.Context) error {
 	id := c.Param("id")
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	issue, err := s.getIssueInWorkspace(c, id)
+	// Validate issue belongs to project (security: prevents cross-project access)
+	issue, err := s.getIssueInProject(c, id)
 	if err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -197,9 +197,9 @@ func (s *Server) updateIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -258,9 +258,9 @@ func (s *Server) updateIssue(c echo.Context) error {
 func (s *Server) deleteIssue(c echo.Context) error {
 	id := c.Param("id")
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -278,9 +278,9 @@ func (s *Server) closeIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -317,9 +317,9 @@ func (s *Server) reopenIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -341,10 +341,10 @@ func (s *Server) reopenIssue(c echo.Context) error {
 // getReadyWork returns issues that are ready to work on (no unresolved blockers).
 // Supports filtering by type, assignee, and priority.
 func (s *Server) getReadyWork(c echo.Context) error {
-	wsID := workspaceID(c)
+	pID := projectID(c)
 
 	filter := types.WorkFilter{
-		ProjectID: wsID,
+		ProjectID: pID,
 		Limit:     queryInt(c, "limit", defaultListLimit),
 	}
 
@@ -389,10 +389,10 @@ func (s *Server) getReadyWork(c echo.Context) error {
 
 // getBlockedIssues returns issues that are blocked by unresolved dependencies.
 func (s *Server) getBlockedIssues(c echo.Context) error {
-	wsID := workspaceID(c)
+	pID := projectID(c)
 
 	filter := types.WorkFilter{
-		ProjectID: wsID,
+		ProjectID: pID,
 		Limit:     queryInt(c, "limit", defaultListLimit),
 	}
 

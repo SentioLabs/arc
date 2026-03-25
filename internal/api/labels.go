@@ -1,5 +1,5 @@
 // Label API handlers for global label CRUD and issue-label associations.
-// Labels are global resources; issue-label endpoints validate workspace
+// Labels are global resources; issue-label endpoints validate project
 // ownership before modifying associations.
 package api
 
@@ -93,14 +93,14 @@ func (s *Server) deleteLabel(c echo.Context) error {
 }
 
 // addLabelToIssue associates a label with an issue for categorization.
-// The issue must belong to the current workspace.
+// The issue must belong to the current project.
 func (s *Server) addLabelToIssue(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to workspace (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -119,15 +119,15 @@ func (s *Server) addLabelToIssue(c echo.Context) error {
 }
 
 // removeLabelFromIssue removes a label association from an issue.
-// The issue must belong to the current workspace.
+// The issue must belong to the current project.
 func (s *Server) removeLabelFromIssue(c echo.Context) error {
 	id := c.Param("id")
 	label := c.Param("label")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to workspace (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())

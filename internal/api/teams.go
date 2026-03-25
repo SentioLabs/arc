@@ -20,17 +20,17 @@ const teamContextIssueLimit = 500
 // getTeamContext returns issues grouped by their teammate:* labels.
 // Optionally scoped to a single epic via the epic_id query parameter.
 func (s *Server) getTeamContext(c echo.Context) error {
-	wsID := workspaceID(c)
+	pID := projectID(c)
 	epicID := c.QueryParam("epic_id")
 	ctx := c.Request().Context()
 
 	resp := TeamContext{
-		Project:    wsID,
+		Project:    pID,
 		Roles:      make(map[string]TeamContextRole),
 		Unassigned: []TeamContextIssue{},
 	}
 
-	issues, err := s.fetchTeamContextIssues(ctx, c, wsID, epicID, &resp)
+	issues, err := s.fetchTeamContextIssues(ctx, c, pID, epicID, &resp)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func (s *Server) getTeamContext(c echo.Context) error {
 		return successJSON(c, resp)
 	}
 
-	if err := s.groupIssuesByRole(ctx, wsID, epicID, issues, &resp); err != nil {
+	if err := s.groupIssuesByRole(ctx, pID, epicID, issues, &resp); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
@@ -48,25 +48,25 @@ func (s *Server) getTeamContext(c echo.Context) error {
 
 // fetchTeamContextIssues loads issues for the team context response. When epicID
 // is set, it populates resp.Epic and returns the epic's children via parent-child
-// dependencies. Otherwise it returns all non-closed issues in the workspace.
+// dependencies. Otherwise it returns all non-closed issues in the project.
 func (s *Server) fetchTeamContextIssues(
-	ctx context.Context, c echo.Context, wsID, epicID string, resp *TeamContext,
+	ctx context.Context, c echo.Context, pID, epicID string, resp *TeamContext,
 ) ([]*types.Issue, error) {
 	if epicID != "" {
-		return s.fetchEpicChildIssues(ctx, c, wsID, epicID, resp)
+		return s.fetchEpicChildIssues(ctx, c, pID, epicID, resp)
 	}
-	return s.fetchNonClosedIssues(ctx, c, wsID)
+	return s.fetchNonClosedIssues(ctx, c, pID)
 }
 
 // fetchEpicChildIssues loads an epic and its child issues via parent-child dependencies.
 func (s *Server) fetchEpicChildIssues(
-	ctx context.Context, c echo.Context, wsID, epicID string, resp *TeamContext,
+	ctx context.Context, c echo.Context, pID, epicID string, resp *TeamContext,
 ) ([]*types.Issue, error) {
 	epic, err := s.store.GetIssue(ctx, epicID)
 	if err != nil {
 		return nil, errorJSON(c, http.StatusNotFound, "epic not found")
 	}
-	if epic.ProjectID != wsID {
+	if epic.ProjectID != pID {
 		return nil, errorJSON(c, http.StatusForbidden, "access denied")
 	}
 
@@ -86,20 +86,20 @@ func (s *Server) fetchEpicChildIssues(
 		if err != nil {
 			continue
 		}
-		if child.ProjectID == wsID {
+		if child.ProjectID == pID {
 			issues = append(issues, child)
 		}
 	}
 	return issues, nil
 }
 
-// fetchNonClosedIssues loads all non-closed issues in the workspace,
+// fetchNonClosedIssues loads all non-closed issues in the project,
 // limited to teamContextIssueLimit results.
 func (s *Server) fetchNonClosedIssues(
-	ctx context.Context, c echo.Context, wsID string,
+	ctx context.Context, c echo.Context, pID string,
 ) ([]*types.Issue, error) {
 	allIssues, err := s.store.ListIssues(ctx, types.IssueFilter{
-		ProjectID: wsID,
+		ProjectID: pID,
 		Limit:     teamContextIssueLimit,
 	})
 	if err != nil {
@@ -117,7 +117,7 @@ func (s *Server) fetchNonClosedIssues(
 
 // groupIssuesByRole fetches labels for all issues and groups them by teammate:* label.
 func (s *Server) groupIssuesByRole(
-	ctx context.Context, wsID, epicID string, issues []*types.Issue, resp *TeamContext,
+	ctx context.Context, pID, epicID string, issues []*types.Issue, resp *TeamContext,
 ) error {
 	issueIDs := make([]string, len(issues))
 	for i, issue := range issues {

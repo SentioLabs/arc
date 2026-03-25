@@ -25,9 +25,9 @@ type updateCommentRequest struct {
 func (s *Server) getComments(c echo.Context) error {
 	id := c.Param("id")
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -46,9 +46,9 @@ func (s *Server) addComment(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -76,9 +76,9 @@ func (s *Server) updateComment(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid comment ID")
 	}
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -105,9 +105,9 @@ func (s *Server) deleteComment(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid comment ID")
 	}
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -125,9 +125,9 @@ func (s *Server) getEvents(c echo.Context) error {
 	id := c.Param("id")
 	limit := queryInt(c, "limit", defaultEventLimit)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())

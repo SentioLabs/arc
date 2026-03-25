@@ -18,9 +18,9 @@ type addDependencyRequest struct {
 func (s *Server) getDependencies(c echo.Context) error {
 	id := c.Param("id")
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -47,9 +47,9 @@ func (s *Server) addDependency(c echo.Context) error {
 	id := c.Param("id")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
@@ -79,9 +79,9 @@ func (s *Server) removeDependency(c echo.Context) error {
 	depID := c.Param("dep")
 	actor := getActor(c)
 
-	// Validate issue belongs to workspace (security: prevents cross-workspace access)
-	if err := s.validateIssueWorkspace(c, id); err != nil {
-		if errors.Is(err, errWorkspaceMismatch) {
+	// Validate issue belongs to project (security: prevents cross-project access)
+	if err := s.validateIssueProject(c, id); err != nil {
+		if errors.Is(err, errProjectMismatch) {
 			return errorJSON(c, http.StatusForbidden, "access denied")
 		}
 		return errorJSON(c, http.StatusNotFound, err.Error())
