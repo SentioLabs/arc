@@ -312,6 +312,11 @@ func normalizeTranscriptEntries(raw []json.RawMessage) []json.RawMessage {
 			_ = json.Unmarshal(t, &entryType)
 		}
 
+		// Skip progress entries (hook execution metadata, not conversation content)
+		if entryType == "progress" {
+			continue
+		}
+
 		// For user/assistant entries, promote message fields to top level
 		if entryType == "user" || entryType == "assistant" {
 			var msg map[string]json.RawMessage
