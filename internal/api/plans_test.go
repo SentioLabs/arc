@@ -37,8 +37,8 @@ func testServer(t *testing.T) (*Server, func()) {
 	return server, cleanup
 }
 
-// createTestWorkspace creates a project for testing and returns its ID.
-func createTestWorkspace(t *testing.T, e *echo.Echo) string {
+// createTestProject creates a project for testing and returns its ID.
+func createTestProject(t *testing.T, e *echo.Echo) string {
 	t.Helper()
 
 	body := `{"name": "Test Workspace", "prefix": "test"}`

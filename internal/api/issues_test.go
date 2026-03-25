@@ -17,24 +17,24 @@ func TestListIssuesParentIDFilter(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
 	// Create an epic (parent)
-	epicID := createTestIssueWithType(t, e, wsID, "Auth Epic", "epic")
+	epicID := createTestIssueWithType(t, e, pID, "Auth Epic", "epic")
 
 	// Create child issues with parent-child dependency to the epic
-	child1ID := createTestIssue(t, e, wsID, "Child Task 1")
-	child2ID := createTestIssue(t, e, wsID, "Child Task 2")
+	child1ID := createTestIssue(t, e, pID, "Child Task 1")
+	child2ID := createTestIssue(t, e, pID, "Child Task 2")
 
 	// Create an unrelated issue (not a child of the epic)
-	_ = createTestIssue(t, e, wsID, "Unrelated Task")
+	_ = createTestIssue(t, e, pID, "Unrelated Task")
 
 	// Add parent-child dependencies (child depends on epic)
-	addTestDependency(t, e, wsID, testDep{child1ID, epicID, "parent-child"})
-	addTestDependency(t, e, wsID, testDep{child2ID, epicID, "parent-child"})
+	addTestDependency(t, e, pID, testDep{child1ID, epicID, "parent-child"})
+	addTestDependency(t, e, pID, testDep{child2ID, epicID, "parent-child"})
 
 	// List issues filtered by parent_id
-	url := fmt.Sprintf("/api/v1/projects/%s/issues?parent_id=%s", wsID, epicID)
+	url := fmt.Sprintf("/api/v1/projects/%s/issues?parent_id=%s", pID, epicID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -88,15 +88,15 @@ func TestListIssuesWithoutParentIDReturnsAll(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
 	// Create several issues
-	createTestIssue(t, e, wsID, "Issue 1")
-	createTestIssue(t, e, wsID, "Issue 2")
-	createTestIssue(t, e, wsID, "Issue 3")
+	createTestIssue(t, e, pID, "Issue 1")
+	createTestIssue(t, e, pID, "Issue 2")
+	createTestIssue(t, e, pID, "Issue 3")
 
 	// List issues without parent_id filter - should return all
-	url := fmt.Sprintf("/api/v1/projects/%s/issues", wsID)
+	url := fmt.Sprintf("/api/v1/projects/%s/issues", pID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -126,10 +126,10 @@ func TestListIssuesWithoutParentIDReturnsAll(t *testing.T) {
 }
 
 // closeTestIssue sends a POST to close an issue with the given JSON body.
-func closeTestIssue(t *testing.T, e *echo.Echo, wsID, issueID, body string) *httptest.ResponseRecorder {
+func closeTestIssue(t *testing.T, e *echo.Echo, pID, issueID, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	closeURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s/close", wsID, issueID)
+	closeURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s/close", pID, issueID)
 	req := httptest.NewRequest(http.MethodPost, closeURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -139,11 +139,11 @@ func closeTestIssue(t *testing.T, e *echo.Echo, wsID, issueID, body string) *htt
 }
 
 // updateTestIssueStatus updates the status of a test issue via the API.
-func updateTestIssueStatus(t *testing.T, e *echo.Echo, wsID, issueID, status string) {
+func updateTestIssueStatus(t *testing.T, e *echo.Echo, pID, issueID, status string) {
 	t.Helper()
 
 	body := fmt.Sprintf(`{"status": %q}`, status)
-	url := fmt.Sprintf("/api/v1/projects/%s/issues/%s", wsID, issueID)
+	url := fmt.Sprintf("/api/v1/projects/%s/issues/%s", pID, issueID)
 	req := httptest.NewRequest(http.MethodPut, url, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -202,23 +202,23 @@ func TestListIssuesMultiFilter(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
-	bugID := createTestIssueWithType(t, e, wsID, "Open Bug", "bug")
-	featureID := createTestIssueWithType(t, e, wsID, "InProgress Feature", "feature")
-	taskID := createTestIssueWithType(t, e, wsID, "Closed Task", "task")
+	bugID := createTestIssueWithType(t, e, pID, "Open Bug", "bug")
+	featureID := createTestIssueWithType(t, e, pID, "InProgress Feature", "feature")
+	taskID := createTestIssueWithType(t, e, pID, "Closed Task", "task")
 
-	updateTestIssueStatus(t, e, wsID, featureID, "in_progress")
-	closeTestIssue(t, e, wsID, taskID, `{}`)
+	updateTestIssueStatus(t, e, pID, featureID, "in_progress")
+	closeTestIssue(t, e, pID, taskID, `{}`)
 
 	t.Run("multi_status_filter", func(t *testing.T) {
-		url := fmt.Sprintf("/api/v1/projects/%s/issues?status=open&status=in_progress", wsID)
+		url := fmt.Sprintf("/api/v1/projects/%s/issues?status=open&status=in_progress", pID)
 		issues := fetchIssues(t, e, url)
 		assertIssueIDs(t, issues, bugID, featureID)
 	})
 
 	t.Run("multi_type_filter", func(t *testing.T) {
-		url := fmt.Sprintf("/api/v1/projects/%s/issues?type=bug&type=feature", wsID)
+		url := fmt.Sprintf("/api/v1/projects/%s/issues?type=bug&type=feature", pID)
 		issues := fetchIssues(t, e, url)
 		assertIssueIDs(t, issues, bugID, featureID)
 	})
@@ -229,22 +229,22 @@ func TestCloseIssueCascadeField(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
 	// Create a parent epic and a child task
-	epicID := createTestIssueWithType(t, e, wsID, "Epic", "epic")
-	childID := createTestIssue(t, e, wsID, "Child Task")
-	addTestDependency(t, e, wsID, testDep{childID, epicID, "parent-child"})
+	epicID := createTestIssueWithType(t, e, pID, "Epic", "epic")
+	childID := createTestIssue(t, e, pID, "Child Task")
+	addTestDependency(t, e, pID, testDep{childID, epicID, "parent-child"})
 
 	// Close with cascade=true should close both parent and child
-	rec := closeTestIssue(t, e, wsID, epicID, `{"cascade": true}`)
+	rec := closeTestIssue(t, e, pID, epicID, `{"cascade": true}`)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("closeIssue with cascade returned %d: %s", rec.Code, rec.Body.String())
 	}
 
 	// Verify the child was also closed
-	childURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s", wsID, childID)
+	childURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s", pID, childID)
 	req := httptest.NewRequest(http.MethodGet, childURL, nil)
 	childRec := httptest.NewRecorder()
 	e.ServeHTTP(childRec, req)
@@ -264,15 +264,15 @@ func TestCloseIssueOpenChildren409(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
 	// Create a parent epic and a child task
-	epicID := createTestIssueWithType(t, e, wsID, "Epic", "epic")
-	childID := createTestIssue(t, e, wsID, "Child Task")
-	addTestDependency(t, e, wsID, testDep{childID, epicID, "parent-child"})
+	epicID := createTestIssueWithType(t, e, pID, "Epic", "epic")
+	childID := createTestIssue(t, e, pID, "Child Task")
+	addTestDependency(t, e, pID, testDep{childID, epicID, "parent-child"})
 
 	// Close without cascade (default false) should return 409
-	rec := closeTestIssue(t, e, wsID, epicID, `{}`)
+	rec := closeTestIssue(t, e, pID, epicID, `{}`)
 
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("closeIssue without cascade returned %d, want %d: %s",
@@ -307,13 +307,13 @@ func TestCloseIssueNoChildrenNoCascade(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
 	// Create a simple issue with no children
-	issueID := createTestIssue(t, e, wsID, "Simple Task")
+	issueID := createTestIssue(t, e, pID, "Simple Task")
 
 	// Close without cascade should succeed (no children to worry about)
-	rec := closeTestIssue(t, e, wsID, issueID, `{}`)
+	rec := closeTestIssue(t, e, pID, issueID, `{}`)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("closeIssue returned %d: %s", rec.Code, rec.Body.String())

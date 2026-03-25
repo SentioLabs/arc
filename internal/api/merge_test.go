@@ -31,7 +31,7 @@ func createNamedProject(t *testing.T, e *echo.Echo, name, prefix string) string 
 	return p.ID
 }
 
-func TestMergeWorkspaces_Success(t *testing.T) {
+func TestMergeProjects_Success(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
@@ -39,7 +39,7 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 	targetID := createNamedProject(t, e, "Target", "tgt")
 	sourceID := createNamedProject(t, e, "Source", "src")
 
-	// Create an issue in the source workspace
+	// Create an issue in the source project
 	issueBody := `{"title": "Source Issue"}`
 	req := httptest.NewRequest(
 		http.MethodPost, "/api/v1/projects/"+sourceID+"/issues",
@@ -69,7 +69,7 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 	}
 
 	if result.TargetProject.ID != targetID {
-		t.Errorf("target_workspace.id = %q, want %q", result.TargetProject.ID, targetID)
+		t.Errorf("target_project.id = %q, want %q", result.TargetProject.ID, targetID)
 	}
 	if result.IssuesMoved != 1 {
 		t.Errorf("issues_moved = %d, want 1", result.IssuesMoved)
@@ -79,7 +79,7 @@ func TestMergeWorkspaces_Success(t *testing.T) {
 	}
 }
 
-func TestMergeWorkspaces_MissingTargetID(t *testing.T) {
+func TestMergeProjects_MissingTargetID(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
@@ -95,7 +95,7 @@ func TestMergeWorkspaces_MissingTargetID(t *testing.T) {
 	}
 }
 
-func TestMergeWorkspaces_MissingSourceIDs(t *testing.T) {
+func TestMergeProjects_MissingSourceIDs(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo
@@ -111,7 +111,7 @@ func TestMergeWorkspaces_MissingSourceIDs(t *testing.T) {
 	}
 }
 
-func TestMergeWorkspaces_InvalidTarget(t *testing.T) {
+func TestMergeProjects_InvalidTarget(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 	e := server.echo

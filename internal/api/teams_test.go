@@ -12,11 +12,11 @@ import (
 )
 
 // createTestIssueWithType creates an issue with a specific type and returns its ID.
-func createTestIssueWithType(t *testing.T, e *echo.Echo, wsID, title, issueType string) string {
+func createTestIssueWithType(t *testing.T, e *echo.Echo, pID, title, issueType string) string {
 	t.Helper()
 
 	body := fmt.Sprintf(`{"title": %q, "issue_type": %q, "priority": 2}`, title, issueType)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/issues",
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pID+"/issues",
 		bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -51,11 +51,11 @@ func createTestLabel(t *testing.T, e *echo.Echo, name, color string) {
 }
 
 // addTestLabelToIssue adds a label to an issue.
-func addTestLabelToIssue(t *testing.T, e *echo.Echo, wsID, issueID, label string) {
+func addTestLabelToIssue(t *testing.T, e *echo.Echo, pID, issueID, label string) {
 	t.Helper()
 
 	body := fmt.Sprintf(`{"label": %q}`, label)
-	url := fmt.Sprintf("/api/v1/projects/%s/issues/%s/labels", wsID, issueID)
+	url := fmt.Sprintf("/api/v1/projects/%s/issues/%s/labels", pID, issueID)
 	req := httptest.NewRequest(http.MethodPost, url, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -74,11 +74,11 @@ type testDep struct {
 }
 
 // addTestDependency creates a dependency between two issues.
-func addTestDependency(t *testing.T, e *echo.Echo, wsID string, dep testDep) {
+func addTestDependency(t *testing.T, e *echo.Echo, pID string, dep testDep) {
 	t.Helper()
 
 	body := fmt.Sprintf(`{"depends_on_id": %q, "type": %q}`, dep.DependsOnID, dep.DepType)
-	depURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s/deps", wsID, dep.IssueID)
+	depURL := fmt.Sprintf("/api/v1/projects/%s/issues/%s/deps", pID, dep.IssueID)
 	req := httptest.NewRequest(http.MethodPost, depURL, bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -94,28 +94,28 @@ func TestGetTeamContext(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
 	// Create teammate labels
 	createTestLabel(t, e, "teammate:frontend", "#3b82f6")
 	createTestLabel(t, e, "teammate:backend", "#22c55e")
 
 	// Create epic
-	epicID := createTestIssueWithType(t, e, wsID, "Auth System", "epic")
+	epicID := createTestIssueWithType(t, e, pID, "Auth System", "epic")
 
 	// Create child issues with labels
-	frontendID := createTestIssue(t, e, wsID, "Login form")
-	addTestLabelToIssue(t, e, wsID, frontendID, "teammate:frontend")
+	frontendID := createTestIssue(t, e, pID, "Login form")
+	addTestLabelToIssue(t, e, pID, frontendID, "teammate:frontend")
 
-	backendID := createTestIssue(t, e, wsID, "Auth API")
-	addTestLabelToIssue(t, e, wsID, backendID, "teammate:backend")
+	backendID := createTestIssue(t, e, pID, "Auth API")
+	addTestLabelToIssue(t, e, pID, backendID, "teammate:backend")
 
 	// Add parent-child deps (child depends on epic)
-	addTestDependency(t, e, wsID, testDep{frontendID, epicID, "parent-child"})
-	addTestDependency(t, e, wsID, testDep{backendID, epicID, "parent-child"})
+	addTestDependency(t, e, pID, testDep{frontendID, epicID, "parent-child"})
+	addTestDependency(t, e, pID, testDep{backendID, epicID, "parent-child"})
 
 	// Request team context with epic filter
-	url := fmt.Sprintf("/api/v1/projects/%s/team-context?epic_id=%s", wsID, epicID)
+	url := fmt.Sprintf("/api/v1/projects/%s/team-context?epic_id=%s", pID, epicID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -129,8 +129,8 @@ func TestGetTeamContext(t *testing.T) {
 		t.Fatalf("failed to parse response: %v", err)
 	}
 
-	if ctx.Project != wsID {
-		t.Errorf("workspace = %q, want %q", ctx.Project, wsID)
+	if ctx.Project != pID {
+		t.Errorf("project = %q, want %q", ctx.Project, pID)
 	}
 
 	if ctx.Epic == nil {
@@ -162,17 +162,17 @@ func TestGetTeamContextNoEpic(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
 	// Create teammate labels
 	createTestLabel(t, e, "teammate:frontend", "#3b82f6")
 
 	// Create an issue with a teammate label
-	issueID := createTestIssue(t, e, wsID, "Dashboard page")
-	addTestLabelToIssue(t, e, wsID, issueID, "teammate:frontend")
+	issueID := createTestIssue(t, e, pID, "Dashboard page")
+	addTestLabelToIssue(t, e, pID, issueID, "teammate:frontend")
 
 	// Request team context without epic filter
-	url := fmt.Sprintf("/api/v1/projects/%s/team-context", wsID)
+	url := fmt.Sprintf("/api/v1/projects/%s/team-context", pID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -204,10 +204,10 @@ func TestGetTeamContextEmpty(t *testing.T) {
 	defer cleanup()
 	e := server.echo
 
-	wsID := createTestWorkspace(t, e)
+	pID := createTestProject(t, e)
 
-	// Request team context for workspace with no teammate-labeled issues
-	url := fmt.Sprintf("/api/v1/projects/%s/team-context", wsID)
+	// Request team context for project with no teammate-labeled issues
+	url := fmt.Sprintf("/api/v1/projects/%s/team-context", pID)
 	req := httptest.NewRequest(http.MethodGet, url, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
