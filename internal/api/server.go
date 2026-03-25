@@ -174,6 +174,7 @@ func (s *Server) registerAIRoutes(v1 *echo.Group) {
 	ai := v1.Group("/ai")
 	ai.POST("/sessions", s.createAISession)
 	ai.GET("/sessions", s.listAISessions)
+	ai.POST("/sessions/batch-delete", s.batchDeleteAISessions)
 	ai.GET("/sessions/:id", s.getAISession)
 	ai.DELETE("/sessions/:id", s.deleteAISession)
 	ai.POST("/sessions/:id/agents", s.createAIAgent)

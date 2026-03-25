@@ -120,6 +120,33 @@ func (s *Server) deleteAISession(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// batchDeleteAISessionsRequest is the request body for batch-deleting AI sessions.
+type batchDeleteAISessionsRequest struct {
+	IDs []string `json:"ids"`
+}
+
+// batchDeleteAISessions deletes multiple AI sessions by ID.
+func (s *Server) batchDeleteAISessions(c echo.Context) error {
+	var req batchDeleteAISessionsRequest
+	if err := c.Bind(&req); err != nil {
+		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	}
+
+	if len(req.IDs) == 0 {
+		return errorJSON(c, http.StatusBadRequest, "ids is required")
+	}
+
+	ctx := c.Request().Context()
+	deleted := 0
+	for _, id := range req.IDs {
+		if err := s.store.DeleteAISession(ctx, id); err == nil {
+			deleted++
+		}
+	}
+
+	return successJSON(c, map[string]int{"deleted": deleted})
+}
+
 // createAIAgent creates a new AI agent for a session. If the session does not
 // exist, it is auto-created (lazy fallback).
 func (s *Server) createAIAgent(c echo.Context) error {

@@ -74,6 +74,30 @@ export async function getAgentTranscript(
 	return await response.json();
 }
 
+export async function deleteAISession(sessionId: string): Promise<void> {
+	const { error } = await api.DELETE('/ai/sessions/{sessionId}', {
+		params: { path: { sessionId } }
+	});
+	if (error) {
+		if (typeof error === 'object' && error !== null && 'error' in error) {
+			throw new Error(String((error as { error: string }).error));
+		}
+		throw new Error('Failed to delete AI session');
+	}
+}
+
+export async function batchDeleteAISessions(ids: string[]): Promise<{ deleted: number }> {
+	const response = await fetch('/api/v1/ai/sessions/batch-delete', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ ids })
+	});
+	if (!response.ok) {
+		throw new Error('Failed to delete sessions');
+	}
+	return await response.json();
+}
+
 export async function listAIAgents(sessionId: string): Promise<AIAgentResponse[]> {
 	const { data, error } = await api.GET('/ai/sessions/{sessionId}/agents', {
 		params: { path: { sessionId } }
