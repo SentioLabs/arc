@@ -3,6 +3,7 @@
 	import StatusBadge from './StatusBadge.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
 	import TypeBadge from './TypeBadge.svelte';
+	import CopyIdButton from './CopyIdButton.svelte';
 
 	type TeamContextIssue = components['schemas']['TeamContextIssue'];
 	type Status = components['schemas']['Status'];
@@ -15,20 +16,29 @@
 
 	let { issue, projectId }: Props = $props();
 
+	let cardHovered = $state(false);
 	const deps = $derived(issue.deps ?? []);
 </script>
 
 <a
 	href="/{projectId}/issues/{issue.id}"
 	class="group block card p-3 hover:border-border-focus/50 transition-all duration-200"
+	onmouseenter={() => (cardHovered = true)}
+	onmouseleave={() => (cardHovered = false)}
 >
 	<!-- Header: ID, Type, Priority -->
 	<div class="flex items-center justify-between gap-2 mb-1.5">
 		<div class="flex items-center gap-2">
-			<span
-				class="font-mono text-[11px] text-text-muted group-hover:text-primary-400 transition-colors"
-			>
-				{issue.id}
+			<span class="inline-flex items-center gap-1">
+				<span
+					class="font-mono text-[11px] text-text-muted group-hover:text-primary-400 transition-colors"
+				>
+					{issue.id}
+				</span>
+				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+				<span role="presentation" onclick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+					<CopyIdButton value={issue.id} reveal="hover" groupHovered={cardHovered} />
+				</span>
 			</span>
 			<TypeBadge type={issue.type as IssueType} showLabel={false} />
 		</div>

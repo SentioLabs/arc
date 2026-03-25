@@ -5,6 +5,7 @@ export { default as TypeBadge } from './TypeBadge.svelte';
 
 // Issue components
 export { default as IssueCard } from './IssueCard.svelte';
+export { default as CopyIdButton } from './CopyIdButton.svelte';
 
 // Team components
 export { default as TeamIssueCard } from './TeamIssueCard.svelte';

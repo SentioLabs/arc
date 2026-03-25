@@ -6,6 +6,7 @@
 	import PriorityBadge from './PriorityBadge.svelte';
 	import TypeBadge from './TypeBadge.svelte';
 	import InlineSelect from './InlineSelect.svelte';
+	import CopyIdButton from './CopyIdButton.svelte';
 
 	type Issue = components['schemas']['Issue'];
 	type Label = components['schemas']['Label'];
@@ -19,6 +20,8 @@
 	}
 
 	let { issue, href, compact = false, labelMap, onStatusChange }: Props = $props();
+
+	let cardHovered = $state(false);
 
 	const statusOptions = [
 		{ value: 'open', label: 'Open' },
@@ -35,11 +38,18 @@
 		class="group block card hover:border-border-focus/50 transition-all duration-200 {compact
 			? 'p-3'
 			: 'p-4'}"
+		onmouseenter={() => (cardHovered = true)}
+		onmouseleave={() => (cardHovered = false)}
 	>
 		{@render cardContent()}
 	</a>
 {:else}
-	<div class="card {compact ? 'p-3' : 'p-4'}">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="card {compact ? 'p-3' : 'p-4'}"
+		onmouseenter={() => (cardHovered = true)}
+		onmouseleave={() => (cardHovered = false)}
+	>
 		{@render cardContent()}
 	</div>
 {/if}
@@ -49,11 +59,17 @@
 		<!-- Header row: ID, Type, Priority -->
 		<div class="flex items-center justify-between gap-3">
 			<div class="flex items-center gap-3">
-				<!-- Issue ID - monospace, subtle -->
-				<span
-					class="font-mono text-xs text-text-muted tracking-tight group-hover:text-primary-400 transition-colors"
-				>
-					{issue.id}
+				<!-- Issue ID + copy button -->
+				<span class="inline-flex items-center gap-1">
+					<span
+						class="font-mono text-xs text-text-muted tracking-tight group-hover:text-primary-400 transition-colors"
+					>
+						{issue.id}
+					</span>
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<span role="presentation" onclick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+						<CopyIdButton value={issue.id} reveal="hover" groupHovered={cardHovered} />
+					</span>
 				</span>
 				<TypeBadge type={issue.issue_type} showLabel={false} />
 			</div>

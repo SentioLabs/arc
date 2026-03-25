@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Header, StatusBadge, PriorityBadge, TypeBadge, Markdown, InlineTextEdit, InlineSelect, InlineMarkdownEdit, CommentForm, LabelPicker } from '$lib/components';
+	import CopyIdButton from '$lib/components/CopyIdButton.svelte';
 	import { formatDateTime, formatRelativeTime, dependencyTypeLabels } from '$lib/utils';
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
@@ -115,7 +116,10 @@
 				<!-- Issue Header -->
 				<header class="mb-8">
 					<div class="flex items-center gap-3 mb-4">
-						<span class="font-mono text-sm text-text-muted">{issue.id}</span>
+						<span class="inline-flex items-center gap-1.5">
+							<span class="font-mono text-sm text-text-muted">{issue.id}</span>
+							<CopyIdButton value={issue.id} reveal="visible" />
+						</span>
 						<InlineSelect
 							value={issue.issue_type}
 							options={[
