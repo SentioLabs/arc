@@ -300,12 +300,6 @@ func normalizeTranscriptEntries(raw []json.RawMessage) []json.RawMessage {
 			continue
 		}
 
-		msgRaw, hasMessage := outer["message"]
-		if !hasMessage {
-			normalized = append(normalized, entry)
-			continue
-		}
-
 		// Determine entry type
 		var entryType string
 		if t, ok := outer["type"]; ok {
@@ -314,6 +308,12 @@ func normalizeTranscriptEntries(raw []json.RawMessage) []json.RawMessage {
 
 		// Skip progress entries (hook execution metadata, not conversation content)
 		if entryType == "progress" {
+			continue
+		}
+
+		msgRaw, hasMessage := outer["message"]
+		if !hasMessage {
+			normalized = append(normalized, entry)
 			continue
 		}
 
