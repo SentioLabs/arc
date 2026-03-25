@@ -85,6 +85,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/issues/{issueId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get issue by globally-unique ID
+         * @description Retrieves an issue by its globally-unique ID without requiring project context. Use this endpoint when you have an issue ID but don't know or need the project.
+         */
+        get: operations["getIssueByID"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/issues/{issueId}": {
         parameters: {
             query?: never;
@@ -97,8 +120,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Get issue by ID */
-        get: operations["getIssue"];
+        get?: never;
         /** Update issue */
         put: operations["updateIssue"];
         post?: never;
@@ -683,6 +705,12 @@ export interface components {
             limit?: number;
             offset?: number;
         };
+        PaginatedAISessions: {
+            data: components["schemas"]["AISessionResponse"][];
+            total?: number;
+            limit?: number;
+            offset?: number;
+        };
         TeamContext: {
             /** @description Project ID */
             project: string;
@@ -1172,7 +1200,7 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-    getIssue: {
+    getIssueByID: {
         parameters: {
             query?: {
                 /** @description Include full details (dependencies, comments, labels) */
@@ -1180,8 +1208,6 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Project ID */
-                projectId: components["parameters"]["ProjectId"];
                 /** @description Issue ID */
                 issueId: components["parameters"]["IssueId"];
             };
@@ -1439,13 +1465,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of AI sessions */
+            /** @description Paginated list of AI sessions */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AISessionResponse"][];
+                    "application/json": components["schemas"]["PaginatedAISessions"];
                 };
             };
             500: components["responses"]["InternalError"];

@@ -2,6 +2,7 @@
 	import { listAISessions, type AISessionResponse } from '$lib/api/ai';
 
 	let sessions = $state<AISessionResponse[]>([]);
+	let total = $state(0);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -13,7 +14,9 @@
 		loading = true;
 		error = null;
 		try {
-			sessions = await listAISessions(100, 0);
+			const result = await listAISessions(100, 0);
+			sessions = result.data ?? [];
+			total = result.total ?? sessions.length;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load AI sessions';
 		} finally {

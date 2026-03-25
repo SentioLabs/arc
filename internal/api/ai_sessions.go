@@ -106,7 +106,7 @@ func (s *Server) listAISessions(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return paginatedJSON(c, sessions, 0, limit, offset)
+	return paginatedJSON(c, sessions, len(sessions), limit, offset)
 }
 
 // deleteAISession deletes an AI session by ID.

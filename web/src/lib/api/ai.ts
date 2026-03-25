@@ -7,11 +7,12 @@ import type { components } from './types';
 
 export type AISessionResponse = components['schemas']['AISessionResponse'];
 export type AIAgentResponse = components['schemas']['AIAgentResponse'];
+export type PaginatedAISessions = components['schemas']['PaginatedAISessions'];
 
 export async function listAISessions(
 	limit?: number,
 	offset?: number
-): Promise<AISessionResponse[]> {
+): Promise<PaginatedAISessions> {
 	const { data, error } = await api.GET('/ai/sessions', {
 		params: {
 			query: { limit, offset }
@@ -23,7 +24,7 @@ export async function listAISessions(
 		}
 		throw new Error('Failed to list AI sessions');
 	}
-	return data ?? [];
+	return data ?? { data: [] };
 }
 
 export async function getAISession(sessionId: string): Promise<AISessionResponse> {
