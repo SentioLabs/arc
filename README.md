@@ -215,14 +215,6 @@ For AI-assisted workflows, arc provides a Claude Code plugin with hooks, skills,
 # Restart Claude Code
 ```
 
-**Option B: CLI Hooks Only**
-
-```bash
-arc setup claude            # Global installation
-arc setup claude --project  # Project-only installation
-arc setup claude --check    # Verify installation
-```
-
 **What the Plugin Provides:**
 
 | Component         | Benefit                                |
@@ -265,33 +257,9 @@ arc server start
 cd your-project
 arc init
 
-# 3. Install Claude integration (choose one)
-/plugin marketplace add sentiolabs/arc && /plugin install arc  # Full plugin
-# OR
-arc setup claude                                                # Hooks only
+# 3. Install Claude integration
+/plugin marketplace add sentiolabs/arc && /plugin install arc
 ```
-
-### Codex CLI Integration
-
-Codex CLI supports repo-scoped skills under `.codex/skills`. Arc provides a Codex skill bundle
-and a setup command to install it into your repo.
-
-```bash
-# 1. Start the server (if not running)
-arc server start
-
-# 2. Initialize project in your directory
-cd your-project
-arc init
-
-# 3. Install Codex integration (repo-scoped skill)
-arc setup codex
-```
-
-**Notes:**
-
-- Codex CLI does not support lifecycle hooks. Run `arc onboard` at session start.
-- Use `arc prime` after compaction or if workflow context is stale.
 
 ### API Examples
 

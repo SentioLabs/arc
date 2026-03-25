@@ -29,7 +29,6 @@ var topicDocs = map[string]string{
 	"boundaries":   docs.Boundaries,
 	"resumability": docs.Resumability,
 	"plans":        docs.Plans,
-	"plugin":       docs.Plugin,
 }
 
 // ChunkAllDocs splits all embedded documentation into searchable chunks.

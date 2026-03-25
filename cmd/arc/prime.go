@@ -44,10 +44,6 @@ Role detection (in priority order):
 1. --role flag
 2. ARC_TEAMMATE_ROLE environment variable
 
-Install hooks:
-  arc setup claude          # Install SessionStart and PreCompact hooks
-  arc setup codex           # Install repo-scoped Codex skill bundle
-
 Workflow customization:
 - Place a .arc/PRIME.md file to override the default output entirely.`,
 	Run: func(cmd *cobra.Command, args []string) {

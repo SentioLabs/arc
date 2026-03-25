@@ -17,7 +17,7 @@ import (
 const defaultSearchLimit = 5
 
 // validDocTopics lists the available documentation topic names.
-var validDocTopics = []string{"workflows", "dependencies", "boundaries", "resumability", "plans", "plugin"}
+var validDocTopics = []string{"workflows", "dependencies", "boundaries", "resumability", "plans"}
 
 // searchLimit controls the maximum number of search results to display.
 // searchExact disables fuzzy matching when true.
@@ -91,8 +91,6 @@ func runDocs(cmd *cobra.Command, args []string) error {
 		content = docs.Resumability
 	case "plans":
 		content = docs.Plans
-	case "plugin":
-		content = docs.Plugin
 	default:
 		return fmt.Errorf("unknown topic: %s\nAvailable topics: %s",
 			topic, strings.Join(validDocTopics, ", "))

@@ -81,12 +81,11 @@ The project includes Claude Code integration:
 
 - **`arc init`**: Creates project and sets up AGENTS.md
 - **`arc prime`**: Outputs AI workflow context for hooks
-- **`arc setup claude`**: Installs SessionStart/PreCompact hooks
 - **`arc onboard`**: Gets project orientation
 
 ### Hooks
 
-Install with `arc setup claude`:
+Hooks are provided by the arc plugin:
 - **SessionStart**: Runs `arc prime` when session starts
 - **PreCompact**: Runs `arc prime` before context compaction
 

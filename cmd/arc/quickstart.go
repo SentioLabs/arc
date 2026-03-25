@@ -53,14 +53,6 @@ For the best AI-assisted workflow, install the arc plugin:
 # Restart Claude Code
 ` + "```" + `
 
-### Option B: CLI Hooks Only
-
-` + "```bash" + `
-arc setup claude            # Global installation
-arc setup claude --project  # Project-only installation
-arc setup claude --check    # Verify installation
-` + "```" + `
-
 ### What the Plugin Provides
 
 | Component | Benefit |
@@ -70,19 +62,6 @@ arc setup claude --check    # Verify installation
 | **Prompt Config** | Reminds Claude to run ` + "`arc onboard`" + ` |
 | **Skills** | Detailed guides for arc workflows |
 | **Agent** | Bulk operations via Task tool |
-
-## Codex CLI Integration
-
-Codex CLI uses repo-scoped skills under .codex/skills. Install the arc skill bundle:
-
-` + "```bash" + `
-arc setup codex
-` + "```" + `
-
-**Notes:**
-- Codex CLI does not support lifecycle hooks.
-- Run ` + "`arc onboard`" + ` at session start.
-- Run ` + "`arc prime`" + ` after compaction or if workflow context is stale.
 
 ## Basic Workflow
 
@@ -132,8 +111,6 @@ arc blocked                        # Show all blocked issues
 | arc blocked | Show blocked issues |
 | arc stats | Show project statistics |
 | arc onboard | Get project orientation |
-| arc setup claude | Install Claude Code hooks |
-| arc setup codex | Install Codex repo skill bundle |
 
 ## Priority Levels
 

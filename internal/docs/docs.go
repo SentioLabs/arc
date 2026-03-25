@@ -16,9 +16,6 @@ var Boundaries string
 //go:embed RESUMABILITY.md
 var Resumability string
 
-//go:embed PLUGIN.md
-var Plugin string
-
 //go:embed PLANS.md
 var Plans string
 
@@ -34,7 +31,6 @@ Arc is a central issue tracking system for AI-assisted coding workflows.
   arc docs boundaries    - When to use arc vs TodoWrite
   arc docs resumability  - Writing notes that survive compaction
   arc docs plans         - Plan workflow (create, review, approve)
-  arc docs plugin        - Claude Code plugin and Codex CLI integration guide
 
 ## Quick Reference
 
