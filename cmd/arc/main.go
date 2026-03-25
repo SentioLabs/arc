@@ -623,18 +623,16 @@ var listCmd = &cobra.Command{
 
 		status, _ := cmd.Flags().GetString("status")
 		issueType, _ := cmd.Flags().GetString("type")
-		assignee, _ := cmd.Flags().GetString("assignee")
 		query, _ := cmd.Flags().GetString("query")
 		limit, _ := cmd.Flags().GetInt("limit")
 		parentID, _ := cmd.Flags().GetString("parent")
 
 		issues, err := c.ListIssues(wsID, client.ListIssuesOptions{
-			Status:   status,
-			Type:     issueType,
-			Assignee: assignee,
-			Query:    query,
-			Limit:    limit,
-			Parent:   parentID,
+			Status: status,
+			Type:   issueType,
+			Query:  query,
+			Limit:  limit,
+			Parent: parentID,
 		})
 		if err != nil {
 			return err
@@ -656,7 +654,6 @@ var listCmd = &cobra.Command{
 func init() {
 	listCmd.Flags().String("status", "", "Filter by status")
 	listCmd.Flags().String("type", "", "Filter by type")
-	listCmd.Flags().String("assignee", "", "Filter by assignee")
 	listCmd.Flags().StringP("query", "q", "", "Search query")
 	listCmd.Flags().IntP("limit", "l", defaultListLimit, "Max results")
 	listCmd.Flags().String("parent", "", "Filter by parent issue ID")
@@ -680,7 +677,6 @@ var createCmd = &cobra.Command{
 
 		priority, _ := cmd.Flags().GetInt("priority")
 		issueType, _ := cmd.Flags().GetString("type")
-		assignee, _ := cmd.Flags().GetString("assignee")
 		description, _ := cmd.Flags().GetString("description")
 		useStdin, _ := cmd.Flags().GetBool("stdin")
 		if useStdin && description == "" {
@@ -706,7 +702,6 @@ var createCmd = &cobra.Command{
 			Description: description,
 			Priority:    priority,
 			IssueType:   issueType,
-			Assignee:    assignee,
 			ParentID:    parentID,
 		})
 		if err != nil {
@@ -744,7 +739,6 @@ func init() {
 	createCmd.Flags().String("title", "", "Issue title (alternative to positional arg)")
 	createCmd.Flags().IntP("priority", "p", defaultPriority, "Priority (0-4)")
 	createCmd.Flags().StringP("type", "t", "task", "Issue type")
-	createCmd.Flags().StringP("assignee", "a", "", "Assignee")
 	createCmd.Flags().StringP("description", "d", "", "Description")
 	createCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	createCmd.Flags().String("parent", "", "Parent issue ID (creates child with .N suffix)")
@@ -777,9 +771,6 @@ var showCmd = &cobra.Command{
 		fmt.Printf("Status:   %s\n", details.Status)
 		fmt.Printf("Priority: P%d\n", details.Priority)
 		fmt.Printf("Type:     %s\n", details.IssueType)
-		if details.Assignee != "" {
-			fmt.Printf("Assignee: %s\n", details.Assignee)
-		}
 		if details.AISessionID != "" {
 			fmt.Printf("AI Session: %s\n", details.AISessionID)
 		}
@@ -832,9 +823,6 @@ var updateCmd = &cobra.Command{
 		}
 		if val, _ := cmd.Flags().GetString("title"); val != "" {
 			updates["title"] = val
-		}
-		if val, _ := cmd.Flags().GetString("assignee"); val != "" {
-			updates["assignee"] = val
 		}
 		if cmd.Flags().Changed("priority") {
 			val, _ := cmd.Flags().GetInt("priority")
@@ -933,7 +921,6 @@ var updateCmd = &cobra.Command{
 func init() {
 	updateCmd.Flags().String("status", "", "New status")
 	updateCmd.Flags().String("title", "", "New title")
-	updateCmd.Flags().StringP("assignee", "a", "", "New assignee")
 	updateCmd.Flags().IntP("priority", "p", 0, "New priority")
 	updateCmd.Flags().StringP("type", "t", "", "New type")
 	updateCmd.Flags().StringP("description", "d", "", "New description")

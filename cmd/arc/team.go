@@ -16,8 +16,7 @@ import (
 type TeamContext struct {
 	Workspace  string               `json:"workspace"`
 	Epic       *TeamContextEpic     `json:"epic,omitempty"`
-	Roles      map[string]*TeamRole `json:"roles"`
-	Unassigned []TeamContextIssue   `json:"unassigned"`
+	Roles map[string]*TeamRole `json:"roles"`
 }
 
 // TeamContextEpic describes the parent epic for a team context query.
@@ -128,17 +127,13 @@ func buildTeamContext(c *client.Client, wsID, epicID string) (*TeamContext, erro
 		}
 
 		if role == "" {
-			// If no epic filter, skip issues without teammate labels
-			if epicID == "" {
-				continue
-			}
-			tc.Unassigned = append(tc.Unassigned, tci)
-		} else {
-			if tc.Roles[role] == nil {
-				tc.Roles[role] = &TeamRole{}
-			}
-			tc.Roles[role].Issues = append(tc.Roles[role].Issues, tci)
+			continue
 		}
+
+		if tc.Roles[role] == nil {
+			tc.Roles[role] = &TeamRole{}
+		}
+		tc.Roles[role].Issues = append(tc.Roles[role].Issues, tci)
 	}
 
 	return tc, nil
@@ -214,14 +209,6 @@ func printTeamContext(tc *TeamContext) error {
 			ids = append(ids, issue.ID)
 		}
 		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\n", role, len(r.Issues), strings.Join(ids, ", "))
-	}
-
-	if len(tc.Unassigned) > 0 {
-		ids := make([]string, 0, len(tc.Unassigned))
-		for _, issue := range tc.Unassigned {
-			ids = append(ids, issue.ID)
-		}
-		_, _ = fmt.Fprintf(w, "unassigned\t%d\t%s\n", len(tc.Unassigned), strings.Join(ids, ", "))
 	}
 
 	return w.Flush()
