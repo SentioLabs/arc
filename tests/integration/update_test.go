@@ -73,27 +73,6 @@ func TestUpdatePriority(t *testing.T) {
 	}
 }
 
-// TestUpdateAssignee creates an issue and updates its assignee to alice,
-// then verifies that arc show shows alice.
-func TestUpdateAssignee(t *testing.T) {
-	home := setupHome(t)
-
-	arcCmdSuccess(t, home, "init", "update-assignee-proj", "--server", serverURL)
-
-	createOut := arcCmdSuccess(t, home, "create", "Assignee update test", "--type", "task", "--server", serverURL)
-	id, ok := extractID(createOut)
-	if !ok {
-		t.Fatalf("could not extract issue ID from create output: %s", createOut)
-	}
-
-	arcCmdSuccess(t, home, "update", id, "--assignee", "alice", "--server", serverURL)
-
-	showOut := arcCmdSuccess(t, home, "show", id, "--server", serverURL)
-	if !strings.Contains(showOut, "alice") {
-		t.Errorf("expected 'alice' in show output, got: %s", showOut)
-	}
-}
-
 // TestUpdateType creates an issue as a task, updates it to bug, then
 // verifies that arc show reflects the bug type.
 func TestUpdateType(t *testing.T) {
@@ -152,7 +131,6 @@ func TestUpdateMultipleFields(t *testing.T) {
 	arcCmdSuccess(t, home, "update", id,
 		"--status", "in_progress",
 		"--priority", "1",
-		"--assignee", "bob",
 		"--server", serverURL,
 	)
 
@@ -164,9 +142,6 @@ func TestUpdateMultipleFields(t *testing.T) {
 	}
 	if !strings.Contains(showOut, "P1") {
 		t.Errorf("expected P1 in show output, got: %s", showOut)
-	}
-	if !strings.Contains(showOut, "bob") {
-		t.Errorf("expected 'bob' in show output, got: %s", showOut)
 	}
 }
 

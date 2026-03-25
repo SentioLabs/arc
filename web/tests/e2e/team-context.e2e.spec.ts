@@ -34,16 +34,14 @@ test.describe('Team Context Page', () => {
 			await createTestLabel(beLabelName);
 			labelsToClean.push(beLabelName);
 
-			// Create issues with assignees
+			// Create issues with teammate labels
 			const feIssue = await createTestIssue(wsId, {
 				title: 'FE task for alice',
 				issue_type: 'task',
-				assignee: 'alice',
 			});
 			const beIssue = await createTestIssue(wsId, {
 				title: 'BE task for bob',
 				issue_type: 'task',
-				assignee: 'bob',
 			});
 
 			// Add teammate labels to issues
@@ -91,7 +89,6 @@ test.describe('Team Context Page', () => {
 			const childTask = await createTestIssue(wsId, {
 				title: 'Child task under epic',
 				issue_type: 'task',
-				assignee: 'charlie',
 			});
 
 			// Set parent-child dependency (child depends on parent)
@@ -137,7 +134,6 @@ test.describe('Team Context Page', () => {
 			const issue = await createTestIssue(wsId, {
 				title: 'Clickable team issue',
 				issue_type: 'task',
-				assignee: 'dave',
 			});
 			const issueId = issue.id as string;
 			await addLabelToIssue(wsId, issueId, labelName);

@@ -46,7 +46,6 @@ export async function createTestIssue(
 		title?: string;
 		issue_type?: string;
 		priority?: number;
-		assignee?: string;
 		description?: string;
 	},
 ): Promise<{ id: string; title: string; status: string; priority: number; [key: string]: unknown }> {
@@ -57,7 +56,6 @@ export async function createTestIssue(
 			title: opts?.title ?? uniqueName('issue'),
 			issue_type: opts?.issue_type,
 			priority: opts?.priority,
-			assignee: opts?.assignee,
 			description: opts?.description,
 		}),
 	});

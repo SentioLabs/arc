@@ -86,34 +86,6 @@ func TestListFilterByType(t *testing.T) {
 	}
 }
 
-// TestListFilterByAssignee creates issues and assigns one, then verifies
-// that --assignee filters correctly.
-func TestListFilterByAssignee(t *testing.T) {
-	home := setupHome(t)
-	proj := fmt.Sprintf("filter-assignee-%d", uniqueCounter())
-
-	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
-
-	out1 := arcCmdSuccess(t, home, "create", "Assignee alice issue", "--type", "task", "--server", serverURL)
-	id1, ok := extractID(out1)
-	if !ok {
-		t.Fatalf("could not extract ID from: %s", out1)
-	}
-
-	arcCmdSuccess(t, home, "create", "Assignee unassigned issue", "--type", "task", "--server", serverURL)
-
-	// Assign the first issue to alice.
-	arcCmdSuccess(t, home, "update", id1, "--assignee", "alice", "--server", serverURL)
-
-	listAlice := arcCmdSuccess(t, home, "list", "--assignee", "alice", "--server", serverURL)
-	if !strings.Contains(listAlice, "Assignee alice issue") {
-		t.Errorf("expected alice's issue in --assignee alice output, got: %s", listAlice)
-	}
-	if strings.Contains(listAlice, "Assignee unassigned issue") {
-		t.Errorf("unassigned issue should not appear in --assignee alice output, got: %s", listAlice)
-	}
-}
-
 // TestListFilterByQuery creates issues with distinct titles and verifies
 // that --query performs FTS search.
 func TestListFilterByQuery(t *testing.T) {

@@ -13,9 +13,6 @@ test.describe('Issue Lifecycle E2E', () => {
 		// Select priority P1 - High
 		await page.locator('#priority').selectOption('1');
 
-		// Fill assignee
-		await page.getByPlaceholder('Username or leave empty').fill('tester');
-
 		// Submit
 		await page.getByRole('button', { name: 'Create Issue' }).click();
 
@@ -37,7 +34,6 @@ test.describe('Issue Lifecycle E2E', () => {
 			title: 'Fully loaded issue',
 			issue_type: 'bug',
 			priority: 1,
-			assignee: 'alice',
 			description: 'Detailed description here',
 		});
 
@@ -57,9 +53,6 @@ test.describe('Issue Lifecycle E2E', () => {
 		// Priority badge (P1)
 		const priorityBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /P1/i });
 		await expect(priorityBadge).toBeVisible();
-
-		// Assignee
-		await expect(page.getByText('alice')).toBeVisible();
 
 		// Description
 		await expect(page.getByText('Detailed description here')).toBeVisible();
@@ -159,22 +152,6 @@ test.describe('Issue Lifecycle E2E', () => {
 
 		// Verify the new content is visible
 		await expect(page.getByText('New description content')).toBeVisible();
-	});
-
-	test('update assignee inline', async ({ page, testWorkspace: ws }) => {
-		const issue = await createTestIssue(ws.id, { title: 'Assignee test issue' });
-		await page.goto(`/${ws.id}/issues/${issue.id}`);
-
-		// Click the "Unassigned" placeholder to edit
-		await page.getByText('Unassigned').click();
-
-		// Get any visible text input that appeared after the click
-		const assigneeInput = page.locator('input[type="text"]').last();
-		await assigneeInput.fill('new-user');
-		await assigneeInput.press('Enter');
-
-		// Verify updated assignee
-		await expect(page.getByText('new-user')).toBeVisible();
 	});
 
 	test('close issue via status', async ({ page, testWorkspace: ws }) => {

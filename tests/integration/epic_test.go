@@ -157,15 +157,15 @@ func TestCreateAllIssueTypes(t *testing.T) {
 	}
 }
 
-// TestCreateWithPriorityAndAssignee creates an issue with priority, assignee,
-// and type flags, then verifies they appear in the show output.
-func TestCreateWithPriorityAndAssignee(t *testing.T) {
+// TestCreateWithPriorityAndType creates an issue with priority and type flags,
+// then verifies they appear in the show output.
+func TestCreateWithPriorityAndType(t *testing.T) {
 	home := setupHome(t)
 	projName := fmt.Sprintf("epic-priority-%d", epicUniqueCounter())
 
 	arcCmdSuccess(t, home, "init", projName, "--server", serverURL)
 
-	createOut := arcCmdSuccess(t, home, "create", "Priority bug", "--priority", "1", "--assignee", "alice", "--type", "bug", "--server", serverURL)
+	createOut := arcCmdSuccess(t, home, "create", "Priority bug", "--priority", "1", "--type", "bug", "--server", serverURL)
 	id, ok := extractID(createOut)
 	if !ok {
 		t.Fatalf("could not extract issue ID from create output: %s", createOut)
@@ -176,9 +176,6 @@ func TestCreateWithPriorityAndAssignee(t *testing.T) {
 
 	if !strings.Contains(lower, "p1") && !strings.Contains(lower, "priority") && !strings.Contains(showOut, "1") {
 		t.Errorf("expected show output to mention priority 1 or P1, got: %s", showOut)
-	}
-	if !strings.Contains(lower, "alice") {
-		t.Errorf("expected show output to mention assignee 'alice', got: %s", showOut)
 	}
 	if !strings.Contains(lower, "bug") {
 		t.Errorf("expected show output to mention type 'bug', got: %s", showOut)

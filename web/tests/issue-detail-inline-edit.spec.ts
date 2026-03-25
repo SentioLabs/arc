@@ -19,7 +19,6 @@ const mockIssue = {
 	status: 'open',
 	priority: 2,
 	issue_type: 'task',
-	assignee: 'alice',
 	labels: ['bug', 'urgent'],
 	external_ref: null,
 	close_reason: null,
@@ -193,11 +192,4 @@ test.describe('Issue Detail - Inline Editing', () => {
 		await expect(page.getByRole('option', { name: 'Chore' })).toBeVisible();
 	});
 
-	test('assignee is editable inline', async ({ page }) => {
-		await page.goto('/ws-test1/issues/TW-1');
-
-		// Should show "Assigned to" text and the assignee value
-		await expect(page.getByText('Assigned to')).toBeVisible();
-		await expect(page.getByText('alice')).toBeVisible();
-	});
 });
