@@ -146,27 +146,27 @@ func (s *Server) registerRoutes() {
 
 // registerProjectRoutes sets up project-scoped issue, dependency, label, comment, and event routes.
 func (s *Server) registerProjectRoutes(v1 *echo.Group) {
-	ws := v1.Group("/projects/:ws")
-	ws.GET("/issues", s.listIssues)
-	ws.POST("/issues", s.createIssue)
-	ws.GET("/issues/:id", s.getIssue)
-	ws.PUT("/issues/:id", s.updateIssue)
-	ws.DELETE("/issues/:id", s.deleteIssue)
-	ws.POST("/issues/:id/close", s.closeIssue)
-	ws.POST("/issues/:id/reopen", s.reopenIssue)
-	ws.GET("/ready", s.getReadyWork)
-	ws.GET("/blocked", s.getBlockedIssues)
-	ws.GET("/team-context", s.getTeamContext)
-	ws.GET("/issues/:id/deps", s.getDependencies)
-	ws.POST("/issues/:id/deps", s.addDependency)
-	ws.DELETE("/issues/:id/deps/:dep", s.removeDependency)
-	ws.POST("/issues/:id/labels", s.addLabelToIssue)
-	ws.DELETE("/issues/:id/labels/:label", s.removeLabelFromIssue)
-	ws.GET("/issues/:id/comments", s.getComments)
-	ws.POST("/issues/:id/comments", s.addComment)
-	ws.PUT("/issues/:id/comments/:cid", s.updateComment)
-	ws.DELETE("/issues/:id/comments/:cid", s.deleteComment)
-	ws.GET("/issues/:id/events", s.getEvents)
+	proj := v1.Group("/projects/:pid")
+	proj.GET("/issues", s.listIssues)
+	proj.POST("/issues", s.createIssue)
+	proj.GET("/issues/:id", s.getIssue)
+	proj.PUT("/issues/:id", s.updateIssue)
+	proj.DELETE("/issues/:id", s.deleteIssue)
+	proj.POST("/issues/:id/close", s.closeIssue)
+	proj.POST("/issues/:id/reopen", s.reopenIssue)
+	proj.GET("/ready", s.getReadyWork)
+	proj.GET("/blocked", s.getBlockedIssues)
+	proj.GET("/team-context", s.getTeamContext)
+	proj.GET("/issues/:id/deps", s.getDependencies)
+	proj.POST("/issues/:id/deps", s.addDependency)
+	proj.DELETE("/issues/:id/deps/:dep", s.removeDependency)
+	proj.POST("/issues/:id/labels", s.addLabelToIssue)
+	proj.DELETE("/issues/:id/labels/:label", s.removeLabelFromIssue)
+	proj.GET("/issues/:id/comments", s.getComments)
+	proj.POST("/issues/:id/comments", s.addComment)
+	proj.PUT("/issues/:id/comments/:cid", s.updateComment)
+	proj.DELETE("/issues/:id/comments/:cid", s.deleteComment)
+	proj.GET("/issues/:id/events", s.getEvents)
 }
 
 // registerAIRoutes sets up AI session observability routes.
@@ -245,9 +245,9 @@ func getActor(c echo.Context) string {
 	return actor
 }
 
-// workspaceID extracts the workspace ID from the route params.
-func workspaceID(c echo.Context) string {
-	return c.Param("ws")
+// projectID extracts the project ID from the route params.
+func projectID(c echo.Context) string {
+	return c.Param("pid")
 }
 
 // Paginated response wrapper
@@ -280,21 +280,21 @@ func queryInt(c echo.Context, name string, defaultVal int) int {
 	return i
 }
 
-// errWorkspaceMismatch is returned when an issue doesn't belong to the requested workspace.
-var errWorkspaceMismatch = errors.New("issue does not belong to this workspace")
+// errProjectMismatch is returned when an issue doesn't belong to the requested project.
+var errProjectMismatch = errors.New("issue does not belong to this project")
 
-// validateIssueWorkspace fetches an issue and validates it belongs to the specified workspace.
+// validateIssueProject fetches an issue and validates it belongs to the specified project.
 // Returns nil if valid, or an error suitable for HTTP response.
-func (s *Server) validateIssueWorkspace(c echo.Context, issueID string) error {
-	_, err := s.getIssueInWorkspace(c, issueID)
+func (s *Server) validateIssueProject(c echo.Context, issueID string) error {
+	_, err := s.getIssueInProject(c, issueID)
 	return err
 }
 
-// getIssueInWorkspace fetches an issue and validates it belongs to the specified workspace.
-// When called from a project-agnostic route (no :ws param), the workspace check is skipped.
-// Returns the issue if valid, or an error if not found or workspace mismatch.
-func (s *Server) getIssueInWorkspace(c echo.Context, issueID string) (*types.Issue, error) {
-	wsID := workspaceID(c)
+// getIssueInProject fetches an issue and validates it belongs to the specified project.
+// When called from a project-agnostic route (no :pid param), the project check is skipped.
+// Returns the issue if valid, or an error if not found or project mismatch.
+func (s *Server) getIssueInProject(c echo.Context, issueID string) (*types.Issue, error) {
+	pID := projectID(c)
 	ctx := c.Request().Context()
 
 	issue, err := s.store.GetIssue(ctx, issueID)
@@ -302,9 +302,9 @@ func (s *Server) getIssueInWorkspace(c echo.Context, issueID string) (*types.Iss
 		return nil, err
 	}
 
-	// Skip workspace validation on project-agnostic routes (no :ws param)
-	if wsID != "" && issue.ProjectID != wsID {
-		return nil, errWorkspaceMismatch
+	// Skip project validation on project-agnostic routes (no :pid param)
+	if pID != "" && issue.ProjectID != pID {
+		return nil, errProjectMismatch
 	}
 
 	return issue, nil
