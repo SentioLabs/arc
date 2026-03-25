@@ -296,6 +296,40 @@ paths:
       - $ref: "#/components/parameters/ProjectId"
       - $ref: "#/components/parameters/IssueId"
 
+    get:
+      operationId: getIssue
+      tags: [issues]
+      summary: Get issue by ID within a project
+      description: >
+        Retrieves an issue by ID within a project-scoped route. Validates the
+        issue belongs to the specified project.
+      parameters:
+        - name: details
+          in: query
+          description: Include full details (dependencies, comments, labels)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Issue details
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Issue"
+                  - $ref: "#/components/schemas/IssueDetails"
+        "403":
+          description: Access denied (issue does not belong to project)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
     put:
       operationId: updateIssue
       tags: [issues]

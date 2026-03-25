@@ -17,8 +17,6 @@ const defaultWorkLimit = 100
 // GetReadyWork returns issues that are ready to work on (not blocked).
 // Results are sorted according to the filter's SortPolicy (hybrid, priority, or oldest).
 // Additional filters for issue type, priority, and status are applied in-memory.
-//
-//nolint:revive // cognitive-complexity: filter application is straightforward sequential checks
 func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*types.Issue, error) {
 	limit := filter.Limit
 	if limit <= 0 {

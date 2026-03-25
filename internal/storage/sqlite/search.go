@@ -48,40 +48,40 @@ func (s *Store) deleteFTSForIssue(ctx context.Context, issueID string) {
 // populateFTS rebuilds the entire FTS5 index from scratch.
 // Called on startup to reconcile the index against the issues table.
 func (s *Store) populateFTS(ctx context.Context) {
-	// Clear existing index
-	_, err := s.db.ExecContext(ctx, `DELETE FROM issues_fts`)
+	// Always recreate from scratch — this handles both clean state and corruption.
+	s.recreateFTSTable(ctx)
+
+	// Bulk-insert all issues into the fresh FTS table.
+	result, err := s.db.ExecContext(ctx,
+		`INSERT INTO issues_fts(id, title, description)
+		 SELECT id, title, COALESCE(description, '') FROM issues`)
 	if err != nil {
-		log.Printf("fts: failed to clear FTS index: %v", err)
+		log.Printf("fts: failed to populate FTS index: %v", err)
 		return
 	}
 
-	// Get all issue IDs
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM issues`)
-	if err != nil {
-		log.Printf("fts: failed to list issues for FTS population: %v", err)
-		return
-	}
-	defer rows.Close()
+	count, _ := result.RowsAffected()
+	log.Printf("fts: populated index for %d issues", count)
+}
 
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			log.Printf("fts: failed to scan issue ID: %v", err)
-			return
+// recreateFTSTable drops and recreates the FTS5 virtual table.
+// Used to recover from a corrupted index (e.g. after table recreation in migrations).
+// When an FTS5 table is corrupted, DROP TABLE can also fail, so we manually
+// remove the shadow tables as a fallback.
+func (s *Store) recreateFTSTable(ctx context.Context) {
+	if _, err := s.db.ExecContext(ctx, `DROP TABLE IF EXISTS issues_fts`); err != nil {
+		log.Printf("fts: DROP TABLE failed, removing shadow tables manually: %v", err)
+		// FTS5 shadow tables follow the pattern <table>_<suffix>
+		for _, suffix := range []string{"content", "docsize", "config", "data", "idx"} {
+			s.db.ExecContext(ctx, `DROP TABLE IF EXISTS issues_fts_`+suffix) //nolint:errcheck // best-effort cleanup
 		}
-		ids = append(ids, id)
+		// Try dropping the virtual table again now that shadow tables are gone
+		s.db.ExecContext(ctx, `DROP TABLE IF EXISTS issues_fts`) //nolint:errcheck // may still fail
 	}
-	if err := rows.Err(); err != nil {
-		log.Printf("fts: error iterating issues: %v", err)
-		return
+	if _, err := s.db.ExecContext(ctx,
+		`CREATE VIRTUAL TABLE IF NOT EXISTS issues_fts USING fts5(id, title, description, content=issues, content_rowid=rowid)`); err != nil {
+		log.Printf("fts: failed to recreate FTS table: %v", err)
 	}
-
-	for _, id := range ids {
-		s.rebuildFTSForIssue(ctx, id)
-	}
-
-	log.Printf("fts: populated index for %d issues", len(ids))
 }
 
 // searchIssuesFTS searches for issues using FTS5 full-text search with BM25 ranking.

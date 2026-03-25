@@ -14,6 +14,12 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+const (
+	// maxScannerBuf is the maximum token size for reading JSONL transcript lines.
+	// Claude Code transcripts can have very long lines (tool results, etc.).
+	maxScannerBuf = 10 * 1024 * 1024 // 10 MiB
+)
+
 // createAISessionRequest is the request body for creating an AI session.
 type createAISessionRequest struct {
 	ID             string `json:"id"`
@@ -255,7 +261,7 @@ func (s *Server) getSessionTranscript(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, normalizeTranscriptEntries(entries))
+	return successJSON(c, NormalizeTranscriptEntries(entries))
 }
 
 // getAgentTranscript derives the agent transcript path from the session
@@ -286,7 +292,7 @@ func (s *Server) getAgentTranscript(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, normalizeTranscriptEntries(entries))
+	return successJSON(c, NormalizeTranscriptEntries(entries))
 }
 
 // readJSONLFile reads a JSONL file line by line and returns the entries as a
@@ -301,8 +307,7 @@ func readJSONLFile(path string) ([]json.RawMessage, error) {
 
 	var entries []json.RawMessage
 	scanner := bufio.NewScanner(f)
-	// Claude Code transcripts can have very long lines (tool results, etc.)
-	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), 10*1024*1024)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxScannerBuf)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -317,67 +322,81 @@ func readJSONLFile(path string) ([]json.RawMessage, error) {
 	return entries, nil
 }
 
-// normalizeTranscriptEntries flattens Claude Code transcript entries for the
+// NormalizeTranscriptEntries flattens Claude Code transcript entries for the
 // frontend. Claude Code writes entries as {type, message: {role, content, ...}, ...}
 // but the TranscriptViewer expects {role, content, ...} at the top level.
 //
 // For "user" and "assistant" entries, the message fields are promoted to the top
 // level. "progress" entries (tool execution updates) are kept with their type
 // preserved so the frontend can render or filter them.
-func normalizeTranscriptEntries(raw []json.RawMessage) []json.RawMessage {
+func NormalizeTranscriptEntries(raw []json.RawMessage) []json.RawMessage {
 	normalized := make([]json.RawMessage, 0, len(raw))
 	for _, entry := range raw {
-		var outer map[string]json.RawMessage
-		if err := json.Unmarshal(entry, &outer); err != nil {
-			normalized = append(normalized, entry)
-			continue
+		if out, keep := normalizeEntry(entry); keep {
+			normalized = append(normalized, out)
 		}
-
-		// Determine entry type
-		var entryType string
-		if t, ok := outer["type"]; ok {
-			_ = json.Unmarshal(t, &entryType)
-		}
-
-		// Skip progress entries (hook execution metadata, not conversation content)
-		if entryType == "progress" {
-			continue
-		}
-
-		msgRaw, hasMessage := outer["message"]
-		if !hasMessage {
-			normalized = append(normalized, entry)
-			continue
-		}
-
-		// For user/assistant entries, promote message fields to top level
-		if entryType == "user" || entryType == "assistant" {
-			var msg map[string]json.RawMessage
-			if err := json.Unmarshal(msgRaw, &msg); err != nil {
-				normalized = append(normalized, entry)
-				continue
-			}
-
-			// Start with message fields (role, content, etc.)
-			flat := make(map[string]json.RawMessage, len(msg)+2)
-			for k, v := range msg {
-				flat[k] = v
-			}
-			// Preserve top-level type and timestamp
-			if t, ok := outer["type"]; ok {
-				flat["type"] = t
-			}
-			if ts, ok := outer["timestamp"]; ok {
-				flat["timestamp"] = ts
-			}
-
-			if out, err := json.Marshal(flat); err == nil {
-				normalized = append(normalized, out)
-				continue
-			}
-		}
-
-		normalized = append(normalized, entry)
 	}
 	return normalized
+}
+
+// normalizeEntry processes a single transcript entry. It returns the (possibly
+// transformed) entry and whether it should be kept in the output.
+func normalizeEntry(entry json.RawMessage) (json.RawMessage, bool) {
+	var outer map[string]json.RawMessage
+	if err := json.Unmarshal(entry, &outer); err != nil {
+		return entry, true
+	}
+
+	entryType := jsonStringField(outer, "type")
+
+	// Skip progress entries (hook execution metadata, not conversation content)
+	if entryType == "progress" {
+		return nil, false
+	}
+
+	msgRaw, hasMessage := outer["message"]
+	if !hasMessage {
+		return entry, true
+	}
+
+	// For user/assistant entries, promote message fields to top level
+	if entryType == "user" || entryType == "assistant" {
+		if flat, err := flattenMessage(outer, msgRaw); err == nil {
+			return flat, true
+		}
+	}
+
+	return entry, true
+}
+
+// flattenMessage promotes message fields to the top level, preserving type and timestamp.
+func flattenMessage(outer map[string]json.RawMessage, msgRaw json.RawMessage) (json.RawMessage, error) {
+	var msg map[string]json.RawMessage
+	if err := json.Unmarshal(msgRaw, &msg); err != nil {
+		return nil, err
+	}
+
+	flat := make(map[string]json.RawMessage, len(msg)+len(outer))
+	for k, v := range msg {
+		flat[k] = v
+	}
+	// Preserve top-level type and timestamp
+	for _, key := range []string{"type", "timestamp"} {
+		if v, ok := outer[key]; ok {
+			flat[key] = v
+		}
+	}
+
+	return json.Marshal(flat)
+}
+
+// jsonStringField extracts a string value from a JSON object map.
+func jsonStringField(m map[string]json.RawMessage, key string) string {
+	raw, ok := m[key]
+	if !ok {
+		return ""
+	}
+	var s string
+	_ = json.Unmarshal(raw, &s)
+	return s
 }

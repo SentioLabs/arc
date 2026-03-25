@@ -120,7 +120,11 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get issue by ID within a project
+         * @description Retrieves an issue by ID within a project-scoped route. Validates the issue belongs to the specified project.
+         */
+        get: operations["getIssue"];
         /** Update issue */
         put: operations["updateIssue"];
         post?: never;
@@ -1215,6 +1219,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Issue"] | components["schemas"]["IssueDetails"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getIssue: {
+        parameters: {
+            query?: {
+                /** @description Include full details (dependencies, comments, labels) */
+                details?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issue details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"] | components["schemas"]["IssueDetails"];
+                };
+            };
+            /** @description Access denied (issue does not belong to project) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             404: components["responses"]["NotFound"];

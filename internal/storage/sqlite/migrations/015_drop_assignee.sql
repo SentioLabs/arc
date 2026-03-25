@@ -1,6 +1,11 @@
 -- +goose Up
 -- Drop assignee column from issues table
 -- SQLite doesn't support DROP COLUMN directly, so we recreate the table
+--
+-- Defer FK checks: the data copy triggers FK re-validation on the new table,
+-- but the referenced projects already exist. PRAGMA defer_foreign_keys defers
+-- the check to transaction commit (unlike foreign_keys, it works inside a tx).
+PRAGMA defer_foreign_keys = ON;
 
 CREATE TABLE issues_new (
     id TEXT PRIMARY KEY,
@@ -32,6 +37,12 @@ CREATE INDEX idx_issues_status ON issues(project_id, status);
 CREATE INDEX idx_issues_priority ON issues(project_id, priority);
 CREATE INDEX idx_issues_type ON issues(project_id, issue_type);
 CREATE INDEX idx_issues_updated ON issues(project_id, updated_at DESC);
+
+-- Rebuild FTS5 index: the content-synced FTS table (content=issues) references
+-- the old issues table which was dropped. Recreate it pointing at the new table.
+DROP TABLE IF EXISTS issues_fts;
+CREATE VIRTUAL TABLE issues_fts USING fts5(id, title, description, content=issues, content_rowid=rowid);
+INSERT INTO issues_fts(id, title, description) SELECT id, title, COALESCE(description, '') FROM issues;
 
 -- +goose Down
 ALTER TABLE issues ADD COLUMN assignee TEXT;

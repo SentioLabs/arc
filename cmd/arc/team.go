@@ -14,9 +14,9 @@ import (
 
 // TeamContext holds issues grouped by teammate role for team coordination.
 type TeamContext struct {
-	Workspace  string               `json:"workspace"`
-	Epic       *TeamContextEpic     `json:"epic,omitempty"`
-	Roles map[string]*TeamRole `json:"roles"`
+	Workspace string               `json:"workspace"`
+	Epic      *TeamContextEpic     `json:"epic,omitempty"`
+	Roles     map[string]*TeamRole `json:"roles"`
 }
 
 // TeamContextEpic describes the parent epic for a team context query.
