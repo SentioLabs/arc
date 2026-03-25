@@ -164,15 +164,6 @@
 					/>
 
 					<div class="flex items-center gap-4 text-sm text-text-muted">
-						<span class="flex items-center gap-1">
-							Assigned to
-							<InlineTextEdit
-								value={issue.assignee ?? ''}
-								onSave={(v) => handleUpdateField('assignee', v)}
-								placeholder="Unassigned"
-								class="font-semibold text-text-secondary"
-							/>
-						</span>
 						<span>Created {formatRelativeTime(issue.created_at)}</span>
 						<span>Updated {formatRelativeTime(issue.updated_at)}</span>
 					</div>

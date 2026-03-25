@@ -7,7 +7,6 @@ export interface IssueFilters {
 	statuses?: Status[];
 	issueTypes?: IssueType[];
 	priorities?: number[];
-	assignee?: string;
 	q?: string;
 }
 
@@ -27,9 +26,6 @@ function createFilterStore() {
 		},
 		setPriorities(priorities: number[] | undefined) {
 			filters = { ...filters, priorities };
-		},
-		setAssignee(assignee: string | undefined) {
-			filters = { ...filters, assignee };
 		},
 		setQuery(q: string | undefined) {
 			filters = { ...filters, q };
@@ -55,7 +51,6 @@ function createFilterStore() {
 					params.append('priority', p.toString());
 				}
 			}
-			if (filters.assignee) params.set('assignee', filters.assignee);
 			if (filters.q) params.set('q', filters.q);
 			return params;
 		},
@@ -71,7 +66,6 @@ function createFilterStore() {
 					priorityValues.length > 0
 						? priorityValues.map((p) => parseInt(p, 10))
 						: undefined,
-				assignee: params.get('assignee') || undefined,
 				q: params.get('q') || undefined
 			};
 		}

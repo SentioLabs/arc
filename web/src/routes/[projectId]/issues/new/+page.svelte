@@ -14,7 +14,6 @@
 	let description = $state('');
 	let issueType = $state<'bug' | 'feature' | 'task' | 'epic' | 'chore'>('task');
 	let priority = $state(2);
-	let assignee = $state('');
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
@@ -46,8 +45,7 @@
 				title: title.trim(),
 				description: description.trim() || undefined,
 				issue_type: issueType,
-				priority,
-				assignee: assignee.trim() || undefined
+				priority
 			};
 
 			const issue = await createIssue(projectId, request);
@@ -138,21 +136,6 @@
 							{/each}
 						</select>
 					</div>
-				</div>
-
-				<!-- Assignee -->
-				<div>
-					<label for="assignee" class="block text-sm font-medium text-text-secondary mb-2">
-						Assignee
-					</label>
-					<input
-						id="assignee"
-						type="text"
-						bind:value={assignee}
-						class="input w-full"
-						placeholder="Username or leave empty"
-						disabled={submitting}
-					/>
 				</div>
 
 				<!-- Actions -->

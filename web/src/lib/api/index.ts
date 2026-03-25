@@ -164,7 +164,6 @@ export interface IssueFilters {
 	status?: string[];
 	type?: string[];
 	priority?: number[];
-	assignee?: string;
 	q?: string;
 	limit?: number;
 	offset?: number;
@@ -181,7 +180,6 @@ export async function listIssues(
 				status: filters.status as components['schemas']['Status'][] | undefined,
 				type: filters.type as components['schemas']['IssueType'][] | undefined,
 				priority: filters.priority,
-				assignee: filters.assignee,
 				q: filters.q,
 				limit: filters.limit,
 				offset: filters.offset
@@ -241,7 +239,7 @@ export async function updateIssue(
 
 export async function getReadyWork(
 	projectId: string,
-	filters: { type?: string; priority?: number; assignee?: string; limit?: number } = {}
+	filters: { type?: string; priority?: number; limit?: number } = {}
 ): Promise<Issue[]> {
 	const { data, error } = await api.GET('/projects/{projectId}/ready', {
 		params: {
@@ -249,7 +247,6 @@ export async function getReadyWork(
 			query: {
 				type: filters.type as 'bug' | 'feature' | 'task' | 'epic' | 'chore' | undefined,
 				priority: filters.priority,
-				assignee: filters.assignee,
 				limit: filters.limit
 			}
 		}
