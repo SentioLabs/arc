@@ -39,7 +39,6 @@ CREATE TABLE issues (
     status TEXT NOT NULL DEFAULT 'open',
     priority INTEGER NOT NULL DEFAULT 2,
     issue_type TEXT NOT NULL DEFAULT 'task',
-    assignee TEXT,
     ai_session_id TEXT,
     external_ref TEXT,
     rank INTEGER NOT NULL DEFAULT 0,
@@ -54,7 +53,6 @@ CREATE TABLE issues (
 CREATE INDEX idx_issues_project ON issues(project_id);
 CREATE INDEX idx_issues_status ON issues(project_id, status);
 CREATE INDEX idx_issues_priority ON issues(project_id, priority);
-CREATE INDEX idx_issues_assignee ON issues(project_id, assignee);
 CREATE INDEX idx_issues_type ON issues(project_id, issue_type);
 CREATE INDEX idx_issues_updated ON issues(project_id, updated_at DESC);
 CREATE UNIQUE INDEX idx_issues_external_ref ON issues(external_ref) WHERE external_ref IS NOT NULL;

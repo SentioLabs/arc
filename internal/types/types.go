@@ -62,9 +62,6 @@ type Issue struct {
 	Rank      int       `json:"rank"`     // 0 = unranked (sorts last), 1+ = lower rank = work on first
 	IssueType IssueType `json:"issue_type"`
 
-	// Assignment
-	Assignee string `json:"assignee,omitempty"`
-
 	// AI Session Tracking
 	AISessionID string `json:"ai_session_id,omitempty"` // Claude Code session UUID
 
@@ -308,7 +305,6 @@ type IssueFilter struct {
 	Statuses    []Status    // Filter by statuses (multi-select, empty means all)
 	Priorities  []int       // Filter by priorities (multi-select, empty means all)
 	IssueTypes  []IssueType // Filter by issue types (multi-select, empty means all)
-	Assignee    *string     // Filter by assignee
 	AISessionID *string     // Filter by AI session ID
 	Labels      []string    // AND semantics: issue must have ALL these labels
 	ParentID    string      // Filter by parent issue (via parent-child dependency)
@@ -324,8 +320,6 @@ type WorkFilter struct {
 	Status     *Status    // Filter by status
 	IssueType  *IssueType // Filter by issue type
 	Priority   *int       // Filter by priority
-	Assignee   *string    // Filter by assignee
-	Unassigned bool       // Filter for unassigned issues
 	Labels     []string   // AND semantics
 	SortPolicy SortPolicy // Sort policy: hybrid (default), priority, oldest
 	Limit      int        // Maximum results

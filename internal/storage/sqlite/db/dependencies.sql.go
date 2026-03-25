@@ -88,7 +88,7 @@ func (q *Queries) DeleteDependenciesByIssue(ctx context.Context, arg DeleteDepen
 
 const getBlockedIssuesInProject = `-- name: GetBlockedIssuesInProject :many
 SELECT i.id, i.project_id, i.title, i.description,
-       i.status, i.priority, i.issue_type, i.assignee, i.external_ref,
+       i.status, i.priority, i.issue_type, i.external_ref,
        i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason,
        COUNT(blocker.id) as blocked_by_count
 FROM issues i
@@ -114,7 +114,6 @@ type GetBlockedIssuesInProjectRow struct {
 	Status         string         `json:"status"`
 	Priority       int64          `json:"priority"`
 	IssueType      string         `json:"issue_type"`
-	Assignee       sql.NullString `json:"assignee"`
 	ExternalRef    sql.NullString `json:"external_ref"`
 	Rank           int64          `json:"rank"`
 	CreatedAt      time.Time      `json:"created_at"`
@@ -142,7 +141,6 @@ func (q *Queries) GetBlockedIssuesInProject(ctx context.Context, arg GetBlockedI
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
-			&i.Assignee,
 			&i.ExternalRef,
 			&i.Rank,
 			&i.CreatedAt,
@@ -165,7 +163,7 @@ func (q *Queries) GetBlockedIssuesInProject(ctx context.Context, arg GetBlockedI
 }
 
 const getBlockingIssues = `-- name: GetBlockingIssues :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
   AND d.type = 'blocks'
@@ -191,7 +189,6 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
-			&i.Assignee,
 			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
@@ -214,7 +211,7 @@ func (q *Queries) GetBlockingIssues(ctx context.Context, issueID string) ([]*Iss
 }
 
 const getDependencies = `-- name: GetDependencies :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.depends_on_id
 WHERE d.issue_id = ?
 ORDER BY i.priority ASC
@@ -237,7 +234,6 @@ func (q *Queries) GetDependencies(ctx context.Context, issueID string) ([]*Issue
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
-			&i.Assignee,
 			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
@@ -326,7 +322,7 @@ func (q *Queries) GetDependentRecords(ctx context.Context, dependsOnID string) (
 }
 
 const getDependents = `-- name: GetDependents :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON i.id = d.issue_id
 WHERE d.depends_on_id = ?
 ORDER BY i.priority ASC
@@ -349,7 +345,6 @@ func (q *Queries) GetDependents(ctx context.Context, dependsOnID string) ([]*Iss
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
-			&i.Assignee,
 			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,
@@ -372,7 +367,7 @@ func (q *Queries) GetDependents(ctx context.Context, dependsOnID string) ([]*Iss
 }
 
 const getOpenChildIssues = `-- name: GetOpenChildIssues :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
 JOIN dependencies d ON d.issue_id = i.id
 WHERE d.depends_on_id = ?
   AND d.type = 'parent-child'
@@ -398,7 +393,6 @@ func (q *Queries) GetOpenChildIssues(ctx context.Context, dependsOnID string) ([
 			&i.Status,
 			&i.Priority,
 			&i.IssueType,
-			&i.Assignee,
 			&i.AiSessionID,
 			&i.ExternalRef,
 			&i.Rank,

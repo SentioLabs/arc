@@ -16,7 +16,7 @@ const defaultWorkLimit = 100
 
 // GetReadyWork returns issues that are ready to work on (not blocked).
 // Results are sorted according to the filter's SortPolicy (hybrid, priority, or oldest).
-// Additional filters for issue type, priority, assignee, and status are applied in-memory.
+// Additional filters for issue type, priority, and status are applied in-memory.
 //
 //nolint:revive // cognitive-complexity: filter application is straightforward sequential checks
 func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*types.Issue, error) {
@@ -68,12 +68,6 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 		if filter.Priority != nil && issue.Priority != *filter.Priority {
 			continue
 		}
-		if filter.Assignee != nil && issue.Assignee != *filter.Assignee {
-			continue
-		}
-		if filter.Unassigned && issue.Assignee != "" {
-			continue
-		}
 		if filter.Status != nil && issue.Status != *filter.Status {
 			continue
 		}
@@ -118,7 +112,6 @@ func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) (
 				Status:      types.Status(row.Status),
 				Priority:    int(row.Priority),
 				IssueType:   types.IssueType(row.IssueType),
-				Assignee:    fromNullString(row.Assignee),
 				ExternalRef: fromNullString(row.ExternalRef),
 				CreatedAt:   row.CreatedAt,
 				UpdatedAt:   row.UpdatedAt,

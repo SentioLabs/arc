@@ -1,9 +1,9 @@
 -- name: CreateIssue :exec
 INSERT INTO issues (
     id, project_id, title, description,
-    status, priority, issue_type, assignee, ai_session_id, external_ref,
+    status, priority, issue_type, ai_session_id, external_ref,
     created_at, updated_at, closed_at, close_reason
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetIssue :one
 SELECT * FROM issues WHERE id = ?;
@@ -15,7 +15,7 @@ SELECT * FROM issues WHERE external_ref = ?;
 -- Composable filter query: slices use IN for multi-select, narg for optional scalars.
 -- The LEFT JOIN on dependencies is only effective when parent_id is non-NULL.
 SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
-       i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank,
+       i.issue_type, i.ai_session_id, i.external_ref, i.rank,
        i.created_at, i.updated_at, i.closed_at, i.close_reason
 FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
@@ -23,7 +23,6 @@ WHERE i.project_id = sqlc.arg('project_id')
   AND i.status IN (sqlc.slice('statuses'))
   AND i.issue_type IN (sqlc.slice('issue_types'))
   AND i.priority IN (sqlc.slice('priorities'))
-  AND (sqlc.narg('assignee') IS NULL OR i.assignee = sqlc.narg('assignee'))
   AND (sqlc.narg('ai_session_id') IS NULL OR i.ai_session_id = sqlc.narg('ai_session_id'))
   AND (sqlc.narg('parent_id') IS NULL OR d.depends_on_id = sqlc.narg('parent_id'))
 ORDER BY i.priority ASC, i.updated_at DESC
@@ -50,9 +49,6 @@ UPDATE issues SET priority = ?, updated_at = ? WHERE id = ?;
 
 -- name: UpdateIssueType :exec
 UPDATE issues SET issue_type = ?, updated_at = ? WHERE id = ?;
-
--- name: UpdateIssueAssignee :exec
-UPDATE issues SET assignee = ?, updated_at = ? WHERE id = ?;
 
 -- name: UpdateIssueExternalRef :exec
 UPDATE issues SET external_ref = ?, updated_at = ? WHERE id = ?;

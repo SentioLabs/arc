@@ -51,7 +51,7 @@ WHERE d.issue_id = ?
 -- name: GetBlockedIssuesInProject :many
 -- Note: Only 'blocks' dependencies are blocking; parent-child is organizational only.
 SELECT i.id, i.project_id, i.title, i.description,
-       i.status, i.priority, i.issue_type, i.assignee, i.external_ref,
+       i.status, i.priority, i.issue_type, i.external_ref,
        i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason,
        COUNT(blocker.id) as blocked_by_count
 FROM issues i

@@ -93,7 +93,7 @@ func (s *Store) searchIssuesFTS(
 
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
-		       i.issue_type, i.assignee, i.external_ref, i.rank,
+		       i.issue_type, i.external_ref, i.rank,
 		       i.created_at, i.updated_at, i.closed_at, i.close_reason,
 		       bm25(issues_fts, 0.0, 10.0, 5.0) as relevance
 		FROM issues_fts
@@ -132,7 +132,7 @@ func (s *Store) searchIssuesLIKE(
 	searchPattern := "%" + query + "%"
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, project_id, title, description, status, priority,
-		       issue_type, assignee, external_ref, rank,
+		       issue_type, external_ref, rank,
 		       created_at, updated_at, closed_at, close_reason
 		FROM issues
 		WHERE project_id = ?
@@ -166,7 +166,6 @@ func scanIssueRow(rows *sql.Rows, hasRelevance bool) (*types.Issue, error) {
 	var (
 		issue       types.Issue
 		description sql.NullString
-		assignee    sql.NullString
 		externalRef sql.NullString
 		closedAt    sql.NullTime
 		closeReason sql.NullString
@@ -174,7 +173,7 @@ func scanIssueRow(rows *sql.Rows, hasRelevance bool) (*types.Issue, error) {
 
 	dest := []any{
 		&issue.ID, &issue.ProjectID, &issue.Title, &description,
-		&issue.Status, &issue.Priority, &issue.IssueType, &assignee,
+		&issue.Status, &issue.Priority, &issue.IssueType,
 		&externalRef, &issue.Rank,
 		&issue.CreatedAt, &issue.UpdatedAt, &closedAt, &closeReason,
 	}
@@ -189,7 +188,6 @@ func scanIssueRow(rows *sql.Rows, hasRelevance bool) (*types.Issue, error) {
 	}
 
 	issue.Description = fromNullString(description)
-	issue.Assignee = fromNullString(assignee)
 	issue.ExternalRef = fromNullString(externalRef)
 	issue.CloseReason = fromNullString(closeReason)
 	issue.ClosedAt = fromNullTime(closedAt)

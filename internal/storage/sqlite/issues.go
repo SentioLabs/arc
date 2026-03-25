@@ -116,7 +116,6 @@ func (s *Store) CreateIssue(ctx context.Context, issue *types.Issue, actor strin
 		Status:      string(issue.Status),
 		Priority:    int64(issue.Priority),
 		IssueType:   string(issue.IssueType),
-		Assignee:    toNullString(issue.Assignee),
 		AiSessionID: toNullString(issue.AISessionID),
 		ExternalRef: toNullString(issue.ExternalRef),
 		CreatedAt:   now,
@@ -214,7 +213,7 @@ func (s *Store) ListIssues(ctx context.Context, filter types.IssueFilter) ([]*ty
 		var row db.Issue
 		if err := rows.Scan(
 			&row.ID, &row.ProjectID, &row.Title, &row.Description,
-			&row.Status, &row.Priority, &row.IssueType, &row.Assignee,
+			&row.Status, &row.Priority, &row.IssueType,
 			&row.AiSessionID, &row.ExternalRef, &row.Rank,
 			&row.CreatedAt, &row.UpdatedAt, &row.ClosedAt, &row.CloseReason,
 		); err != nil {
@@ -244,13 +243,8 @@ func buildListIssuesQuery(filter types.IssueFilter, limit, offset int) (string, 
 	typePH := appendSlice(&args, &argIdx, issueTypes)
 	priorityPH := appendSlice(&args, &argIdx, priorities)
 
-	var assigneeClause, sessionClause, parentClause, parentJoin string
+	var sessionClause, parentClause, parentJoin string
 
-	if filter.Assignee != nil {
-		assigneeClause = fmt.Sprintf("AND i.assignee = ?%d", argIdx)
-		args = append(args, *filter.Assignee)
-		argIdx++
-	}
 	if filter.AISessionID != nil {
 		sessionClause = fmt.Sprintf("AND i.ai_session_id = ?%d", argIdx)
 		args = append(args, *filter.AISessionID)
@@ -271,7 +265,7 @@ func buildListIssuesQuery(filter types.IssueFilter, limit, offset int) (string, 
 
 	query := fmt.Sprintf(`
 SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
-       i.issue_type, i.assignee, i.ai_session_id, i.external_ref, i.rank,
+       i.issue_type, i.ai_session_id, i.external_ref, i.rank,
        i.created_at, i.updated_at, i.closed_at, i.close_reason
 FROM issues i
 %s
@@ -281,11 +275,10 @@ WHERE i.project_id = ?1
   AND i.priority IN (%s)
   %s
   %s
-  %s
 ORDER BY i.priority ASC, i.updated_at DESC
 LIMIT %s OFFSET %s
 `, parentJoin, statusPH, typePH, priorityPH,
-		assigneeClause, sessionClause, parentClause,
+		sessionClause, parentClause,
 		limitPH, offsetPH)
 
 	return query, args
@@ -371,12 +364,6 @@ func (s *Store) UpdateIssue(ctx context.Context, id string, updates map[string]a
 		case "issue_type":
 			err = s.queries.UpdateIssueType(ctx, db.UpdateIssueTypeParams{
 				IssueType: value.(string),
-				UpdatedAt: now,
-				ID:        id,
-			})
-		case "assignee":
-			err = s.queries.UpdateIssueAssignee(ctx, db.UpdateIssueAssigneeParams{
-				Assignee:  toNullString(value.(string)),
 				UpdatedAt: now,
 				ID:        id,
 			})
@@ -579,7 +566,6 @@ func dbIssueToType(row *db.Issue) *types.Issue {
 		Priority:    int(row.Priority),
 		Rank:        int(row.Rank),
 		IssueType:   types.IssueType(row.IssueType),
-		Assignee:    fromNullString(row.Assignee),
 		AISessionID: fromNullString(row.AiSessionID),
 		ExternalRef: fromNullString(row.ExternalRef),
 		CreatedAt:   row.CreatedAt,
