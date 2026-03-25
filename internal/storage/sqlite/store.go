@@ -49,6 +49,12 @@ func New(path string) (*Store, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	// Ensure foreign keys are enforced (DSN param alone is unreliable with some drivers)
+	if _, err := sqlDB.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	}
+
 	// Set connection pool settings
 	sqlDB.SetMaxOpenConns(1) // SQLite doesn't handle concurrent writes well
 	sqlDB.SetMaxIdleConns(1)
@@ -65,6 +71,9 @@ func New(path string) (*Store, error) {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+
+	// Clean up orphaned workspaces from before foreign keys were enforced
+	_, _ = sqlDB.Exec("DELETE FROM workspaces WHERE project_id NOT IN (SELECT id FROM projects)")
 
 	// Populate FTS5 search index
 	store.populateFTS(context.Background())

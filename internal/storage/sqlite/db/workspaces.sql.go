@@ -162,7 +162,9 @@ func (q *Queries) ListWorkspaces(ctx context.Context, projectID string) ([]*Work
 }
 
 const resolveProjectByPath = `-- name: ResolveProjectByPath :one
-SELECT id, project_id, path, label, hostname, git_remote, path_type, last_accessed_at, created_at, updated_at FROM workspaces WHERE path = ?
+SELECT w.id, w.project_id, w.path, w.label, w.hostname, w.git_remote, w.path_type, w.last_accessed_at, w.created_at, w.updated_at FROM workspaces w
+JOIN projects p ON w.project_id = p.id
+WHERE w.path = ?
 `
 
 func (q *Queries) ResolveProjectByPath(ctx context.Context, path string) (*Workspace, error) {
