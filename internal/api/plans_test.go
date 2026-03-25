@@ -60,11 +60,11 @@ func createTestProject(t *testing.T, e *echo.Echo) string {
 }
 
 // createTestIssue creates an issue for testing and returns its ID.
-func createTestIssue(t *testing.T, e *echo.Echo, wsID, title string) string {
+func createTestIssue(t *testing.T, e *echo.Echo, pID, title string) string {
 	t.Helper()
 
 	body := `{"title": "` + title + `", "type": "task", "priority": 2}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+wsID+"/issues", bytes.NewBufferString(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pID+"/issues", bytes.NewBufferString(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
