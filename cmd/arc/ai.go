@@ -63,8 +63,11 @@ var aiSessionCmd = &cobra.Command{
 }
 
 // aiSessionStartCmd creates a new AI session. It requires --id to identify the
-// session and optionally accepts --transcript-path. The create is idempotent:
-// if the session already exists, the existing record is returned.
+// session and optionally accepts --transcript-path and --cwd. The create is
+// idempotent: if the session already exists, the existing record is returned.
+//
+// With --stdin, reads a Claude Code hook JSON payload from stdin instead of
+// flags, extracting session_id, transcript_path, and cwd.
 var aiSessionStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start a new AI session",
@@ -74,16 +77,38 @@ var aiSessionStartCmd = &cobra.Command{
 			return err
 		}
 
-		id, _ := cmd.Flags().GetString("id")
-		transcriptPath, _ := cmd.Flags().GetString("transcript-path")
+		var id, transcriptPath, cwd string
+
+		useStdin, _ := cmd.Flags().GetBool("stdin")
+		if useStdin {
+			data, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("read stdin: %w", err)
+			}
+			if len(data) == 0 {
+				return errors.New("empty stdin payload")
+			}
+			var input hookInput
+			if err := json.Unmarshal(data, &input); err != nil {
+				return fmt.Errorf("parse hook payload: %w", err)
+			}
+			id = input.SessionID
+			transcriptPath = input.TranscriptPath
+			cwd = input.CWD
+		} else {
+			id, _ = cmd.Flags().GetString("id")
+			transcriptPath, _ = cmd.Flags().GetString("transcript-path")
+			cwd, _ = cmd.Flags().GetString("cwd")
+		}
 
 		if id == "" {
-			return errors.New("--id is required")
+			return errors.New("--id is required (or session_id in stdin payload)")
 		}
 
 		session := &types.AISession{
 			ID:             id,
 			TranscriptPath: transcriptPath,
+			CWD:            cwd,
 		}
 
 		created, err := c.CreateAISession(session)
@@ -366,6 +391,8 @@ func init() {
 	// Flags
 	aiSessionStartCmd.Flags().String("id", "", "Session ID")
 	aiSessionStartCmd.Flags().String("transcript-path", "", "Path to transcript file")
+	aiSessionStartCmd.Flags().String("cwd", "", "Working directory")
+	aiSessionStartCmd.Flags().Bool("stdin", false, "Read SessionStart hook payload from stdin")
 
 	aiAgentRegisterCmd.Flags().Bool("stdin", false, "Read PostToolUse payload from stdin")
 
