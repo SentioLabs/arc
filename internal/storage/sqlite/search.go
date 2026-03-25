@@ -73,13 +73,18 @@ func (s *Store) recreateFTSTable(ctx context.Context) {
 		log.Printf("fts: DROP TABLE failed, removing shadow tables manually: %v", err)
 		// FTS5 shadow tables follow the pattern <table>_<suffix>
 		for _, suffix := range []string{"content", "docsize", "config", "data", "idx"} {
-			s.db.ExecContext(ctx, `DROP TABLE IF EXISTS issues_fts_`+suffix) //nolint:errcheck // best-effort cleanup
+			if _, dropErr := s.db.ExecContext(ctx, `DROP TABLE IF EXISTS issues_fts_`+suffix); dropErr != nil {
+				log.Printf("fts: failed to drop shadow table issues_fts_%s: %v", suffix, dropErr)
+			}
 		}
 		// Try dropping the virtual table again now that shadow tables are gone
-		s.db.ExecContext(ctx, `DROP TABLE IF EXISTS issues_fts`) //nolint:errcheck // may still fail
+		if _, dropErr := s.db.ExecContext(ctx, `DROP TABLE IF EXISTS issues_fts`); dropErr != nil {
+			log.Printf("fts: second DROP TABLE attempt also failed: %v", dropErr)
+		}
 	}
-	if _, err := s.db.ExecContext(ctx,
-		`CREATE VIRTUAL TABLE IF NOT EXISTS issues_fts USING fts5(id, title, description, content=issues, content_rowid=rowid)`); err != nil {
+	createSQL := `CREATE VIRTUAL TABLE IF NOT EXISTS issues_fts
+		USING fts5(id, title, description, content=issues, content_rowid=rowid)`
+	if _, err := s.db.ExecContext(ctx, createSQL); err != nil {
 		log.Printf("fts: failed to recreate FTS table: %v", err)
 	}
 }

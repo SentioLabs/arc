@@ -33,4 +33,3 @@ func RenderAgentsMd() (string, error) {
 	}
 	return buf.String(), nil
 }
-
