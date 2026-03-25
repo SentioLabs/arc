@@ -222,7 +222,7 @@ func (s *Server) getSessionTranscript(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, entries)
+	return successJSON(c, normalizeTranscriptEntries(entries))
 }
 
 // getAgentTranscript derives the agent transcript path from the session
@@ -253,7 +253,7 @@ func (s *Server) getAgentTranscript(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return successJSON(c, entries)
+	return successJSON(c, normalizeTranscriptEntries(entries))
 }
 
 // readJSONLFile reads a JSONL file line by line and returns the entries as a
@@ -268,6 +268,8 @@ func readJSONLFile(path string) ([]json.RawMessage, error) {
 
 	var entries []json.RawMessage
 	scanner := bufio.NewScanner(f)
+	// Claude Code transcripts can have very long lines (tool results, etc.)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), 10*1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -280,4 +282,64 @@ func readJSONLFile(path string) ([]json.RawMessage, error) {
 	}
 
 	return entries, nil
+}
+
+// normalizeTranscriptEntries flattens Claude Code transcript entries for the
+// frontend. Claude Code writes entries as {type, message: {role, content, ...}, ...}
+// but the TranscriptViewer expects {role, content, ...} at the top level.
+//
+// For "user" and "assistant" entries, the message fields are promoted to the top
+// level. "progress" entries (tool execution updates) are kept with their type
+// preserved so the frontend can render or filter them.
+func normalizeTranscriptEntries(raw []json.RawMessage) []json.RawMessage {
+	normalized := make([]json.RawMessage, 0, len(raw))
+	for _, entry := range raw {
+		var outer map[string]json.RawMessage
+		if err := json.Unmarshal(entry, &outer); err != nil {
+			normalized = append(normalized, entry)
+			continue
+		}
+
+		msgRaw, hasMessage := outer["message"]
+		if !hasMessage {
+			normalized = append(normalized, entry)
+			continue
+		}
+
+		// Determine entry type
+		var entryType string
+		if t, ok := outer["type"]; ok {
+			_ = json.Unmarshal(t, &entryType)
+		}
+
+		// For user/assistant entries, promote message fields to top level
+		if entryType == "user" || entryType == "assistant" {
+			var msg map[string]json.RawMessage
+			if err := json.Unmarshal(msgRaw, &msg); err != nil {
+				normalized = append(normalized, entry)
+				continue
+			}
+
+			// Start with message fields (role, content, etc.)
+			flat := make(map[string]json.RawMessage, len(msg)+2)
+			for k, v := range msg {
+				flat[k] = v
+			}
+			// Preserve top-level type and timestamp
+			if t, ok := outer["type"]; ok {
+				flat["type"] = t
+			}
+			if ts, ok := outer["timestamp"]; ok {
+				flat["timestamp"] = ts
+			}
+
+			if out, err := json.Marshal(flat); err == nil {
+				normalized = append(normalized, out)
+				continue
+			}
+		}
+
+		normalized = append(normalized, entry)
+	}
+	return normalized
 }
