@@ -98,8 +98,7 @@
 
 	const roles = $derived(teamContext ? Object.entries(teamContext.roles) : []);
 	const totalIssues = $derived(
-		roles.reduce((sum, [, role]) => sum + role.issues.length, 0) +
-			(teamContext?.unassigned?.length ?? 0)
+		roles.reduce((sum, [, role]) => sum + role.issues.length, 0)
 	);
 	const epicOptions = $derived([
 		{ value: '', label: 'All teammate issues' },
@@ -150,7 +149,7 @@
 				<p class="text-status-blocked mb-4">{error}</p>
 				<button class="btn btn-primary" onclick={loadTeamContext}>Retry</button>
 			</div>
-		{:else if roles.length === 0 && (teamContext?.unassigned?.length ?? 0) === 0}
+		{:else if roles.length === 0}
 			<div class="card p-12 text-center">
 				<div
 					class="w-16 h-16 bg-surface-700 rounded-2xl flex items-center justify-center mx-auto mb-4"
@@ -175,16 +174,7 @@
 					<RoleLane {role} issues={data.issues} projectId={projectId} color={getRoleColor(role)} />
 				{/each}
 
-				<!-- Unassigned lane (only when filtering by epic) -->
-				{#if teamContext?.unassigned && teamContext.unassigned.length > 0}
-					<RoleLane
-						role="unassigned"
-						issues={teamContext.unassigned}
-						projectId={projectId}
-						color="#6b7280"
-					/>
-				{/if}
-			</div>
+				</div>
 		{/if}
 	</div>
 {/if}
