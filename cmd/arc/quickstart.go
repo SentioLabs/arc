@@ -96,7 +96,7 @@ arc list --status open # Filter by status
 ### 2. Start working
 ` + "```bash" + `
 arc show <id>                          # View issue details
-arc update <id> --status in_progress   # Claim the issue
+arc update <id> --take                    # Claim the issue (sets session ID + in_progress)
 ` + "```" + `
 
 ### 3. Complete work

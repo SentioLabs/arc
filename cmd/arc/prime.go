@@ -365,9 +365,8 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
     ` + "`arc create \"title\" --type=task --stdin <<'EOF'`" + `
     ` + "`description here`" + `
     ` + "`EOF`" + `
-- ` + "`arc update <id> --status=in_progress`" + ` - Claim work
-- ` + "`arc update <id> --assignee=username`" + ` - Assign to someone
 - ` + "`arc update <id> --take`" + ` - Take issue for current AI session (sets session ID + in_progress)
+- ` + "`arc update <id> --assignee=username`" + ` - Assign to someone
 - ` + "`arc update <id> --title=\"new title\"`" + ` - Update fields
 - ` + "`arc update <id> --stdin <<'EOF'`" + ` - Update description via stdin heredoc
 - ` + "`arc close <id>`" + ` - Mark complete

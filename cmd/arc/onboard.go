@@ -242,7 +242,7 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 	fmt.Println("```bash")
 	fmt.Println("arc ready                           # Find available work")
 	fmt.Println("arc show <id>                       # View issue details")
-	fmt.Println("arc update <id> --status in_progress  # Start working")
+	fmt.Println("arc update <id> --take                  # Start working (sets session ID)")
 	fmt.Println("arc close <id>                      # Complete issue")
 	fmt.Println("arc create \"title\" -p 2            # Create new issue")
 	fmt.Println("```")
