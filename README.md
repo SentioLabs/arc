@@ -104,7 +104,6 @@ arc list                        # All issues
 arc list --status open --type bug
 arc list --parent mp-abc123     # List children of an epic
 arc update mp-abc123 --status in_progress
-arc update mp-abc123 --assignee alice
 arc update mp-abc123 --label-add=urgent --label-remove=backlog
 
 # Close issues
@@ -360,7 +359,7 @@ flowchart TB
 - Status: open, in_progress, blocked, deferred, closed
 - Priority: 0 (critical) - 4 (backlog)
 - Type: bug, feature, task, epic, chore
-- Assignee, external reference
+- External reference
 
 ### Dependency Types
 

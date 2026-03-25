@@ -10,14 +10,12 @@ Available updates:
 - `--priority 0-4`
 - `--title "new title"`
 - `--description "text"` (use for resumability notes)
-- `--assignee NAME`
 - `--type bug|feature|task|epic|chore`
 
 Examples:
 ```bash
 arc update <id> --status in_progress   # Start working
 arc update <id> --priority 1           # Raise priority
-arc update <id> --assignee alice       # Assign to alice
 ```
 
 **Update description via stdin (use --stdin flag):**

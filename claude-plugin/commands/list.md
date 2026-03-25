@@ -8,7 +8,6 @@ List arc issues with optional filtering.
 **Common filters:**
 - `--status open|in_progress|blocked|deferred|closed`
 - `--type bug|feature|task|epic|chore`
-- `--assignee NAME`
 - `--query "search text"`
 - `--limit N`
 

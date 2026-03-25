@@ -1,5 +1,5 @@
 ---
-description: Use this agent when the user needs to interact with the project's issue tracking system via the `arc` CLI tool. This includes: finding recommended work (ready tasks, priorities, what to work on next), creating issues/epics/tasks, updating issue properties (status, priority, assignee, labels), closing issues with resolution notes, managing dependencies between issues (blocks, related, parent-child, discovered-from relationships), performing bulk operations (triage, closing multiple issues, creating epics with children), querying issues (listing, filtering, searching, showing details), or viewing dependency trees and blocked work analysis.
+description: Use this agent when the user needs to interact with the project's issue tracking system via the `arc` CLI tool. This includes: finding recommended work (ready tasks, priorities, what to work on next), creating issues/epics/tasks, updating issue properties (status, priority, labels), closing issues with resolution notes, managing dependencies between issues (blocks, related, parent-child, discovered-from relationships), performing bulk operations (triage, closing multiple issues, creating epics with children), querying issues (listing, filtering, searching, showing details), or viewing dependency trees and blocked work analysis.
 tools:
   - Bash
   - Read
@@ -46,7 +46,6 @@ Types: task, bug, feature, epic, chore
 ```bash
 arc update <id> --status=in_progress    # Claim work
 arc update <id> --status=blocked        # Mark as blocked
-arc update <id> --assignee=<name>       # Assign to someone
 arc update <id> --priority=1            # Change priority
 arc update <id> --title="New title"     # Update title
 
