@@ -108,7 +108,7 @@ var aiSessionStartCmd = &cobra.Command{
 		// Resolve project from the session's CWD
 		resolvedProjectID, err := resolveFromServer(cwd)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Session not tracked: CWD does not map to a registered arc project")
+			_, _ = fmt.Fprintln(os.Stderr, "Session not tracked: CWD does not map to a registered arc project")
 			return nil
 		}
 

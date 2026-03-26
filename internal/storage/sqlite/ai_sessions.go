@@ -41,7 +41,9 @@ func (s *Store) GetAISession(ctx context.Context, id string) (*types.AISession, 
 }
 
 // ListAISessionsByProject returns AI sessions for a project ordered by started_at descending.
-func (s *Store) ListAISessionsByProject(ctx context.Context, projectID string, limit, offset int) ([]*types.AISession, error) {
+func (s *Store) ListAISessionsByProject(
+	ctx context.Context, projectID string, limit, offset int,
+) ([]*types.AISession, error) {
 	rows, err := s.queries.ListAISessionsByProject(ctx, db.ListAISessionsByProjectParams{
 		ProjectID: projectID,
 		Limit:     int64(limit),

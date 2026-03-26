@@ -109,8 +109,14 @@ func TestListAISessionsByProject(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	sessions := []*types.AISession{
 		{ID: "session-list-1", ProjectID: proj.ID, TranscriptPath: "/t/1.jsonl", StartedAt: baseTime},
-		{ID: "session-list-2", ProjectID: proj.ID, TranscriptPath: "/t/2.jsonl", StartedAt: baseTime.Add(1 * time.Hour)},
-		{ID: "session-list-3", ProjectID: proj.ID, TranscriptPath: "/t/3.jsonl", StartedAt: baseTime.Add(2 * time.Hour)},
+		{
+			ID: "session-list-2", ProjectID: proj.ID,
+			TranscriptPath: "/t/2.jsonl", StartedAt: baseTime.Add(1 * time.Hour),
+		},
+		{
+			ID: "session-list-3", ProjectID: proj.ID,
+			TranscriptPath: "/t/3.jsonl", StartedAt: baseTime.Add(2 * time.Hour),
+		},
 	}
 
 	for _, s := range sessions {
