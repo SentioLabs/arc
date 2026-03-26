@@ -37,7 +37,8 @@
 		{ label: 'Issues', href: 'issues', icon: 'issues' },
 		{ label: 'Ready', href: 'ready', icon: 'ready' },
 		{ label: 'Blocked', href: 'blocked', icon: 'blocked' },
-		{ label: 'Teams', href: 'teams', icon: 'teams' }
+		{ label: 'Teams', href: 'teams', icon: 'teams' },
+		{ label: 'AI Sessions', href: 'ai', icon: 'ai' }
 	];
 
 	// Icons as SVG paths
@@ -179,12 +180,6 @@
 					</svg>
 					Labels
 				</a>
-				<a href="/ai" class="nav-link {$page.url.pathname.startsWith('/ai') ? 'active' : ''}">
-					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-						<path d={icons.ai} />
-					</svg>
-					AI Sessions
-				</a>
 			</div>
 
 			<!-- Create Issue button -->
@@ -259,12 +254,6 @@
 						<path d={icons.labels} />
 					</svg>
 					Labels
-				</a>
-				<a href="/ai" class="nav-link {$page.url.pathname.startsWith('/ai') ? 'active' : ''}">
-					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-						<path d={icons.ai} />
-					</svg>
-					AI Sessions
 				</a>
 			</div>
 		</nav>

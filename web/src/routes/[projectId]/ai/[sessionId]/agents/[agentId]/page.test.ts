@@ -27,9 +27,18 @@ describe('Agent transcript page content', () => {
 		expect(pageSource).toContain('getAgentTranscript');
 	});
 
-	test('displays breadcrumb navigation', () => {
+	test('displays breadcrumb navigation with project-scoped links', () => {
 		expect(pageSource).toContain('AI Sessions');
-		expect(pageSource).toContain('/ai');
+		expect(pageSource).toContain('/{projectId}/ai');
+	});
+
+	test('gets projectId from page params', () => {
+		expect(pageSource).toContain('$page.params.projectId');
+	});
+
+	test('passes projectId to API calls', () => {
+		expect(pageSource).toContain('getAIAgent(pid, sid, aid)');
+		expect(pageSource).toContain('getAgentTranscript(pid, sid, aid)');
 	});
 
 	test('displays agent metadata', () => {
@@ -58,5 +67,12 @@ describe('Agent transcript page content', () => {
 
 	test('handles transcript not found with helpful message', () => {
 		expect(pageSource).toMatch(/transcript.*not found|no transcript|unavailable/i);
+	});
+});
+
+describe('Old global AI routes removed', () => {
+	const oldRouteBase = resolve(dir, '../../../../../../ai');
+	test('old /ai route directory does not exist', () => {
+		expect(existsSync(oldRouteBase)).toBe(false);
 	});
 });

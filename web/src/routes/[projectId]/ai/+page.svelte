@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import {
 		listAISessions,
 		deleteAISession,
@@ -6,6 +7,8 @@
 		type AISessionResponse
 	} from '$lib/api/ai';
 	import Select from '$lib/components/Select.svelte';
+
+	const projectId = $derived($page.params.projectId);
 
 	const PAGE_SIZES = [
 		{ value: '25', label: '25 per page' },
@@ -48,10 +51,12 @@
 	});
 
 	async function loadSessions() {
+		const pid = projectId;
+		if (!pid) return;
 		loading = true;
 		error = null;
 		try {
-			const result = await listAISessions(limit, offset);
+			const result = await listAISessions(pid, limit, offset);
 			sessions = result.data ?? [];
 			total = result.total ?? sessions.length;
 		} catch (err) {
@@ -100,9 +105,11 @@
 	}
 
 	async function handleDelete(id: string) {
+		const pid = projectId;
+		if (!pid) return;
 		deleting = true;
 		try {
-			await deleteAISession(id);
+			await deleteAISession(pid, id);
 			confirmDeleteId = null;
 			selected = new Set([...selected].filter((s) => s !== id));
 			await loadSessions();
@@ -114,10 +121,11 @@
 	}
 
 	async function handleBatchDelete() {
-		if (selected.size === 0) return;
+		const pid = projectId;
+		if (!pid || selected.size === 0) return;
 		deleting = true;
 		try {
-			await batchDeleteAISessions([...selected]);
+			await batchDeleteAISessions(pid, [...selected]);
 			confirmBatchDelete = false;
 			selected = new Set();
 			await loadSessions();
@@ -237,7 +245,7 @@
 						</th>
 						<th class="px-4 py-3 font-medium">Session ID</th>
 						<th class="px-4 py-3 font-medium">Started</th>
-						<th class="px-4 py-3 font-medium">CWD</th>
+						<th class="px-4 py-3 font-medium">Path</th>
 						<th class="px-4 py-3 w-10"></th>
 					</tr>
 				</thead>
@@ -258,7 +266,7 @@
 							</td>
 							<td class="px-4 py-3">
 								<a
-									href="/ai/{session.id}"
+									href="/{projectId}/ai/{session.id}"
 									class="font-mono text-sm text-primary-400 hover:text-primary-300 transition-colors"
 									title={session.id}
 								>
@@ -272,7 +280,7 @@
 								class="px-4 py-3 text-sm text-text-secondary font-mono truncate max-w-xs"
 								title={session.cwd ?? ''}
 							>
-								{session.cwd ?? '-'}
+								{session.cwd?.split('/').slice(-2).join('/') ?? '-'}
 							</td>
 							<td class="px-4 py-3">
 								{#if confirmDeleteId === session.id}

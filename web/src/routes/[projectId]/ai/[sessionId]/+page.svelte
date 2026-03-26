@@ -7,6 +7,7 @@
 		type AIAgentResponse
 	} from '$lib/api/ai';
 
+	const projectId = $derived($page.params.projectId);
 	const sessionId = $derived($page.params.sessionId);
 
 	let session = $state<AISessionResponse | null>(null);
@@ -21,14 +22,15 @@
 	});
 
 	async function loadSession() {
+		const pid = projectId;
 		const id = sessionId;
-		if (!id) return;
+		if (!pid || !id) return;
 		loading = true;
 		error = null;
 		try {
 			const [sessionData, agentsData] = await Promise.all([
-				getAISession(id),
-				listAIAgents(id)
+				getAISession(pid, id),
+				listAIAgents(pid, id)
 			]);
 			session = sessionData;
 			agents = agentsData;
@@ -88,7 +90,7 @@
 		<!-- Header -->
 		<header class="mb-6">
 			<div class="flex items-center gap-2 mb-2">
-				<a href="/ai" class="text-text-muted hover:text-text-primary transition-colors text-sm">
+				<a href="/{projectId}/ai" class="text-text-muted hover:text-text-primary transition-colors text-sm">
 					AI Sessions
 				</a>
 				<span class="text-text-muted text-sm">/</span>
@@ -144,7 +146,7 @@
 								<tr class="border-b border-border last:border-0 hover:bg-surface-700/50 transition-colors">
 									<td class="px-4 py-3 text-sm text-text-primary max-w-xs truncate" title={agent.description ?? ''}>
 										<a
-											href="/ai/{session.id}/agents/{agent.id}"
+											href="/{projectId}/ai/{session.id}/agents/{agent.id}"
 											class="hover:text-primary-400 transition-colors"
 										>
 											{agent.description ?? '-'}

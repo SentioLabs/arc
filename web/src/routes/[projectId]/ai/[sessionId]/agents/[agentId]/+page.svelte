@@ -7,6 +7,7 @@
 	} from '$lib/api/ai';
 	import TranscriptViewer from '$lib/components/TranscriptViewer.svelte';
 
+	const projectId = $derived($page.params.projectId);
 	const sessionId = $derived($page.params.sessionId);
 	const agentId = $derived($page.params.agentId);
 
@@ -23,16 +24,17 @@
 	});
 
 	async function loadData() {
+		const pid = projectId;
 		const sid = sessionId;
 		const aid = agentId;
-		if (!sid || !aid) return;
+		if (!pid || !sid || !aid) return;
 		loading = true;
 		error = null;
 		transcriptNotFound = false;
 		try {
 			const [agentData, transcriptData] = await Promise.allSettled([
-				getAIAgent(sid, aid),
-				getAgentTranscript(sid, aid)
+				getAIAgent(pid, sid, aid),
+				getAgentTranscript(pid, sid, aid)
 			]);
 
 			if (agentData.status === 'fulfilled') {
@@ -98,11 +100,11 @@
 		<!-- Breadcrumb -->
 		<header class="mb-6">
 			<div class="flex items-center gap-2 mb-2 text-sm">
-				<a href="/ai" class="text-text-muted hover:text-text-primary transition-colors">
+				<a href="/{projectId}/ai" class="text-text-muted hover:text-text-primary transition-colors">
 					AI Sessions
 				</a>
 				<span class="text-text-muted">/</span>
-				<a href="/ai/{sessionId}" class="text-text-muted hover:text-text-primary transition-colors font-mono">
+				<a href="/{projectId}/ai/{sessionId}" class="text-text-muted hover:text-text-primary transition-colors font-mono">
 					Session {sessionId?.substring(0, 8)}
 				</a>
 				<span class="text-text-muted">/</span>
