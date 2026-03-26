@@ -113,6 +113,10 @@
 					<span class="text-text-muted">Agents:</span>
 					{agents.length}
 				</div>
+				<div class="font-mono">
+					<span class="text-text-muted">Tokens:</span>
+					{formatTokens(agents.reduce((sum, a) => sum + (a.total_tokens ?? 0), 0))}
+				</div>
 			</div>
 		</header>
 
