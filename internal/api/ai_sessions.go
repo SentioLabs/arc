@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,7 +49,10 @@ type aiSessionResponse struct {
 
 // createAISession creates a new AI session. Idempotent: if the session already
 // exists, the existing record is returned.
+// The projectId is extracted from the URL path and CWD is validated against it.
 func (s *Server) createAISession(c echo.Context) error {
+	projectID := c.Param("projectId")
+
 	var req createAISessionRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
@@ -58,14 +62,31 @@ func (s *Server) createAISession(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "id is required")
 	}
 
+	ctx := c.Request().Context()
+
+	// Validate CWD maps to the given project
+	if req.CWD != "" {
+		ws, err := s.store.ResolveProjectByPath(ctx, req.CWD)
+		if err != nil {
+			log.Printf("WARN: CWD %q does not resolve to any project: %v", req.CWD, err)
+			return errorJSON(c, http.StatusUnprocessableEntity,
+				fmt.Sprintf("CWD %q does not resolve to a known project", req.CWD))
+		}
+		if ws.ProjectID != projectID {
+			log.Printf("WARN: CWD %q resolves to project %q, not %q", req.CWD, ws.ProjectID, projectID)
+			return errorJSON(c, http.StatusUnprocessableEntity,
+				fmt.Sprintf("CWD %q belongs to project %q, not %q", req.CWD, ws.ProjectID, projectID))
+		}
+	}
+
 	session := &types.AISession{
 		ID:             req.ID,
+		ProjectID:      projectID,
 		TranscriptPath: req.TranscriptPath,
 		CWD:            req.CWD,
 		StartedAt:      time.Now().UTC(),
 	}
 
-	ctx := c.Request().Context()
 	if err := s.store.CreateAISession(ctx, session); err != nil {
 		// Check for idempotent case: session already exists
 		existing, getErr := s.store.GetAISession(ctx, req.ID)
@@ -78,17 +99,33 @@ func (s *Server) createAISession(c echo.Context) error {
 	return createdJSON(c, session)
 }
 
+// validateSessionProject fetches a session and verifies it belongs to the given project.
+// Returns the session if valid, or writes an error response and returns nil.
+func (s *Server) validateSessionProject(c echo.Context, sessionID, projectID string) (*types.AISession, error) {
+	ctx := c.Request().Context()
+	session, err := s.store.GetAISession(ctx, sessionID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, errorJSON(c, http.StatusNotFound, err.Error())
+		}
+		return nil, errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+	if session.ProjectID != projectID {
+		msg := fmt.Sprintf("session %q not found in project %q", sessionID, projectID)
+		return nil, errorJSON(c, http.StatusNotFound, msg)
+	}
+	return session, nil
+}
+
 // getAISession retrieves an AI session by ID, including its agents.
 func (s *Server) getAISession(c echo.Context) error {
 	id := c.Param("id")
+	projectID := c.Param("projectId")
 	ctx := c.Request().Context()
 
-	session, err := s.store.GetAISession(ctx, id)
+	session, err := s.validateSessionProject(c, id, projectID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return errorJSON(c, http.StatusNotFound, err.Error())
-		}
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return err
 	}
 
 	agents, err := s.store.ListAIAgents(ctx, id)
@@ -102,18 +139,19 @@ func (s *Server) getAISession(c echo.Context) error {
 	})
 }
 
-// listAISessions returns a paginated list of AI sessions.
-func (s *Server) listAISessions(c echo.Context) error {
+// listAISessionsByProject returns a paginated list of AI sessions for a project.
+func (s *Server) listAISessionsByProject(c echo.Context) error {
+	projectID := c.Param("projectId")
 	limit := queryInt(c, "limit", defaultListLimit)
 	offset := queryInt(c, "offset", 0)
 	ctx := c.Request().Context()
 
-	sessions, err := s.store.ListAISessions(ctx, limit, offset)
+	sessions, err := s.store.ListAISessionsByProject(ctx, projectID, limit, offset)
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	total, err := s.store.CountAISessions(ctx)
+	total, err := s.store.CountAISessionsByProject(ctx, projectID)
 	if err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
@@ -124,6 +162,11 @@ func (s *Server) listAISessions(c echo.Context) error {
 // deleteAISession deletes an AI session by ID.
 func (s *Server) deleteAISession(c echo.Context) error {
 	id := c.Param("id")
+	projectID := c.Param("projectId")
+
+	if _, err := s.validateSessionProject(c, id, projectID); err != nil {
+		return err
+	}
 
 	if err := s.store.DeleteAISession(c.Request().Context(), id); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
@@ -138,7 +181,10 @@ type batchDeleteAISessionsRequest struct {
 }
 
 // batchDeleteAISessions deletes multiple AI sessions by ID.
+// Only sessions belonging to the path projectId are deleted.
 func (s *Server) batchDeleteAISessions(c echo.Context) error {
+	projectID := c.Param("projectId")
+
 	var req batchDeleteAISessionsRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
@@ -151,6 +197,14 @@ func (s *Server) batchDeleteAISessions(c echo.Context) error {
 	ctx := c.Request().Context()
 	deleted := 0
 	for _, id := range req.IDs {
+		// Verify session belongs to this project before deleting
+		session, err := s.store.GetAISession(ctx, id)
+		if err != nil {
+			continue
+		}
+		if session.ProjectID != projectID {
+			continue
+		}
 		if err := s.store.DeleteAISession(ctx, id); err == nil {
 			deleted++
 		}
@@ -163,6 +217,7 @@ func (s *Server) batchDeleteAISessions(c echo.Context) error {
 // exist, it is auto-created (lazy fallback).
 func (s *Server) createAIAgent(c echo.Context) error {
 	sessionID := c.Param("id")
+	projectID := c.Param("projectId")
 
 	var req createAIAgentRequest
 	if err := c.Bind(&req); err != nil {
@@ -180,6 +235,7 @@ func (s *Server) createAIAgent(c echo.Context) error {
 		if strings.Contains(err.Error(), "not found") {
 			lazySession := &types.AISession{
 				ID:        sessionID,
+				ProjectID: projectID,
 				StartedAt: time.Now().UTC(),
 			}
 			if createErr := s.store.CreateAISession(ctx, lazySession); createErr != nil {
@@ -214,6 +270,11 @@ func (s *Server) createAIAgent(c echo.Context) error {
 // listAIAgents returns all agents for a session.
 func (s *Server) listAIAgents(c echo.Context) error {
 	sessionID := c.Param("id")
+	projectID := c.Param("projectId")
+
+	if _, err := s.validateSessionProject(c, sessionID, projectID); err != nil {
+		return err
+	}
 
 	agents, err := s.store.ListAIAgents(c.Request().Context(), sessionID)
 	if err != nil {
@@ -225,8 +286,14 @@ func (s *Server) listAIAgents(c echo.Context) error {
 
 // getAIAgent retrieves a single agent by ID.
 func (s *Server) getAIAgent(c echo.Context) error {
+	sessionID := c.Param("id")
+	projectID := c.Param("projectId")
 	agentID := c.Param("aid")
 	ctx := c.Request().Context()
+
+	if _, err := s.validateSessionProject(c, sessionID, projectID); err != nil {
+		return err
+	}
 
 	agent, err := s.store.GetAIAgent(ctx, agentID)
 	if err != nil {
@@ -243,22 +310,19 @@ func (s *Server) getAIAgent(c echo.Context) error {
 // and returns the entries as a JSON array.
 func (s *Server) getSessionTranscript(c echo.Context) error {
 	id := c.Param("id")
-	ctx := c.Request().Context()
+	projectID := c.Param("projectId")
 
-	session, err := s.store.GetAISession(ctx, id)
+	session, err := s.validateSessionProject(c, id, projectID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return errorJSON(c, http.StatusNotFound, err.Error())
-		}
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return err
 	}
 
-	entries, err := readJSONLFile(session.TranscriptPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+	entries, readErr := readJSONLFile(session.TranscriptPath)
+	if readErr != nil {
+		if os.IsNotExist(readErr) {
 			return errorJSON(c, http.StatusNotFound, "transcript file not found")
 		}
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return errorJSON(c, http.StatusInternalServerError, readErr.Error())
 	}
 
 	return successJSON(c, NormalizeTranscriptEntries(entries))
@@ -269,27 +333,24 @@ func (s *Server) getSessionTranscript(c echo.Context) error {
 // and returns the entries as a JSON array.
 func (s *Server) getAgentTranscript(c echo.Context) error {
 	sessionID := c.Param("id")
+	projectID := c.Param("projectId")
 	agentID := c.Param("aid")
-	ctx := c.Request().Context()
 
-	session, err := s.store.GetAISession(ctx, sessionID)
+	session, err := s.validateSessionProject(c, sessionID, projectID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return errorJSON(c, http.StatusNotFound, err.Error())
-		}
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return err
 	}
 
 	// Derive agent transcript path: <dir>/<session-id>/subagents/agent-<agent-id>.jsonl
 	dir := filepath.Dir(session.TranscriptPath)
 	agentPath := filepath.Join(dir, sessionID, "subagents", fmt.Sprintf("agent-%s.jsonl", agentID))
 
-	entries, err := readJSONLFile(agentPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+	entries, readErr := readJSONLFile(agentPath)
+	if readErr != nil {
+		if os.IsNotExist(readErr) {
 			return errorJSON(c, http.StatusNotFound, "agent transcript file not found")
 		}
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return errorJSON(c, http.StatusInternalServerError, readErr.Error())
 	}
 
 	return successJSON(c, NormalizeTranscriptEntries(entries))

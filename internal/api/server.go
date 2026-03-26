@@ -139,9 +139,9 @@ func (s *Server) registerRoutes() {
 	v1.PUT("/labels/:name", s.updateLabel)
 	v1.DELETE("/labels/:name", s.deleteLabel)
 
-	// Project-scoped and AI routes
+	// Project-scoped routes (issues, AI sessions, etc.)
 	s.registerProjectRoutes(v1)
-	s.registerAIRoutes(v1)
+	s.registerProjectAIRoutes(v1)
 }
 
 // registerProjectRoutes sets up project-scoped issue, dependency, label, comment, and event routes.
@@ -169,19 +169,19 @@ func (s *Server) registerProjectRoutes(v1 *echo.Group) {
 	proj.GET("/issues/:id/events", s.getEvents)
 }
 
-// registerAIRoutes sets up AI session observability routes.
-func (s *Server) registerAIRoutes(v1 *echo.Group) {
-	ai := v1.Group("/ai")
-	ai.POST("/sessions", s.createAISession)
-	ai.GET("/sessions", s.listAISessions)
-	ai.POST("/sessions/batch-delete", s.batchDeleteAISessions)
-	ai.GET("/sessions/:id", s.getAISession)
-	ai.DELETE("/sessions/:id", s.deleteAISession)
-	ai.POST("/sessions/:id/agents", s.createAIAgent)
-	ai.GET("/sessions/:id/agents", s.listAIAgents)
-	ai.GET("/sessions/:id/agents/:aid", s.getAIAgent)
-	ai.GET("/sessions/:id/transcript", s.getSessionTranscript)
-	ai.GET("/sessions/:id/agents/:aid/transcript", s.getAgentTranscript)
+// registerProjectAIRoutes sets up project-scoped AI session routes.
+func (s *Server) registerProjectAIRoutes(v1 *echo.Group) {
+	projectAI := v1.Group("/projects/:projectId/ai")
+	projectAI.POST("/sessions", s.createAISession)
+	projectAI.GET("/sessions", s.listAISessionsByProject)
+	projectAI.POST("/sessions/batch-delete", s.batchDeleteAISessions)
+	projectAI.GET("/sessions/:id", s.getAISession)
+	projectAI.DELETE("/sessions/:id", s.deleteAISession)
+	projectAI.POST("/sessions/:id/agents", s.createAIAgent)
+	projectAI.GET("/sessions/:id/agents", s.listAIAgents)
+	projectAI.GET("/sessions/:id/agents/:aid", s.getAIAgent)
+	projectAI.GET("/sessions/:id/transcript", s.getSessionTranscript)
+	projectAI.GET("/sessions/:id/agents/:aid/transcript", s.getAgentTranscript)
 }
 
 // HealthResponse contains health check information.
