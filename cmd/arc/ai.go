@@ -71,6 +71,10 @@ var aiSessionCmd = &cobra.Command{
 //
 // With --stdin, reads a Claude Code hook JSON payload from stdin instead of
 // flags, extracting session_id, transcript_path, and cwd.
+// errSkipSession signals that the session should not be tracked.
+// This is not an error condition — the CWD simply doesn't belong to an arc project.
+var errSkipSession = errors.New("skip session")
+
 var aiSessionStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start a new AI session",
@@ -78,17 +82,28 @@ var aiSessionStartCmd = &cobra.Command{
 		useStdin, _ := cmd.Flags().GetBool("stdin")
 
 		err := runSessionStart(cmd, useStdin)
-		if err != nil && useStdin {
-			// Hook mode: log and suppress — never block session startup.
-			_, _ = fmt.Fprintf(os.Stderr, "arc: session not tracked: %v\n", err)
+		if err == nil {
 			return nil
 		}
+
+		// In hook mode, distinguish expected skips from real errors.
+		if useStdin {
+			if errors.Is(err, errSkipSession) {
+				// Expected: unregistered project, bad payload — exit 0, no output.
+				return nil
+			}
+			// Real error (server down, API failure) — let Cobra report it
+			// so it appears in verbose hook logs.
+			return err
+		}
+
 		return err
 	},
 }
 
-// runSessionStart contains the session-start logic. It returns an error on any
-// failure; the caller decides whether to propagate or suppress it.
+// runSessionStart contains the session-start logic. Returns errSkipSession
+// for expected non-error conditions (unregistered project, empty payload),
+// or a regular error for real failures (server unreachable, API rejection).
 func runSessionStart(cmd *cobra.Command, useStdin bool) error {
 	c, err := getClient()
 	if err != nil {
@@ -103,11 +118,11 @@ func runSessionStart(cmd *cobra.Command, useStdin bool) error {
 			return fmt.Errorf("read stdin: %w", err)
 		}
 		if len(data) == 0 {
-			return errors.New("empty stdin payload")
+			return errSkipSession
 		}
 		var input hookInput
 		if err := json.Unmarshal(data, &input); err != nil {
-			return fmt.Errorf("parse hook payload: %w", err)
+			return fmt.Errorf("%w: %v", errSkipSession, err) //nolint:errorlint // wrapping sentinel with context
 		}
 		id = input.SessionID
 		transcriptPath = input.TranscriptPath
@@ -119,12 +134,17 @@ func runSessionStart(cmd *cobra.Command, useStdin bool) error {
 	}
 
 	if id == "" {
-		return errors.New("--id is required (or session_id in stdin payload)")
+		if useStdin {
+			// Hook payload missing session_id — nothing to track.
+			return errSkipSession
+		}
+		return errors.New("--id is required")
 	}
 
 	resolvedProjectID, err := resolveFromServer(cwd)
-	if err != nil {
-		return fmt.Errorf("CWD does not map to a registered arc project: %w", err)
+	if err != nil || resolvedProjectID == "" {
+		// CWD doesn't map to a registered project — expected skip, not an error.
+		return errSkipSession
 	}
 
 	session := &types.AISession{
