@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Header, ConfirmDialog, FilesystemBrowser } from '$lib/components';
+	import RecentAISessions from '$lib/components/RecentAISessions.svelte';
 	import { page } from '$app/stores';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -357,6 +358,11 @@
 					</div>
 				{/each}
 			</div>
+
+			<!-- Recent AI Sessions -->
+			<section class="mb-8">
+				<RecentAISessions projectId={project.id} />
+			</section>
 
 			<!-- Paths Section — terminal-style display -->
 			<section class="mb-8">
