@@ -11,11 +11,14 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-const testProjectID = "p-1"
+const (
+	testProjectID       = "p-1"
+	testUserProjectPath = "/home/user/project"
+)
 
 func TestListWorkspaces(t *testing.T) {
 	expected := []*types.Workspace{
-		{ID: testProjectID, ProjectID: "proj-abc", Path: "/home/user/project"},
+		{ID: testProjectID, ProjectID: "proj-abc", Path: testUserProjectPath},
 		{ID: "p-2", ProjectID: "proj-abc", Path: "/tmp/worktree"},
 	}
 
@@ -51,7 +54,7 @@ func TestCreateWorkspace(t *testing.T) {
 	expected := &types.Workspace{
 		ID:        "p-new",
 		ProjectID: "proj-abc",
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 		Label:     "main",
 		Hostname:  "dev-machine",
 		GitRemote: "git@github.com:user/project.git",
@@ -70,7 +73,7 @@ func TestCreateWorkspace(t *testing.T) {
 		if err := json.Unmarshal(body, &req); err != nil {
 			t.Fatalf("failed to decode request body: %v", err)
 		}
-		if req.Path != "/home/user/project" {
+		if req.Path != testUserProjectPath {
 			t.Errorf("expected path /home/user/project, got %s", req.Path)
 		}
 		if req.Label != "main" {
@@ -91,7 +94,7 @@ func TestCreateWorkspace(t *testing.T) {
 
 	c := client.New(server.URL)
 	result, err := c.CreateWorkspace("proj-abc", client.CreateWorkspaceRequest{
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 		Label:     "main",
 		Hostname:  "dev-machine",
 		GitRemote: "git@github.com:user/project.git",
@@ -141,7 +144,7 @@ func TestResolveProjectByPath(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		queryPath := r.URL.Query().Get("path")
-		if queryPath != "/home/user/project" {
+		if queryPath != testUserProjectPath {
 			t.Errorf("expected query path /home/user/project, got %s", queryPath)
 		}
 
@@ -151,7 +154,7 @@ func TestResolveProjectByPath(t *testing.T) {
 	defer server.Close()
 
 	c := client.New(server.URL)
-	result, err := c.ResolveProjectByPath("/home/user/project")
+	result, err := c.ResolveProjectByPath(testUserProjectPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -170,7 +173,7 @@ func TestUpdateWorkspace(t *testing.T) {
 	expected := &types.Workspace{
 		ID:        testProjectID,
 		ProjectID: "proj-abc",
-		Path:      "/home/user/project",
+		Path:      testUserProjectPath,
 		Label:     "updated-label",
 	}
 

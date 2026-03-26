@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const testProjectID = "proj-test"
+
 // TestPlanValidate removed — Plan no longer has Validate() method.
 // New plan types are tested in plan_test.go.
 
@@ -156,7 +158,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "valid open issue",
 			issue: Issue{
 				Title:     "Test Issue",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    StatusOpen,
 				Priority:  2,
 				IssueType: TypeTask,
@@ -167,7 +169,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "valid closed issue",
 			issue: Issue{
 				Title:     "Test Issue",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    StatusClosed,
 				Priority:  2,
 				IssueType: TypeTask,
@@ -179,7 +181,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "missing title",
 			issue: Issue{
 				Title:     "",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    StatusOpen,
 				Priority:  2,
 				IssueType: TypeTask,
@@ -203,7 +205,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "invalid priority too low",
 			issue: Issue{
 				Title:     "Test Issue",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    StatusOpen,
 				Priority:  -1,
 				IssueType: TypeTask,
@@ -214,7 +216,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "invalid priority too high",
 			issue: Issue{
 				Title:     "Test Issue",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    StatusOpen,
 				Priority:  5,
 				IssueType: TypeTask,
@@ -225,7 +227,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "invalid status",
 			issue: Issue{
 				Title:     "Test Issue",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    Status("invalid"),
 				Priority:  2,
 				IssueType: TypeTask,
@@ -236,7 +238,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "closed without closed_at",
 			issue: Issue{
 				Title:     "Test Issue",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    StatusClosed,
 				Priority:  2,
 				IssueType: TypeTask,
@@ -249,7 +251,7 @@ func TestIssueValidate(t *testing.T) {
 			name: "not closed but has closed_at",
 			issue: Issue{
 				Title:     "Test Issue",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Status:    StatusOpen,
 				Priority:  2,
 				IssueType: TypeTask,
@@ -281,7 +283,7 @@ func TestIssueValidate(t *testing.T) {
 func TestIssueSetDefaults(t *testing.T) {
 	issue := Issue{
 		Title:     "Test Issue",
-		ProjectID: "proj-test",
+		ProjectID: testProjectID,
 	}
 
 	issue.SetDefaults()
@@ -531,7 +533,7 @@ func TestWorkspaceValidate(t *testing.T) {
 			name: "valid workspace",
 			ws: Workspace{
 				ID:        "ws-abc123",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Path:      "/home/user/project",
 			},
 			wantErr: false,
@@ -540,7 +542,7 @@ func TestWorkspaceValidate(t *testing.T) {
 			name: "missing path",
 			ws: Workspace{
 				ID:        "ws-abc123",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Path:      "",
 			},
 			wantErr: true,
@@ -567,7 +569,7 @@ func TestWorkspaceValidate(t *testing.T) {
 			name: "with optional fields",
 			ws: Workspace{
 				ID:        "ws-abc123",
-				ProjectID: "proj-test",
+				ProjectID: testProjectID,
 				Path:      "/home/user/project",
 				Label:     "main",
 				Hostname:  "dev-machine",
@@ -598,7 +600,7 @@ func TestWorkspaceValidate(t *testing.T) {
 func TestIssueFilterParentIDField(t *testing.T) {
 	// Verify that IssueFilter has a ProjectID field and it works as expected
 	filter := IssueFilter{
-		ProjectID: "proj-test",
+		ProjectID: testProjectID,
 		ParentID:  "arc-abc123",
 	}
 
@@ -608,7 +610,7 @@ func TestIssueFilterParentIDField(t *testing.T) {
 
 	// Verify empty ParentID is the zero value
 	emptyFilter := IssueFilter{
-		ProjectID: "proj-test",
+		ProjectID: testProjectID,
 	}
 	if emptyFilter.ParentID != "" {
 		t.Errorf("IssueFilter.ParentID should be empty by default, got %q", emptyFilter.ParentID)
@@ -617,7 +619,7 @@ func TestIssueFilterParentIDField(t *testing.T) {
 
 func TestIssueFilterMultiValueFields(t *testing.T) {
 	filter := IssueFilter{
-		ProjectID:  "proj-test",
+		ProjectID:  testProjectID,
 		Statuses:   []Status{StatusOpen, StatusInProgress},
 		Priorities: []int{0, 1, 2},
 		IssueTypes: []IssueType{TypeBug, TypeFeature},
@@ -634,7 +636,7 @@ func TestIssueFilterMultiValueFields(t *testing.T) {
 	}
 
 	// Zero-value filter should have nil slices
-	empty := IssueFilter{ProjectID: "proj-test"}
+	empty := IssueFilter{ProjectID: testProjectID}
 	if empty.Statuses != nil || empty.Priorities != nil || empty.IssueTypes != nil {
 		t.Error("zero-value IssueFilter should have nil slices")
 	}
@@ -659,13 +661,13 @@ func TestMergeResultTargetProject(t *testing.T) {
 func TestProjectResolution(t *testing.T) {
 	// Verify ProjectResolution type exists with correct fields
 	res := ProjectResolution{
-		ProjectID:   "proj-test",
+		ProjectID:   testProjectID,
 		ProjectName: "test-project",
 		PathID:      "ws-abc123",
 	}
 
-	if res.ProjectID != "proj-test" {
-		t.Errorf("ProjectResolution.ProjectID = %q, want %q", res.ProjectID, "proj-test")
+	if res.ProjectID != testProjectID {
+		t.Errorf("ProjectResolution.ProjectID = %q, want %q", res.ProjectID, testProjectID)
 	}
 	if res.ProjectName != "test-project" {
 		t.Errorf("ProjectResolution.ProjectName = %q, want %q", res.ProjectName, "test-project")
@@ -678,12 +680,12 @@ func TestProjectResolution(t *testing.T) {
 func TestStatisticsProjectID(t *testing.T) {
 	// Verify Statistics uses ProjectID
 	stats := Statistics{
-		ProjectID:   "proj-test",
+		ProjectID:   testProjectID,
 		TotalIssues: 10,
 	}
 
-	if stats.ProjectID != "proj-test" {
-		t.Errorf("Statistics.ProjectID = %q, want %q", stats.ProjectID, "proj-test")
+	if stats.ProjectID != testProjectID {
+		t.Errorf("Statistics.ProjectID = %q, want %q", stats.ProjectID, testProjectID)
 	}
 }
 
@@ -694,7 +696,7 @@ func TestAISessionStruct(t *testing.T) {
 	now := time.Now()
 	session := AISession{
 		ID:             "session-abc123",
-		ProjectID:      "proj-test",
+		ProjectID:      testProjectID,
 		TranscriptPath: "/home/user/.claude/projects/test/transcript.jsonl",
 		CWD:            "/home/user/project",
 		StartedAt:      now,
@@ -703,8 +705,8 @@ func TestAISessionStruct(t *testing.T) {
 	if session.ID != "session-abc123" {
 		t.Errorf("AISession.ID = %q, want %q", session.ID, "session-abc123")
 	}
-	if session.ProjectID != "proj-test" {
-		t.Errorf("AISession.ProjectID = %q, want %q", session.ProjectID, "proj-test")
+	if session.ProjectID != testProjectID {
+		t.Errorf("AISession.ProjectID = %q, want %q", session.ProjectID, testProjectID)
 	}
 	if session.TranscriptPath != "/home/user/.claude/projects/test/transcript.jsonl" {
 		t.Errorf("AISession.TranscriptPath = %q, want expected path", session.TranscriptPath)

@@ -1,3 +1,6 @@
+// Package main provides CLI commands for managing AI sessions and agents.
+// These commands integrate with Claude Code hooks (SessionStart, PostToolUse)
+// to track AI coding sessions and their spawned subagents.
 package main
 
 import (
