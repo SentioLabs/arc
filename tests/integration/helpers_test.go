@@ -9,6 +9,7 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -164,5 +165,55 @@ func setupHome(t *testing.T) string {
 	}
 
 	return home
+}
+
+// setupAIProject creates an isolated HOME, a project via the HTTP API, and
+// registers a workspace path for AI session tests. It returns the HOME
+// directory, project ID, and workspace directory path.
+func setupAIProject(t *testing.T) (home string, projectID string, workDir string) {
+	t.Helper()
+
+	home = setupHome(t)
+	workDir = t.TempDir()
+
+	// Create project via API.
+	projName := fmt.Sprintf("ai-test-%d", time.Now().UnixNano())
+	projPrefix := fmt.Sprintf("at%d", time.Now().UnixNano()%10000)
+	body := fmt.Sprintf(`{"name":%q,"prefix":%q}`, projName, projPrefix)
+	resp, err := http.Post(serverURL+"/api/v1/projects", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("create project via API: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		respBody, _ := io.ReadAll(resp.Body)
+		t.Fatalf("create project: expected 201, got %d: %s", resp.StatusCode, respBody)
+	}
+
+	var proj struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&proj); err != nil {
+		t.Fatalf("parse project response: %v", err)
+	}
+	projectID = proj.ID
+
+	// Register workspace path.
+	wsBody := fmt.Sprintf(`{"path":%q}`, workDir)
+	wsResp, err := http.Post(
+		serverURL+"/api/v1/projects/"+projectID+"/workspaces",
+		"application/json",
+		strings.NewReader(wsBody),
+	)
+	if err != nil {
+		t.Fatalf("register workspace via API: %v", err)
+	}
+	defer wsResp.Body.Close()
+	if wsResp.StatusCode != http.StatusCreated {
+		respBody, _ := io.ReadAll(wsResp.Body)
+		t.Fatalf("register workspace: expected 201, got %d: %s", wsResp.StatusCode, respBody)
+	}
+
+	return home, projectID, workDir
 }
 

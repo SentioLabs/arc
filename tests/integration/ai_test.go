@@ -17,11 +17,12 @@ import (
 // TestAISessionStart verifies that `arc ai session start` creates a session
 // and returns a confirmation message.
 func TestAISessionStart(t *testing.T) {
-	home := setupHome(t)
+	home, _, workDir := setupAIProject(t)
 
 	output := arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-session-start-001",
 		"--transcript-path", "/tmp/test.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	if !strings.Contains(output, "test-session-start-001") {
@@ -32,17 +33,19 @@ func TestAISessionStart(t *testing.T) {
 // TestAISessionStartIdempotent verifies that starting the same session twice
 // succeeds (idempotent) and returns the existing session.
 func TestAISessionStartIdempotent(t *testing.T) {
-	home := setupHome(t)
+	home, _, workDir := setupAIProject(t)
 
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-session-idempotent",
 		"--transcript-path", "/tmp/test.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	// Second call with same ID should also succeed.
 	output := arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-session-idempotent",
 		"--transcript-path", "/tmp/test.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	if !strings.Contains(output, "test-session-idempotent") {
@@ -66,11 +69,12 @@ func TestAISessionStartMissingID(t *testing.T) {
 
 // TestAISessionStartJsonOutput verifies JSON output from session start.
 func TestAISessionStartJsonOutput(t *testing.T) {
-	home := setupHome(t)
+	home, _, workDir := setupAIProject(t)
 
 	output := arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-session-json-out",
 		"--transcript-path", "/tmp/test.jsonl",
+		"--cwd", workDir,
 		"--json",
 		"--server", serverURL)
 
@@ -93,19 +97,22 @@ func TestAISessionStartJsonOutput(t *testing.T) {
 
 // TestAISessionList verifies that `arc ai session list` shows created sessions.
 func TestAISessionList(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	// Create two sessions.
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-list-sess-a",
 		"--transcript-path", "/tmp/a.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-list-sess-b",
 		"--transcript-path", "/tmp/b.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	output := arcCmdSuccess(t, home, "ai", "session", "list", "--server", serverURL)
+	output := arcCmdSuccess(t, home, "ai", "session", "list",
+		"--project", projectID, "--server", serverURL)
 
 	if !strings.Contains(output, "test-list-sess-a") {
 		t.Errorf("expected session a in list output, got: %s", output)
@@ -118,25 +125,27 @@ func TestAISessionList(t *testing.T) {
 // TestAISessionListEmpty verifies that listing sessions when none exist
 // produces a friendly message, not an error.
 func TestAISessionListEmpty(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, _ := setupAIProject(t)
 
-	// Use a fresh server — sessions from other tests may exist, but
-	// we at least verify the command doesn't fail.
-	output := arcCmdSuccess(t, home, "ai", "session", "list", "--server", serverURL)
+	// Use a fresh project — no sessions exist yet.
+	output := arcCmdSuccess(t, home, "ai", "session", "list",
+		"--project", projectID, "--server", serverURL)
 	// Should either show sessions or "No AI sessions found"
 	_ = output
 }
 
 // TestAISessionListJsonOutput verifies JSON output from session list.
 func TestAISessionListJsonOutput(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-list-json-sess",
 		"--transcript-path", "/tmp/test.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	output := arcCmdSuccess(t, home, "ai", "session", "list", "--json", "--server", serverURL)
+	output := arcCmdSuccess(t, home, "ai", "session", "list",
+		"--json", "--project", projectID, "--server", serverURL)
 
 	// The CLI outputs a JSON array of sessions (not wrapped in {items:...}).
 	var sessions []interface{}
@@ -155,14 +164,16 @@ func TestAISessionListJsonOutput(t *testing.T) {
 // TestAISessionShow verifies that `arc ai session show` displays session
 // details and any agents.
 func TestAISessionShow(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-show-sess",
 		"--transcript-path", "/tmp/show.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	output := arcCmdSuccess(t, home, "ai", "session", "show", "test-show-sess", "--server", serverURL)
+	output := arcCmdSuccess(t, home, "ai", "session", "show", "test-show-sess",
+		"--project", projectID, "--server", serverURL)
 
 	if !strings.Contains(output, "test-show-sess") {
 		t.Errorf("expected session ID in show output, got: %s", output)
@@ -174,15 +185,17 @@ func TestAISessionShow(t *testing.T) {
 
 // TestAISessionShowJsonOutput verifies JSON output from session show.
 func TestAISessionShowJsonOutput(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-show-json-sess",
 		"--transcript-path", "/tmp/show.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	output := arcCmdSuccess(t, home, "ai", "session", "show",
-		"test-show-json-sess", "--json", "--server", serverURL)
+		"test-show-json-sess", "--json",
+		"--project", projectID, "--server", serverURL)
 
 	var session map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &session); err != nil {
@@ -202,18 +215,20 @@ func TestAISessionShowJsonOutput(t *testing.T) {
 // TestAISessionShowWithAgents verifies that session show includes agents
 // that were registered against the session.
 func TestAISessionShowWithAgents(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-show-with-agents"
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/tmp/test.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	// Register an agent via the API directly to keep the test focused.
-	registerAgentViaAPI(t, sessionID, "agent-show-test-001", "Test agent")
+	registerAgentViaAPI(t, projectID, sessionID, "agent-show-test-001", "Test agent")
 
-	output := arcCmdSuccess(t, home, "ai", "session", "show", sessionID, "--json", "--server", serverURL)
+	output := arcCmdSuccess(t, home, "ai", "session", "show", sessionID, "--json",
+		"--project", projectID, "--server", serverURL)
 
 	var session map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &session); err != nil {
@@ -244,15 +259,16 @@ func TestAISessionShowNotFound(t *testing.T) {
 // TestAIAgentRegister verifies that `arc ai agent register --stdin` creates
 // an agent from a PostToolUse payload.
 func TestAIAgentRegister(t *testing.T) {
-	home := setupHome(t)
+	home, _, workDir := setupAIProject(t)
 
 	// Create session first.
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-register-sess",
 		"--transcript-path", "/tmp/register.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	payload := makePostToolUsePayload("test-register-sess", "agent-reg-001", "Test registration")
+	payload := makePostToolUsePayload("test-register-sess", "agent-reg-001", "Test registration", workDir)
 
 	output := arcCmdWithStdinSuccess(t, home, payload,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
@@ -267,14 +283,15 @@ func TestAIAgentRegister(t *testing.T) {
 
 // TestAIAgentRegisterJsonOutput verifies JSON output from agent register.
 func TestAIAgentRegisterJsonOutput(t *testing.T) {
-	home := setupHome(t)
+	home, _, workDir := setupAIProject(t)
 
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", "test-register-json-sess",
 		"--transcript-path", "/tmp/register.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	payload := makePostToolUsePayload("test-register-json-sess", "agent-reg-json-001", "JSON register test")
+	payload := makePostToolUsePayload("test-register-json-sess", "agent-reg-json-001", "JSON register test", workDir)
 
 	output := arcCmdWithStdinSuccess(t, home, payload,
 		"ai", "agent", "register", "--stdin", "--json", "--server", serverURL)
@@ -298,10 +315,10 @@ func TestAIAgentRegisterJsonOutput(t *testing.T) {
 // TestAIAgentRegisterLazySession verifies that registering an agent for a
 // non-existent session auto-creates the session.
 func TestAIAgentRegisterLazySession(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	// Do NOT create the session first.
-	payload := makePostToolUsePayload("test-lazy-sess", "agent-lazy-001", "Lazy session test")
+	payload := makePostToolUsePayload("test-lazy-sess", "agent-lazy-001", "Lazy session test", workDir)
 
 	output := arcCmdWithStdinSuccess(t, home, payload,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
@@ -312,7 +329,8 @@ func TestAIAgentRegisterLazySession(t *testing.T) {
 
 	// Verify the session was auto-created.
 	showOutput := arcCmdSuccess(t, home, "ai", "session", "show",
-		"test-lazy-sess", "--json", "--server", serverURL)
+		"test-lazy-sess", "--json",
+		"--project", projectID, "--server", serverURL)
 
 	var session map[string]interface{}
 	if err := json.Unmarshal([]byte(showOutput), &session); err != nil {
@@ -326,18 +344,19 @@ func TestAIAgentRegisterLazySession(t *testing.T) {
 // TestAIAgentRegisterAllFields verifies that all fields from the PostToolUse
 // payload are persisted correctly.
 func TestAIAgentRegisterAllFields(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-fields-sess"
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/tmp/fields.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	payload := `{
+	payload := fmt.Sprintf(`{
 		"session_id": "test-fields-sess",
 		"transcript_path": "/tmp/fields.jsonl",
-		"cwd": "/home/user/project",
+		"cwd": %q,
 		"tool_name": "Agent",
 		"tool_input": {
 			"description": "Full fields test",
@@ -352,14 +371,15 @@ func TestAIAgentRegisterAllFields(t *testing.T) {
 			"totalTokens": 67890,
 			"totalToolUseCount": 42
 		}
-	}`
+	}`, workDir)
 
 	arcCmdWithStdinSuccess(t, home, payload,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
 
 	// Verify via agent show --json.
 	showOutput := arcCmdSuccess(t, home, "ai", "agent", "show", "agent-fields-001",
-		"--session", sessionID, "--json", "--server", serverURL)
+		"--session", sessionID, "--json",
+		"--project", projectID, "--server", serverURL)
 
 	var agent map[string]interface{}
 	if err := json.Unmarshal([]byte(showOutput), &agent); err != nil {
@@ -473,25 +493,28 @@ func TestAIAgentRegisterWithoutStdinFlag(t *testing.T) {
 // TestAIAgentRegisterMultipleAgents verifies that multiple agents can be
 // registered for the same session.
 func TestAIAgentRegisterMultipleAgents(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-multi-agent-sess"
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/tmp/multi.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	for i := 1; i <= 3; i++ {
 		payload := makePostToolUsePayload(sessionID,
 			fmt.Sprintf("agent-multi-%d", i),
-			fmt.Sprintf("Agent %d", i))
+			fmt.Sprintf("Agent %d", i),
+			workDir)
 		arcCmdWithStdinSuccess(t, home, payload,
 			"ai", "agent", "register", "--stdin", "--server", serverURL)
 	}
 
 	// Verify all three agents appear in session show.
 	showOutput := arcCmdSuccess(t, home, "ai", "session", "show",
-		sessionID, "--json", "--server", serverURL)
+		sessionID, "--json",
+		"--project", projectID, "--server", serverURL)
 
 	var session map[string]interface{}
 	if err := json.Unmarshal([]byte(showOutput), &session); err != nil {
@@ -510,20 +533,22 @@ func TestAIAgentRegisterMultipleAgents(t *testing.T) {
 
 // TestAIAgentShow verifies that `arc ai agent show` displays agent details.
 func TestAIAgentShow(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-agent-show-sess"
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/tmp/show.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	payload := makePostToolUsePayload(sessionID, "agent-show-001", "Show test agent")
+	payload := makePostToolUsePayload(sessionID, "agent-show-001", "Show test agent", workDir)
 	arcCmdWithStdinSuccess(t, home, payload,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
 
 	output := arcCmdSuccess(t, home, "ai", "agent", "show", "agent-show-001",
-		"--session", sessionID, "--server", serverURL)
+		"--session", sessionID,
+		"--project", projectID, "--server", serverURL)
 
 	if !strings.Contains(output, "agent-show-001") {
 		t.Errorf("expected agent ID in output, got: %s", output)
@@ -538,20 +563,22 @@ func TestAIAgentShow(t *testing.T) {
 
 // TestAIAgentShowJsonOutput verifies JSON output from agent show.
 func TestAIAgentShowJsonOutput(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-agent-show-json-sess"
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/tmp/show-json.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
-	payload := makePostToolUsePayload(sessionID, "agent-show-json-001", "JSON show test")
+	payload := makePostToolUsePayload(sessionID, "agent-show-json-001", "JSON show test", workDir)
 	arcCmdWithStdinSuccess(t, home, payload,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
 
 	output := arcCmdSuccess(t, home, "ai", "agent", "show", "agent-show-json-001",
-		"--session", sessionID, "--json", "--server", serverURL)
+		"--session", sessionID, "--json",
+		"--project", projectID, "--server", serverURL)
 
 	var agent map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &agent); err != nil {
@@ -581,16 +608,18 @@ func TestAIAgentShowMissingSession(t *testing.T) {
 
 // TestAIAgentShowNotFound verifies that showing a non-existent agent returns an error.
 func TestAIAgentShowNotFound(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-agent-notfound-sess"
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/tmp/test.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	_, err := arcCmd(t, home, "ai", "agent", "show", "nonexistent-agent",
-		"--session", sessionID, "--server", serverURL)
+		"--session", sessionID,
+		"--project", projectID, "--server", serverURL)
 	if err == nil {
 		t.Error("expected error when showing non-existent agent")
 	}
@@ -620,21 +649,22 @@ func TestAIAgentTranscriptMissingSession(t *testing.T) {
 // TestAISessionDeleteViaAPI verifies that deleting a session via the API
 // removes it and its agents.
 func TestAISessionDeleteViaAPI(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-delete-sess"
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/tmp/delete.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	// Register an agent.
-	payload := makePostToolUsePayload(sessionID, "agent-delete-001", "Delete test agent")
+	payload := makePostToolUsePayload(sessionID, "agent-delete-001", "Delete test agent", workDir)
 	arcCmdWithStdinSuccess(t, home, payload,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
 
-	// Delete via API.
-	deleteURL := fmt.Sprintf("%s/api/v1/ai/sessions/%s", serverURL, sessionID)
+	// Delete via API (project-scoped path).
+	deleteURL := fmt.Sprintf("%s/api/v1/projects/%s/ai/sessions/%s", serverURL, projectID, sessionID)
 	req, err := http.NewRequest(http.MethodDelete, deleteURL, nil)
 	if err != nil {
 		t.Fatalf("create delete request: %v", err)
@@ -649,7 +679,8 @@ func TestAISessionDeleteViaAPI(t *testing.T) {
 	}
 
 	// Verify session is gone.
-	_, showErr := arcCmd(t, home, "ai", "session", "show", sessionID, "--server", serverURL)
+	_, showErr := arcCmd(t, home, "ai", "session", "show", sessionID,
+		"--project", projectID, "--server", serverURL)
 	if showErr == nil {
 		t.Error("expected error when showing deleted session")
 	}
@@ -662,7 +693,7 @@ func TestAISessionDeleteViaAPI(t *testing.T) {
 // TestAIFullLifecycle exercises the complete flow: start session → register
 // agents → list sessions → show session → show agent → verify all data.
 func TestAIFullLifecycle(t *testing.T) {
-	home := setupHome(t)
+	home, projectID, workDir := setupAIProject(t)
 
 	sessionID := "test-lifecycle-sess"
 
@@ -670,13 +701,14 @@ func TestAIFullLifecycle(t *testing.T) {
 	arcCmdSuccess(t, home, "ai", "session", "start",
 		"--id", sessionID,
 		"--transcript-path", "/home/user/.claude/projects/test/session.jsonl",
+		"--cwd", workDir,
 		"--server", serverURL)
 
 	// 2. Register two agents.
-	payload1 := `{
+	payload1 := fmt.Sprintf(`{
 		"session_id": "test-lifecycle-sess",
 		"transcript_path": "/home/user/.claude/projects/test/session.jsonl",
-		"cwd": "/home/user/project",
+		"cwd": %q,
 		"tool_name": "Agent",
 		"tool_input": {
 			"description": "Implement feature X",
@@ -691,14 +723,14 @@ func TestAIFullLifecycle(t *testing.T) {
 			"totalTokens": 30000,
 			"totalToolUseCount": 15
 		}
-	}`
+	}`, workDir)
 	arcCmdWithStdinSuccess(t, home, payload1,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
 
-	payload2 := `{
+	payload2 := fmt.Sprintf(`{
 		"session_id": "test-lifecycle-sess",
 		"transcript_path": "/home/user/.claude/projects/test/session.jsonl",
-		"cwd": "/home/user/project",
+		"cwd": %q,
 		"tool_name": "Agent",
 		"tool_input": {
 			"description": "Review implementation",
@@ -713,19 +745,21 @@ func TestAIFullLifecycle(t *testing.T) {
 			"totalTokens": 20000,
 			"totalToolUseCount": 8
 		}
-	}`
+	}`, workDir)
 	arcCmdWithStdinSuccess(t, home, payload2,
 		"ai", "agent", "register", "--stdin", "--server", serverURL)
 
 	// 3. List sessions — should include ours.
-	listOutput := arcCmdSuccess(t, home, "ai", "session", "list", "--server", serverURL)
+	listOutput := arcCmdSuccess(t, home, "ai", "session", "list",
+		"--project", projectID, "--server", serverURL)
 	if !strings.Contains(listOutput, sessionID) {
 		t.Errorf("expected session in list, got: %s", listOutput)
 	}
 
 	// 4. Show session — should have 2 agents.
 	showOutput := arcCmdSuccess(t, home, "ai", "session", "show",
-		sessionID, "--json", "--server", serverURL)
+		sessionID, "--json",
+		"--project", projectID, "--server", serverURL)
 
 	var session map[string]interface{}
 	if err := json.Unmarshal([]byte(showOutput), &session); err != nil {
@@ -740,7 +774,8 @@ func TestAIFullLifecycle(t *testing.T) {
 	// 5. Show each agent individually.
 	for _, agentID := range []string{"lifecycle-agent-1", "lifecycle-agent-2"} {
 		agentOutput := arcCmdSuccess(t, home, "ai", "agent", "show", agentID,
-			"--session", sessionID, "--json", "--server", serverURL)
+			"--session", sessionID, "--json",
+			"--project", projectID, "--server", serverURL)
 
 		var agent map[string]interface{}
 		if err := json.Unmarshal([]byte(agentOutput), &agent); err != nil {
@@ -756,7 +791,8 @@ func TestAIFullLifecycle(t *testing.T) {
 
 	// 6. Verify agent details.
 	agent1Out := arcCmdSuccess(t, home, "ai", "agent", "show", "lifecycle-agent-1",
-		"--session", sessionID, "--server", serverURL)
+		"--session", sessionID,
+		"--project", projectID, "--server", serverURL)
 	if !strings.Contains(agent1Out, "Implement feature X") {
 		t.Errorf("expected description in agent show, got: %s", agent1Out)
 	}
@@ -782,11 +818,12 @@ func TestAIFullLifecycle(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // makePostToolUsePayload creates a minimal PostToolUse JSON payload for testing.
-func makePostToolUsePayload(sessionID, agentID, description string) string {
+// The cwd parameter should be a workspace directory registered for the project.
+func makePostToolUsePayload(sessionID, agentID, description, cwd string) string {
 	return fmt.Sprintf(`{
 		"session_id": %q,
 		"transcript_path": "/tmp/test.jsonl",
-		"cwd": "/tmp",
+		"cwd": %q,
 		"tool_name": "Agent",
 		"tool_input": {
 			"description": %q,
@@ -801,11 +838,11 @@ func makePostToolUsePayload(sessionID, agentID, description string) string {
 			"totalTokens": 5000,
 			"totalToolUseCount": 3
 		}
-	}`, sessionID, description, agentID)
+	}`, sessionID, cwd, description, agentID)
 }
 
 // registerAgentViaAPI registers an agent directly via the HTTP API.
-func registerAgentViaAPI(t *testing.T, sessionID, agentID, description string) {
+func registerAgentViaAPI(t *testing.T, projectID, sessionID, agentID, description string) {
 	t.Helper()
 
 	body := fmt.Sprintf(`{
@@ -816,7 +853,7 @@ func registerAgentViaAPI(t *testing.T, sessionID, agentID, description string) {
 		"status": "completed"
 	}`, agentID, description)
 
-	url := fmt.Sprintf("%s/api/v1/ai/sessions/%s/agents", serverURL, sessionID)
+	url := fmt.Sprintf("%s/api/v1/projects/%s/ai/sessions/%s/agents", serverURL, projectID, sessionID)
 	resp, err := http.Post(url, "application/json", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("register agent via API: %v", err)
