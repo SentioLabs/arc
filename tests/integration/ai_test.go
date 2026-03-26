@@ -67,6 +67,118 @@ func TestAISessionStartMissingID(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// arc ai session start --stdin (hook mode edge cases)
+// ---------------------------------------------------------------------------
+
+// TestAISessionStartStdinEmptyPayload verifies that an empty stdin payload
+// in hook mode exits 0 with no output (expected skip, not an error).
+func TestAISessionStartStdinEmptyPayload(t *testing.T) {
+	home := setupHome(t)
+
+	output, err := arcCmdWithStdin(t, home, "",
+		"ai", "session", "start", "--stdin", "--server", serverURL)
+	if err != nil {
+		t.Fatalf("expected exit 0 for empty stdin in hook mode, got error: %v\noutput: %s", err, output)
+	}
+	if strings.TrimSpace(output) != "" {
+		t.Errorf("expected no output for empty stdin, got: %s", output)
+	}
+}
+
+// TestAISessionStartStdinBadJSON verifies that invalid JSON in hook mode
+// exits 0 with no output (expected skip).
+func TestAISessionStartStdinBadJSON(t *testing.T) {
+	home := setupHome(t)
+
+	output, err := arcCmdWithStdin(t, home, "not valid json{{{",
+		"ai", "session", "start", "--stdin", "--server", serverURL)
+	if err != nil {
+		t.Fatalf("expected exit 0 for bad JSON in hook mode, got error: %v\noutput: %s", err, output)
+	}
+	if strings.TrimSpace(output) != "" {
+		t.Errorf("expected no output for bad JSON, got: %s", output)
+	}
+}
+
+// TestAISessionStartStdinMissingSessionID verifies that a payload without
+// session_id in hook mode exits 0 with no output (expected skip).
+func TestAISessionStartStdinMissingSessionID(t *testing.T) {
+	home := setupHome(t)
+
+	payload := `{"cwd":"/tmp/some-dir","transcript_path":"/tmp/t.jsonl"}`
+	output, err := arcCmdWithStdin(t, home, payload,
+		"ai", "session", "start", "--stdin", "--server", serverURL)
+	if err != nil {
+		t.Fatalf("expected exit 0 for missing session_id in hook mode, got error: %v\noutput: %s", err, output)
+	}
+	if strings.TrimSpace(output) != "" {
+		t.Errorf("expected no output for missing session_id, got: %s", output)
+	}
+}
+
+// TestAISessionStartStdinUnregisteredProject verifies that a valid payload
+// with a CWD not mapped to any arc project exits 0 in hook mode.
+func TestAISessionStartStdinUnregisteredProject(t *testing.T) {
+	home := setupHome(t)
+
+	payload := `{
+		"session_id": "test-unregistered-001",
+		"transcript_path": "/tmp/test.jsonl",
+		"cwd": "/tmp/definitely-not-a-project"
+	}`
+	output, err := arcCmdWithStdin(t, home, payload,
+		"ai", "session", "start", "--stdin", "--server", serverURL)
+	if err != nil {
+		t.Fatalf(
+			"expected exit 0 for unregistered project in hook mode, got error: %v\noutput: %s",
+			err, output,
+		)
+	}
+	if strings.TrimSpace(output) != "" {
+		t.Errorf("expected no output for unregistered project, got: %s", output)
+	}
+}
+
+// TestAISessionStartStdinServerDown verifies that a valid payload with an
+// unreachable server exits 0 in hook mode (can't resolve project → skip).
+func TestAISessionStartStdinServerDown(t *testing.T) {
+	home := setupHome(t)
+
+	payload := `{
+		"session_id": "test-server-down-001",
+		"transcript_path": "/tmp/test.jsonl",
+		"cwd": "/tmp/some-dir"
+	}`
+	// Override server URL to a port nothing listens on.
+	output, err := arcCmdWithStdin(t, home, payload,
+		"ai", "session", "start", "--stdin", "--server", "http://127.0.0.1:19999")
+	if err != nil {
+		t.Fatalf("expected exit 0 when server is unreachable (skip), got error: %v\noutput: %s", err, output)
+	}
+	if strings.TrimSpace(output) != "" {
+		t.Errorf("expected no output when server is unreachable, got: %s", output)
+	}
+}
+
+// TestAISessionStartStdinRegisteredProject verifies that a valid payload
+// with a CWD mapped to a registered project creates the session successfully.
+func TestAISessionStartStdinRegisteredProject(t *testing.T) {
+	home, _, workDir := setupAIProject(t)
+
+	payload := fmt.Sprintf(`{
+		"session_id": "test-stdin-registered-001",
+		"transcript_path": "/tmp/test.jsonl",
+		"cwd": %q
+	}`, workDir)
+	output := arcCmdWithStdinSuccess(t, home, payload,
+		"ai", "session", "start", "--stdin", "--server", serverURL)
+
+	if !strings.Contains(output, "test-stdin-registered-001") {
+		t.Errorf("expected session ID in output, got: %s", output)
+	}
+}
+
 // TestAISessionStartJsonOutput verifies JSON output from session start.
 func TestAISessionStartJsonOutput(t *testing.T) {
 	home, _, workDir := setupAIProject(t)
