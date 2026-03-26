@@ -123,6 +123,11 @@ var aiSessionStartCmd = &cobra.Command{
 
 		created, err := c.CreateAISession(resolvedProjectID, session)
 		if err != nil {
+			if useStdin {
+				// Called from a hook — don't fail the session startup
+				_, _ = fmt.Fprintf(os.Stderr, "Session not tracked: %v\n", err)
+				return nil
+			}
 			return err
 		}
 
