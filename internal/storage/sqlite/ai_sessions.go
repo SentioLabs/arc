@@ -133,7 +133,25 @@ func (s *Store) ListAIAgents(ctx context.Context, sessionID string) ([]*types.AI
 func (s *Store) GetAgentSummariesForSessions(
 	ctx context.Context, sessionIDs []string,
 ) (map[string]*types.AgentSummary, error) {
-	return make(map[string]*types.AgentSummary), nil
+	if len(sessionIDs) == 0 {
+		return make(map[string]*types.AgentSummary), nil
+	}
+
+	rows, err := s.queries.GetAgentSummariesForSessions(ctx, sessionIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get agent summaries for sessions: %w", err)
+	}
+
+	result := make(map[string]*types.AgentSummary, len(rows))
+	for _, row := range rows {
+		result[row.SessionID] = &types.AgentSummary{
+			AgentCount:     int(row.AgentCount),
+			RunningCount:   int(row.RunningCount.Float64),
+			CompletedCount: int(row.CompletedCount.Float64),
+			ErrorCount:     int(row.ErrorCount.Float64),
+		}
+	}
+	return result, nil
 }
 
 // toNullInt64 converts an *int to sql.NullInt64.

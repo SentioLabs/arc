@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -164,6 +165,65 @@ func (q *Queries) GetAISession(ctx context.Context, id string) (*AiSession, erro
 		&i.StartedAt,
 	)
 	return &i, err
+}
+
+const getAgentSummariesForSessions = `-- name: GetAgentSummariesForSessions :many
+SELECT
+  session_id,
+  COUNT(*) AS agent_count,
+  SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running_count,
+  SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+  SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS error_count
+FROM ai_agents
+WHERE session_id IN (/*SLICE:session_ids*/?)
+GROUP BY session_id
+`
+
+type GetAgentSummariesForSessionsRow struct {
+	SessionID      string          `json:"session_id"`
+	AgentCount     int64           `json:"agent_count"`
+	RunningCount   sql.NullFloat64 `json:"running_count"`
+	CompletedCount sql.NullFloat64 `json:"completed_count"`
+	ErrorCount     sql.NullFloat64 `json:"error_count"`
+}
+
+func (q *Queries) GetAgentSummariesForSessions(ctx context.Context, sessionIds []string) ([]*GetAgentSummariesForSessionsRow, error) {
+	query := getAgentSummariesForSessions
+	var queryParams []interface{}
+	if len(sessionIds) > 0 {
+		for _, v := range sessionIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:session_ids*/?", strings.Repeat(",?", len(sessionIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:session_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*GetAgentSummariesForSessionsRow{}
+	for rows.Next() {
+		var i GetAgentSummariesForSessionsRow
+		if err := rows.Scan(
+			&i.SessionID,
+			&i.AgentCount,
+			&i.RunningCount,
+			&i.CompletedCount,
+			&i.ErrorCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAIAgents = `-- name: ListAIAgents :many

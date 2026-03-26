@@ -28,3 +28,14 @@ SELECT * FROM ai_agents WHERE session_id = ? ORDER BY created_at ASC;
 
 -- name: CountAIAgentsBySession :one
 SELECT COUNT(*) FROM ai_agents WHERE session_id = ?;
+
+-- name: GetAgentSummariesForSessions :many
+SELECT
+  session_id,
+  COUNT(*) AS agent_count,
+  SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running_count,
+  SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+  SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS error_count
+FROM ai_agents
+WHERE session_id IN (sqlc.slice('session_ids'))
+GROUP BY session_id;

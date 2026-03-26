@@ -454,6 +454,115 @@ func TestGetAIAgent(t *testing.T) {
 	}
 }
 
+func TestGetAgentSummariesForSessions(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := setupTestProject(t, store)
+
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Create 3 sessions
+	for _, s := range []*types.AISession{
+		{ID: "sum-sess-1", ProjectID: proj.ID, TranscriptPath: "/t/1.jsonl", StartedAt: baseTime},
+		{ID: "sum-sess-2", ProjectID: proj.ID, TranscriptPath: "/t/2.jsonl", StartedAt: baseTime.Add(time.Hour)},
+		{ID: "sum-sess-3", ProjectID: proj.ID, TranscriptPath: "/t/3.jsonl", StartedAt: baseTime.Add(2 * time.Hour)},
+	} {
+		if err := store.CreateAISession(ctx, s); err != nil {
+			t.Fatalf("CreateAISession() error = %v", err)
+		}
+	}
+
+	// Create agents with mixed statuses across sessions
+	agents := []*types.AIAgent{
+		// Session 1: 2 running, 1 completed
+		{ID: "sum-a1", SessionID: "sum-sess-1", Status: "running", CreatedAt: baseTime},
+		{ID: "sum-a2", SessionID: "sum-sess-1", Status: "running", CreatedAt: baseTime.Add(time.Minute)},
+		{ID: "sum-a3", SessionID: "sum-sess-1", Status: "completed", CreatedAt: baseTime.Add(2 * time.Minute)},
+		// Session 2: 1 completed, 1 error
+		{ID: "sum-a4", SessionID: "sum-sess-2", Status: "completed", CreatedAt: baseTime},
+		{ID: "sum-a5", SessionID: "sum-sess-2", Status: "error", CreatedAt: baseTime.Add(time.Minute)},
+		// Session 3: no agents (should not appear in result)
+	}
+
+	for _, a := range agents {
+		if err := store.CreateAIAgent(ctx, a); err != nil {
+			t.Fatalf("CreateAIAgent() error = %v", err)
+		}
+	}
+
+	summaries, err := store.GetAgentSummariesForSessions(ctx, []string{"sum-sess-1", "sum-sess-2", "sum-sess-3"})
+	if err != nil {
+		t.Fatalf("GetAgentSummariesForSessions() error = %v", err)
+	}
+
+	// Session 3 has no agents — should not be in map
+	if _, ok := summaries["sum-sess-3"]; ok {
+		t.Error("session with no agents should not appear in result map")
+	}
+
+	// Session 1: 3 agents, 2 running, 1 completed, 0 error
+	s1 := summaries["sum-sess-1"]
+	if s1 == nil {
+		t.Fatal("missing summary for sum-sess-1")
+	}
+	if s1.AgentCount != 3 {
+		t.Errorf("sum-sess-1 AgentCount = %d, want 3", s1.AgentCount)
+	}
+	if s1.RunningCount != 2 {
+		t.Errorf("sum-sess-1 RunningCount = %d, want 2", s1.RunningCount)
+	}
+	if s1.CompletedCount != 1 {
+		t.Errorf("sum-sess-1 CompletedCount = %d, want 1", s1.CompletedCount)
+	}
+	if s1.ErrorCount != 0 {
+		t.Errorf("sum-sess-1 ErrorCount = %d, want 0", s1.ErrorCount)
+	}
+
+	// Session 2: 2 agents, 0 running, 1 completed, 1 error
+	s2 := summaries["sum-sess-2"]
+	if s2 == nil {
+		t.Fatal("missing summary for sum-sess-2")
+	}
+	if s2.AgentCount != 2 {
+		t.Errorf("sum-sess-2 AgentCount = %d, want 2", s2.AgentCount)
+	}
+	if s2.RunningCount != 0 {
+		t.Errorf("sum-sess-2 RunningCount = %d, want 0", s2.RunningCount)
+	}
+	if s2.CompletedCount != 1 {
+		t.Errorf("sum-sess-2 CompletedCount = %d, want 1", s2.CompletedCount)
+	}
+	if s2.ErrorCount != 1 {
+		t.Errorf("sum-sess-2 ErrorCount = %d, want 1", s2.ErrorCount)
+	}
+}
+
+func TestGetAgentSummariesForSessions_EmptyInput(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	summaries, err := store.GetAgentSummariesForSessions(ctx, []string{})
+	if err != nil {
+		t.Fatalf("GetAgentSummariesForSessions() error = %v", err)
+	}
+	if len(summaries) != 0 {
+		t.Errorf("expected empty map for empty input, got %d entries", len(summaries))
+	}
+
+	// Also test nil slice
+	summaries, err = store.GetAgentSummariesForSessions(ctx, nil)
+	if err != nil {
+		t.Fatalf("GetAgentSummariesForSessions(nil) error = %v", err)
+	}
+	if len(summaries) != 0 {
+		t.Errorf("expected empty map for nil input, got %d entries", len(summaries))
+	}
+}
+
 func TestListAIAgents(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
