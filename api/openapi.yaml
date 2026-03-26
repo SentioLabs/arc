@@ -544,11 +544,14 @@ paths:
   # ====================
   # AI Sessions
   # ====================
-  /ai/sessions:
+  /projects/{projectId}/ai/sessions:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+
     get:
       operationId: listAISessions
       tags: [ai-sessions]
-      summary: List AI sessions
+      summary: List AI sessions for a project
       parameters:
         - name: limit
           in: query
@@ -597,8 +600,35 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /ai/sessions/{sessionId}:
+  /projects/{projectId}/ai/sessions/batch-delete:
     parameters:
+      - $ref: "#/components/parameters/ProjectId"
+
+    post:
+      operationId: batchDeleteAISessions
+      tags: [ai-sessions]
+      summary: Batch delete AI sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchDeleteAISessionsRequest"
+      responses:
+        "200":
+          description: Batch delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchDeleteAISessionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/ai/sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
       - name: sessionId
         in: path
         required: true
@@ -634,8 +664,35 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /ai/sessions/{sessionId}/agents:
+  /projects/{projectId}/ai/sessions/{sessionId}/transcript:
     parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - name: sessionId
+        in: path
+        required: true
+        description: AI session ID
+        schema:
+          type: string
+
+    get:
+      operationId: getSessionTranscript
+      tags: [ai-sessions]
+      summary: Get AI session transcript
+      responses:
+        "200":
+          description: Session transcript content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/ai/sessions/{sessionId}/agents:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
       - name: sessionId
         in: path
         required: true
@@ -685,8 +742,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /ai/sessions/{sessionId}/agents/{agentId}:
+  /projects/{projectId}/ai/sessions/{sessionId}/agents/{agentId}:
     parameters:
+      - $ref: "#/components/parameters/ProjectId"
       - name: sessionId
         in: path
         required: true
@@ -711,6 +769,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AIAgentResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/ai/sessions/{sessionId}/agents/{agentId}/transcript:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - name: sessionId
+        in: path
+        required: true
+        description: AI session ID
+        schema:
+          type: string
+      - name: agentId
+        in: path
+        required: true
+        description: AI agent ID
+        schema:
+          type: string
+
+    get:
+      operationId: getAgentTranscript
+      tags: [ai-sessions]
+      summary: Get AI agent transcript
+      responses:
+        "200":
+          description: Agent transcript content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptResponse"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -1846,12 +1936,16 @@ components:
       type: object
       required:
         - id
+        - project_id
         - transcript_path
         - started_at
       properties:
         id:
           type: string
           description: Unique AI session ID
+        project_id:
+          type: string
+          description: Project ID this session belongs to
         transcript_path:
           type: string
           description: Path to the session transcript file
@@ -1951,6 +2045,31 @@ components:
         status:
           type: string
           description: Agent status (defaults to "running")
+
+    BatchDeleteAISessionsRequest:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          description: List of AI session IDs to delete
+
+    BatchDeleteAISessionsResponse:
+      type: object
+      properties:
+        deleted:
+          type: integer
+          description: Number of sessions deleted
+
+    TranscriptResponse:
+      type: array
+      items:
+        type: object
+        additionalProperties: true
+      description: Array of transcript entries
 
     # ====================
     # Plan Schemas

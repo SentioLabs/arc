@@ -245,14 +245,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ai/sessions": {
+    "/projects/{projectId}/ai/sessions": {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
             cookie?: never;
         };
-        /** List AI sessions */
+        /** List AI sessions for a project */
         get: operations["listAISessions"];
         put?: never;
         /** Create a new AI session */
@@ -263,11 +266,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ai/sessions/{sessionId}": {
+    "/projects/{projectId}/ai/sessions/batch-delete": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batch delete AI sessions */
+        post: operations["batchDeleteAISessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/ai/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
             };
@@ -284,11 +309,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ai/sessions/{sessionId}/agents": {
+    "/projects/{projectId}/ai/sessions/{sessionId}/transcript": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        /** Get AI session transcript */
+        get: operations["getSessionTranscript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/ai/sessions/{sessionId}/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
             };
@@ -305,11 +354,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ai/sessions/{sessionId}/agents/{agentId}": {
+    "/projects/{projectId}/ai/sessions/{sessionId}/agents/{agentId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
                 /** @description AI agent ID */
@@ -319,6 +370,30 @@ export interface paths {
         };
         /** Get AI agent by ID */
         get: operations["getAIAgent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/ai/sessions/{sessionId}/agents/{agentId}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description AI session ID */
+                sessionId: string;
+                /** @description AI agent ID */
+                agentId: string;
+            };
+            cookie?: never;
+        };
+        /** Get AI agent transcript */
+        get: operations["getAgentTranscript"];
         put?: never;
         post?: never;
         delete?: never;
@@ -831,6 +906,8 @@ export interface components {
         AISessionResponse: {
             /** @description Unique AI session ID */
             id: string;
+            /** @description Project ID this session belongs to */
+            project_id: string;
             /** @description Path to the session transcript file */
             transcript_path: string;
             /** @description Working directory for the session */
@@ -891,6 +968,18 @@ export interface components {
             /** @description Agent status (defaults to "running") */
             status?: string;
         };
+        BatchDeleteAISessionsRequest: {
+            /** @description List of AI session IDs to delete */
+            ids: string[];
+        };
+        BatchDeleteAISessionsResponse: {
+            /** @description Number of sessions deleted */
+            deleted?: number;
+        };
+        /** @description Array of transcript entries */
+        TranscriptResponse: {
+            [key: string]: unknown;
+        }[];
         /** @enum {string} */
         PlanStatus: "draft" | "in_review" | "approved" | "rejected";
         Plan: {
@@ -1492,7 +1581,10 @@ export interface operations {
                 offset?: number;
             };
             header?: never;
-            path?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1513,7 +1605,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
             cookie?: never;
         };
         requestBody: {
@@ -1535,11 +1630,42 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    batchDeleteAISessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchDeleteAISessionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Batch delete result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchDeleteAISessionsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     getAISession: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
             };
@@ -1565,6 +1691,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
             };
@@ -1583,11 +1711,40 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    getSessionTranscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description AI session ID */
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session transcript content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     listAIAgents: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
             };
@@ -1613,6 +1770,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
             };
@@ -1643,6 +1802,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
                 /** @description AI session ID */
                 sessionId: string;
                 /** @description AI agent ID */
@@ -1659,6 +1820,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AIAgentResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getAgentTranscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description AI session ID */
+                sessionId: string;
+                /** @description AI agent ID */
+                agentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent transcript content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptResponse"];
                 };
             };
             404: components["responses"]["NotFound"];
