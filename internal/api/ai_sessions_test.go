@@ -102,6 +102,53 @@ func createTestAISession(
 	return &session
 }
 
+// aiAgentOpts holds parameters for creating an AI agent in tests.
+type aiAgentOpts struct {
+	ProjectID string
+	SessionID string
+	AgentID   string
+	Status    string
+}
+
+// createTestAIAgentWithOpts creates an AI agent with the given options.
+func createTestAIAgentWithOpts(
+	t *testing.T, e *echo.Echo, opts aiAgentOpts,
+) *types.AIAgent {
+	t.Helper()
+
+	status := opts.Status
+	if status == "" {
+		status = "completed"
+	}
+
+	body := fmt.Sprintf(
+		`{"id":%q,"description":"test agent",`+
+			`"agent_type":"task","model":"opus","status":%q}`,
+		opts.AgentID, status,
+	)
+	agentURL := fmt.Sprintf(
+		"/api/v1/projects/%s/ai/sessions/%s/agents",
+		opts.ProjectID, opts.SessionID,
+	)
+	req := httptest.NewRequest(
+		http.MethodPost, agentURL, bytes.NewBufferString(body),
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("createAIAgentWithOpts returned %d: %s",
+			rec.Code, rec.Body.String())
+	}
+
+	var agent types.AIAgent
+	if err := json.Unmarshal(rec.Body.Bytes(), &agent); err != nil {
+		t.Fatalf("failed to parse agent response: %v", err)
+	}
+	return &agent
+}
+
 // createTestAIAgent creates an AI agent via the project-scoped API.
 func createTestAIAgent(
 	t *testing.T, e *echo.Echo,
@@ -885,5 +932,128 @@ func TestGetSessionTranscript_NotFound(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("getSessionTranscript for missing file returned %d, want %d",
 			rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestListAISessionsWithSummary(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projectID := testProjectID(t, e)
+	cwd := testUserProjectPath
+	addWorkspaceToProject(t, e, projectID, cwd)
+
+	// Create 2 sessions
+	createTestAISession(t, e, aiSessionOpts{
+		ProjectID:      projectID,
+		ID:             "sess-sum-1",
+		TranscriptPath: "/tmp/t/sess-sum-1.jsonl",
+		CWD:            cwd,
+	})
+	createTestAISession(t, e, aiSessionOpts{
+		ProjectID:      projectID,
+		ID:             "sess-sum-2",
+		TranscriptPath: "/tmp/t/sess-sum-2.jsonl",
+		CWD:            cwd,
+	})
+
+	// Add agents with mixed statuses to sess-sum-1
+	createTestAIAgentWithOpts(t, e, aiAgentOpts{
+		ProjectID: projectID, SessionID: "sess-sum-1",
+		AgentID: "ag-1", Status: "running",
+	})
+	createTestAIAgentWithOpts(t, e, aiAgentOpts{
+		ProjectID: projectID, SessionID: "sess-sum-1",
+		AgentID: "ag-2", Status: "completed",
+	})
+	createTestAIAgentWithOpts(t, e, aiAgentOpts{
+		ProjectID: projectID, SessionID: "sess-sum-1",
+		AgentID: "ag-3", Status: "error",
+	})
+	createTestAIAgentWithOpts(t, e, aiAgentOpts{
+		ProjectID: projectID, SessionID: "sess-sum-1",
+		AgentID: "ag-4", Status: "completed",
+	})
+
+	// sess-sum-2 has no agents — agent_summary should be omitted
+
+	// GET list
+	req := httptest.NewRequest(
+		http.MethodGet,
+		sessionURL(projectID, ""), nil,
+	)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("listAISessionsByProject returned %d: %s",
+			rec.Code, rec.Body.String())
+	}
+
+	var resp paginatedResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	dataBytes, err := json.Marshal(resp.Data)
+	if err != nil {
+		t.Fatalf("failed to marshal data: %v", err)
+	}
+
+	// Parse as raw JSON array to inspect agent_summary
+	var items []json.RawMessage
+	if err := json.Unmarshal(dataBytes, &items); err != nil {
+		t.Fatalf("failed to parse items: %v", err)
+	}
+
+	if len(items) != 2 {
+		t.Fatalf("expected 2 sessions, got %d", len(items))
+	}
+
+	// Build a map of session ID -> parsed item
+	type listItem struct {
+		ID           string              `json:"id"`
+		AgentSummary *types.AgentSummary `json:"agent_summary"`
+	}
+
+	parsed := make(map[string]*listItem)
+	for _, raw := range items {
+		var item listItem
+		if err := json.Unmarshal(raw, &item); err != nil {
+			t.Fatalf("failed to parse list item: %v", err)
+		}
+		parsed[item.ID] = &item
+	}
+
+	// sess-sum-1: should have agent_summary with correct counts
+	s1 := parsed["sess-sum-1"]
+	if s1 == nil {
+		t.Fatal("sess-sum-1 not found in response")
+	}
+	if s1.AgentSummary == nil {
+		t.Fatal("sess-sum-1 agent_summary should not be nil")
+	}
+	if s1.AgentSummary.AgentCount != 4 {
+		t.Errorf("agent_count = %d, want 4", s1.AgentSummary.AgentCount)
+	}
+	if s1.AgentSummary.RunningCount != 1 {
+		t.Errorf("running_count = %d, want 1", s1.AgentSummary.RunningCount)
+	}
+	if s1.AgentSummary.CompletedCount != 2 {
+		t.Errorf("completed_count = %d, want 2", s1.AgentSummary.CompletedCount)
+	}
+	if s1.AgentSummary.ErrorCount != 1 {
+		t.Errorf("error_count = %d, want 1", s1.AgentSummary.ErrorCount)
+	}
+
+	// sess-sum-2: should have no agent_summary (omitted)
+	s2 := parsed["sess-sum-2"]
+	if s2 == nil {
+		t.Fatal("sess-sum-2 not found in response")
+	}
+	if s2.AgentSummary != nil {
+		t.Errorf("sess-sum-2 agent_summary should be nil, got %+v",
+			s2.AgentSummary)
 	}
 }

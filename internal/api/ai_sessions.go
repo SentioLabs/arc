@@ -47,6 +47,13 @@ type aiSessionResponse struct {
 	Agents []*types.AIAgent `json:"agents"`
 }
 
+// aiSessionListItem is a response struct for session list items that includes
+// an optional agent summary.
+type aiSessionListItem struct {
+	*types.AISession
+	AgentSummary *types.AgentSummary `json:"agent_summary,omitempty"`
+}
+
 // createAISession creates a new AI session. Idempotent: if the session already
 // exists, the existing record is returned.
 // The projectId is extracted from the URL path and CWD is validated against it.
@@ -156,7 +163,27 @@ func (s *Server) listAISessionsByProject(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
 
-	return paginatedJSON(c, sessions, int(total), limit, offset)
+	// Collect session IDs and fetch agent summaries
+	sessionIDs := make([]string, len(sessions))
+	for i, sess := range sessions {
+		sessionIDs[i] = sess.ID
+	}
+
+	summaries, err := s.store.GetAgentSummariesForSessions(ctx, sessionIDs)
+	if err != nil {
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+
+	// Build list items pairing each session with its summary
+	items := make([]aiSessionListItem, len(sessions))
+	for i, sess := range sessions {
+		items[i] = aiSessionListItem{
+			AISession:    sess,
+			AgentSummary: summaries[sess.ID],
+		}
+	}
+
+	return paginatedJSON(c, items, int(total), limit, offset)
 }
 
 // deleteAISession deletes an AI session by ID.
