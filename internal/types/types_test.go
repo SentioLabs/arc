@@ -774,6 +774,45 @@ func TestAIAgentStruct(t *testing.T) {
 	}
 }
 
+func TestAgentSummaryStruct(t *testing.T) {
+	summary := AgentSummary{
+		AgentCount:     5,
+		RunningCount:   2,
+		CompletedCount: 2,
+		ErrorCount:     1,
+	}
+
+	if summary.AgentCount != 5 {
+		t.Errorf("AgentSummary.AgentCount = %d, want 5", summary.AgentCount)
+	}
+	if summary.RunningCount != 2 {
+		t.Errorf("AgentSummary.RunningCount = %d, want 2", summary.RunningCount)
+	}
+	if summary.CompletedCount != 2 {
+		t.Errorf("AgentSummary.CompletedCount = %d, want 2", summary.CompletedCount)
+	}
+	if summary.ErrorCount != 1 {
+		t.Errorf("AgentSummary.ErrorCount = %d, want 1", summary.ErrorCount)
+	}
+}
+
+func TestAgentSummaryZeroValue(t *testing.T) {
+	summary := AgentSummary{}
+
+	if summary.AgentCount != 0 {
+		t.Errorf("AgentSummary.AgentCount should be 0 by default, got %d", summary.AgentCount)
+	}
+	if summary.RunningCount != 0 {
+		t.Errorf("AgentSummary.RunningCount should be 0 by default, got %d", summary.RunningCount)
+	}
+	if summary.CompletedCount != 0 {
+		t.Errorf("AgentSummary.CompletedCount should be 0 by default, got %d", summary.CompletedCount)
+	}
+	if summary.ErrorCount != 0 {
+		t.Errorf("AgentSummary.ErrorCount should be 0 by default, got %d", summary.ErrorCount)
+	}
+}
+
 func TestAIAgentOptionalFields(t *testing.T) {
 	agent := AIAgent{
 		ID:        "agent-xyz789",

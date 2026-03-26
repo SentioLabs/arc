@@ -1955,6 +1955,22 @@ components:
         started_at:
           type: string
           format: date-time
+        agent_summary:
+          type: object
+          description: Aggregated agent status counts for this session
+          properties:
+            agent_count:
+              type: integer
+              description: Total number of agents in this session
+            running_count:
+              type: integer
+              description: Number of agents currently running
+            completed_count:
+              type: integer
+              description: Number of agents that completed successfully
+            error_count:
+              type: integer
+              description: Number of agents that ended with an error
 
     CreateAISessionRequest:
       type: object

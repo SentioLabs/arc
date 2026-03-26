@@ -85,6 +85,7 @@ type Storage interface {
 	CreateAIAgent(ctx context.Context, agent *types.AIAgent) error
 	GetAIAgent(ctx context.Context, id string) (*types.AIAgent, error)
 	ListAIAgents(ctx context.Context, sessionID string) ([]*types.AIAgent, error)
+	GetAgentSummariesForSessions(ctx context.Context, sessionIDs []string) (map[string]*types.AgentSummary, error)
 
 	// Events (audit trail)
 	GetEvents(ctx context.Context, issueID string, limit int) ([]*types.Event, error)

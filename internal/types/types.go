@@ -455,6 +455,14 @@ type AIAgent struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// AgentSummary contains aggregated agent status counts for a session.
+type AgentSummary struct {
+	AgentCount     int `json:"agent_count"`
+	RunningCount   int `json:"running_count"`
+	CompletedCount int `json:"completed_count"`
+	ErrorCount     int `json:"error_count"`
+}
+
 // ProjectResolution contains the result of resolving a project by path.
 type ProjectResolution struct {
 	ProjectID   string `json:"project_id"`

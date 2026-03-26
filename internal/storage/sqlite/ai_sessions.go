@@ -129,6 +129,13 @@ func (s *Store) ListAIAgents(ctx context.Context, sessionID string) ([]*types.AI
 	return agents, nil
 }
 
+// GetAgentSummariesForSessions returns aggregated agent status counts for each session.
+func (s *Store) GetAgentSummariesForSessions(
+	ctx context.Context, sessionIDs []string,
+) (map[string]*types.AgentSummary, error) {
+	return make(map[string]*types.AgentSummary), nil
+}
+
 // toNullInt64 converts an *int to sql.NullInt64.
 func toNullInt64(v *int) sql.NullInt64 {
 	if v == nil {

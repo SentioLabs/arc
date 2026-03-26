@@ -914,6 +914,17 @@ export interface components {
             cwd?: string;
             /** Format: date-time */
             started_at: string;
+            /** @description Aggregated agent status counts for this session */
+            agent_summary?: {
+                /** @description Total number of agents in this session */
+                agent_count?: number;
+                /** @description Number of agents currently running */
+                running_count?: number;
+                /** @description Number of agents that completed successfully */
+                completed_count?: number;
+                /** @description Number of agents that ended with an error */
+                error_count?: number;
+            };
         };
         CreateAISessionRequest: {
             /** @description AI session ID */

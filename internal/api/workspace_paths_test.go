@@ -297,6 +297,12 @@ func (m *mockWPStore) ListAIAgents(_ context.Context, _ string) ([]*types.AIAgen
 	panic("not implemented")
 }
 
+func (m *mockWPStore) GetAgentSummariesForSessions(
+	_ context.Context, _ []string,
+) (map[string]*types.AgentSummary, error) {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) Close() error { return nil }
 func (m *mockWPStore) Path() string { return "" }
 
