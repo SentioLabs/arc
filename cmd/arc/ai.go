@@ -75,70 +75,76 @@ var aiSessionStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start a new AI session",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-
-		var id, transcriptPath, cwd string
-
 		useStdin, _ := cmd.Flags().GetBool("stdin")
-		if useStdin {
-			data, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("read stdin: %w", err)
-			}
-			if len(data) == 0 {
-				return errors.New("empty stdin payload")
-			}
-			var input hookInput
-			if err := json.Unmarshal(data, &input); err != nil {
-				return fmt.Errorf("parse hook payload: %w", err)
-			}
-			id = input.SessionID
-			transcriptPath = input.TranscriptPath
-			cwd = input.CWD
-		} else {
-			id, _ = cmd.Flags().GetString("id")
-			transcriptPath, _ = cmd.Flags().GetString("transcript-path")
-			cwd, _ = cmd.Flags().GetString("cwd")
-		}
 
-		if id == "" {
-			return errors.New("--id is required (or session_id in stdin payload)")
-		}
-
-		// Resolve project from the session's CWD
-		resolvedProjectID, err := resolveFromServer(cwd)
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, "Session not tracked: CWD does not map to a registered arc project")
+		err := runSessionStart(cmd, useStdin)
+		if err != nil && useStdin {
+			// Hook mode: log and suppress — never block session startup.
+			_, _ = fmt.Fprintf(os.Stderr, "arc: session not tracked: %v\n", err)
 			return nil
 		}
-
-		session := &types.AISession{
-			ID:             id,
-			TranscriptPath: transcriptPath,
-			CWD:            cwd,
-		}
-
-		created, err := c.CreateAISession(resolvedProjectID, session)
-		if err != nil {
-			if useStdin {
-				// Called from a hook — don't fail the session startup
-				_, _ = fmt.Fprintf(os.Stderr, "Session not tracked: %v\n", err)
-				return nil
-			}
-			return err
-		}
-
-		if outputJSON {
-			outputResult(created)
-			return nil
-		}
-
-		fmt.Printf("Started session: %s\n", created.ID)
-		return nil
+		return err
 	},
+}
+
+// runSessionStart contains the session-start logic. It returns an error on any
+// failure; the caller decides whether to propagate or suppress it.
+func runSessionStart(cmd *cobra.Command, useStdin bool) error {
+	c, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	var id, transcriptPath, cwd string
+
+	if useStdin {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
+		if len(data) == 0 {
+			return errors.New("empty stdin payload")
+		}
+		var input hookInput
+		if err := json.Unmarshal(data, &input); err != nil {
+			return fmt.Errorf("parse hook payload: %w", err)
+		}
+		id = input.SessionID
+		transcriptPath = input.TranscriptPath
+		cwd = input.CWD
+	} else {
+		id, _ = cmd.Flags().GetString("id")
+		transcriptPath, _ = cmd.Flags().GetString("transcript-path")
+		cwd, _ = cmd.Flags().GetString("cwd")
+	}
+
+	if id == "" {
+		return errors.New("--id is required (or session_id in stdin payload)")
+	}
+
+	resolvedProjectID, err := resolveFromServer(cwd)
+	if err != nil {
+		return fmt.Errorf("CWD does not map to a registered arc project: %w", err)
+	}
+
+	session := &types.AISession{
+		ID:             id,
+		TranscriptPath: transcriptPath,
+		CWD:            cwd,
+	}
+
+	created, err := c.CreateAISession(resolvedProjectID, session)
+	if err != nil {
+		return err
+	}
+
+	if outputJSON {
+		outputResult(created)
+		return nil
+	}
+
+	fmt.Printf("Started session: %s\n", created.ID)
+	return nil
 }
 
 // aiSessionListCmd lists AI sessions sorted by start time (newest first).
