@@ -105,13 +105,20 @@ var aiSessionStartCmd = &cobra.Command{
 			return errors.New("--id is required (or session_id in stdin payload)")
 		}
 
+		// Resolve project from the session's CWD
+		resolvedProjectID, err := resolveFromServer(cwd)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Session not tracked: CWD does not map to a registered arc project")
+			return nil
+		}
+
 		session := &types.AISession{
 			ID:             id,
 			TranscriptPath: transcriptPath,
 			CWD:            cwd,
 		}
 
-		created, err := c.CreateAISession(session)
+		created, err := c.CreateAISession(resolvedProjectID, session)
 		if err != nil {
 			return err
 		}
@@ -132,12 +139,17 @@ var aiSessionListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List AI sessions",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		projID, err := getProjectID()
+		if err != nil {
+			return err
+		}
+
 		c, err := getClient()
 		if err != nil {
 			return err
 		}
 
-		sessions, err := c.ListAISessions(defaultListLimit, 0)
+		sessions, err := c.ListAISessions(projID, defaultListLimit, 0)
 		if err != nil {
 			return err
 		}
@@ -173,12 +185,17 @@ var aiSessionShowCmd = &cobra.Command{
 	Short: "Show AI session details",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		projID, err := getProjectID()
+		if err != nil {
+			return err
+		}
+
 		c, err := getClient()
 		if err != nil {
 			return err
 		}
 
-		session, err := c.GetAISession(args[0])
+		session, err := c.GetAISession(projID, args[0])
 		if err != nil {
 			return err
 		}
@@ -246,6 +263,12 @@ var aiAgentRegisterCmd = &cobra.Command{
 			return errors.New("session_id is required in payload")
 		}
 
+		// Resolve project from payload CWD; silently skip if unresolvable
+		resolvedProjectID, err := resolveFromServer(payload.CWD)
+		if err != nil {
+			return nil
+		}
+
 		c, err := getClient()
 		if err != nil {
 			return err
@@ -268,7 +291,7 @@ var aiAgentRegisterCmd = &cobra.Command{
 			ToolUseCount: &toolUseCount,
 		}
 
-		created, err := c.CreateAIAgent(payload.SessionID, agent)
+		created, err := c.CreateAIAgent(resolvedProjectID, payload.SessionID, agent)
 		if err != nil {
 			return err
 		}
@@ -296,12 +319,17 @@ var aiAgentShowCmd = &cobra.Command{
 			return errors.New("--session is required")
 		}
 
+		projID, err := getProjectID()
+		if err != nil {
+			return err
+		}
+
 		c, err := getClient()
 		if err != nil {
 			return err
 		}
 
-		agent, err := c.GetAIAgent(sessionID, args[0])
+		agent, err := c.GetAIAgent(projID, sessionID, args[0])
 		if err != nil {
 			return err
 		}
@@ -350,12 +378,17 @@ var aiAgentTranscriptCmd = &cobra.Command{
 			return errors.New("--session is required")
 		}
 
+		projID, err := getProjectID()
+		if err != nil {
+			return err
+		}
+
 		c, err := getClient()
 		if err != nil {
 			return err
 		}
 
-		entries, err := c.GetAgentTranscript(sessionID, args[0])
+		entries, err := c.GetAgentTranscript(projID, sessionID, args[0])
 		if err != nil {
 			return err
 		}

@@ -811,10 +811,11 @@ type AISessionResponse struct {
 	Agents []*types.AIAgent `json:"agents"`
 }
 
-// CreateAISession creates a new AI session. The operation is idempotent:
+// CreateAISession creates a new AI session under a project. The operation is idempotent:
 // if a session with the same ID already exists, the existing record is returned.
-func (c *Client) CreateAISession(session *types.AISession) (*types.AISession, error) {
-	resp, err := c.post("/api/v1/ai/sessions", session)
+func (c *Client) CreateAISession(projectID string, session *types.AISession) (*types.AISession, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions", projectID)
+	resp, err := c.post(path, session)
 	if err != nil {
 		return nil, err
 	}
@@ -827,9 +828,10 @@ func (c *Client) CreateAISession(session *types.AISession) (*types.AISession, er
 	return &result, nil
 }
 
-// GetAISession retrieves an AI session by ID. The response includes the Agents field.
-func (c *Client) GetAISession(id string) (*AISessionResponse, error) {
-	resp, err := c.get("/api/v1/ai/sessions/" + id)
+// GetAISession retrieves an AI session by ID within a project. The response includes the Agents field.
+func (c *Client) GetAISession(projectID, id string) (*AISessionResponse, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions/%s", projectID, id)
+	resp, err := c.get(path)
 	if err != nil {
 		return nil, err
 	}
@@ -842,9 +844,9 @@ func (c *Client) GetAISession(id string) (*AISessionResponse, error) {
 	return &result, nil
 }
 
-// ListAISessions returns a paginated list of AI sessions.
-func (c *Client) ListAISessions(limit, offset int) ([]*types.AISession, error) {
-	path := "/api/v1/ai/sessions"
+// ListAISessions returns a paginated list of AI sessions within a project.
+func (c *Client) ListAISessions(projectID string, limit, offset int) ([]*types.AISession, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions", projectID)
 
 	query := url.Values{}
 	if limit > 0 {
@@ -872,9 +874,10 @@ func (c *Client) ListAISessions(limit, offset int) ([]*types.AISession, error) {
 	return result.Data, nil
 }
 
-// DeleteAISession deletes an AI session by ID.
-func (c *Client) DeleteAISession(id string) error {
-	resp, err := c.delete("/api/v1/ai/sessions/" + id)
+// DeleteAISession deletes an AI session by ID within a project.
+func (c *Client) DeleteAISession(projectID, id string) error {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions/%s", projectID, id)
+	resp, err := c.delete(path)
 	if err != nil {
 		return err
 	}
@@ -884,9 +887,9 @@ func (c *Client) DeleteAISession(id string) error {
 
 // AI Agent methods manage sub-agents within AI sessions.
 
-// CreateAIAgent creates a new AI agent for a session.
-func (c *Client) CreateAIAgent(sessionID string, agent *types.AIAgent) (*types.AIAgent, error) {
-	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents", sessionID)
+// CreateAIAgent creates a new AI agent for a session within a project.
+func (c *Client) CreateAIAgent(projectID, sessionID string, agent *types.AIAgent) (*types.AIAgent, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions/%s/agents", projectID, sessionID)
 
 	resp, err := c.post(path, agent)
 	if err != nil {
@@ -901,9 +904,9 @@ func (c *Client) CreateAIAgent(sessionID string, agent *types.AIAgent) (*types.A
 	return &result, nil
 }
 
-// ListAIAgents returns all agents for a session.
-func (c *Client) ListAIAgents(sessionID string) ([]*types.AIAgent, error) {
-	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents", sessionID)
+// ListAIAgents returns all agents for a session within a project.
+func (c *Client) ListAIAgents(projectID, sessionID string) ([]*types.AIAgent, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions/%s/agents", projectID, sessionID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -918,9 +921,9 @@ func (c *Client) ListAIAgents(sessionID string) ([]*types.AIAgent, error) {
 	return agents, nil
 }
 
-// GetAIAgent retrieves a single agent by ID within a session.
-func (c *Client) GetAIAgent(sessionID, agentID string) (*types.AIAgent, error) {
-	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents/%s", sessionID, agentID)
+// GetAIAgent retrieves a single agent by ID within a project and session.
+func (c *Client) GetAIAgent(projectID, sessionID, agentID string) (*types.AIAgent, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions/%s/agents/%s", projectID, sessionID, agentID)
 
 	resp, err := c.get(path)
 	if err != nil {
@@ -937,8 +940,8 @@ func (c *Client) GetAIAgent(sessionID, agentID string) (*types.AIAgent, error) {
 
 // GetAgentTranscript retrieves the transcript for an agent as a slice of
 // JSON objects. The transcript is read from the agent's JSONL file on the server.
-func (c *Client) GetAgentTranscript(sessionID, agentID string) ([]map[string]any, error) {
-	path := fmt.Sprintf("/api/v1/ai/sessions/%s/agents/%s/transcript", sessionID, agentID)
+func (c *Client) GetAgentTranscript(projectID, sessionID, agentID string) ([]map[string]any, error) {
+	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions/%s/agents/%s/transcript", projectID, sessionID, agentID)
 
 	resp, err := c.get(path)
 	if err != nil {
