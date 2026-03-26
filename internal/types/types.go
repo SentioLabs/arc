@@ -434,6 +434,7 @@ type PlanWithContent struct {
 // AISession represents an AI coding session (e.g., a Claude Code conversation).
 type AISession struct {
 	ID             string    `json:"id"`
+	ProjectID      string    `json:"project_id"`
 	TranscriptPath string    `json:"transcript_path"`
 	CWD            string    `json:"cwd,omitempty"`
 	StartedAt      time.Time `json:"started_at"`

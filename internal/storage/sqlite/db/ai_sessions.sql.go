@@ -22,12 +22,12 @@ func (q *Queries) CountAIAgentsBySession(ctx context.Context, sessionID string) 
 	return count, err
 }
 
-const countAISessions = `-- name: CountAISessions :one
-SELECT COUNT(*) FROM ai_sessions
+const countAISessionsByProject = `-- name: CountAISessionsByProject :one
+SELECT COUNT(*) FROM ai_sessions WHERE project_id = ?
 `
 
-func (q *Queries) CountAISessions(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAISessions)
+func (q *Queries) CountAISessionsByProject(ctx context.Context, projectID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAISessionsByProject, projectID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -85,13 +85,14 @@ func (q *Queries) CreateAIAgent(ctx context.Context, arg CreateAIAgentParams) (*
 }
 
 const createAISession = `-- name: CreateAISession :one
-INSERT INTO ai_sessions (id, transcript_path, cwd, started_at)
-VALUES (?, ?, ?, ?)
-RETURNING id, transcript_path, cwd, started_at
+INSERT INTO ai_sessions (id, project_id, transcript_path, cwd, started_at)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id, project_id, transcript_path, cwd, started_at
 `
 
 type CreateAISessionParams struct {
 	ID             string         `json:"id"`
+	ProjectID      string         `json:"project_id"`
 	TranscriptPath string         `json:"transcript_path"`
 	Cwd            sql.NullString `json:"cwd"`
 	StartedAt      time.Time      `json:"started_at"`
@@ -100,6 +101,7 @@ type CreateAISessionParams struct {
 func (q *Queries) CreateAISession(ctx context.Context, arg CreateAISessionParams) (*AiSession, error) {
 	row := q.db.QueryRowContext(ctx, createAISession,
 		arg.ID,
+		arg.ProjectID,
 		arg.TranscriptPath,
 		arg.Cwd,
 		arg.StartedAt,
@@ -107,6 +109,7 @@ func (q *Queries) CreateAISession(ctx context.Context, arg CreateAISessionParams
 	var i AiSession
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.TranscriptPath,
 		&i.Cwd,
 		&i.StartedAt,
@@ -147,7 +150,7 @@ func (q *Queries) GetAIAgent(ctx context.Context, id string) (*AiAgent, error) {
 }
 
 const getAISession = `-- name: GetAISession :one
-SELECT id, transcript_path, cwd, started_at FROM ai_sessions WHERE id = ?
+SELECT id, project_id, transcript_path, cwd, started_at FROM ai_sessions WHERE id = ?
 `
 
 func (q *Queries) GetAISession(ctx context.Context, id string) (*AiSession, error) {
@@ -155,6 +158,7 @@ func (q *Queries) GetAISession(ctx context.Context, id string) (*AiSession, erro
 	var i AiSession
 	err := row.Scan(
 		&i.ID,
+		&i.ProjectID,
 		&i.TranscriptPath,
 		&i.Cwd,
 		&i.StartedAt,
@@ -201,17 +205,18 @@ func (q *Queries) ListAIAgents(ctx context.Context, sessionID string) ([]*AiAgen
 	return items, nil
 }
 
-const listAISessions = `-- name: ListAISessions :many
-SELECT id, transcript_path, cwd, started_at FROM ai_sessions ORDER BY started_at DESC LIMIT ? OFFSET ?
+const listAISessionsByProject = `-- name: ListAISessionsByProject :many
+SELECT id, project_id, transcript_path, cwd, started_at FROM ai_sessions WHERE project_id = ? ORDER BY started_at DESC LIMIT ? OFFSET ?
 `
 
-type ListAISessionsParams struct {
-	Limit  int64 `json:"limit"`
-	Offset int64 `json:"offset"`
+type ListAISessionsByProjectParams struct {
+	ProjectID string `json:"project_id"`
+	Limit     int64  `json:"limit"`
+	Offset    int64  `json:"offset"`
 }
 
-func (q *Queries) ListAISessions(ctx context.Context, arg ListAISessionsParams) ([]*AiSession, error) {
-	rows, err := q.db.QueryContext(ctx, listAISessions, arg.Limit, arg.Offset)
+func (q *Queries) ListAISessionsByProject(ctx context.Context, arg ListAISessionsByProjectParams) ([]*AiSession, error) {
+	rows, err := q.db.QueryContext(ctx, listAISessionsByProject, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +226,7 @@ func (q *Queries) ListAISessions(ctx context.Context, arg ListAISessionsParams) 
 		var i AiSession
 		if err := rows.Scan(
 			&i.ID,
+			&i.ProjectID,
 			&i.TranscriptPath,
 			&i.Cwd,
 			&i.StartedAt,

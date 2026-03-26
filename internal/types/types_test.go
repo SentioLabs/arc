@@ -687,10 +687,14 @@ func TestStatisticsProjectID(t *testing.T) {
 	}
 }
 
+// --- Contract assertions for AISession.ProjectID ---
+var _ string = AISession{}.ProjectID
+
 func TestAISessionStruct(t *testing.T) {
 	now := time.Now()
 	session := AISession{
 		ID:             "session-abc123",
+		ProjectID:      "proj-test",
 		TranscriptPath: "/home/user/.claude/projects/test/transcript.jsonl",
 		CWD:            "/home/user/project",
 		StartedAt:      now,
@@ -698,6 +702,9 @@ func TestAISessionStruct(t *testing.T) {
 
 	if session.ID != "session-abc123" {
 		t.Errorf("AISession.ID = %q, want %q", session.ID, "session-abc123")
+	}
+	if session.ProjectID != "proj-test" {
+		t.Errorf("AISession.ProjectID = %q, want %q", session.ProjectID, "proj-test")
 	}
 	if session.TranscriptPath != "/home/user/.claude/projects/test/transcript.jsonl" {
 		t.Errorf("AISession.TranscriptPath = %q, want expected path", session.TranscriptPath)

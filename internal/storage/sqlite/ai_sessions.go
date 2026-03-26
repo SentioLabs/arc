@@ -17,6 +17,7 @@ import (
 func (s *Store) CreateAISession(ctx context.Context, session *types.AISession) error {
 	_, err := s.queries.CreateAISession(ctx, db.CreateAISessionParams{
 		ID:             session.ID,
+		ProjectID:      session.ProjectID,
 		TranscriptPath: session.TranscriptPath,
 		Cwd:            toNullString(session.CWD),
 		StartedAt:      session.StartedAt,
@@ -39,14 +40,15 @@ func (s *Store) GetAISession(ctx context.Context, id string) (*types.AISession, 
 	return dbAISessionToType(row), nil
 }
 
-// ListAISessions returns AI sessions ordered by started_at descending.
-func (s *Store) ListAISessions(ctx context.Context, limit, offset int) ([]*types.AISession, error) {
-	rows, err := s.queries.ListAISessions(ctx, db.ListAISessionsParams{
-		Limit:  int64(limit),
-		Offset: int64(offset),
+// ListAISessionsByProject returns AI sessions for a project ordered by started_at descending.
+func (s *Store) ListAISessionsByProject(ctx context.Context, projectID string, limit, offset int) ([]*types.AISession, error) {
+	rows, err := s.queries.ListAISessionsByProject(ctx, db.ListAISessionsByProjectParams{
+		ProjectID: projectID,
+		Limit:     int64(limit),
+		Offset:    int64(offset),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list ai sessions: %w", err)
+		return nil, fmt.Errorf("list ai sessions by project: %w", err)
 	}
 
 	sessions := make([]*types.AISession, len(rows))
@@ -56,11 +58,11 @@ func (s *Store) ListAISessions(ctx context.Context, limit, offset int) ([]*types
 	return sessions, nil
 }
 
-// CountAISessions returns the total number of AI sessions.
-func (s *Store) CountAISessions(ctx context.Context) (int64, error) {
-	count, err := s.queries.CountAISessions(ctx)
+// CountAISessionsByProject returns the total number of AI sessions for a project.
+func (s *Store) CountAISessionsByProject(ctx context.Context, projectID string) (int64, error) {
+	count, err := s.queries.CountAISessionsByProject(ctx, projectID)
 	if err != nil {
-		return 0, fmt.Errorf("count ai sessions: %w", err)
+		return 0, fmt.Errorf("count ai sessions by project: %w", err)
 	}
 	return count, nil
 }
@@ -137,6 +139,7 @@ func toNullInt64(v *int) sql.NullInt64 {
 func dbAISessionToType(row *db.AiSession) *types.AISession {
 	session := &types.AISession{
 		ID:             row.ID,
+		ProjectID:      row.ProjectID,
 		TranscriptPath: row.TranscriptPath,
 		StartedAt:      row.StartedAt,
 	}

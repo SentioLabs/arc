@@ -1,16 +1,16 @@
 -- name: CreateAISession :one
-INSERT INTO ai_sessions (id, transcript_path, cwd, started_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO ai_sessions (id, project_id, transcript_path, cwd, started_at)
+VALUES (?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetAISession :one
 SELECT * FROM ai_sessions WHERE id = ?;
 
--- name: ListAISessions :many
-SELECT * FROM ai_sessions ORDER BY started_at DESC LIMIT ? OFFSET ?;
+-- name: ListAISessionsByProject :many
+SELECT * FROM ai_sessions WHERE project_id = ? ORDER BY started_at DESC LIMIT ? OFFSET ?;
 
--- name: CountAISessions :one
-SELECT COUNT(*) FROM ai_sessions;
+-- name: CountAISessionsByProject :one
+SELECT COUNT(*) FROM ai_sessions WHERE project_id = ?;
 
 -- name: DeleteAISession :exec
 DELETE FROM ai_sessions WHERE id = ?;

@@ -25,6 +25,7 @@ type AiAgent struct {
 
 type AiSession struct {
 	ID             string         `json:"id"`
+	ProjectID      string         `json:"project_id"`
 	TranscriptPath string         `json:"transcript_path"`
 	Cwd            sql.NullString `json:"cwd"`
 	StartedAt      time.Time      `json:"started_at"`

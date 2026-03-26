@@ -172,10 +172,14 @@ CREATE INDEX idx_plan_comments_plan ON plan_comments(plan_id);
 -- AI sessions table (AI coding session tracking)
 CREATE TABLE ai_sessions (
     id TEXT PRIMARY KEY,
-    transcript_path TEXT NOT NULL,
-    cwd TEXT,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    transcript_path TEXT NOT NULL DEFAULT '',
+    cwd TEXT DEFAULT '',
     started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_ai_sessions_project_id ON ai_sessions(project_id);
+CREATE INDEX idx_ai_sessions_started_at ON ai_sessions(started_at);
 
 -- AI agents table (sub-agents spawned within sessions)
 CREATE TABLE ai_agents (
