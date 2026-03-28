@@ -29,5 +29,8 @@ coverage.html
 # Worktrees
 .worktrees/
 
+# eval workspaces
+plan-*
+
 # Config (contains user-specific settings)
 # Note: ~/.arc/cli-config.json is user config
