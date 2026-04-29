@@ -56,7 +56,8 @@ func DetectMainRepo(dir string) string {
 	if err != nil {
 		return ""
 	}
-	line := strings.TrimSpace(string(data))
+	firstLine, _, _ := strings.Cut(string(data), "\n")
+	line := strings.TrimSpace(firstLine)
 	const prefix = "gitdir:"
 	if !strings.HasPrefix(line, prefix) {
 		return ""

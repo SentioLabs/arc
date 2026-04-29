@@ -43,6 +43,9 @@ func addWorktree(t *testing.T, mainDir, worktreeDir, branch string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("worktree add: %v\n%s", err, out)
 	}
+	t.Cleanup(func() {
+		_ = exec.Command("git", "worktree", "remove", "--force", worktreeDir).Run()
+	})
 }
 
 func TestFindGitEntry_MainWorktree(t *testing.T) {
