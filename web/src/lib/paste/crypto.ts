@@ -15,7 +15,9 @@ export async function exportKey(key: CryptoKey): Promise<string> {
 }
 
 export async function importKey(b64url: string): Promise<CryptoKey> {
-	const raw = base64UrlDecode(b64url);
+	const decoded = base64UrlDecode(b64url);
+	// Copy to ensure backing buffer is ArrayBuffer, not SharedArrayBuffer
+	const raw = new Uint8Array(decoded.buffer.slice(decoded.byteOffset, decoded.byteOffset + decoded.byteLength)) as Uint8Array<ArrayBuffer>;
 	return crypto.subtle.importKey('raw', raw, { name: ALGO }, true, ['encrypt', 'decrypt']);
 }
 
@@ -25,12 +27,22 @@ export async function encryptJSON<T>(
 ): Promise<{ blob: Uint8Array; iv: Uint8Array }> {
 	const iv = crypto.getRandomValues(new Uint8Array(IV_LEN_BYTES));
 	const plaintext = new TextEncoder().encode(JSON.stringify(value));
-	const ct = await crypto.subtle.encrypt({ name: ALGO, iv }, key, plaintext);
+	// Copy to ensure backing buffer is ArrayBuffer, not SharedArrayBuffer
+	const plaintextAsArrayBuffer = plaintext as unknown as Uint8Array<ArrayBuffer>;
+	const plaintextCopy = new Uint8Array(plaintextAsArrayBuffer.buffer.slice(plaintextAsArrayBuffer.byteOffset, plaintextAsArrayBuffer.byteOffset + plaintextAsArrayBuffer.byteLength)) as Uint8Array<ArrayBuffer>;
+	const ct = await crypto.subtle.encrypt({ name: ALGO, iv }, key, plaintextCopy);
 	return { blob: new Uint8Array(ct), iv };
 }
 
 export async function decryptJSON<T>(blob: Uint8Array, iv: Uint8Array, key: CryptoKey): Promise<T> {
-	const plain = await crypto.subtle.decrypt({ name: ALGO, iv }, key, blob);
+	// Copy to ensure backing buffer is ArrayBuffer, not SharedArrayBuffer
+	const blobAsArrayBuffer = blob as unknown as Uint8Array<ArrayBuffer>;
+	const ivAsArrayBuffer = iv as unknown as Uint8Array<ArrayBuffer>;
+	const plain = await crypto.subtle.decrypt(
+		{ name: ALGO, iv: ivAsArrayBuffer },
+		key,
+		new Uint8Array((blobAsArrayBuffer as Uint8Array<ArrayBuffer>).buffer.slice((blobAsArrayBuffer as Uint8Array<ArrayBuffer>).byteOffset, (blobAsArrayBuffer as Uint8Array<ArrayBuffer>).byteOffset + (blobAsArrayBuffer as Uint8Array<ArrayBuffer>).byteLength)) as any,
+	);
 	return JSON.parse(new TextDecoder().decode(plain)) as T;
 }
 
