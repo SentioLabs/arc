@@ -29,15 +29,20 @@ func FindGitEntry(dir string) string {
 	}
 }
 
-// DetectMainRepo returns the main repository's working directory if
-// dir is inside a linked git worktree. Returns "" if dir is in the
-// main worktree, has no reachable .git entry, or the .git pointer is
-// malformed.
+// DetectMainRepo returns the canonical path of the main repository if dir
+// is inside a linked git worktree. Returns "" if dir is in the main
+// worktree, has no reachable .git entry, or the .git pointer is malformed.
 //
-// Linked worktrees use a .git *file* containing one line of the form
-// "gitdir: /abs/path/to/main/.git/worktrees/<name>". This function
-// peels two directory levels off that path to get the main .git, and
-// returns the parent of that as the main worktree.
+// Two layouts are supported:
+//
+//  1. Worktree of a normal repo: .git is a file like
+//     "gitdir: /abs/path/main/.git/worktrees/<name>". This function returns
+//     the main repo's working directory (parent of the .git directory).
+//
+//  2. Worktree of a bare repo: .git is a file like
+//     "gitdir: /abs/path/repo.git/worktrees/<name>". A bare repo has no
+//     working directory; this function returns the bare repo path itself
+//     (validated by checking for HEAD and objects/).
 func DetectMainRepo(dir string) string {
 	gitPath := FindGitEntry(dir)
 	if gitPath == "" {
@@ -71,9 +76,34 @@ func DetectMainRepo(dir string) string {
 	if filepath.Base(worktreesDir) != "worktrees" {
 		return ""
 	}
+
 	mainGitDir := filepath.Dir(worktreesDir)
-	if filepath.Base(mainGitDir) != ".git" {
-		return ""
+
+	// Normal repo case: gitdir is .../<main-worktree>/.git/worktrees/<name>.
+	// The parent of mainGitDir is the main worktree's working directory.
+	if filepath.Base(mainGitDir) == ".git" {
+		return filepath.Dir(mainGitDir)
 	}
-	return filepath.Dir(mainGitDir)
+
+	// Bare repo case: gitdir is .../repo.git/worktrees/<name>. There is no
+	// working directory; the bare repo itself (mainGitDir) is the canonical
+	// path users register. Validate it looks like a real bare repo by
+	// checking for the standard bare-repo files HEAD and objects.
+	if isBareRepo(mainGitDir) {
+		return mainGitDir
+	}
+
+	return ""
+}
+
+// isBareRepo returns true if dir contains the typical structural files
+// of a bare git repository (HEAD file and objects directory).
+func isBareRepo(dir string) bool {
+	if info, err := os.Stat(filepath.Join(dir, "HEAD")); err != nil || info.IsDir() {
+		return false
+	}
+	if info, err := os.Stat(filepath.Join(dir, "objects")); err != nil || !info.IsDir() {
+		return false
+	}
+	return true
 }

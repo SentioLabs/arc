@@ -151,3 +151,69 @@ func TestDetectMainRepo_RelativeGitdir(t *testing.T) {
 		t.Fatalf("DetectMainRepo(relative) = %q, want empty", got)
 	}
 }
+
+func mustRunGit(t *testing.T, workdir string, args ...string) {
+	t.Helper()
+	if workdir != "" {
+		if err := os.MkdirAll(workdir, 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", workdir, err)
+		}
+	}
+	cmd := exec.Command("git", args...)
+	if workdir != "" {
+		cmd.Dir = workdir
+	}
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_CONFIG_GLOBAL=/dev/null",
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func TestDetectMainRepo_BareRepoWorktree(t *testing.T) {
+	root := t.TempDir()
+	bare := filepath.Join(root, "repo.git")
+	wt := filepath.Join(root, "feature-x")
+
+	// Create a bare repo with one commit so worktree add has a ref to branch from.
+	mustRunGit(t, "", "init", "--bare", "-q", bare)
+
+	// `git worktree add` on a bare repo needs an existing branch. Easiest path:
+	// init a temporary normal repo, push to bare, then bare repo can serve worktrees.
+	src := filepath.Join(root, "src")
+	mustRunGit(t, src, "init", "-q")
+	mustRunGit(t, src, "commit", "--allow-empty", "-m", "init", "-q")
+	mustRunGit(t, src, "remote", "add", "origin", bare)
+	mustRunGit(t, src, "push", "-q", "origin", "HEAD:refs/heads/main")
+
+	// Now add a worktree from the bare repo.
+	mustRunGit(t, bare, "worktree", "add", "-q", "-b", "feature-x", wt, "main")
+	t.Cleanup(func() {
+		_ = exec.Command("git", "worktree", "remove", "--force", wt).Run()
+	})
+
+	got := gitfs.DetectMainRepo(wt)
+	if got != bare {
+		t.Fatalf("DetectMainRepo(bare-repo-worktree) = %q, want %q", got, bare)
+	}
+}
+
+func TestDetectMainRepo_PointerToNonRepo(t *testing.T) {
+	// .git file points at a directory that isn't a git repo (no HEAD, no objects).
+	root := t.TempDir()
+	fakeGitdir := filepath.Join(root, "not-a-repo", "worktrees", "x")
+	if err := os.MkdirAll(fakeGitdir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".git"), []byte("gitdir: "+fakeGitdir+"\n"), 0o644); err != nil {
+		t.Fatalf("write .git: %v", err)
+	}
+
+	if got := gitfs.DetectMainRepo(root); got != "" {
+		t.Fatalf("DetectMainRepo(pointer-to-non-repo) = %q, want empty", got)
+	}
+}
