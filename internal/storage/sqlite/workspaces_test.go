@@ -523,6 +523,105 @@ func TestResolveProjectByPath_ComponentBoundary(t *testing.T) {
 	}
 }
 
+func TestResolveProjectByPath_LiteralUnderscoreInRegisteredPath(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := setupTestProject(t, store)
+
+	ws := &types.Workspace{
+		ProjectID: proj.ID,
+		Path:      "/home/john_doe/proj",
+		Label:     "with-underscore",
+	}
+	if err := store.CreateWorkspace(ctx, ws); err != nil {
+		t.Fatalf("CreateWorkspace failed: %v", err)
+	}
+
+	// Exact match must work.
+	got, err := store.ResolveProjectByPath(ctx, "/home/john_doe/proj")
+	if err != nil {
+		t.Fatalf("exact match failed: %v", err)
+	}
+	if got.ID != ws.ID {
+		t.Errorf("exact match resolved to %q, want %q", got.ID, ws.ID)
+	}
+
+	// Subdirectory of the real path must work.
+	got, err = store.ResolveProjectByPath(ctx, "/home/john_doe/proj/sub/file")
+	if err != nil {
+		t.Fatalf("subdir of real path failed: %v", err)
+	}
+	if got.ID != ws.ID {
+		t.Errorf("subdir of real path resolved to %q, want %q", got.ID, ws.ID)
+	}
+
+	// A path where the underscore position has a different character must NOT match.
+	// Without REPLACE-escaping, '_' acts as a single-char wildcard and "/home/johnXdoe/projXfile"
+	// would falsely match "/home/john_doe/proj".
+	if _, err := store.ResolveProjectByPath(ctx, "/home/johnXdoe/proj/file"); err == nil {
+		t.Fatal("path with X where _ was registered must NOT match (LIKE wildcard leak)")
+	}
+}
+
+func TestResolveProjectByPath_LiteralPercentInRegisteredPath(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := setupTestProject(t, store)
+
+	ws := &types.Workspace{
+		ProjectID: proj.ID,
+		Path:      "/repos/100%coverage",
+		Label:     "with-percent",
+	}
+	if err := store.CreateWorkspace(ctx, ws); err != nil {
+		t.Fatalf("CreateWorkspace failed: %v", err)
+	}
+
+	// Subdirectory of the real path must work.
+	got, err := store.ResolveProjectByPath(ctx, "/repos/100%coverage/sub")
+	if err != nil {
+		t.Fatalf("subdir of percent path failed: %v", err)
+	}
+	if got.ID != ws.ID {
+		t.Errorf("subdir resolved to %q, want %q", got.ID, ws.ID)
+	}
+
+	// Without escaping, % would match anything: "/repos/100ANYcoverage/file" should NOT match.
+	if _, err := store.ResolveProjectByPath(ctx, "/repos/100ANYTHINGcoverage/file"); err == nil {
+		t.Fatal("path that differs only by what % covers must NOT match")
+	}
+}
+
+func TestResolveProjectByPath_LiteralBackslashInRegisteredPath(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := setupTestProject(t, store)
+
+	// Edge case: path containing a literal backslash. Rare on Linux/Mac but possible.
+	ws := &types.Workspace{
+		ProjectID: proj.ID,
+		Path:      `/repos/weird\name/proj`,
+		Label:     "with-backslash",
+	}
+	if err := store.CreateWorkspace(ctx, ws); err != nil {
+		t.Fatalf("CreateWorkspace failed: %v", err)
+	}
+
+	got, err := store.ResolveProjectByPath(ctx, `/repos/weird\name/proj/sub`)
+	if err != nil {
+		t.Fatalf("subdir of backslash path failed: %v", err)
+	}
+	if got.ID != ws.ID {
+		t.Errorf("subdir resolved to %q, want %q", got.ID, ws.ID)
+	}
+}
+
 func setupTestProjectNamed(t *testing.T, store *sqlite.Store, name, prefix string) *types.Project {
 	t.Helper()
 	proj := &types.Project{

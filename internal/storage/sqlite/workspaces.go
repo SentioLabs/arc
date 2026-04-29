@@ -119,14 +119,18 @@ const resolveProjectByPathSQL = `
 	FROM workspaces w
 	JOIN projects p ON w.project_id = p.id
 	WHERE w.path = ?
-	   OR ? LIKE w.path || '/%' ESCAPE '\'
+	   OR ? LIKE REPLACE(REPLACE(REPLACE(w.path, '\', '\\'), '%', '\%'), '_', '\_') || '/%' ESCAPE '\'
 	ORDER BY length(w.path) DESC
 	LIMIT 1
 `
 
-// ResolveProjectByPath finds a workspace entry by filesystem path.
-// It matches either exact path or a subpath under a workspace, returning the longest match.
-// Uses ESCAPE '\' to properly handle wildcard characters in filesystem paths.
+// ResolveProjectByPath finds the workspace whose path is `path` exactly or
+// is the longest registered ancestor of `path` (component-wise).
+//
+// The LIKE clause pattern-matches against w.path's value with REPLACE-based
+// escaping of \, %, and _ so that workspace paths containing those literal
+// characters do not act as SQL LIKE wildcards. ESCAPE '\' marks the
+// escape sequences emitted by REPLACE.
 func (s *Store) ResolveProjectByPath(ctx context.Context, path string) (*types.Workspace, error) {
 	row := db.Workspace{}
 	err := s.db.QueryRowContext(ctx, resolveProjectByPathSQL, path, path).Scan(
