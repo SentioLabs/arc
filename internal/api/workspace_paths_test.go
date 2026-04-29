@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -88,10 +90,22 @@ func (m *mockWPStore) DeleteWorkspace(_ context.Context, id string) error {
 }
 
 func (m *mockWPStore) ResolveProjectByPath(_ context.Context, path string) (*types.Workspace, error) {
+	var best *types.Workspace
+	bestLen := -1
 	for _, ws := range m.workspaces {
 		if ws.Path == path {
 			return ws, nil
 		}
+		// Component-wise prefix: ws.Path must be followed by "/" in path.
+		if strings.HasPrefix(path, ws.Path+"/") {
+			if len(ws.Path) > bestLen {
+				best = ws
+				bestLen = len(ws.Path)
+			}
+		}
+	}
+	if best != nil {
+		return best, nil
 	}
 	return nil, fmt.Errorf("no project found for path: %s", path)
 }
@@ -497,5 +511,36 @@ func TestResolveProject(t *testing.T) {
 	// Verify last_accessed_at was touched
 	if store.touched != "p-1" {
 		t.Errorf("expected UpdateWorkspaceLastAccessed called with p-1, got %s", store.touched)
+	}
+}
+
+func TestResolveProject_GitWorktree(t *testing.T) {
+	tmp := t.TempDir()
+	mainDir := filepath.Join(tmp, "main")
+	wtDir := filepath.Join(tmp, "feature-x")
+
+	mustRun(t, mainDir, "git", "init", "-q")
+	mustRun(t, mainDir, "git", "commit", "--allow-empty", "-m", "init", "-q")
+	mustRun(t, mainDir, "git", "worktree", "add", "-q", "-b", "feature-x", wtDir)
+
+	srv, cleanup := testServer(t)
+	defer cleanup()
+
+	projID := createNamedProject(t, srv.echo, "worktree-proj", "wtp")
+	addWorkspaceToProject(t, srv.echo, projID, mainDir)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/resolve?path="+url.QueryEscape(wtDir), nil)
+	rec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got types.ProjectResolution
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.ProjectID != projID {
+		t.Errorf("ProjectID = %q, want %q", got.ProjectID, projID)
 	}
 }

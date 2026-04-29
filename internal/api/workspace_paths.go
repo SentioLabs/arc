@@ -134,7 +134,7 @@ func (s *Server) resolveProject(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "path query parameter is required")
 	}
 
-	ws, err := s.store.ResolveProjectByPath(ctx, path)
+	ws, err := s.resolveProjectForPath(ctx, path)
 	if err != nil {
 		return errorJSON(c, http.StatusNotFound, err.Error())
 	}
