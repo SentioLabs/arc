@@ -1,0 +1,32 @@
+[
+  {
+    "name": "simple-string",
+    "key_b64url": "0sPOEgk6sXnLa8gG-Us0rGbFVzXtZLdDz05i_Ht7Y8s",
+    "plaintext": "hello world",
+    "ciphertext_b64": "xEZxsBqDhxxzVrszzoJf8JCO+VK/vo5sDrIK3sY=",
+    "iv_b64": "59bzfpIIYaB2YpOG"
+  },
+  {
+    "name": "empty-object",
+    "key_b64url": "XcTZkGxWCrrxaY_h3NiCj6lpYuNXKUeW6biLnisFsUw",
+    "plaintext": {},
+    "ciphertext_b64": "MGA2OLHstGPKAq880FJ7v1Dr",
+    "iv_b64": "aQBdDtz/ZeNHGA0i"
+  },
+  {
+    "name": "nested-object",
+    "key_b64url": "iyo2Rc7qGRKTKZz895k2d3Yp8zxa6J6pYWlO1_Nty4Q",
+    "plaintext": {
+      "anchor": {
+        "line_end": 1,
+        "line_start": 1,
+        "quoted_text": "x"
+      },
+      "author_name": "Alice",
+      "id": "c1",
+      "kind": "comment"
+    },
+    "ciphertext_b64": "Zron1CbqnlsZaSJWZezFn7TD7rUwWoMNT/MuzCjm31hjmbBoZ1OQB/6InUuL02KFcbvTtgrmH18ryHXluI3xmyfV65NuaGN6dIm+y7LZP1bykPm7QH7qBAxc7XekG+Zj4fcGHbPh8RA0IbTJ/PhEFhvj4Hqr/hbOZ+go",
+    "iv_b64": "2gljqJMdKMtG2S28"
+  }
+]
