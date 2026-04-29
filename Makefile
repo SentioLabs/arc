@@ -105,9 +105,9 @@ build-quick: ## Build CLI-only binary (no embedded web UI)
 	$(BUILD_SCRIPT)
 
 .PHONY: build-paste
-build-paste: web-build ## Build arc-paste standalone binary
+build-paste: web-build ## Build arc-paste standalone binary (with embedded SPA)
 	@echo "==> Building arc-paste binary..."
-	$(GO) build -o $(BIN_DIR)/arc-paste ./arc-paste
+	$(GO) build -tags webui -o $(BIN_DIR)/arc-paste ./arc-paste
 
 .PHONY: release
 release: ## Build release with goreleaser (requires git tag)
