@@ -1,27 +1,37 @@
 <script lang="ts">
-	import { slugify } from '$lib/paste/anchor';
+	import { tick } from 'svelte';
 	import { marked } from 'marked';
+	import { slugify } from '$lib/paste/anchor';
+	import { applyInlineAnnotations, type InlineMark } from './inline-annotations';
 
-	const { markdown, onSelection } = $props<{
+	type SelectionPayload = {
+		lineStart: number;
+		lineEnd: number;
+		quotedText: string;
+		headingSlug?: string;
+		contextBefore?: string;
+		contextAfter?: string;
+		rect: DOMRect;
+	};
+
+	const {
+		markdown,
+		marks = [],
+		onSelection,
+		onMarkClick,
+		activeMarkId
+	}: {
 		markdown: string;
-		onSelection: (a: {
-			lineStart: number;
-			lineEnd: number;
-			charStart?: number;
-			charEnd?: number;
-			quotedText: string;
-			headingSlug?: string;
-			contextBefore?: string;
-			contextAfter?: string;
-		}) => void;
-	}>();
+		marks?: InlineMark[];
+		onSelection?: (sel: SelectionPayload | null) => void;
+		onMarkClick?: (id: string) => void;
+		activeMarkId?: string;
+	} = $props();
 
+	let container: HTMLElement | undefined = $state();
 	const html = $derived(renderWithSourceLines(markdown));
 
 	function renderWithSourceLines(md: string): string {
-		// Simple v1: split by blank-line paragraphs, wrap each in a <div data-source-line>
-		// and pipe content through marked. Tracks source lines well enough for paragraph
-		// anchoring; refine later for sub-paragraph precision.
 		const lines = md.split('\n');
 		const blocks: { startLine: number; text: string }[] = [];
 		let cur: { startLine: number; lines: string[] } | null = null;
@@ -43,33 +53,80 @@
 			.join('\n');
 	}
 
-	function handleMouseUp() {
+	$effect(() => {
+		void html;
+		void marks;
+		void activeMarkId;
+		if (!container) return;
+		void tick().then(() => {
+			if (container) applyInlineAnnotations(container, marks, activeMarkId);
+		});
+	});
+
+	function handleMouseUp(e: MouseEvent) {
+		const target = e.target as Element | null;
+		const existingMark = target?.closest('mark[data-anno-id]') as HTMLElement | null;
+		if (existingMark) {
+			onMarkClick?.(existingMark.dataset.annoId!);
+			return;
+		}
+
 		const sel = window.getSelection();
-		if (!sel || sel.rangeCount === 0 || sel.toString().length === 0) return;
+		if (!sel || sel.rangeCount === 0 || sel.toString().trim().length === 0) {
+			onSelection?.(null);
+			return;
+		}
 		const range = sel.getRangeAt(0);
-		const startEl = (range.startContainer.parentElement)?.closest('[data-source-line]') as HTMLElement | null;
-		const endEl = (range.endContainer.parentElement)?.closest('[data-source-line]') as HTMLElement | null;
-		if (!startEl || !endEl) return;
+		const startEl = (range.startContainer.parentElement as Element | null)?.closest(
+			'[data-source-line]'
+		) as HTMLElement | null;
+		const endEl = (range.endContainer.parentElement as Element | null)?.closest(
+			'[data-source-line]'
+		) as HTMLElement | null;
+		if (!startEl || !endEl) {
+			onSelection?.(null);
+			return;
+		}
+
 		const lineStart = Number(startEl.getAttribute('data-source-line'));
 		const lineEnd = Number(endEl.getAttribute('data-source-line'));
 		const quotedText = sel.toString();
+		const rect = range.getBoundingClientRect();
 
-		// Find nearest preceding heading element for slug.
 		let headingSlug: string | undefined;
 		let cursor: Element | null = startEl;
 		while (cursor) {
-			const h = cursor.querySelector('h1,h2,h3,h4,h5,h6');
+			const h = cursor.querySelector('h1, h2, h3, h4, h5, h6');
 			if (h) {
 				headingSlug = slugify(h.textContent ?? '');
 				break;
 			}
 			cursor = cursor.previousElementSibling;
 		}
-		onSelection({ lineStart, lineEnd, quotedText, headingSlug });
+
+		const blockText = startEl.textContent ?? '';
+		const idx = blockText.indexOf(quotedText);
+		const contextBefore = idx > 0 ? blockText.slice(Math.max(0, idx - 40), idx) : undefined;
+		const contextAfter =
+			idx >= 0 ? blockText.slice(idx + quotedText.length, idx + quotedText.length + 40) : undefined;
+
+		onSelection?.({
+			lineStart,
+			lineEnd,
+			quotedText,
+			headingSlug,
+			contextBefore,
+			contextAfter,
+			rect
+		});
 	}
 </script>
 
+<!-- The mouseup handler captures text selections; there's no keyboard equivalent
+     to "select text and click a floating toolbar button", so the listener is
+     mouse-only by design. -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div onmouseup={handleMouseUp} class="prose" role="document">
+<article bind:this={container} class="doc" onmouseup={handleMouseUp}>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html html}
-</div>
+</article>

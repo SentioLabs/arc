@@ -9,134 +9,397 @@
 		EventPlaintext,
 		CommentEvent,
 		CommentType,
-		Severity,
+		ResolutionEvent,
+		ResolutionStatus,
 		Anchor
 	} from '$lib/paste/types';
 	import PlanRenderer from './components/PlanRenderer.svelte';
-	import AnnotationToolbar from './components/AnnotationToolbar.svelte';
-	import CommentCard from './components/CommentCard.svelte';
+	import FloatingToolbar, { type ToolbarAction } from './components/FloatingToolbar.svelte';
+	import CommentPopover, { type PopoverMode } from './components/CommentPopover.svelte';
+	import QuickLabelPicker from './components/QuickLabelPicker.svelte';
+	import AnnotationsPanel from './components/AnnotationsPanel.svelte';
 	import NamePromptModal from './components/NamePromptModal.svelte';
+	import type { InlineMark } from './components/inline-annotations.ts';
 
-	const { data } = $props<{ data: { id: string } }>();
+	const { data }: { data: { id: string } } = $props();
+
+	// --- Decrypted state ---
 	let plan = $state<PlanPlaintext | null>(null);
 	let comments = $state(new Map<string, CommentState>());
 	let key = $state<CryptoKey | null>(null);
-	let reviewerName = $state(getReviewerName());
+	let loadError = $state<string | null>(null);
+
+	// --- Reviewer identity ---
+	let reviewerName = $state<string | null>(null);
 	let showNamePrompt = $state(false);
-	let pendingComment = $state<{
-		body: string;
-		comment_type: CommentType;
-		severity?: Severity;
-		suggested_text?: string;
-		anchor: Anchor;
-	} | null>(null);
-	let selection = $state<{
+	let pendingAfterName: (() => void) | null = null;
+
+	// --- UI state for selection-driven actions ---
+	type SelectionInfo = {
 		lineStart: number;
 		lineEnd: number;
-		charStart?: number;
-		charEnd?: number;
 		quotedText: string;
 		headingSlug?: string;
 		contextBefore?: string;
 		contextAfter?: string;
-	} | undefined>(undefined);
+		rect: DOMRect;
+	};
+	let activeSelection = $state<SelectionInfo | null>(null);
+	let popoverMode = $state<PopoverMode | null>(null);
+	let showQuickLabel = $state(false);
+	let activeMarkId = $state<string | undefined>(undefined);
 
-	const anchor = $derived(
-		selection
-			? ({
-					line_start: selection.lineStart,
-					line_end: selection.lineEnd,
-					char_start: selection.charStart,
-					char_end: selection.charEnd,
-					quoted_text: selection.quotedText,
-					heading_slug: selection.headingSlug,
-					context_before: selection.contextBefore,
-					context_after: selection.contextAfter
-				} satisfies Anchor)
-			: undefined
+	let client: PasteClient | undefined;
+
+	const isAuthor = $derived(
+		reviewerName !== null &&
+			plan !== null &&
+			!!plan.author_name &&
+			plan.author_name === reviewerName
 	);
 
-	const client = new PasteClient(window.location.origin);
-
-	onMount(async () => {
-		const fragment = window.location.hash.replace(/^#/, '');
-		const params = new URLSearchParams(fragment);
-		const k = params.get('k');
-		if (!k) {
-			console.error('missing #k=<key> in URL');
-			return;
-		}
-		key = await importKey(k);
-
-		const resp = await client.get(data.id);
-		plan = await decryptJSON<PlanPlaintext>(b64ToBytes(resp.plan_blob), b64ToBytes(resp.plan_iv), key);
-
-		const events: EventPlaintext[] = [];
-		for (const ev of resp.events) {
-			const { blob, iv } = eventBytes(ev);
-			try {
-				events.push(await decryptJSON<EventPlaintext>(blob, iv, key));
-			} catch {
-				// skip undecryptable events (corrupt or tampered)
-			}
-		}
-		comments = replayEvents(plan?.author_name, events);
+	const orderedStates = $derived.by(() => {
+		return [...comments.values()].sort((a, b) =>
+			b.event.created_at.localeCompare(a.event.created_at)
+		);
 	});
 
-	async function handleSubmitComment(payload: typeof pendingComment) {
-		if (!payload || !key || !plan) return;
-		if (!reviewerName) {
-			pendingComment = payload;
-			showNamePrompt = true;
+	const marks = $derived.by((): InlineMark[] => {
+		const out: InlineMark[] = [];
+		for (const state of comments.values()) {
+			if (state.status === 'resolved' || state.status === 'rejected') continue;
+			out.push({
+				id: state.event.id,
+				kind: state.event.action === 'delete' ? 'delete' : 'comment',
+				lineStart: state.event.anchor.line_start,
+				lineEnd: state.event.anchor.line_end,
+				quotedText: state.event.anchor.quoted_text
+			});
+		}
+		return out;
+	});
+
+	onMount(async () => {
+		reviewerName = getReviewerName();
+		client = new PasteClient(window.location.origin);
+
+		try {
+			const fragment = window.location.hash.replace(/^#/, '');
+			const params = new URLSearchParams(fragment);
+			const k = params.get('k');
+			if (!k) {
+				loadError = 'Missing #k=<key> in URL — share link is incomplete.';
+				return;
+			}
+			key = await importKey(k);
+
+			const resp = await client.get(data.id);
+			plan = await decryptJSON<PlanPlaintext>(
+				b64ToBytes(resp.plan_blob),
+				b64ToBytes(resp.plan_iv),
+				key
+			);
+
+			const events: EventPlaintext[] = [];
+			for (const ev of resp.events) {
+				const { blob, iv } = eventBytes(ev);
+				try {
+					events.push(await decryptJSON<EventPlaintext>(blob, iv, key));
+				} catch {
+					// skip undecryptable events
+				}
+			}
+			comments = replayEvents(plan?.author_name, events);
+		} catch (err) {
+			loadError = (err as Error)?.message ?? 'Failed to load share';
+		}
+	});
+
+	function ensureName(after: () => void) {
+		if (reviewerName) {
+			after();
 			return;
 		}
+		pendingAfterName = after;
+		showNamePrompt = true;
+	}
+
+	function handleNameSaved(name: string) {
+		reviewerName = name;
+		showNamePrompt = false;
+		const cb = pendingAfterName;
+		pendingAfterName = null;
+		cb?.();
+	}
+
+	function clearSelection() {
+		activeSelection = null;
+		popoverMode = null;
+		showQuickLabel = false;
+		const sel = window.getSelection();
+		sel?.removeAllRanges();
+	}
+
+	async function postEvent(event: EventPlaintext) {
+		if (!key || !client) return;
+		const { blob, iv } = await encryptJSON(event, key);
+		await client.appendEvent(data.id, blob, iv);
+	}
+
+	function buildAnchor(sel: SelectionInfo): Anchor {
+		return {
+			line_start: sel.lineStart,
+			line_end: sel.lineEnd,
+			quoted_text: sel.quotedText,
+			heading_slug: sel.headingSlug,
+			context_before: sel.contextBefore,
+			context_after: sel.contextAfter
+		};
+	}
+
+	async function createComment(opts: {
+		body: string;
+		comment_type?: CommentType;
+		action?: 'comment' | 'delete';
+		suggested_text?: string;
+		anchor: Anchor;
+	}) {
+		if (!reviewerName) return;
 		const event: CommentEvent = {
 			kind: 'comment',
 			id: `c-${crypto.randomUUID()}`,
 			author_name: reviewerName,
-			comment_type: payload.comment_type,
-			severity: payload.severity,
-			body: payload.body,
-			suggested_text: payload.suggested_text,
-			anchor: payload.anchor,
+			action: opts.action ?? 'comment',
+			comment_type: opts.comment_type ?? 'comment',
+			body: opts.body,
+			suggested_text: opts.suggested_text,
+			anchor: opts.anchor,
 			created_at: new Date().toISOString()
 		};
-		const { blob, iv } = await encryptJSON(event, key);
-		await client.appendEvent(data.id, blob, iv);
+		await postEvent(event);
 		const next = new Map(comments);
 		next.set(event.id, { event, status: 'open' });
 		comments = next;
-		pendingComment = null;
+	}
+
+	async function handleToolbarAction(action: ToolbarAction) {
+		if (!activeSelection) return;
+		const sel = activeSelection;
+
+		switch (action) {
+			case 'praise':
+				ensureName(async () => {
+					await createComment({
+						body: 'Looks good',
+						comment_type: 'praise',
+						action: 'comment',
+						anchor: buildAnchor(sel)
+					});
+					clearSelection();
+				});
+				return;
+			case 'comment':
+				ensureName(() => {
+					popoverMode = 'comment';
+				});
+				return;
+			case 'delete':
+				ensureName(async () => {
+					await createComment({
+						body: '',
+						comment_type: 'comment',
+						action: 'delete',
+						anchor: buildAnchor(sel)
+					});
+					clearSelection();
+				});
+				return;
+			case 'suggest':
+				ensureName(() => {
+					popoverMode = 'suggest';
+				});
+				return;
+			case 'quick-label':
+				ensureName(() => {
+					showQuickLabel = true;
+				});
+				return;
+		}
+	}
+
+	async function handlePopoverSave(body: string, suggestedText?: string) {
+		if (!activeSelection) return;
+		await createComment({
+			body,
+			comment_type: suggestedText ? 'suggestion' : 'comment',
+			action: 'comment',
+			suggested_text: suggestedText,
+			anchor: buildAnchor(activeSelection)
+		});
+		clearSelection();
+	}
+
+	async function handleQuickLabelPick(label: CommentType, presetBody: string) {
+		if (!activeSelection) return;
+		const sel = activeSelection;
+		showQuickLabel = false;
+		if (presetBody) {
+			await createComment({
+				body: presetBody,
+				comment_type: label,
+				action: 'comment',
+				anchor: buildAnchor(sel)
+			});
+			clearSelection();
+		} else {
+			// No preset — open the comment popover so the user can write a body
+			popoverMode = 'comment';
+		}
+	}
+
+	async function handleResolve(commentId: string, status: ResolutionStatus, reply?: string) {
+		if (!reviewerName) return;
+		const event: ResolutionEvent = {
+			kind: 'resolution',
+			id: `r-${crypto.randomUUID()}`,
+			comment_id: commentId,
+			status,
+			reply,
+			author_name: reviewerName,
+			created_at: new Date().toISOString()
+		};
+		await postEvent(event);
+		const next = new Map(comments);
+		const target = next.get(commentId);
+		if (target && plan?.author_name === reviewerName) {
+			next.set(commentId, { ...target, status, reply, replyAt: event.created_at });
+		}
+		comments = next;
+	}
+
+	function handleSelection(sel: SelectionInfo | null) {
+		if (!sel) {
+			if (!popoverMode && !showQuickLabel) activeSelection = null;
+			return;
+		}
+		activeSelection = sel;
+		popoverMode = null;
+		showQuickLabel = false;
+	}
+
+	function handleMarkClick(id: string) {
+		activeMarkId = activeMarkId === id ? undefined : id;
+		document
+			.querySelector(`[data-anno-card-id="${id}"]`)
+			?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
+
+	function handleCardClick(id: string) {
+		activeMarkId = activeMarkId === id ? undefined : id;
 	}
 </script>
 
-{#if !plan}
-	<p class="p-4 text-gray-500">Loading…</p>
-{:else}
-	<div class="grid grid-cols-[1fr_320px] gap-4 p-4">
-		<PlanRenderer
-			markdown={plan.markdown}
-			onSelection={(a) => {
-				selection = a;
-			}}
-		/>
-		<aside>
-			<AnnotationToolbar onSubmit={handleSubmitComment} anchor={anchor} />
-			<ul class="space-y-2 mt-4">
-				{#each [...comments.values()] as state (state.event.id)}
-					<CommentCard {state} isAuthor={reviewerName === plan.author_name} />
-				{/each}
-			</ul>
-		</aside>
-	</div>
-{/if}
+<svelte:head>
+	<title>{plan?.title ?? 'Plan review'} · arc</title>
+</svelte:head>
 
-{#if showNamePrompt}
-	<NamePromptModal
-		onSave={(name) => {
-			reviewerName = name;
-			showNamePrompt = false;
-			if (pendingComment) handleSubmitComment(pendingComment);
-		}}
-	/>
-{/if}
+<div class="share-page grid h-screen grid-cols-[1fr_360px]">
+	<!-- Document area: dark paper with subtle grain background -->
+	<main class="doc-area overflow-y-auto">
+		<div class="mx-auto flex max-w-[760px] flex-col px-10 py-12">
+			<header
+				class="mb-10 flex items-baseline justify-between border-b border-[var(--ink-rule)] pb-6"
+			>
+				<div>
+					<div
+						class="ui-mono mb-1 text-[10px] uppercase tracking-[0.16em] text-[var(--ink-text-faint)]"
+					>
+						Plan · {data.id}
+					</div>
+					<h1 class="ui-sans text-xl font-semibold text-[var(--ink-text)]">
+						{plan?.title ?? 'Untitled plan'}
+					</h1>
+				</div>
+				{#if reviewerName}
+					<span class="name-chip">
+						{reviewerName}{isAuthor ? ' · author' : ''}
+					</span>
+				{:else}
+					<button
+						type="button"
+						class="name-chip cursor-pointer hover:border-[var(--ink-comment-edge)]"
+						onclick={() => (showNamePrompt = true)}
+					>
+						Sign in
+					</button>
+				{/if}
+			</header>
+
+			{#if loadError}
+				<div
+					class="rounded-md border border-[var(--ink-delete-edge)] bg-[var(--ink-delete-bg)] p-4 text-sm text-[var(--ink-delete)]"
+				>
+					<strong class="font-semibold">Couldn't load plan.</strong>
+					<div class="mt-1 text-[var(--ink-text-muted)]">{loadError}</div>
+				</div>
+			{:else if !plan}
+				<div class="text-sm italic text-[var(--ink-text-faint)]">Decrypting plan…</div>
+			{:else}
+				<PlanRenderer
+					markdown={plan.markdown}
+					{marks}
+					{activeMarkId}
+					onSelection={handleSelection}
+					onMarkClick={handleMarkClick}
+				/>
+			{/if}
+		</div>
+	</main>
+
+	<!-- Right rail: annotations panel -->
+	<div class="border-l border-[var(--ink-rule)] bg-[var(--ink-paper-raised)]">
+		<AnnotationsPanel
+			states={orderedStates}
+			{isAuthor}
+			{reviewerName}
+			activeId={activeMarkId}
+			onCardClick={handleCardClick}
+			onResolve={handleResolve}
+		/>
+	</div>
+
+	<!--
+		Floating overlays must live inside `.share-page` so they inherit the
+		`--ink-*` design tokens defined in app.css. Fixed positioning takes them
+		out of grid flow, so they don't claim a grid cell.
+	-->
+	{#if activeSelection && !popoverMode && !showQuickLabel}
+		<FloatingToolbar
+			anchorRect={activeSelection.rect}
+			onAction={handleToolbarAction}
+			onDismiss={clearSelection}
+		/>
+	{/if}
+
+	{#if activeSelection && popoverMode}
+		<CommentPopover
+			anchorRect={activeSelection.rect}
+			mode={popoverMode}
+			quotedText={activeSelection.quotedText}
+			onSave={handlePopoverSave}
+			onCancel={clearSelection}
+		/>
+	{/if}
+
+	{#if activeSelection && showQuickLabel}
+		<QuickLabelPicker
+			anchorRect={activeSelection.rect}
+			onPick={handleQuickLabelPick}
+			onDismiss={() => (showQuickLabel = false)}
+		/>
+	{/if}
+
+	{#if showNamePrompt}
+		<NamePromptModal onSave={handleNameSaved} />
+	{/if}
+</div>

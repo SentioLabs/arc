@@ -52,12 +52,23 @@ export type Anchor = {
 	heading_slug?: string;
 };
 
+/**
+ * The reviewer's intent. Plannotator parity: COMMENT vs DELETION are the
+ * primary actions. `comment_type` (praise/issue/etc.) is a secondary label.
+ * Body is required for action='comment' but optional for 'delete' — the
+ * strikethrough IS the action.
+ */
+export type AnnotationAction = 'comment' | 'delete';
+
 export type CommentEvent = {
 	kind: 'comment';
 	id: string;
 	author_name: string;
+	/** Primary intent. Defaults to 'comment' for back-compat with v1 events. */
+	action?: AnnotationAction;
 	comment_type: CommentType;
 	severity?: Severity;
+	/** Required for action='comment'; may be empty for action='delete'. */
 	body: string;
 	suggested_text?: string;
 	parent_id?: string;
