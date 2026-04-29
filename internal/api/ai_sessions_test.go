@@ -1101,11 +1101,14 @@ func TestCreateAISession_LinkedWorktreeOutsideRegistered(t *testing.T) {
 	mustRun(t, mainDir, "git", "init", "-q")
 	mustRun(t, mainDir, "git", "commit", "--allow-empty", "-m", "init", "-q")
 	mustRun(t, mainDir, "git", "worktree", "add", "-q", "-b", "feature-x", wtDir)
+	t.Cleanup(func() {
+		_ = exec.Command("git", "worktree", "remove", "--force", wtDir).Run()
+	})
 
 	projID := createNamedProject(t, e, "linked-worktree-proj", "lwp")
 	addWorkspaceToProject(t, e, projID, mainDir)
 
-	body := strings.NewReader(`{"id":"sess-wt-2","cwd":"` + wtDir + `"}`)
+	body := strings.NewReader(fmt.Sprintf(`{"id":"sess-wt-2","cwd":%q}`, wtDir))
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/projects/"+projID+"/ai/sessions",
@@ -1164,6 +1167,8 @@ func mustRun(t *testing.T, dir, name string, args ...string) {
 		"GIT_AUTHOR_EMAIL=test@test",
 		"GIT_COMMITTER_NAME=test",
 		"GIT_COMMITTER_EMAIL=test@test",
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_CONFIG_GLOBAL=/dev/null",
 	)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%s %v: %v\n%s", name, args, err, out)
