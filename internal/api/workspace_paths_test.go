@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -522,6 +523,9 @@ func TestResolveProject_GitWorktree(t *testing.T) {
 	mustRun(t, mainDir, "git", "init", "-q")
 	mustRun(t, mainDir, "git", "commit", "--allow-empty", "-m", "init", "-q")
 	mustRun(t, mainDir, "git", "worktree", "add", "-q", "-b", "feature-x", wtDir)
+	t.Cleanup(func() {
+		_ = exec.Command("git", "worktree", "remove", "--force", wtDir).Run()
+	})
 
 	srv, cleanup := testServer(t)
 	defer cleanup()
