@@ -12,6 +12,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
+	pastesqlite "github.com/sentiolabs/arc/internal/paste/sqlite"
 
 	_ "modernc.org/sqlite"
 )
@@ -84,7 +85,7 @@ func New(path string) (*Store, error) {
 // initSchema backs up the database, then runs all pending migrations.
 // If a migration fails and a backup exists, the database is restored
 // to its pre-migration state.
-func (s *Store) initSchema(_ context.Context) error {
+func (s *Store) initSchema(ctx context.Context) error {
 	backupPath, err := backupForMigration(s.db, s.path)
 	if err != nil {
 		// Non-fatal: migrating without a backup is better than not migrating
@@ -112,7 +113,19 @@ func (s *Store) initSchema(_ context.Context) error {
 		_ = os.Remove(backupPath)
 	}
 
+	// Apply paste subsystem migrations on the same database.
+	if err := pastesqlite.Apply(ctx, s.db); err != nil {
+		return fmt.Errorf("apply paste migrations: %w", err)
+	}
+
 	return nil
+}
+
+// DB returns the underlying *sql.DB connection.
+// It is used by callers that need direct database access (e.g. to register
+// additional migration-based subsystems such as the paste package).
+func (s *Store) DB() *sql.DB {
+	return s.db
 }
 
 // Close closes the database connection.

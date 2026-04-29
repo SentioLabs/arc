@@ -67,6 +67,7 @@ func Run(cfg Config) error {
 	server := api.New(api.Config{
 		Address: cfg.Address,
 		Store:   store,
+		DB:      store.DB(),
 	})
 
 	// Start server in goroutine
