@@ -194,7 +194,7 @@ func getProjectID() (string, error) {
 // resolveProject returns the project ID, source, and error.
 // Resolution priority:
 //  1. CLI flag (--project) - explicit override always works
-//  2. Server path matching (exact, normalized, worktree, then subdirectory)
+//  2. Server path matching (delegates all resolution to server)
 //  3. Legacy config fallback (~/.arc/projects/ configs from before server-side paths)
 //
 // If none is available, an error is returned. There is no global fallback
@@ -213,7 +213,7 @@ func resolveProject() (wsID string, source ProjectSource, warning string, err er
 	arcHome := project.DefaultArcHome()
 
 	// Priority 2: Server path matching (checks workspace_paths table, handles symlinks)
-	if serverWsID, serverErr := resolveFromServer(cwd); serverErr == nil && serverWsID != "" {
+	if serverWsID, serverErr := resolveFromServer(cwd); serverErr == nil {
 		return serverWsID, ProjectSourceServer, "", nil
 	}
 

@@ -142,7 +142,7 @@ func runSessionStart(cmd *cobra.Command, useStdin bool) error {
 	}
 
 	resolvedProjectID, err := resolveFromServer(cwd)
-	if err != nil || resolvedProjectID == "" {
+	if err != nil {
 		// CWD doesn't map to a registered project — expected skip, not an error.
 		return errSkipSession
 	}
