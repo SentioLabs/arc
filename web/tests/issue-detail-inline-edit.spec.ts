@@ -118,7 +118,9 @@ test.describe('Issue Detail - Inline Editing', () => {
 		await expect(statusBadge).toBeVisible();
 
 		// PriorityBadge should be clickable
-		const priorityBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /P2/i });
+		const priorityBadge = page
+			.locator('button[aria-haspopup="listbox"]')
+			.filter({ hasText: /P2/i });
 		await expect(priorityBadge).toBeVisible();
 	});
 
@@ -191,5 +193,4 @@ test.describe('Issue Detail - Inline Editing', () => {
 		await expect(page.getByRole('option', { name: 'Epic' })).toBeVisible();
 		await expect(page.getByRole('option', { name: 'Chore' })).toBeVisible();
 	});
-
 });

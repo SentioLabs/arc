@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import {
-		getAIAgent,
-		getAgentTranscript,
-		type AIAgentResponse
-	} from '$lib/api/ai';
+	import { getAIAgent, getAgentTranscript, type AIAgentResponse } from '$lib/api/ai';
 	import TranscriptViewer from '$lib/components/TranscriptViewer.svelte';
 
 	const projectId = $derived($page.params.projectId);
@@ -104,7 +100,10 @@
 					AI Sessions
 				</a>
 				<span class="text-text-muted">/</span>
-				<a href="/{projectId}/ai/{sessionId}" class="text-text-muted hover:text-text-primary transition-colors font-mono">
+				<a
+					href="/{projectId}/ai/{sessionId}"
+					class="text-text-muted hover:text-text-primary transition-colors font-mono"
+				>
 					Session {sessionId?.substring(0, 8)}
 				</a>
 				<span class="text-text-muted">/</span>
@@ -152,7 +151,10 @@
 		<!-- Transcript -->
 		{#if transcriptNotFound}
 			<div class="card p-8 text-center">
-				<p class="text-text-muted">Transcript not found for this agent. The transcript file may not exist or may have been removed.</p>
+				<p class="text-text-muted">
+					Transcript not found for this agent. The transcript file may not exist or may have been
+					removed.
+				</p>
 			</div>
 		{:else}
 			<TranscriptViewer {transcript} />

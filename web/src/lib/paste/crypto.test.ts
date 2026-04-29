@@ -6,7 +6,7 @@ import {
 	exportKey,
 	importKey,
 	base64UrlEncode,
-	base64UrlDecode,
+	base64UrlDecode
 } from './crypto';
 
 describe('paste crypto', () => {

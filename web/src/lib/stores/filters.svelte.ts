@@ -63,9 +63,7 @@ function createFilterStore() {
 				statuses: statusValues.length > 0 ? (statusValues as Status[]) : undefined,
 				issueTypes: typeValues.length > 0 ? (typeValues as IssueType[]) : undefined,
 				priorities:
-					priorityValues.length > 0
-						? priorityValues.map((p) => parseInt(p, 10))
-						: undefined,
+					priorityValues.length > 0 ? priorityValues.map((p) => parseInt(p, 10)) : undefined,
 				q: params.get('q') || undefined
 			};
 		}

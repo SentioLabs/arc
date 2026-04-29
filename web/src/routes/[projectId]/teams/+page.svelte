@@ -5,13 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import {
-		getTeamContext,
-		listIssues,
-		type Project,
-		type Issue,
-		type TeamContext
-	} from '$lib/api';
+	import { getTeamContext, listIssues, type Project, type Issue, type TeamContext } from '$lib/api';
 
 	const projects = getContext<Writable<Project[]>>('projects');
 	const projectId = $derived($page.params.projectId ?? '');
@@ -24,7 +18,6 @@
 	let epics = $state<Issue[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-
 
 	// Role color palette
 	const roleColors: Record<string, string> = {
@@ -97,9 +90,7 @@
 	}
 
 	const roles = $derived(teamContext ? Object.entries(teamContext.roles) : []);
-	const totalIssues = $derived(
-		roles.reduce((sum, [, role]) => sum + role.issues.length, 0)
-	);
+	const totalIssues = $derived(roles.reduce((sum, [, role]) => sum + role.issues.length, 0));
 	const epicOptions = $derived([
 		{ value: '', label: 'All teammate issues' },
 		...epics.map((e) => ({ value: e.id, label: `${e.id}: ${e.title}` }))
@@ -107,7 +98,7 @@
 </script>
 
 {#if project}
-	<Header project={project} title="Teams" showSearch={false} />
+	<Header {project} title="Teams" showSearch={false} />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Page header -->
@@ -135,7 +126,12 @@
 			<!-- Epic selector -->
 			<div class="flex items-center gap-3">
 				<span class="text-sm text-text-secondary">Scope:</span>
-				<Select options={epicOptions} value={epicId} placeholder="All teammate issues" onchange={selectEpic} />
+				<Select
+					options={epicOptions}
+					value={epicId}
+					placeholder="All teammate issues"
+					onchange={selectEpic}
+				/>
 			</div>
 		</header>
 
@@ -171,10 +167,9 @@
 			<!-- Role lanes -->
 			<div class="flex gap-4 overflow-x-auto pb-4">
 				{#each roles as [role, data] (role)}
-					<RoleLane {role} issues={data.issues} projectId={projectId} color={getRoleColor(role)} />
+					<RoleLane {role} issues={data.issues} {projectId} color={getRoleColor(role)} />
 				{/each}
-
-				</div>
+			</div>
 		{/if}
 	</div>
 {/if}

@@ -1,21 +1,21 @@
-import type {
-	CreatePasteResponse,
-	GetPasteResponse,
-	PasteEventResponse,
-} from './types';
+import type { CreatePasteResponse, GetPasteResponse, PasteEventResponse } from './types';
 
 export class PasteClient {
 	constructor(private baseUrl: string) {}
 
-	async create(planBlob: Uint8Array, planIv: Uint8Array, schemaVer = 1): Promise<CreatePasteResponse> {
+	async create(
+		planBlob: Uint8Array,
+		planIv: Uint8Array,
+		schemaVer = 1
+	): Promise<CreatePasteResponse> {
 		const res = await fetch(`${this.baseUrl}/api/paste`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				plan_blob: bytesToB64(planBlob),
 				plan_iv: bytesToB64(planIv),
-				schema_ver: schemaVer,
-			}),
+				schema_ver: schemaVer
+			})
 		});
 		if (!res.ok) throw new Error(`create paste failed: ${res.status}`);
 		return await res.json();
@@ -31,17 +31,22 @@ export class PasteClient {
 		const res = await fetch(`${this.baseUrl}/api/paste/${id}/blobs`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ blob: bytesToB64(blob), iv: bytesToB64(iv) }),
+			body: JSON.stringify({ blob: bytesToB64(blob), iv: bytesToB64(iv) })
 		});
 		if (!res.ok) throw new Error(`append event failed: ${res.status}`);
 		return await res.json();
 	}
 
-	async updatePlan(id: string, editToken: string, planBlob: Uint8Array, planIv: Uint8Array): Promise<void> {
+	async updatePlan(
+		id: string,
+		editToken: string,
+		planBlob: Uint8Array,
+		planIv: Uint8Array
+	): Promise<void> {
 		const res = await fetch(`${this.baseUrl}/api/paste/${id}`, {
 			method: 'PUT',
-			headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${editToken}` },
-			body: JSON.stringify({ plan_blob: bytesToB64(planBlob), plan_iv: bytesToB64(planIv) }),
+			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${editToken}` },
+			body: JSON.stringify({ plan_blob: bytesToB64(planBlob), plan_iv: bytesToB64(planIv) })
 		});
 		if (!res.ok) throw new Error(`update plan failed: ${res.status}`);
 	}

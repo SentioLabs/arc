@@ -19,10 +19,7 @@
 <div class="flex flex-col min-w-[280px] max-w-[340px]">
 	<!-- Lane header -->
 	<div class="flex items-center gap-3 mb-3 pb-2 border-b-2" style="border-color: {color}">
-		<div
-			class="w-2 h-2 rounded-full flex-shrink-0"
-			style="background-color: {color}"
-		></div>
+		<div class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: {color}"></div>
 		<h3 class="text-sm font-semibold text-text-primary uppercase tracking-wider">
 			{displayRole}
 		</h3>

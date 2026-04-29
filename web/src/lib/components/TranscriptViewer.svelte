@@ -24,7 +24,9 @@
 	}
 
 	function isToolUse(msg: TranscriptMessage): boolean {
-		return msg.type === 'tool_use' || msg.type === 'tool_result' || !!msg.tool_name || !!msg.tool_use_id;
+		return (
+			msg.type === 'tool_use' || msg.type === 'tool_result' || !!msg.tool_name || !!msg.tool_use_id
+		);
 	}
 
 	function getToolName(msg: TranscriptMessage): string {
@@ -136,13 +138,21 @@
 							{#if msg.input}
 								<div class="mb-2">
 									<div class="text-xs text-text-muted mb-1">Input</div>
-									<pre class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{JSON.stringify(msg.input, null, 2)}</pre>
+									<pre
+										class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{JSON.stringify(
+											msg.input,
+											null,
+											2
+										)}</pre>
 								</div>
 							{/if}
 							{#if msg.content !== undefined}
 								<div>
 									<div class="text-xs text-text-muted mb-1">Result</div>
-									<pre class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{formatContent(msg.content)}</pre>
+									<pre
+										class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{formatContent(
+											msg.content
+										)}</pre>
 								</div>
 							{/if}
 						</div>
@@ -155,10 +165,8 @@
 
 					{#if role === 'system'}
 						<div class="text-xs text-text-muted whitespace-pre-wrap">{blocks.text}</div>
-					{:else}
-						{#if blocks.text}
-							<div class="text-sm text-text-primary whitespace-pre-wrap">{blocks.text}</div>
-						{/if}
+					{:else if blocks.text}
+						<div class="text-sm text-text-primary whitespace-pre-wrap">{blocks.text}</div>
 					{/if}
 
 					<!-- Inline tool use blocks -->
@@ -178,13 +186,21 @@
 									{#if tool.input}
 										<div class="mt-2">
 											<div class="text-xs text-text-muted mb-1">Input</div>
-											<pre class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{JSON.stringify(tool.input, null, 2)}</pre>
+											<pre
+												class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{JSON.stringify(
+													tool.input,
+													null,
+													2
+												)}</pre>
 										</div>
 									{/if}
 									{#if tool.result !== undefined}
 										<div class="mt-2">
 											<div class="text-xs text-text-muted mb-1">Result</div>
-											<pre class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{formatContent(tool.result)}</pre>
+											<pre
+												class="text-xs bg-surface-900 rounded p-2 overflow-x-auto font-mono text-text-secondary max-h-96">{formatContent(
+													tool.result
+												)}</pre>
 										</div>
 									{/if}
 								</div>

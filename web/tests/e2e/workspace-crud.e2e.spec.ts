@@ -5,7 +5,7 @@ import {
 	deleteTestWorkspace,
 	createTestIssue,
 	updateTestIssue,
-	uniqueName,
+	uniqueName
 } from './fixtures';
 
 test.describe('Workspace CRUD', () => {
@@ -38,7 +38,9 @@ test.describe('Workspace CRUD', () => {
 		await expect(totalCard.locator('.text-2xl')).toHaveText('2');
 
 		// Verify Open shows 1
-		const openCard = statsGrid.locator('.card').filter({ has: page.getByText('Open', { exact: true }) });
+		const openCard = statsGrid
+			.locator('.card')
+			.filter({ has: page.getByText('Open', { exact: true }) });
 		await expect(openCard.locator('.text-2xl')).toHaveText('1');
 
 		// Verify Closed shows 1
@@ -55,9 +57,7 @@ test.describe('Workspace CRUD', () => {
 			const main = page.locator('main');
 
 			// Wait for the workspace card to appear (h3 inside cards)
-			await expect(
-				main.locator('h3').filter({ hasText: extraWs.name }),
-			).toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: extraWs.name })).toBeVisible();
 
 			// Enter edit mode
 			await main.getByRole('button', { name: 'Edit' }).click();
@@ -78,9 +78,7 @@ test.describe('Workspace CRUD', () => {
 			await dialog.getByRole('button', { name: /Delete/ }).click();
 
 			// Verify workspace is gone
-			await expect(
-				main.locator('h3').filter({ hasText: extraWs.name }),
-			).not.toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: extraWs.name })).not.toBeVisible();
 		} catch (err) {
 			// Cleanup on failure
 			await deleteTestWorkspace(extraWs.id).catch(() => {});
@@ -96,9 +94,7 @@ test.describe('Workspace CRUD', () => {
 		try {
 			await page.goto('/');
 			const main = page.locator('main');
-			await expect(
-				main.locator('h3').filter({ hasText: ws2.name }),
-			).toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: ws2.name })).toBeVisible();
 
 			// Enter edit mode
 			await main.getByRole('button', { name: 'Edit' }).click();
@@ -131,9 +127,7 @@ test.describe('Workspace CRUD', () => {
 			await dialog.getByRole('button', { name: 'Done' }).click();
 
 			// ws2 should be gone from the list
-			await expect(
-				main.locator('h3').filter({ hasText: ws2.name }),
-			).not.toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: ws2.name })).not.toBeVisible();
 		} catch (err) {
 			await deleteTestWorkspace(ws2.id).catch(() => {});
 			throw err;
@@ -147,33 +141,21 @@ test.describe('Workspace CRUD', () => {
 		try {
 			await page.goto('/');
 			const main = page.locator('main');
-			await expect(
-				main.locator('h3').filter({ hasText: testWorkspace.name }),
-			).toBeVisible();
-			await expect(
-				main.locator('h3').filter({ hasText: otherWs.name }),
-			).toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: testWorkspace.name })).toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: otherWs.name })).toBeVisible();
 
 			// Type the test workspace name in search (scope to main to avoid sidebar search)
 			const searchInput = main.getByPlaceholder('Search projects...');
 			await searchInput.fill(testWorkspace.name);
 
 			// testWorkspace should be visible, other should not
-			await expect(
-				main.locator('h3').filter({ hasText: testWorkspace.name }),
-			).toBeVisible();
-			await expect(
-				main.locator('h3').filter({ hasText: otherWs.name }),
-			).not.toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: testWorkspace.name })).toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: otherWs.name })).not.toBeVisible();
 
 			// Clear and search for other
 			await searchInput.fill(otherWs.name);
-			await expect(
-				main.locator('h3').filter({ hasText: otherWs.name }),
-			).toBeVisible();
-			await expect(
-				main.locator('h3').filter({ hasText: testWorkspace.name }),
-			).not.toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: otherWs.name })).toBeVisible();
+			await expect(main.locator('h3').filter({ hasText: testWorkspace.name })).not.toBeVisible();
 		} finally {
 			await deleteTestWorkspace(otherWs.id).catch(() => {});
 		}
@@ -206,8 +188,8 @@ test.describe('Workspace CRUD', () => {
 		// Navigate fresh so the SPA fetches the empty list
 		await page.goto('/');
 		const main = page.locator('main');
-		await expect(
-			main.getByRole('heading', { name: 'No projects yet' }),
-		).toBeVisible({ timeout: 10000 });
+		await expect(main.getByRole('heading', { name: 'No projects yet' })).toBeVisible({
+			timeout: 10000
+		});
 	});
 });

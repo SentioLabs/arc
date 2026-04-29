@@ -61,9 +61,7 @@ test.describe('Dependencies on Issue Detail Page', () => {
 		await depLink.click();
 
 		// Verify navigation to issueB's detail page
-		await expect(page).toHaveURL(
-			new RegExp(`/${testWorkspace.id}/issues/${issueB.id}`),
-		);
+		await expect(page).toHaveURL(new RegExp(`/${testWorkspace.id}/issues/${issueB.id}`));
 		// Verify we're on issueB's page
 		await expect(page.getByText('Issue B')).toBeVisible();
 	});

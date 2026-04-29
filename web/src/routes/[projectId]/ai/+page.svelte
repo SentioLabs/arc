@@ -180,24 +180,14 @@
 					>
 						Cancel
 					</button>
-					<button
-						class="btn btn-sm btn-danger"
-						onclick={handleBatchDelete}
-						disabled={deleting}
-					>
+					<button class="btn btn-sm btn-danger" onclick={handleBatchDelete} disabled={deleting}>
 						{deleting ? 'Deleting...' : `Delete ${selected.size}`}
 					</button>
 				{:else}
-					<button
-						class="btn btn-sm btn-ghost"
-						onclick={() => (selected = new Set())}
-					>
+					<button class="btn btn-sm btn-ghost" onclick={() => (selected = new Set())}>
 						Clear
 					</button>
-					<button
-						class="btn btn-sm btn-danger"
-						onclick={() => (confirmBatchDelete = true)}
-					>
+					<button class="btn btn-sm btn-danger" onclick={() => (confirmBatchDelete = true)}>
 						Delete selected
 					</button>
 				{/if}
@@ -253,7 +243,9 @@
 					{#each sessions as session (session.id)}
 						{@const isSelected = selected.has(session.id)}
 						<tr
-							class="group border-b border-border last:border-0 transition-colors {isSelected ? 'bg-primary-600/10' : 'hover:bg-surface-700/50'}"
+							class="group border-b border-border last:border-0 transition-colors {isSelected
+								? 'bg-primary-600/10'
+								: 'hover:bg-surface-700/50'}"
 						>
 							<td class="px-4 py-3">
 								<input
@@ -273,7 +265,10 @@
 									{truncateId(session.id)}
 								</a>
 							</td>
-							<td class="px-4 py-3 text-sm text-text-secondary" title={formatDate(session.started_at)}>
+							<td
+								class="px-4 py-3 text-sm text-text-secondary"
+								title={formatDate(session.started_at)}
+							>
 								{timeAgo(session.started_at)}
 							</td>
 							<td
@@ -291,7 +286,13 @@
 											disabled={deleting}
 											title="Confirm delete"
 										>
-											<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+											<svg
+												class="w-4 h-4"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
 												<polyline points="20 6 9 17 4 12" />
 											</svg>
 										</button>
@@ -301,7 +302,13 @@
 											disabled={deleting}
 											title="Cancel"
 										>
-											<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+											<svg
+												class="w-4 h-4"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
 												<line x1="18" y1="6" x2="6" y2="18" />
 												<line x1="6" y1="6" x2="18" y2="18" />
 											</svg>
@@ -313,9 +320,17 @@
 										onclick={() => (confirmDeleteId = session.id)}
 										title="Delete session"
 									>
-										<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<svg
+											class="w-4 h-4"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
 											<polyline points="3 6 5 6 21 6" />
-											<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+											<path
+												d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+											/>
 										</svg>
 									</button>
 								{/if}
@@ -328,11 +343,7 @@
 			<!-- Pagination footer -->
 			<div class="flex items-center justify-between px-4 py-3 border-t border-border">
 				<div class="flex items-center gap-3">
-					<Select
-						options={PAGE_SIZES}
-						value={pageSize}
-						onchange={handlePageSizeChange}
-					/>
+					<Select options={PAGE_SIZES} value={pageSize} onchange={handlePageSizeChange} />
 					<span class="text-sm text-text-muted">
 						{rangeStart}–{rangeEnd} of {total}
 					</span>
@@ -346,7 +357,13 @@
 							disabled={!hasPrevPage || loading}
 							aria-label="Previous page"
 						>
-							<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<svg
+								class="w-4 h-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
 								<polyline points="15 18 9 12 15 6" />
 							</svg>
 						</button>
@@ -359,7 +376,13 @@
 							disabled={!hasNextPage || loading}
 							aria-label="Next page"
 						>
-							<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<svg
+								class="w-4 h-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
 								<polyline points="9 6 15 12 9 18" />
 							</svg>
 						</button>

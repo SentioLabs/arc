@@ -9,7 +9,7 @@ const c: CommentEvent = {
 	comment_type: 'comment',
 	body: 'looks good',
 	anchor: { line_start: 1, line_end: 1, quoted_text: 'x' },
-	created_at: '2026-04-29T00:00:00Z',
+	created_at: '2026-04-29T00:00:00Z'
 };
 const accept: ResolutionEvent = {
 	kind: 'resolution',
@@ -17,7 +17,7 @@ const accept: ResolutionEvent = {
 	comment_id: 'c1',
 	status: 'accepted',
 	author_name: 'Ben',
-	created_at: '2026-04-29T00:01:00Z',
+	created_at: '2026-04-29T00:01:00Z'
 };
 
 describe('replayEvents', () => {
@@ -41,7 +41,7 @@ describe('replayEvents', () => {
 			...accept,
 			id: 'r2',
 			status: 'rejected',
-			created_at: '2026-04-29T00:02:00Z',
+			created_at: '2026-04-29T00:02:00Z'
 		};
 		const states = replayEvents('Ben', [c, accept, reject]);
 		expect(states.get('c1')?.status).toBe('rejected');

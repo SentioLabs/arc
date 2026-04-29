@@ -19,7 +19,7 @@ export function resolveAnchor(plan: string, anchor: Anchor): AnchorResolution {
 				line_end: anchor.line_end,
 				char_start: anchor.char_start,
 				char_end: anchor.char_end,
-				status: 'ok',
+				status: 'ok'
 			};
 		}
 	}
@@ -34,7 +34,7 @@ export function resolveAnchor(plan: string, anchor: Anchor): AnchorResolution {
 				return {
 					line_start: lineNum,
 					line_end: lineNum + countNewlinesBefore(anchor.quoted_text, anchor.quoted_text.length),
-					status: 'drifted',
+					status: 'drifted'
 				};
 			}
 		}
@@ -48,7 +48,7 @@ export function resolveAnchor(plan: string, anchor: Anchor): AnchorResolution {
 			return {
 				line_start: lineNum,
 				line_end: lineNum + countNewlinesBefore(anchor.quoted_text, anchor.quoted_text.length),
-				status: 'drifted',
+				status: 'drifted'
 			};
 		}
 	}

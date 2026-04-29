@@ -90,7 +90,10 @@
 		<!-- Header -->
 		<header class="mb-6">
 			<div class="flex items-center gap-2 mb-2">
-				<a href="/{projectId}/ai" class="text-text-muted hover:text-text-primary transition-colors text-sm">
+				<a
+					href="/{projectId}/ai"
+					class="text-text-muted hover:text-text-primary transition-colors text-sm"
+				>
 					AI Sessions
 				</a>
 				<span class="text-text-muted text-sm">/</span>
@@ -147,8 +150,13 @@
 						</thead>
 						<tbody>
 							{#each agents as agent (agent.id)}
-								<tr class="border-b border-border last:border-0 hover:bg-surface-700/50 transition-colors">
-									<td class="px-4 py-3 text-sm text-text-primary max-w-xs truncate" title={agent.description ?? ''}>
+								<tr
+									class="border-b border-border last:border-0 hover:bg-surface-700/50 transition-colors"
+								>
+									<td
+										class="px-4 py-3 text-sm text-text-primary max-w-xs truncate"
+										title={agent.description ?? ''}
+									>
 										<a
 											href="/{projectId}/ai/{session.id}/agents/{agent.id}"
 											class="hover:text-primary-400 transition-colors"

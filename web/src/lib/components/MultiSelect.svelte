@@ -131,10 +131,15 @@
 						role="button"
 						tabindex="0"
 						onclick={(e) => removeValue(chip.value, e)}
-						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); removeValue(chip.value, e); } }}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								removeValue(chip.value, e);
+							}
+						}}
 						aria-label="Remove {chip.label}"
-						class="chip-remove"
-					>&times;</span>
+						class="chip-remove">&times;</span
+					>
 				</span>
 			{/each}
 			{#if overflowCount > 0}
@@ -161,7 +166,9 @@
 					id="multi-option-{i}"
 					role="option"
 					aria-selected={values.includes(option.value)}
-					class="select-option {i === highlightedIndex ? 'highlighted' : ''} {values.includes(option.value)
+					class="select-option {i === highlightedIndex ? 'highlighted' : ''} {values.includes(
+						option.value
+					)
 						? 'selected'
 						: ''}"
 					onclick={() => toggleOption(option)}

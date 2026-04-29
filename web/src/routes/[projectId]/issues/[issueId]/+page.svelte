@@ -1,5 +1,16 @@
 <script lang="ts">
-	import { Header, StatusBadge, PriorityBadge, TypeBadge, Markdown, InlineTextEdit, InlineSelect, InlineMarkdownEdit, CommentForm, LabelPicker } from '$lib/components';
+	import {
+		Header,
+		StatusBadge,
+		PriorityBadge,
+		TypeBadge,
+		Markdown,
+		InlineTextEdit,
+		InlineSelect,
+		InlineMarkdownEdit,
+		CommentForm,
+		LabelPicker
+	} from '$lib/components';
 	import CopyIdButton from '$lib/components/CopyIdButton.svelte';
 	import { formatDateTime, formatRelativeTime, dependencyTypeLabels } from '$lib/utils';
 	import { page } from '$app/stores';
@@ -96,12 +107,12 @@
 
 {#if project}
 	{#if loading}
-		<Header project={project} title="Loading..." />
+		<Header {project} title="Loading..." />
 		<div class="flex-1 flex items-center justify-center">
 			<div class="text-text-muted animate-pulse">Loading issue...</div>
 		</div>
 	{:else if error}
-		<Header project={project} title="Error" />
+		<Header {project} title="Error" />
 		<div class="flex-1 flex items-center justify-center p-8">
 			<div class="card p-8 text-center">
 				<p class="text-status-blocked mb-4">{error}</p>
@@ -109,7 +120,7 @@
 			</div>
 		</div>
 	{:else if issue}
-		<Header project={project} title={issue.id} />
+		<Header {project} title={issue.id} />
 
 		<div class="flex-1 p-6 animate-fade-in">
 			<div class="max-w-4xl mx-auto">
@@ -178,7 +189,9 @@
 					<div class="lg:col-span-2 space-y-6">
 						<!-- Description -->
 						<section class="card p-6">
-							<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">Description</h2>
+							<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">
+								Description
+							</h2>
 							<InlineMarkdownEdit
 								value={issue.description ?? ''}
 								onSave={(v) => handleUpdateField('description', v)}
@@ -274,7 +287,9 @@
 					<div class="space-y-6">
 						<!-- Labels -->
 						<section class="card p-4">
-							<h3 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Labels</h3>
+							<h3 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
+								Labels
+							</h3>
 							<LabelPicker
 								currentLabels={issue.labels ?? []}
 								{allLabels}

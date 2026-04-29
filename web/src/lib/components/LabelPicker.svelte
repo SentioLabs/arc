@@ -74,9 +74,7 @@
 		{@const color = getLabelColor(label)}
 		<span
 			class="px-2 py-1 text-xs font-medium rounded border inline-flex items-center gap-1"
-			style={color
-				? `background-color: ${color}20; color: ${color}; border-color: ${color}40`
-				: ''}
+			style={color ? `background-color: ${color}20; color: ${color}; border-color: ${color}40` : ''}
 			class:bg-surface-600={!color}
 			class:text-text-secondary={!color}
 			class:border-transparent={!color}

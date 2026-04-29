@@ -14,11 +14,7 @@
 	let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
 	const opacity = $derived(
-		copied ? 1
-		: hovered ? 1
-		: reveal === 'visible' ? 0.5
-		: groupHovered ? 0.5
-		: 0
+		copied ? 1 : hovered ? 1 : reveal === 'visible' ? 0.5 : groupHovered ? 0.5 : 0
 	);
 
 	function copyToClipboard(text: string) {
@@ -65,7 +61,9 @@
 		</svg>
 	{:else}
 		<svg class="copy-id-icon" viewBox="0 0 24 24" fill="currentColor">
-			<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+			<path
+				d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+			/>
 		</svg>
 	{/if}
 
@@ -88,7 +86,9 @@
 		padding: 0;
 		line-height: 1;
 		position: relative;
-		transition: opacity 150ms ease, color 150ms ease;
+		transition:
+			opacity 150ms ease,
+			color 150ms ease;
 	}
 
 	.copy-id-btn:hover {

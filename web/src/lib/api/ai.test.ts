@@ -28,9 +28,7 @@ describe('AI API client - project-scoped paths', () => {
 	});
 
 	test('getAIAgent calls correct project-scoped API endpoint', () => {
-		expect(apiSource).toContain(
-			"'/projects/{projectId}/ai/sessions/{sessionId}/agents/{agentId}'"
-		);
+		expect(apiSource).toContain("'/projects/{projectId}/ai/sessions/{sessionId}/agents/{agentId}'");
 		expect(apiSource).toContain('path: { projectId, sessionId, agentId }');
 	});
 
@@ -54,9 +52,7 @@ describe('AI API client - project-scoped paths', () => {
 	});
 
 	test('deleteAISession uses project-scoped API path', () => {
-		expect(apiSource).toContain(
-			"api.DELETE('/projects/{projectId}/ai/sessions/{sessionId}'"
-		);
+		expect(apiSource).toContain("api.DELETE('/projects/{projectId}/ai/sessions/{sessionId}'");
 	});
 
 	test('batchDeleteAISessions accepts projectId as first parameter', () => {

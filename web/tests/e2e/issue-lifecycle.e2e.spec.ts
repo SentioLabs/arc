@@ -34,7 +34,7 @@ test.describe('Issue Lifecycle E2E', () => {
 			title: 'Fully loaded issue',
 			issue_type: 'bug',
 			priority: 1,
-			description: 'Detailed description here',
+			description: 'Detailed description here'
 		});
 
 		await page.goto(`/${ws.id}/issues/${issue.id}`);
@@ -47,11 +47,15 @@ test.describe('Issue Lifecycle E2E', () => {
 		await expect(typeBadge).toBeVisible();
 
 		// Status badge (open by default)
-		const statusBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /open/i });
+		const statusBadge = page
+			.locator('button[aria-haspopup="listbox"]')
+			.filter({ hasText: /open/i });
 		await expect(statusBadge).toBeVisible();
 
 		// Priority badge (P1)
-		const priorityBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /P1/i });
+		const priorityBadge = page
+			.locator('button[aria-haspopup="listbox"]')
+			.filter({ hasText: /P1/i });
 		await expect(priorityBadge).toBeVisible();
 
 		// Description
@@ -76,7 +80,9 @@ test.describe('Issue Lifecycle E2E', () => {
 		await titleInput.blur();
 
 		// Wait for the save to complete and the button text to update
-		await expect(page.getByRole('button', { name: 'Updated title' })).toBeVisible({ timeout: 15000 });
+		await expect(page.getByRole('button', { name: 'Updated title' })).toBeVisible({
+			timeout: 15000
+		});
 	});
 
 	test('update status inline', async ({ page, testWorkspace: ws }) => {
@@ -84,7 +90,9 @@ test.describe('Issue Lifecycle E2E', () => {
 		await page.goto(`/${ws.id}/issues/${issue.id}`);
 
 		// Click the status badge to open dropdown
-		const statusBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /open/i });
+		const statusBadge = page
+			.locator('button[aria-haspopup="listbox"]')
+			.filter({ hasText: /open/i });
 		await statusBadge.click();
 
 		// Select "In Progress" from listbox
@@ -101,7 +109,9 @@ test.describe('Issue Lifecycle E2E', () => {
 		await page.goto(`/${ws.id}/issues/${issue.id}`);
 
 		// Click the priority badge
-		const priorityBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /P2/i });
+		const priorityBadge = page
+			.locator('button[aria-haspopup="listbox"]')
+			.filter({ hasText: /P2/i });
 		await priorityBadge.click();
 
 		// Select Critical (P0)
@@ -133,7 +143,7 @@ test.describe('Issue Lifecycle E2E', () => {
 	test('update description inline', async ({ page, testWorkspace: ws }) => {
 		const issue = await createTestIssue(ws.id, {
 			title: 'Description test issue',
-			description: 'Old description',
+			description: 'Old description'
 		});
 		await page.goto(`/${ws.id}/issues/${issue.id}`);
 
@@ -159,7 +169,9 @@ test.describe('Issue Lifecycle E2E', () => {
 		await page.goto(`/${ws.id}/issues/${issue.id}`);
 
 		// Click the status badge
-		const statusBadge = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: /open/i });
+		const statusBadge = page
+			.locator('button[aria-haspopup="listbox"]')
+			.filter({ hasText: /open/i });
 		await statusBadge.click();
 
 		// Select "Closed"
@@ -177,20 +189,22 @@ test.describe('Issue Lifecycle E2E', () => {
 			{ value: 'feature', label: 'Feature' },
 			{ value: 'task', label: 'Task' },
 			{ value: 'epic', label: 'Epic' },
-			{ value: 'chore', label: 'Chore' },
+			{ value: 'chore', label: 'Chore' }
 		];
 
 		for (const issueType of issueTypes) {
 			await page.goto(`/${ws.id}/issues/new`);
 
-			await page.getByPlaceholder('Brief description of the issue').fill(`Test ${issueType.label} issue`);
+			await page
+				.getByPlaceholder('Brief description of the issue')
+				.fill(`Test ${issueType.label} issue`);
 			await page.locator('#type').selectOption(issueType.value);
 			await page.getByRole('button', { name: 'Create Issue' }).click();
 
 			// Verify redirect to detail and correct type badge is shown
 			await expect(page).not.toHaveURL(/\/issues\/new$/);
 			const typeBadge = page.locator('button[aria-haspopup="listbox"]').filter({
-				hasText: new RegExp(issueType.label, 'i'),
+				hasText: new RegExp(issueType.label, 'i')
 			});
 			await expect(typeBadge).toBeVisible();
 		}

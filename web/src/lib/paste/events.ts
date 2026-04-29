@@ -9,7 +9,7 @@ export type CommentState = {
 
 export function replayEvents(
 	planAuthor: string | undefined,
-	events: EventPlaintext[],
+	events: EventPlaintext[]
 ): Map<string, CommentState> {
 	const sorted = [...events].sort((a, b) => {
 		const c = a.created_at.localeCompare(b.created_at);

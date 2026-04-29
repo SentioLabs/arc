@@ -15,7 +15,7 @@ describe('resolveAnchor', () => {
 			line_start: 3,
 			line_end: 3,
 			quoted_text: 'First paragraph.',
-			heading_slug: 'title',
+			heading_slug: 'title'
 		});
 		expect(r.status).toBe('drifted');
 	});
@@ -26,7 +26,7 @@ describe('resolveAnchor', () => {
 			line_start: 3,
 			line_end: 3,
 			quoted_text: 'First paragraph.',
-			heading_slug: 'title',
+			heading_slug: 'title'
 		});
 		expect(r.status).toBe('orphaned');
 	});
