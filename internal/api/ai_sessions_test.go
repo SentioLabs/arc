@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -1055,5 +1057,115 @@ func TestListAISessionsWithSummary(t *testing.T) {
 	if s2.AgentSummary != nil {
 		t.Errorf("sess-sum-2 agent_summary should be nil, got %+v",
 			s2.AgentSummary)
+	}
+}
+
+// TestCreateAISession_WorktreePathUnderRegistered verifies that a CWD that is a
+// subdirectory of a registered workspace path resolves correctly (prefix match).
+func TestCreateAISession_WorktreePathUnderRegistered(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projID := createNamedProject(t, e, "worktree-prefix-proj", "wtp")
+	addWorkspaceToProject(t, e, projID, "/repos/main")
+
+	body := strings.NewReader(`{"id":"sess-wt-1","cwd":"/repos/main/.worktrees/feature-x"}`)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projID+"/ai/sessions",
+		body,
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+
+// TestCreateAISession_LinkedWorktreeOutsideRegistered verifies that a CWD inside
+// a linked git worktree (outside the registered prefix) resolves via DetectMainRepo.
+func TestCreateAISession_LinkedWorktreeOutsideRegistered(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	tmp := t.TempDir()
+	mainDir := filepath.Join(tmp, "main")
+	wtDir := filepath.Join(tmp, "feature-x")
+
+	// Real git init + worktree add so DetectMainRepo can follow the .git pointer.
+	mustRun(t, mainDir, "git", "init", "-q")
+	mustRun(t, mainDir, "git", "commit", "--allow-empty", "-m", "init", "-q")
+	mustRun(t, mainDir, "git", "worktree", "add", "-q", "-b", "feature-x", wtDir)
+
+	projID := createNamedProject(t, e, "linked-worktree-proj", "lwp")
+	addWorkspaceToProject(t, e, projID, mainDir)
+
+	body := strings.NewReader(`{"id":"sess-wt-2","cwd":"` + wtDir + `"}`)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projID+"/ai/sessions",
+		body,
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+
+// TestCreateAISession_RejectCrossProject verifies that posting to project A with
+// a CWD registered under project B is still rejected with 422.
+func TestCreateAISession_RejectCrossProject(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projAID := createNamedProject(t, e, "cross-proj-a", "cpa")
+	projBID := createNamedProject(t, e, "cross-proj-b", "cpb")
+	addWorkspaceToProject(t, e, projAID, "/repos/a")
+	addWorkspaceToProject(t, e, projBID, "/repos/b")
+
+	// Posting to project A with a CWD under project B's prefix should fail.
+	body := strings.NewReader(`{"id":"sess-wt-3","cwd":"/repos/b/sub/dir"}`)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projAID+"/ai/sessions",
+		body,
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+	}
+}
+
+// mustRun executes a shell command in dir, creating dir if necessary.
+// It sets git identity env vars so git commands work in CI without global config.
+func mustRun(t *testing.T, dir, name string, args ...string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=test",
+		"GIT_AUTHOR_EMAIL=test@test",
+		"GIT_COMMITTER_NAME=test",
+		"GIT_COMMITTER_EMAIL=test@test",
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%s %v: %v\n%s", name, args, err, out)
 	}
 }
