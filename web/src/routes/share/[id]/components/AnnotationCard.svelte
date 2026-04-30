@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { CommentState } from '$lib/paste/events';
 	import type { ResolutionStatus } from '$lib/paste/types';
+	import { tick } from 'svelte';
+	import { modifierGlyph } from './platform.ts';
 
 	const {
 		entry,
@@ -8,7 +10,8 @@
 		reviewerName,
 		isActive = false,
 		onClick,
-		onResolve
+		onResolve,
+		onEdit
 	}: {
 		entry: CommentState;
 		isAuthor: boolean;
@@ -16,7 +19,10 @@
 		isActive?: boolean;
 		onClick: () => void;
 		onResolve: (status: ResolutionStatus, reply?: string) => Promise<void>;
+		onEdit: (body: string, suggestedText: string | undefined) => Promise<void>;
 	} = $props();
+
+	const modKey = modifierGlyph();
 
 	const e = $derived(entry.event);
 	const isMine = $derived(reviewerName !== null && e.author_name === reviewerName);
@@ -68,6 +74,67 @@
 
 	let showRejectReply = $state(false);
 	let rejectReply = $state('');
+
+	// Inline edit mode for the comment's author. The reviewer can refine their
+	// own annotation (e.g. expand "expand this more" into a fully-formed
+	// suggestion). Only `body` and `suggested_text` are editable here — the
+	// anchor and action stay frozen.
+	let isEditing = $state(false);
+	let editBody = $state('');
+	let editSuggested = $state('');
+	let editTextarea: HTMLTextAreaElement | undefined = $state();
+	let saving = $state(false);
+
+	// Edits are only meaningful while the comment is still under discussion.
+	// Once it's accepted/rejected/resolved the meaning has been "consumed" by
+	// the plan author — editing the body would be misleading.
+	const canEdit = $derived(
+		reviewerName !== null &&
+			e.author_name === reviewerName &&
+			(entry.status === 'open' || entry.status === 'reopened')
+	);
+
+	async function startEdit() {
+		editBody = e.body ?? '';
+		editSuggested = e.suggested_text ?? '';
+		isEditing = true;
+		await tick();
+		editTextarea?.focus();
+	}
+
+	function cancelEdit() {
+		isEditing = false;
+		editBody = '';
+		editSuggested = '';
+	}
+
+	async function saveEdit() {
+		if (saving) return;
+		const body = editBody.trim();
+		const suggested = e.suggested_text !== undefined ? editSuggested : undefined;
+		// Don't save if nothing actually changed — avoids polluting the event log.
+		if (body === (e.body ?? '') && suggested === (e.suggested_text ?? undefined)) {
+			cancelEdit();
+			return;
+		}
+		saving = true;
+		try {
+			await onEdit(body, suggested);
+			isEditing = false;
+		} finally {
+			saving = false;
+		}
+	}
+
+	function handleEditKey(ev: KeyboardEvent) {
+		if (ev.key === 'Escape') {
+			ev.preventDefault();
+			cancelEdit();
+		} else if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+			ev.preventDefault();
+			void saveEdit();
+		}
+	}
 </script>
 
 <div
@@ -104,7 +171,9 @@
 			{/if}
 		</div>
 		<span class="ui-mono text-[10px] text-[var(--ink-text-faint)]">
-			{timeLabel(e.created_at)}
+			{timeLabel(e.created_at)}{#if entry.editedAt}
+				<span title="Edited {entry.editedAt}"> · edited {timeLabel(entry.editedAt)}</span>
+			{/if}
 		</span>
 	</header>
 
@@ -127,8 +196,69 @@
 		"{e.anchor.quoted_text}"
 	</div>
 
-	<!-- Body / suggestion -->
-	{#if e.suggested_text}
+	<!-- Body / suggestion. In edit mode this becomes inline textareas for
+		 the comment's author to refine their own annotation. -->
+	{#if isEditing}
+		<div
+			class="mb-2 space-y-2"
+			onclick={(ev) => ev.stopPropagation()}
+			onkeydown={(ev) => ev.stopPropagation()}
+			role="presentation"
+		>
+			{#if e.suggested_text !== undefined}
+				<label class="block">
+					<span class="mb-1 block text-[10px] uppercase tracking-[0.08em] text-[var(--ink-text-faint)]">
+						Replacement
+					</span>
+					<textarea
+						bind:value={editSuggested}
+						rows="3"
+						placeholder="Replacement text…"
+						class="w-full rounded-md border border-[var(--ink-rule)] bg-[var(--ink-paper)] p-2 text-[13px] text-[var(--ink-text)] focus:border-[var(--ink-comment-edge)] focus:outline-none"
+						onkeydown={handleEditKey}
+					></textarea>
+				</label>
+			{/if}
+			<label class="block">
+				{#if e.suggested_text !== undefined}
+					<span class="mb-1 block text-[10px] uppercase tracking-[0.08em] text-[var(--ink-text-faint)]">
+						Reason (optional)
+					</span>
+				{/if}
+				<textarea
+					bind:this={editTextarea}
+					bind:value={editBody}
+					rows={e.suggested_text !== undefined ? 2 : 3}
+					placeholder={e.suggested_text !== undefined ? 'Why this change?' : 'Comment…'}
+					class="w-full rounded-md border border-[var(--ink-rule)] bg-[var(--ink-paper)] p-2 text-[13px] text-[var(--ink-text)] focus:border-[var(--ink-comment-edge)] focus:outline-none"
+					onkeydown={handleEditKey}
+				></textarea>
+			</label>
+			<div class="flex items-center justify-between">
+				<div class="text-[10px] text-[var(--ink-text-faint)]">
+					<kbd class="ui-mono rounded border border-[var(--ink-rule)] bg-[var(--ink-paper)] px-1 py-0.5">{modKey} ⏎</kbd>
+					to save · <kbd class="ui-mono rounded border border-[var(--ink-rule)] bg-[var(--ink-paper)] px-1 py-0.5">esc</kbd> to cancel
+				</div>
+				<div class="flex gap-2">
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
+						onclick={cancelEdit}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						disabled={saving}
+						class="rounded-md border border-[var(--ink-comment-edge)] bg-[var(--ink-comment-bg)] px-2 py-1 text-[11px] font-medium text-[var(--ink-comment)] disabled:opacity-50"
+						onclick={saveEdit}
+					>
+						{saving ? 'Saving…' : 'Save'}
+					</button>
+				</div>
+			</div>
+		</div>
+	{:else if e.suggested_text}
 		<div class="mb-2 space-y-1">
 			<div class="text-[10px] uppercase tracking-[0.08em] text-[var(--ink-text-faint)]">
 				Replacement
@@ -152,7 +282,23 @@
 		</div>
 	{/if}
 
-	{#if isAuthor && !showRejectReply}
+	{#if canEdit && !isEditing && !showRejectReply}
+		<div class="mt-3 flex flex-wrap gap-1.5 border-t border-[var(--ink-rule)] pt-2">
+			<button
+				type="button"
+				class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
+				onclick={(ev) => {
+					ev.stopPropagation();
+					void startEdit();
+				}}
+				title="Edit your annotation"
+			>
+				✎ Edit
+			</button>
+		</div>
+	{/if}
+
+	{#if isAuthor && !showRejectReply && !isEditing}
 		<div class="mt-3 flex flex-wrap gap-1.5 border-t border-[var(--ink-rule)] pt-2">
 			{#if entry.status !== 'accepted'}
 				<button

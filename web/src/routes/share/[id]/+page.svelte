@@ -9,6 +9,7 @@
 		EventPlaintext,
 		CommentEvent,
 		CommentType,
+		EditEvent,
 		ResolutionEvent,
 		ResolutionStatus,
 		Anchor
@@ -257,6 +258,42 @@
 		}
 	}
 
+	async function handleEdit(
+		commentId: string,
+		body: string,
+		suggestedText: string | undefined
+	) {
+		if (!reviewerName) return;
+		const target = comments.get(commentId);
+		// The replay layer will reject mismatched authors anyway, but failing
+		// fast here avoids posting a useless event to the server.
+		if (!target || target.event.author_name !== reviewerName) return;
+
+		const event: EditEvent = {
+			kind: 'edit',
+			id: `e-${crypto.randomUUID()}`,
+			comment_id: commentId,
+			author_name: reviewerName,
+			body,
+			suggested_text: suggestedText,
+			created_at: new Date().toISOString()
+		};
+		await postEvent(event);
+
+		// Apply locally so the card updates without a round-trip refetch.
+		const next = new Map(comments);
+		next.set(commentId, {
+			...target,
+			event: {
+				...target.event,
+				body,
+				suggested_text: suggestedText !== undefined ? suggestedText : target.event.suggested_text
+			},
+			editedAt: event.created_at
+		});
+		comments = next;
+	}
+
 	async function handleResolve(commentId: string, status: ResolutionStatus, reply?: string) {
 		if (!reviewerName) return;
 		const event: ResolutionEvent = {
@@ -303,10 +340,12 @@
 	<title>{plan?.title ?? 'Plan review'} · arc</title>
 </svelte:head>
 
-<div class="share-page grid h-screen grid-cols-[1fr_360px]">
-	<!-- Document area: dark paper with subtle grain background -->
+<div class="share-page grid h-screen">
+	<!-- Document area: paper-grain sheet, viewport-centered between
+		 the phantom desk column on the left and the rail on the right.
+		 See `.share-page` rules in app.css for the grid geometry. -->
 	<main class="doc-area overflow-y-auto">
-		<div class="mx-auto flex max-w-[760px] flex-col px-10 py-12">
+		<div class="doc-inner flex max-w-[760px] flex-col px-10 py-12">
 			<header
 				class="mb-10 flex items-baseline justify-between border-b border-[var(--ink-rule)] pb-6"
 			>
@@ -356,17 +395,22 @@
 		</div>
 	</main>
 
-	<!-- Right rail: annotations panel -->
-	<div class="border-l border-[var(--ink-rule)] bg-[var(--ink-paper-raised)]">
-		<AnnotationsPanel
-			states={orderedStates}
-			{isAuthor}
-			{reviewerName}
-			activeId={activeMarkId}
-			onCardClick={handleCardClick}
-			onResolve={handleResolve}
-		/>
-	</div>
+	<!-- Right rail: annotations panel — sits in col 3 of the editorial spread. -->
+	<aside
+		class="rail-area overflow-y-auto border-l border-[var(--ink-rule)] bg-[var(--ink-paper-raised)]"
+	>
+		<div class="rail-inner mr-auto max-w-[360px]">
+			<AnnotationsPanel
+				states={orderedStates}
+				{isAuthor}
+				{reviewerName}
+				activeId={activeMarkId}
+				onCardClick={handleCardClick}
+				onResolve={handleResolve}
+				onEdit={handleEdit}
+			/>
+		</div>
+	</aside>
 
 	<!--
 		Floating overlays must live inside `.share-page` so they inherit the

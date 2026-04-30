@@ -6,7 +6,10 @@ export default defineConfig({
 		// tests we added. The rest of the suite uses Bun's native runner
 		// (`import from 'bun:test'`) or Playwright (e2e) and isn't compatible
 		// with Vitest's runtime.
-		include: ['src/lib/paste/**/*.{test,spec}.{js,ts}'],
+		include: [
+			'src/lib/paste/**/*.{test,spec}.{js,ts}',
+			'src/routes/share/**/*.{test,spec}.{js,ts}'
+		],
 		environment: 'node'
 	}
 });

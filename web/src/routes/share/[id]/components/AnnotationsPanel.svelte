@@ -8,7 +8,8 @@
 		reviewerName,
 		activeId,
 		onCardClick,
-		onResolve
+		onResolve,
+		onEdit
 	}: {
 		states: CommentState[];
 		isAuthor: boolean;
@@ -20,6 +21,7 @@
 			status: 'accepted' | 'rejected' | 'resolved' | 'reopened',
 			reply?: string
 		) => Promise<void>;
+		onEdit: (commentId: string, body: string, suggestedText: string | undefined) => Promise<void>;
 	} = $props();
 
 	const visibleStates = $derived(states); // could filter by status later
@@ -69,6 +71,7 @@
 							isActive={activeId === entry.event.id}
 							onClick={() => onCardClick(entry.event.id)}
 							onResolve={(status, reply) => onResolve(entry.event.id, status, reply)}
+							onEdit={(body, suggestedText) => onEdit(entry.event.id, body, suggestedText)}
 						/>
 					</li>
 				{/each}

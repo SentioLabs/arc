@@ -86,6 +86,34 @@ export type ResolutionEvent = {
 	created_at: string;
 };
 
+/**
+ * A reviewer revising their own annotation. Append-only: rather than mutating
+ * the original CommentEvent blob, we emit a new EditEvent that references the
+ * target comment by id and supplies new field values. Replay merges these in
+ * chronological order, gated on `author_name === target.author_name` so only
+ * the original author's edits take effect.
+ *
+ * Only `body`, `suggested_text`, and `comment_type` can be edited. Changing
+ * `action` (comment vs delete) or `anchor` would change the meaning of the
+ * annotation — the reviewer should delete and re-create instead.
+ *
+ * Field semantics:
+ *   - `body` undefined  → keep current body
+ *   - `body` ""         → clear body (rare but valid)
+ *   - `body` non-empty  → replace body
+ * Same rules for `suggested_text` and `comment_type`.
+ */
+export type EditEvent = {
+	kind: 'edit';
+	id: string;
+	comment_id: string;
+	author_name: string;
+	body?: string;
+	suggested_text?: string;
+	comment_type?: CommentType;
+	created_at: string;
+};
+
 export type PlanEditEvent = {
 	kind: 'plan_edit';
 	id: string;
@@ -93,4 +121,4 @@ export type PlanEditEvent = {
 	created_at: string;
 };
 
-export type EventPlaintext = CommentEvent | ResolutionEvent | PlanEditEvent;
+export type EventPlaintext = CommentEvent | ResolutionEvent | EditEvent | PlanEditEvent;

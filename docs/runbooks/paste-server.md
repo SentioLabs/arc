@@ -66,16 +66,36 @@ EOF
 ls -la ~/.arc/shares.json           # verify file mode 0600
 ```
 
+The author identity embedded in the plan is resolved in this order (highest to lowest priority):
+
+1. `--author "Name"` flag on `arc share create`
+2. `share_author` field in `~/.arc/cli-config.json` (set once, applies to every share you create)
+3. `$ARC_SHARE_AUTHOR` env var
+4. `git config user.name`
+
+**Note the name that gets used** — you'll need to type it back in the UI to claim the author role. If none of these produce a value, `arc share create` prints a warning and Accept/Resolve/Reject controls won't appear for anyone.
+
+To set a persistent default once:
+
+```bash
+# Edit ~/.arc/cli-config.json and add:
+#   "share_author": "Ben Firestone"
+# or, if you prefer:
+echo '{"share_author":"Ben Firestone"}' | jq -s '.[0] * .[1]' ~/.arc/cli-config.json - \
+  > ~/.arc/cli-config.json.tmp && mv ~/.arc/cli-config.json.tmp ~/.arc/cli-config.json
+```
+
 ### Exercise the UI
 
 Open the printed URL in Chrome/Firefox.
 
-1. **Name prompt** appears on first comment — type "Author"
+1. **Name prompt** appears on first comment — type the **same name** that was embedded as the author at create time (i.e. your `git config user.name` output, or whatever you passed to `--author`). The reviewer-name chip in the header will read `<name> · author` once the names match.
 2. **Highlight a paragraph** in the rendered plan → floating annotation toolbar appears
 3. **Pick a label** (`praise` / `issue` / `suggestion` / `question` / `nit`)
 4. **Type a comment**, optionally toggle "Suggest replacement text"
 5. **Post** — the comment appears in the sidebar
-6. As the author (your localStorage name matches `plan.author_name`), you'll see **Accept / Resolve / Reject** controls. Try Accept on one comment, Reject (with reply) on another, and Resolve on a third
+6. As the author (your localStorage name matches `plan.author_name`), you'll see **Accept / Resolve / Reject** controls. Try Accept on one comment, Reject (with reply) on another, and Resolve on a third. If the controls don't appear, double-check that the name in the header chip matches the value in `git config user.name` (or whatever you passed to `--author`) — the comparison is case- and whitespace-sensitive.
+7. As a reviewer (your localStorage name does NOT match the plan's author), find your own annotation in the sidebar. You should see an **✎ Edit** button on it. Click it; the body becomes a textarea pre-filled with your existing comment. Refine the wording — e.g. expand "expand this more" into a fully-formed suggestion — and **⌘/Ctrl-⏎** (or click Save). The card re-renders with `· edited Nm` next to the timestamp. Confirm `arc share comments <id>` prints the new body, not the original.
 
 ### Pull comments back to the CLI
 
@@ -89,7 +109,7 @@ Open the printed URL in Chrome/Firefox.
 
 Without spinning up another machine, open the same URL in an **incognito window** (or a different browser entirely). Incognito gets a fresh `localStorage`, so:
 
-1. The name prompt fires again — type "Reviewer-2"
+1. The name prompt fires again — type any name **other than** the embedded author name (e.g. "Reviewer-2"). The chip in the header should NOT show `· author`.
 2. Post a few comments
 3. Refresh the author's window → new comments replay in via `replayEvents()`
 
@@ -136,7 +156,17 @@ To exercise the actual "remote" code paths (cross-origin, no shared filesystem),
 ./bin/arc share create plan.md --share --server https://share.example.com
 ```
 
-Or set `ARC_SHARE_SERVER=https://share.example.com` once and just use `--share`.
+For a persistent default, set `share_server` in `~/.arc/cli-config.json`:
+
+```json
+{
+  "server_url": "http://localhost:7432",
+  "share_author": "Ben Firestone",
+  "share_server": "https://share.example.com"
+}
+```
+
+Then `arc share create plan.md --share` will pick it up without any flag or env var. The full precedence is `--server flag → share_server in cli-config.json → $ARC_SHARE_SERVER → https://arcplanner.sentiolabs.io`.
 
 ## 4. End-to-end via the brainstorm skill
 
@@ -158,6 +188,7 @@ Step 7 (review loop) uses `arc share approve` and `arc share pull` instead of th
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| Accept / Resolve / Reject controls never appear, even when typing the "right" name | Plan was created without an author name (`arc share create` was run pre-fix, or `git config user.name` was empty and no `--author` flag passed). `plan.author_name` is empty, so `isAuthor` is `false` for every reviewer | Recreate the share with `--author "Your Name"` (or set `git config user.name` first), then enter that exact name in the SPA prompt |
 | `/share/<id>` returns `{"message":"Not Found"}` (Echo's default 404 JSON) | Binary built without the `webui` build tag — `web.RegisterSPA` is the no-op stub | Rebuild with `make build` (not `make build-quick`); for arc-paste use `go build -tags webui -o ./bin/arc-paste ./arc-paste` |
 | `/share/<id>` returns blank HTML / cannot find static assets | `web/build/` not present at compile time, even with the `webui` tag | Re-run `bun run build` in `web/`, then rebuild the binary |
 | SPA console says `missing #k=<key> in URL` | URL was pasted without its fragment | Use the full URL printed by `arc share create` — fragments are dropped by some chat apps; copy carefully |

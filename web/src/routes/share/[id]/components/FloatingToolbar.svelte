@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
+	import { clampedAnchorLeft } from './positioning.ts';
 
 	export type ToolbarAction = 'praise' | 'comment' | 'delete' | 'suggest' | 'quick-label';
 
@@ -14,16 +15,22 @@
 	} = $props();
 
 	let toolbar: HTMLDivElement | undefined = $state();
+	// Measured after the toolbar mounts (its width is content-driven, so we
+	// can't know it ahead of time). We seed with a conservative upper bound
+	// (220px) so the first paint is already clamped sensibly; the measured
+	// value then refines it on the next tick.
+	let measuredWidth = $state(220);
 
-	function computePosition(rect: DOMRect): { top: number; left: number } {
+	function computePosition(rect: DOMRect, width: number): { top: number; left: number } {
 		const TOOLBAR_HEIGHT = 44;
 		const GAP = 12;
 		const top = rect.top + window.scrollY - TOOLBAR_HEIGHT - GAP;
-		const left = rect.left + window.scrollX + rect.width / 2;
+		const rawLeft = rect.left + window.scrollX + rect.width / 2;
+		const left = clampedAnchorLeft(rawLeft, width, window.innerWidth);
 		return { top: Math.max(8 + window.scrollY, top), left };
 	}
 
-	const position = $derived(computePosition(anchorRect));
+	const position = $derived(computePosition(anchorRect, measuredWidth));
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
@@ -40,9 +47,14 @@
 		onDismiss();
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		document.addEventListener('keydown', handleKeydown);
 		document.addEventListener('mousedown', handleDocumentClick);
+		// Wait one tick so the toolbar has rendered, then measure it. This
+		// refines `measuredWidth` from the seed (220) to the true rendered
+		// width — typically ~200px depending on the icon set.
+		await tick();
+		if (toolbar) measuredWidth = toolbar.offsetWidth;
 	});
 
 	onDestroy(() => {

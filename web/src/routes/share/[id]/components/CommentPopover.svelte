@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick } from 'svelte';
+	import { clampedAnchorLeft } from './positioning.ts';
+	import { modifierGlyph } from './platform.ts';
 
 	export type PopoverMode = 'comment' | 'suggest';
+
+	const POPOVER_WIDTH = 360; // must match `w-[360px]` on the popover element
+
+	const modKey = modifierGlyph();
 
 	const {
 		anchorRect,
@@ -29,11 +35,15 @@
 	});
 
 	function computePosition(rect: DOMRect, m: PopoverMode): { top: number; left: number } {
-		// Same anchoring as toolbar: above the selection.
+		// Same anchoring as toolbar: above the selection. `left` is the
+		// horizontal center the caller will pair with `translateX(-50%)`,
+		// so we clamp to the viewport so the popover doesn't clip off-screen
+		// when the selection is near the doc's left or right edge.
 		const POPOVER_HEIGHT = m === 'suggest' ? 200 : 120;
 		const GAP = 12;
 		const top = rect.top + window.scrollY - POPOVER_HEIGHT - GAP;
-		const left = rect.left + window.scrollX + rect.width / 2;
+		const rawLeft = rect.left + window.scrollX + rect.width / 2;
+		const left = clampedAnchorLeft(rawLeft, POPOVER_WIDTH, window.innerWidth);
 		return { top: Math.max(8 + window.scrollY, top), left };
 	}
 
@@ -119,7 +129,7 @@
 	<div class="mt-3 flex items-center justify-between gap-2">
 		<div class="text-[10px] text-[var(--ink-text-faint)]">
 			<kbd class="ui-mono rounded border border-[var(--ink-rule)] bg-[var(--ink-paper)] px-1 py-0.5"
-				>⌘ ⏎</kbd
+				>{modKey} ⏎</kbd
 			>
 			to save ·
 			<kbd class="ui-mono rounded border border-[var(--ink-rule)] bg-[var(--ink-paper)] px-1 py-0.5"

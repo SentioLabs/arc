@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import type { CommentType } from '$lib/paste/types';
+	import { clampedAnchorLeft } from './positioning.ts';
+
+	const PICKER_WIDTH = 220; // must match `w-[220px]` on the picker element
 
 	const {
 		anchorRect,
@@ -26,7 +29,8 @@
 		const HEIGHT = 220;
 		const GAP = 12;
 		const top = rect.top + window.scrollY - HEIGHT - GAP;
-		const left = rect.left + window.scrollX + rect.width / 2;
+		const rawLeft = rect.left + window.scrollX + rect.width / 2;
+		const left = clampedAnchorLeft(rawLeft, PICKER_WIDTH, window.innerWidth);
 		return { top: Math.max(8 + window.scrollY, top), left };
 	}
 

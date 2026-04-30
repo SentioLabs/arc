@@ -688,6 +688,35 @@
    keeps its Refined Terminal aesthetic.
    ========================================================================== */
 
+/*
+ * Editorial spread layout — centered-doc composition.
+ *
+ * Two-column grid: [doc 1fr | rail 360]. The rail stays a fixed
+ * 360px notebook margin on the right. The doc-area fills the rest
+ * and centers its inner content (max-width 760px), so the gap on
+ * the left of the doc always equals the gap between the doc's right
+ * edge and the rail's left edge.
+ *
+ * Behavior across viewport widths:
+ *   - ultrawide (1920px viewport): doc-area is 1560px, doc is 760px,
+ *     gap is 400px on each side — visually centered between the
+ *     viewport edge and the rail.
+ *   - typical (1200px viewport): doc-area is 840px, doc is 760px,
+ *     gap is 40px on each side — close to flush but not pinned.
+ *   - narrow (≤1000px viewport): the doc fills its column, gaps
+ *     collapse to zero.
+ *
+ * `padding-inline` on the inner div keeps the prose from running into
+ * the column edges at any width, while `mx-auto` does the centering.
+ */
+.share-page {
+	grid-template-columns: minmax(0, 1fr) 360px;
+}
+.share-page .doc-inner {
+	margin-left: auto;
+	margin-right: auto;
+}
+
 .share-page {
 	--ink-paper: oklch(0.16 0.02 260);
 	--ink-paper-raised: oklch(0.2 0.015 260);

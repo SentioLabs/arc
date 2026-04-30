@@ -10,6 +10,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,6 +60,25 @@ type approvalEvent struct {
 	ID         string `json:"id"`
 	AuthorName string `json:"author_name"`
 	CreatedAt  string `json:"created_at"`
+}
+
+// editEvent is a reviewer revising their own annotation. Replay merges the
+// supplied fields onto the target comment in chronological order, gated on
+// the edit's author_name matching the original comment's. See the
+// EditEvent docstring in web/src/lib/paste/types.ts for the field semantics.
+//
+// Only `body`, `suggested_text`, and `comment_type` are editable. Pointer
+// fields distinguish "field omitted (keep)" from "field set to empty
+// (clear)" — Go zero values would conflate the two.
+type editEvent struct {
+	Kind        string  `json:"kind"` // always "edit"
+	ID          string  `json:"id"`
+	CommentID   string  `json:"comment_id"`
+	AuthorName  string  `json:"author_name"`
+	Body        *string `json:"body,omitempty"`
+	SuggestedText *string `json:"suggested_text,omitempty"`
+	CommentType *string `json:"comment_type,omitempty"`
+	CreatedAt   string  `json:"created_at"`
 }
 
 // --- commands ---
@@ -125,6 +147,8 @@ var (
 	shareCreateLocal      bool
 	shareCreateRemote     bool
 	shareCreateServer     string
+	shareCreateAuthor     string
+	shareCreateTitle      string
 	shareCommentsAccepted bool
 	shareCommentsJSON     bool
 )
@@ -132,7 +156,9 @@ var (
 func init() {
 	shareCreateCmd.Flags().BoolVar(&shareCreateLocal, "local", false, "Use the local arc-server")
 	shareCreateCmd.Flags().BoolVar(&shareCreateRemote, "share", false, "Use the configured remote share server")
-	shareCreateCmd.Flags().StringVar(&shareCreateServer, "server", "", "Override server URL")
+	shareCreateCmd.Flags().StringVar(&shareCreateServer, "server", "", "Server URL override. With --share, resolution is: --server flag → share_server in ~/.arc/cli-config.json → $ARC_SHARE_SERVER → https://arcplanner.sentiolabs.io.")
+	shareCreateCmd.Flags().StringVar(&shareCreateAuthor, "author", "", "Author name embedded in the plan. Resolution: --author flag → share_author in ~/.arc/cli-config.json → $ARC_SHARE_AUTHOR → `git config user.name`. Reviewers who enter this exact name in the share UI gain Accept/Resolve/Reject controls.")
+	shareCreateCmd.Flags().StringVar(&shareCreateTitle, "title", "", "Optional plan title shown in the share UI header (defaults to the filename)")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsAccepted, "accepted-only", false, "Only print accepted comments")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsJSON, "json", false, "Output as JSON")
 
@@ -154,10 +180,24 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	author := resolveAuthor(shareCreateAuthor)
+	if author == "" {
+		fmt.Fprintln(os.Stderr, "warning: no author name resolved.")
+		fmt.Fprintln(os.Stderr, "         Set one via --author, share_author in ~/.arc/cli-config.json,")
+		fmt.Fprintln(os.Stderr, "         $ARC_SHARE_AUTHOR, or `git config user.name`.")
+		fmt.Fprintln(os.Stderr, "         Without an author, Accept/Resolve/Reject controls in the share UI")
+		fmt.Fprintln(os.Stderr, "         stay hidden for every reviewer.")
+	}
+	title := shareCreateTitle
+	if title == "" {
+		title = strings.TrimSuffix(filepath.Base(planFile), ".md")
+	}
 	plain := planPlaintext{
-		Version:   1,
-		Markdown:  string(md),
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		Version:    1,
+		Markdown:   string(md),
+		Title:      title,
+		AuthorName: author,
+		CreatedAt:  time.Now().UTC().Format(time.RFC3339),
 	}
 	blob, iv, err := paste.EncryptJSON(plain, key)
 	if err != nil {
@@ -293,19 +333,70 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 
 // --- helpers ---
 
-// resolveServer returns the server URL and kind ("local" or "shared") based on
-// the provided flags.
-func resolveServer(local, share bool, override string) (string, string) {
-	if override != "" {
-		return override, "shared"
+// resolveAuthor returns the author name to embed in the plan plaintext.
+// Resolution order (highest priority first):
+//  1. explicit --author flag
+//  2. share_author in ~/.arc/cli-config.json
+//  3. $ARC_SHARE_AUTHOR
+//  4. `git config user.name`
+//
+// Returns "" if none of these produce a value.
+//
+// The author name is the only thing that lets the share UI distinguish the
+// plan owner from reviewers — when a visitor enters this exact name in the
+// SPA's name prompt, they get Accept/Resolve/Reject controls. Without it,
+// nobody is recognized as the author and the controls stay hidden for all.
+func resolveAuthor(flag string) string {
+	if s := strings.TrimSpace(flag); s != "" {
+		return s
+	}
+	if cfg, err := loadConfig(); err == nil {
+		if s := strings.TrimSpace(cfg.ShareAuthor); s != "" {
+			return s
+		}
+	}
+	if s := strings.TrimSpace(os.Getenv("ARC_SHARE_AUTHOR")); s != "" {
+		return s
+	}
+	out, err := exec.Command("git", "config", "user.name").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// resolveServer returns the server URL and kind ("local" or "shared") based
+// on the provided flags. For shared (remote) mode, the URL is resolved with
+// precedence:
+//
+//	--server flag > share_server in ~/.arc/cli-config.json > $ARC_SHARE_SERVER > https://arcplanner.sentiolabs.io
+//
+// For local mode, the server URL comes from `server_url` in the CLI config
+// (defaulting to http://localhost:7432). The `--server` flag still wins over
+// everything in either mode.
+func resolveServer(_ bool, share bool, override string) (string, string) {
+	if s := strings.TrimSpace(override); s != "" {
+		return s, "shared"
 	}
 	if share {
-		if env := os.Getenv("ARC_SHARE_SERVER"); env != "" {
-			return env, "shared"
-		}
-		return "https://share.arc.tools", "shared"
+		return resolveShareServer(), "shared"
 	}
 	return cliConfigServerURL(), "local"
+}
+
+// resolveShareServer returns the URL of the remote paste server, resolving in
+// precedence order: config > env > built-in default. (The flag is checked one
+// level up in resolveServer.)
+func resolveShareServer() string {
+	if cfg, err := loadConfig(); err == nil {
+		if s := strings.TrimSpace(cfg.ShareServer); s != "" {
+			return s
+		}
+	}
+	if s := strings.TrimSpace(os.Getenv("ARC_SHARE_SERVER")); s != "" {
+		return s
+	}
+	return "https://arcplanner.sentiolabs.io"
 }
 
 // cliConfigServerURL returns the server URL from the CLI config, falling back
@@ -415,35 +506,96 @@ func fetchAndDecrypt(server, id string, key []byte) (*planPlaintext, []paste.Pas
 // printComments fetches all events, decrypts them, and prints comments to
 // stdout. When acceptedOnly is true only accepted comments are printed. When
 // asJSON is true each comment is printed as a JSON object.
+//
+// Replay logic mirrors web/src/lib/paste/events.ts:
+//   - 'comment' events seed the state map.
+//   - 'resolution' events set the status, gated on author_name matching the
+//     plan's author (so reviewers can't self-accept).
+//   - 'edit' events merge body/suggested_text/comment_type onto the target
+//     comment, gated on author_name matching the comment's original author.
+//
+// Events are ordered by created_at (then by id as a deterministic tiebreaker)
+// so the latest edit wins.
 func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) error {
 	plan, events, err := fetchAndDecrypt(server, id, key)
 	if err != nil {
 		return err
 	}
-	comments := map[string]commentEvent{}
-	resolutions := map[string]resolutionEvent{}
+	type decoded struct {
+		kind string
+		raw  json.RawMessage
+		ts   string
+		eid  string
+	}
+	decodedEvents := make([]decoded, 0, len(events))
 	for _, e := range events {
 		var raw json.RawMessage
 		if err := paste.DecryptJSON(e.Blob, e.IV, key, &raw); err != nil {
 			continue
 		}
 		var generic struct {
-			Kind string `json:"kind"`
+			Kind      string `json:"kind"`
+			ID        string `json:"id"`
+			CreatedAt string `json:"created_at"`
 		}
-		_ = json.Unmarshal(raw, &generic)
-		switch generic.Kind {
+		if err := json.Unmarshal(raw, &generic); err != nil {
+			continue
+		}
+		decodedEvents = append(decodedEvents, decoded{
+			kind: generic.Kind,
+			raw:  raw,
+			ts:   generic.CreatedAt,
+			eid:  generic.ID,
+		})
+	}
+	// Stable chronological order for deterministic edit application.
+	sort.SliceStable(decodedEvents, func(i, j int) bool {
+		if decodedEvents[i].ts != decodedEvents[j].ts {
+			return decodedEvents[i].ts < decodedEvents[j].ts
+		}
+		return decodedEvents[i].eid < decodedEvents[j].eid
+	})
+
+	comments := map[string]commentEvent{}
+	resolutions := map[string]resolutionEvent{}
+	for _, d := range decodedEvents {
+		switch d.kind {
 		case "comment":
 			var c commentEvent
-			if err := json.Unmarshal(raw, &c); err == nil {
+			if err := json.Unmarshal(d.raw, &c); err == nil {
 				comments[c.ID] = c
 			}
 		case "resolution":
 			var r resolutionEvent
-			if err := json.Unmarshal(raw, &r); err == nil {
+			if err := json.Unmarshal(d.raw, &r); err == nil {
 				if plan.AuthorName == "" || r.AuthorName == plan.AuthorName {
 					resolutions[r.CommentID] = r
 				}
 			}
+		case "edit":
+			var ed editEvent
+			if err := json.Unmarshal(d.raw, &ed); err != nil {
+				continue
+			}
+			c, ok := comments[ed.CommentID]
+			if !ok {
+				continue
+			}
+			// Replay-time auth: only the comment's original author can
+			// edit it. Forged events are silently dropped.
+			if ed.AuthorName != c.AuthorName {
+				continue
+			}
+			if ed.Body != nil {
+				c.Body = *ed.Body
+			}
+			if ed.SuggestedText != nil {
+				c.SuggestedText = *ed.SuggestedText
+			}
+			if ed.CommentType != nil {
+				c.CommentType = *ed.CommentType
+			}
+			comments[ed.CommentID] = c
 		}
 	}
 	for cid, c := range comments {
@@ -470,7 +622,7 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 }
 
 // resolveShareRef parses a share reference which may be either a full share
-// URL (e.g. https://share.arc.tools/share/abc12345#k=KEY) or a bare share ID
+// URL (e.g. https://arcplanner.sentiolabs.io/share/abc12345#k=KEY) or a bare share ID
 // known to ~/.arc/shares.json.
 func resolveShareRef(ref string) (string, string, []byte, error) {
 	if strings.Contains(ref, "://") {
