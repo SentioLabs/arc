@@ -254,8 +254,12 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 	}); err != nil {
 		return err
 	}
-	fmt.Printf("Share URL:  %s/share/%s#k=%s\n", strings.TrimRight(server, "/"), resp.ID, keyB64)
-	fmt.Printf("Edit token: %s (saved in ~/.arc/shares.json — keep safe)\n", resp.EditToken)
+	trimmedServer := strings.TrimRight(server, "/")
+	fmt.Printf("Share URL  (send to reviewers):\n  %s/share/%s#k=%s\n\n",
+		trimmedServer, resp.ID, keyB64)
+	fmt.Printf("Author URL (keep private — gives you Accept/Resolve):\n  %s/share/%s#k=%s&t=%s\n\n",
+		trimmedServer, resp.ID, keyB64, resp.EditToken)
+	fmt.Println("Edit token saved to ~/.arc/shares.json")
 	return nil
 }
 

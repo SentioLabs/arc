@@ -516,6 +516,57 @@ func captureStdout(t *testing.T, fn func()) string {
 // global `configPath` at a temp file, and from the user's git identity by
 // running each subtest with $PATH cleared so `git` is unavailable (the
 // helper falls back silently to "" on git failure).
+func TestShareCreatePrintsBothURLs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	plan := filepath.Join(t.TempDir(), "plan.md")
+	_ = os.WriteFile(plan, []byte("# Hello\n\nBody."), 0o600)
+
+	// Capture stdout.
+	r, w, _ := os.Pipe()
+	stdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = stdout }()
+
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatalf("runShareCreate: %v", err)
+	}
+	_ = w.Close()
+	out, _ := io.ReadAll(r)
+	output := string(out)
+
+	if !strings.Contains(output, "Share URL") {
+		t.Errorf("expected 'Share URL' label, got: %s", output)
+	}
+	if !strings.Contains(output, "Author URL") {
+		t.Errorf("expected 'Author URL' label, got: %s", output)
+	}
+	if !strings.Contains(output, "send to reviewers") {
+		t.Errorf("expected reviewer guidance, got: %s", output)
+	}
+	if !strings.Contains(output, "keep private") {
+		t.Errorf("expected privacy guidance for author URL, got: %s", output)
+	}
+	if strings.Contains(output, "Edit token: ") {
+		t.Errorf("raw 'Edit token: <hex>' line should not appear in output: %s", output)
+	}
+	if !strings.Contains(output, "Edit token saved to") {
+		t.Errorf("expected pointer to shares.json, got: %s", output)
+	}
+
+	// Author URL must contain &t=.
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "/share/") && strings.Contains(line, "&t=") {
+			return
+		}
+	}
+	t.Errorf("expected an author URL line with &t=<token>, got: %s", output)
+}
+
 func TestResolveAuthor(t *testing.T) {
 	// Save & restore globals touched by the helper. Env vars use t.Setenv
 	// which auto-restores; configPath is package-global so we restore manually.
