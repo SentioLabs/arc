@@ -113,9 +113,34 @@ func (s *Store) DeleteWorkspace(ctx context.Context, id string) error {
 	return nil
 }
 
+const resolveProjectByPathSQL = `
+	SELECT w.id, w.project_id, w.path, w.label, w.hostname, w.git_remote,
+	       w.path_type, w.last_accessed_at, w.created_at, w.updated_at
+	FROM workspaces w
+	JOIN projects p ON w.project_id = p.id
+	WHERE w.path = ?
+	   OR ? LIKE w.path || '/%' ESCAPE '\'
+	ORDER BY length(w.path) DESC
+	LIMIT 1
+`
+
 // ResolveProjectByPath finds a workspace entry by filesystem path.
+// It matches either exact path or a subpath under a workspace, returning the longest match.
+// Uses ESCAPE '\' to properly handle wildcard characters in filesystem paths.
 func (s *Store) ResolveProjectByPath(ctx context.Context, path string) (*types.Workspace, error) {
-	row, err := s.queries.ResolveProjectByPath(ctx, path)
+	row := db.Workspace{}
+	err := s.db.QueryRowContext(ctx, resolveProjectByPathSQL, path, path).Scan(
+		&row.ID,
+		&row.ProjectID,
+		&row.Path,
+		&row.Label,
+		&row.Hostname,
+		&row.GitRemote,
+		&row.PathType,
+		&row.LastAccessedAt,
+		&row.CreatedAt,
+		&row.UpdatedAt,
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("workspace not found for path: %s", path)
@@ -123,7 +148,7 @@ func (s *Store) ResolveProjectByPath(ctx context.Context, path string) (*types.W
 		return nil, fmt.Errorf("resolve project by path: %w", err)
 	}
 
-	return dbWorkspaceToType(row), nil
+	return dbWorkspaceToType(&row), nil
 }
 
 // UpdateWorkspaceLastAccessed updates the last_accessed_at timestamp for a workspace.

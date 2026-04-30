@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -447,4 +448,89 @@ func TestUpdateWorkspaceLastAccessed(t *testing.T) {
 	if got.LastAccessedAt.Before(before) || got.LastAccessedAt.After(after) {
 		t.Errorf("LastAccessedAt = %v, expected between %v and %v", got.LastAccessedAt, before, after)
 	}
+}
+
+func TestResolveProjectByPath_PrefixMatch(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := setupTestProject(t, store)
+
+	ws := &types.Workspace{
+		ProjectID: proj.ID,
+		Path:      "/home/user/projects/myapp",
+		Label:     "main",
+	}
+	if err := store.CreateWorkspace(ctx, ws); err != nil {
+		t.Fatalf("CreateWorkspace failed: %v", err)
+	}
+
+	got, err := store.ResolveProjectByPath(ctx, "/home/user/projects/myapp/.worktrees/feature-x/internal/api")
+	if err != nil {
+		t.Fatalf("ResolveProjectByPath(subdir) failed: %v", err)
+	}
+	if got.ID != ws.ID {
+		t.Errorf("ID = %q, want %q (longest-prefix match)", got.ID, ws.ID)
+	}
+}
+
+func TestResolveProjectByPath_LongestPrefixWins(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	projOuter := setupTestProject(t, store)
+	projInner := setupTestProjectNamed(t, store, "inner-project", "inner")
+
+	wsOuter := &types.Workspace{ProjectID: projOuter.ID, Path: "/repos/outer", Label: "outer"}
+	wsInner := &types.Workspace{ProjectID: projInner.ID, Path: "/repos/outer/sub/inner", Label: "inner"}
+	if err := store.CreateWorkspace(ctx, wsOuter); err != nil {
+		t.Fatalf("CreateWorkspace(outer) failed: %v", err)
+	}
+	if err := store.CreateWorkspace(ctx, wsInner); err != nil {
+		t.Fatalf("CreateWorkspace(inner) failed: %v", err)
+	}
+
+	got, err := store.ResolveProjectByPath(ctx, "/repos/outer/sub/inner/deep/file")
+	if err != nil {
+		t.Fatalf("ResolveProjectByPath(nested) failed: %v", err)
+	}
+	if got.ID != wsInner.ID {
+		t.Errorf("ID = %q, want %q (longest prefix should win)", got.ID, wsInner.ID)
+	}
+}
+
+func TestResolveProjectByPath_ComponentBoundary(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := setupTestProject(t, store)
+
+	ws := &types.Workspace{ProjectID: proj.ID, Path: "/repos/proj", Label: "proj"}
+	if err := store.CreateWorkspace(ctx, ws); err != nil {
+		t.Fatalf("CreateWorkspace failed: %v", err)
+	}
+
+	// "/repos/proj-foo" must NOT match "/repos/proj" — different directories.
+	_, err := store.ResolveProjectByPath(ctx, "/repos/proj-foo/file")
+	if err == nil {
+		t.Fatal("ResolveProjectByPath(/repos/proj-foo/file) should not match /repos/proj")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' error, got: %v", err)
+	}
+}
+
+func setupTestProjectNamed(t *testing.T, store *sqlite.Store, name, prefix string) *types.Project {
+	t.Helper()
+	proj := &types.Project{
+		Name:   name,
+		Prefix: prefix,
+	}
+	if err := store.CreateProject(context.Background(), proj); err != nil {
+		t.Fatalf("CreateProject(%s) failed: %v", name, err)
+	}
+	return proj
 }
