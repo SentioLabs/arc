@@ -712,7 +712,26 @@
 .share-page {
 	grid-template-columns: minmax(0, 1fr) 360px;
 }
+/*
+ * Doc width — fluid clamp so the prose breathes on wide viewports
+ * without ever shrinking the comfortable narrow-screen experience.
+ *
+ *   floor 47.5rem (760px) — same width as before; viewports already
+ *                           comfortable today don't change.
+ *   pref  80%             — 80% of doc-area (= viewport minus rail);
+ *                           grows smoothly with available space.
+ *   ceil  60rem  (960px)  — readable upper bound. Past ~95ch the eye
+ *                           saccade between line-end and next-line
+ *                           gets too long for comfortable reading,
+ *                           even though monospace code blocks tolerate
+ *                           the extra width fine.
+ *
+ * `%` is relative to the parent's content box (the doc-area = `1fr`
+ * column), so we don't have to subtract the rail width by hand —
+ * the layout already did that for us.
+ */
 .share-page .doc-inner {
+	max-width: clamp(47.5rem, 80%, 60rem);
 	margin-left: auto;
 	margin-right: auto;
 }

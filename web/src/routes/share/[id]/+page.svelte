@@ -349,7 +349,7 @@
 		 the phantom desk column on the left and the rail on the right.
 		 See `.share-page` rules in app.css for the grid geometry. -->
 	<main class="doc-area overflow-y-auto">
-		<div class="doc-inner flex max-w-[760px] flex-col px-10 py-12">
+		<div class="doc-inner flex flex-col px-10 py-12">
 			<header
 				class="mb-10 flex items-baseline justify-between border-b border-[var(--ink-rule)] pb-6"
 			>
