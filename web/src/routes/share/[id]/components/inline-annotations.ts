@@ -39,10 +39,9 @@ export function applyInlineAnnotations(
 			if (block) wrapNeedleInBlock(block, mark.quotedText, mark, isActive);
 			continue;
 		}
-		// Multi-block selection. `selection.toString()` inserts \n (often \n\n)
-		// between block-level elements, so the needle won't be found inside any
-		// single block's textContent. Split on runs of newlines and wrap each
-		// segment in its corresponding block, walked in source-line order.
+		// Multi-block selection. `selection.toString()` inserts \n between
+		// block-level elements, so the needle won't be found inside any
+		// single block's textContent.
 		const segments = mark.quotedText
 			.split(/\n+/)
 			.map((s) => s.trim())
@@ -53,13 +52,66 @@ export function applyInlineAnnotations(
 			const b = container.querySelector<HTMLElement>(`[data-source-line="${line}"]`);
 			if (b) blocks.push(b);
 		}
-		// Pair segments with blocks one-for-one. If counts diverge (rare —
-		// would mean the markdown renderer collapsed/dropped a block since
-		// the comment was created), wrap as many as we can rather than
-		// nothing — partial highlight beats a missing one.
-		const n = Math.min(segments.length, blocks.length);
-		for (let i = 0; i < n; i++) {
-			wrapNeedleInBlock(blocks[i], segments[i], mark, isActive);
+		if (blocks.length === 0) continue;
+
+		// Two strategies:
+		//   1. Strict pairing: segment count == block count, e.g. paragraph +
+		//      paragraph. Each segment goes in its corresponding block.
+		//   2. Fallback: counts diverge, which happens when a block has
+		//      internal multi-line structure — a <ul> with several <li>s, or
+		//      a <pre><code> with many lines. The block has ONE source line
+		//      but the needle has many \n separators within. We wrap every
+		//      text node across the blocks in range.
+		// The fallback can over-highlight when the user partially selected
+		// the first or last block in range, but that's strictly better than
+		// the no-highlight failure mode it replaces.
+		if (segments.length === blocks.length) {
+			for (let i = 0; i < blocks.length; i++) {
+				wrapNeedleInBlock(blocks[i], segments[i], mark, isActive);
+			}
+		} else {
+			wrapAllTextNodesInBlocks(blocks, mark, isActive);
+		}
+	}
+}
+
+/**
+ * Wrap every non-empty text node inside the given blocks in a fresh <mark>.
+ *
+ * Used as the multi-block fallback when segment count and block count diverge
+ * — typically when a block has internal multi-line structure (lists, code
+ * blocks). Wrapping per text node (rather than spanning a Range across
+ * sibling block elements) avoids breaking the structure: ranges that cross
+ * <li> boundaries would either fail surroundContents or, on extractContents
+ * fallback, rip the list apart. Each text node is its own atom — wrapping it
+ * inline is always safe.
+ *
+ * Trade-off: if the original selection was partial inside the first or last
+ * block in range, this over-highlights those blocks. That's an acceptable
+ * regression of "exact selection visible" in exchange for restoring "any
+ * highlight at all" for the multi-line section / code-block cases.
+ */
+function wrapAllTextNodesInBlocks(
+	blocks: HTMLElement[],
+	mark: InlineMark,
+	isActive: boolean
+): void {
+	const className = CLASS_BY_KIND[mark.kind] + (isActive ? ' is-active' : '');
+	for (const block of blocks) {
+		// Snapshot text nodes before mutating; otherwise the wrapping inserts
+		// new <mark> nodes and the live walker would visit them too.
+		const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+		const nodes: Text[] = [];
+		while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+
+		for (const node of nodes) {
+			if (!node.data.trim()) continue; // skip whitespace-only nodes
+			if (!node.parentNode) continue;
+			const wrapper = document.createElement('mark');
+			wrapper.className = className;
+			wrapper.dataset.annoId = mark.id;
+			node.parentNode.insertBefore(wrapper, node);
+			wrapper.appendChild(node);
 		}
 	}
 }
