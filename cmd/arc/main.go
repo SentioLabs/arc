@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
@@ -214,7 +213,7 @@ func getProjectID() (string, error) {
 // resolveProject returns the project ID, source, and error.
 // Resolution priority:
 //  1. CLI flag (--project) - explicit override always works
-//  2. Server path matching (exact, normalized, worktree, then subdirectory)
+//  2. Server path matching (delegates all resolution to server)
 //  3. Legacy config fallback (~/.arc/projects/ configs from before server-side paths)
 //
 // If none is available, an error is returned. There is no global fallback
@@ -233,7 +232,7 @@ func resolveProject() (wsID string, source ProjectSource, warning string, err er
 	arcHome := project.DefaultArcHome()
 
 	// Priority 2: Server path matching (checks workspace_paths table, handles symlinks)
-	if serverWsID, serverErr := resolveFromServer(cwd); serverErr == nil && serverWsID != "" {
+	if serverWsID, serverErr := resolveFromServer(cwd); serverErr == nil {
 		return serverWsID, ProjectSourceServer, "", nil
 	}
 
@@ -251,93 +250,22 @@ func resolveProject() (wsID string, source ProjectSource, warning string, err er
 			"  Run 'arc init' to set up a project, or use '--project <id>' to specify one")
 }
 
-// resolveFromServer attempts to resolve the project by querying the server.
-// Tries exact path, normalized path, git worktree, then subdirectory matching.
+// resolveFromServer asks the server to resolve the given cwd to a project ID.
+// The server's resolver handles exact match, longest-prefix match against
+// registered workspace paths, and linked-git-worktree detection.
 func resolveFromServer(cwd string) (string, error) {
 	c, err := getClient()
 	if err != nil {
 		return "", err
 	}
 
-	// Try server-side resolution first (checks workspace_paths table)
 	if res, resolveErr := c.ResolveProjectByPath(cwd); resolveErr == nil && res.ProjectID != "" {
 		return res.ProjectID, nil
 	}
 
-	// Fall back to normalized path matching
-	normalizedCwd := project.NormalizePath(cwd)
-	if normalizedCwd != cwd {
-		if res, resolveErr := c.ResolveProjectByPath(normalizedCwd); resolveErr == nil && res.ProjectID != "" {
-			return res.ProjectID, nil
-		}
-	}
-
-	// Fall back to git worktree main repo detection
-	if mainRepo := detectGitMainWorktree(cwd); mainRepo != "" {
-		if res, resolveErr := c.ResolveProjectByPath(mainRepo); resolveErr == nil && res.ProjectID != "" {
-			return res.ProjectID, nil
-		}
-		normalizedRepo := project.NormalizePath(mainRepo)
-		if normalizedRepo != mainRepo {
-			if res, resolveErr := c.ResolveProjectByPath(normalizedRepo); resolveErr == nil && res.ProjectID != "" {
-				return res.ProjectID, nil
-			}
-		}
-	}
-
-	// Fall back to subdirectory matching
-	return resolveBySubdirectory(c, cwd, normalizedCwd)
-}
-
-// resolveBySubdirectory checks if cwd is inside any registered workspace path.
-func resolveBySubdirectory(c *client.Client, cwd, normalizedCwd string) (string, error) {
-	projects, listErr := c.ListProjects()
-	if listErr != nil {
-		return "", listErr //nolint:wrapcheck // caller wraps
-	}
-	for _, proj := range projects {
-		workspaces, wsErr := c.ListWorkspaces(proj.ID)
-		if wsErr != nil {
-			continue
-		}
-		for _, ws := range workspaces {
-			if isSubdirectory(ws.Path, cwd) || isSubdirectory(ws.Path, normalizedCwd) {
-				return proj.ID, nil
-			}
-		}
-	}
-	return "", nil
-}
-
-// detectGitMainWorktree returns the main worktree path if cwd is a linked git worktree.
-// Returns empty string if cwd is not a worktree or is the main worktree itself.
-func detectGitMainWorktree(dir string) string {
-	cmd := exec.Command("git", "-C", dir, "rev-parse", "--git-common-dir")
-	out, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	commonDir := strings.TrimSpace(string(out))
-
-	// If git-common-dir == .git, we're in the main worktree
-	if commonDir == ".git" {
-		return ""
-	}
-
-	// commonDir is an absolute path to the .git dir of the main repo
-	// The main repo is the parent of the .git dir
-	if !filepath.IsAbs(commonDir) {
-		commonDir = filepath.Join(dir, commonDir)
-	}
-	commonDir = filepath.Clean(commonDir)
-	mainRepo := filepath.Dir(commonDir)
-
-	// Sanity check: don't return the same dir
-	if mainRepo == dir || mainRepo == "." || mainRepo == "" {
-		return ""
-	}
-
-	return mainRepo
+	return "", errors.New(
+		"no project configured for this directory\n" +
+			"  Run 'arc init' to set up a project, or use '--project <id>' to specify one")
 }
 
 // resolveFromLegacyConfig attempts to resolve project from ~/.arc/projects/ config.
@@ -385,22 +313,6 @@ func outputResult(data any) {
 	} else {
 		_, _ = fmt.Println(data)
 	}
-}
-
-// isSubdirectory returns true if child is the same as or a subdirectory of parent.
-func isSubdirectory(parent, child string) bool {
-	// Clean paths for consistent comparison
-	parent = filepath.Clean(parent)
-	child = filepath.Clean(child)
-
-	// Exact match
-	if parent == child {
-		return true
-	}
-
-	// Check if child starts with parent + separator
-	// This prevents /home/foo/project matching /home/foo/project2
-	return strings.HasPrefix(child, parent+string(filepath.Separator))
 }
 
 // rootCmd is the top-level Cobra command for the arc CLI.

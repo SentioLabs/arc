@@ -161,30 +161,6 @@ func (q *Queries) ListWorkspaces(ctx context.Context, projectID string) ([]*Work
 	return items, nil
 }
 
-const resolveProjectByPath = `-- name: ResolveProjectByPath :one
-SELECT w.id, w.project_id, w.path, w.label, w.hostname, w.git_remote, w.path_type, w.last_accessed_at, w.created_at, w.updated_at FROM workspaces w
-JOIN projects p ON w.project_id = p.id
-WHERE w.path = ?
-`
-
-func (q *Queries) ResolveProjectByPath(ctx context.Context, path string) (*Workspace, error) {
-	row := q.db.QueryRowContext(ctx, resolveProjectByPath, path)
-	var i Workspace
-	err := row.Scan(
-		&i.ID,
-		&i.ProjectID,
-		&i.Path,
-		&i.Label,
-		&i.Hostname,
-		&i.GitRemote,
-		&i.PathType,
-		&i.LastAccessedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
 const updateWorkspace = `-- name: UpdateWorkspace :exec
 UPDATE workspaces SET label = ?, hostname = ?, git_remote = ?, path_type = ?, updated_at = ? WHERE id = ?
 `

@@ -73,7 +73,7 @@ func (s *Server) createAISession(c echo.Context) error {
 
 	// Validate CWD maps to the given project
 	if req.CWD != "" {
-		ws, err := s.store.ResolveProjectByPath(ctx, req.CWD)
+		ws, err := s.resolveProjectForPath(ctx, req.CWD)
 		if err != nil {
 			log.Printf("WARN: CWD %q does not resolve to any project: %v", req.CWD, err)
 			return errorJSON(c, http.StatusUnprocessableEntity,

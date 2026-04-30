@@ -8,9 +8,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/testutil/gittest"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -1055,5 +1057,94 @@ func TestListAISessionsWithSummary(t *testing.T) {
 	if s2.AgentSummary != nil {
 		t.Errorf("sess-sum-2 agent_summary should be nil, got %+v",
 			s2.AgentSummary)
+	}
+}
+
+// TestCreateAISession_WorktreePathUnderRegistered verifies that a CWD that is a
+// subdirectory of a registered workspace path resolves correctly (prefix match).
+func TestCreateAISession_WorktreePathUnderRegistered(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projID := createNamedProject(t, e, "worktree-prefix-proj", "wtp")
+	addWorkspaceToProject(t, e, projID, "/repos/main")
+
+	body := strings.NewReader(`{"id":"sess-wt-1","cwd":"/repos/main/.worktrees/feature-x"}`)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projID+"/ai/sessions",
+		body,
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+
+// TestCreateAISession_LinkedWorktreeOutsideRegistered verifies that a CWD inside
+// a linked git worktree (outside the registered prefix) resolves via DetectMainRepo.
+func TestCreateAISession_LinkedWorktreeOutsideRegistered(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	tmp := t.TempDir()
+	mainDir := filepath.Join(tmp, "main")
+	wtDir := filepath.Join(tmp, "feature-x")
+
+	// Real git init + worktree add so DetectMainRepo can follow the .git pointer.
+	gittest.InitRepo(t, mainDir)
+	gittest.AddWorktree(t, mainDir, wtDir, "feature-x")
+
+	projID := createNamedProject(t, e, "linked-worktree-proj", "lwp")
+	addWorkspaceToProject(t, e, projID, mainDir)
+
+	body := strings.NewReader(fmt.Sprintf(`{"id":"sess-wt-2","cwd":%q}`, wtDir))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projID+"/ai/sessions",
+		body,
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+
+// TestCreateAISession_RejectCrossProject verifies that posting to project A with
+// a CWD registered under project B is still rejected with 422.
+func TestCreateAISession_RejectCrossProject(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projAID := createNamedProject(t, e, "cross-proj-a", "cpa")
+	projBID := createNamedProject(t, e, "cross-proj-b", "cpb")
+	addWorkspaceToProject(t, e, projAID, "/repos/a")
+	addWorkspaceToProject(t, e, projBID, "/repos/b")
+
+	// Posting to project A with a CWD under project B's prefix should fail.
+	body := strings.NewReader(`{"id":"sess-wt-3","cwd":"/repos/b/sub/dir"}`)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projAID+"/ai/sessions",
+		body,
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
 	}
 }

@@ -14,11 +14,6 @@ UPDATE workspaces SET label = ?, hostname = ?, git_remote = ?, path_type = ?, up
 -- name: DeleteWorkspace :exec
 DELETE FROM workspaces WHERE id = ?;
 
--- name: ResolveProjectByPath :one
-SELECT w.* FROM workspaces w
-JOIN projects p ON w.project_id = p.id
-WHERE w.path = ?;
-
 -- name: UpdateWorkspaceLastAccessed :exec
 UPDATE workspaces SET last_accessed_at = ?, updated_at = ? WHERE id = ?;
 
