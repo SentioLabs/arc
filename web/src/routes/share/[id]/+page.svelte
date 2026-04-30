@@ -3,7 +3,7 @@
 	import { PasteClient, b64ToBytes, eventBytes } from '$lib/paste/client';
 	import { importKey, encryptJSON, decryptJSON } from '$lib/paste/crypto';
 	import { replayEvents, type CommentState } from '$lib/paste/events';
-	import { getReviewerName, parseShareFragment } from '$lib/paste/identity';
+	import { getReviewerName, parseShareFragment, setReviewerName } from '$lib/paste/identity';
 	import type {
 		PlanPlaintext,
 		EventPlaintext,
@@ -32,6 +32,7 @@
 
 	// --- Reviewer identity ---
 	let reviewerName = $state<string | null>(null);
+	let authorToken = $state<string | null>(null);
 	let showNamePrompt = $state(false);
 	let pendingAfterName: (() => void) | null = null;
 
@@ -52,12 +53,7 @@
 
 	let client: PasteClient | undefined;
 
-	const isAuthor = $derived(
-		reviewerName !== null &&
-			plan !== null &&
-			!!plan.author_name &&
-			plan.author_name === reviewerName
-	);
+	const isAuthor = $derived(authorToken !== null);
 
 	const orderedStates = $derived.by(() => {
 		return [...comments.values()].sort((a, b) =>
@@ -91,8 +87,7 @@
 				return;
 			}
 			key = await importKey(k);
-			// `t` is unused in this commit; consumed in the next task.
-			void t;
+			authorToken = t;
 
 			const resp = await client.get(data.id);
 			plan = await decryptJSON<PlanPlaintext>(
@@ -100,6 +95,14 @@
 				b64ToBytes(resp.plan_iv),
 				key
 			);
+
+			// Author URL flow: token + plan author name → auto-populate reviewer identity.
+			// If the share was created without --author, fall through to the standard
+			// reviewer flow; isAuthor still stays true via authorToken.
+			if (authorToken && plan?.author_name) {
+				reviewerName = plan.author_name;
+				setReviewerName(plan.author_name);
+			}
 
 			const events: EventPlaintext[] = [];
 			for (const ev of resp.events) {
