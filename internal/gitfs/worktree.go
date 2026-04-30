@@ -99,9 +99,14 @@ func DetectMainRepo(dir string) string {
 // isBareRepo returns true if dir contains the typical structural files
 // of a bare git repository (HEAD file and objects directory).
 func isBareRepo(dir string) bool {
+	// dir originates from a parsed .git pointer (validated absolute) and is
+	// joined with hardcoded leaf names; gosec's taint analysis can't follow
+	// that flow.
+	//nolint:gosec // G304/G703: dir is validated; leaf names are constants
 	if info, err := os.Stat(filepath.Join(dir, "HEAD")); err != nil || info.IsDir() {
 		return false
 	}
+	//nolint:gosec // G304/G703: dir is validated; leaf names are constants
 	if info, err := os.Stat(filepath.Join(dir, "objects")); err != nil || !info.IsDir() {
 		return false
 	}

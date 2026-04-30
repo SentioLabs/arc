@@ -12,6 +12,10 @@ import (
 	"testing"
 )
 
+// dirPerm is the permission bits used when creating test repository
+// directories. 0o755 matches the default umask-aware mode for `git init`.
+const dirPerm = 0o755
+
 // Run executes `git <args...>` with cmd.Dir set to workdir and the standard
 // hardened test environment. workdir must already exist; if it doesn't,
 // Run fails the test. Pass "" for workdir to use the current process's CWD.
@@ -32,7 +36,7 @@ func Run(t *testing.T, workdir string, args ...string) {
 // `git worktree add` calls have a ref to branch from.
 func InitRepo(t *testing.T, dir string) {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		t.Fatalf("mkdir %q: %v", dir, err)
 	}
 	Run(t, dir, "init", "-q")

@@ -1148,4 +1148,3 @@ func TestCreateAISession_RejectCrossProject(t *testing.T) {
 			rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
 	}
 }
-
