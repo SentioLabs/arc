@@ -1,13 +1,43 @@
 /**
  * Apply inline annotation marks to already-rendered markdown.
  *
- * Strategy: walk text nodes inside each block (data-source-line) referenced by
- * the anchor, find the first occurrence of the anchor's quoted_text, and wrap
- * it in a <mark> with the right CSS class. This is similar to plannotator's
- * web-highlighter but tailored to our line-anchored model.
+ * The hard problem: selection.toString() inserts \n separators at block
+ * boundaries (between <li>s, between <p>s, after a heading) and at <br>
+ * elements, but a TreeWalker over the same DOM yields just the text-node
+ * data with no separators. Naively searching the concatenated text-node
+ * string for the needle, or even a whitespace-normalized version of it,
+ * fails when the gap between blocks is zero whitespace — normalization can
+ * only collapse existing runs.
  *
- * The implementation rebuilds the marks every render rather than diffing; this
- * is fine for the volume we expect (tens of annotations per plan).
+ * Strategy: for each annotation, gather the [data-source-line] blocks in
+ * [lineStart, lineEnd], walk all their text nodes plus <br>/<hr> elements
+ * in document order, and build TWO parallel strings:
+ *
+ *   - `acc`: raw concatenation of text-node data. Cumulative offsets into
+ *     this string map directly into textNodes via length math — used by the
+ *     wrap step.
+ *   - `searchSpace`: same content but with a synthetic '\n' inserted at
+ *     every block-level boundary AND every <br>/<hr> element. This mirrors
+ *     what selection.toString() emits, so the needle can match.
+ *     `searchToAcc[i]` maps every searchSpace index to its acc index, with
+ *     -1 marking a synthetic boundary char.
+ *
+ * Search is two-tier on `searchSpace`: exact indexOf, then whitespace-
+ * normalized fallback for cases like extra trailing whitespace. The hit's
+ * range gets mapped back through `searchToAcc` (skipping synthetic chars)
+ * before reaching the wrap step.
+ *
+ * Wrapping is also two-tier:
+ *
+ *   1. Range surroundContents on a single Range from start text node to end
+ *      text node — clean for ranges within one inline-friendly element.
+ *   2. Per-text-node wrap when (1) fails because the range crosses sibling
+ *      block elements like <li>s. surroundContents throws in that case;
+ *      falling back to extractContents would rip the list structure apart,
+ *      so we instead wrap the matched slice of each individual text node
+ *      (which is always inline-safe).
+ *
+ * The implementation rebuilds the marks every render rather than diffing.
  */
 
 export type InlineMark = {
@@ -32,9 +62,14 @@ export function applyInlineAnnotations(
 	clearMarks(container);
 
 	for (const mark of marks) {
-		const block = container.querySelector<HTMLElement>(`[data-source-line="${mark.lineStart}"]`);
-		if (!block) continue;
-		wrapFirstOccurrence(block, mark, mark.id === activeId);
+		const isActive = mark.id === activeId;
+		const blocks: HTMLElement[] = [];
+		for (let line = mark.lineStart; line <= mark.lineEnd; line++) {
+			const b = container.querySelector<HTMLElement>(`[data-source-line="${line}"]`);
+			if (b) blocks.push(b);
+		}
+		if (blocks.length === 0) continue;
+		wrapNeedleAcrossBlocks(blocks, mark.quotedText, mark, isActive);
 	}
 }
 
@@ -50,28 +85,180 @@ function clearMarks(container: HTMLElement): void {
 	}
 }
 
-function wrapFirstOccurrence(block: HTMLElement, mark: InlineMark, isActive: boolean): void {
-	const needle = mark.quotedText;
+function wrapNeedleAcrossBlocks(
+	blocks: HTMLElement[],
+	needle: string,
+	mark: InlineMark,
+	isActive: boolean
+): void {
 	if (!needle) return;
 
-	// Walk text nodes in document order; track running offset so we can find the
-	// first occurrence even when the needle spans multiple text nodes.
-	const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+	// Walk text nodes AND inline structural elements (<br>/<hr>) across all
+	// blocks in document order. We build:
+	//
+	//   - `acc`: raw text-node concatenation (textNode position math basis).
+	//   - `searchSpace`: acc with synthetic '\n' at:
+	//       * block-level boundaries (different closest-block ancestor), and
+	//       * <br>/<hr> elements (invisible to SHOW_TEXT but they produce a
+	//         '\n' in Selection.toString()).
+	//     Mirrors what selection.toString() emits so the needle can match.
 	const textNodes: Text[] = [];
 	let acc = '';
-	while (walker.nextNode()) {
-		const t = walker.currentNode as Text;
-		textNodes.push(t);
-		acc += t.data;
+	let searchSpace = '';
+	const searchToAcc: number[] = [];
+	let prevBlock: Element | null = null;
+	const filter: NodeFilter = {
+		acceptNode(node) {
+			if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+			if (
+				node.nodeType === Node.ELEMENT_NODE &&
+				LINE_BREAK_TAGS.has((node as Element).tagName)
+			) {
+				return NodeFilter.FILTER_ACCEPT;
+			}
+			return NodeFilter.FILTER_SKIP;
+		}
+	};
+	for (const block of blocks) {
+		const walker = document.createTreeWalker(
+			block,
+			NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+			filter
+		);
+		while (walker.nextNode()) {
+			const node = walker.currentNode;
+			if (node.nodeType === Node.ELEMENT_NODE) {
+				if (acc.length > 0) {
+					searchSpace += '\n';
+					searchToAcc.push(-1);
+				}
+				continue;
+			}
+			const t = node as Text;
+			const curBlock = closestBlockAncestor(t);
+			if (prevBlock && curBlock !== prevBlock) {
+				searchSpace += '\n';
+				searchToAcc.push(-1);
+			}
+			prevBlock = curBlock;
+			textNodes.push(t);
+			const baseAcc = acc.length;
+			for (let i = 0; i < t.data.length; i++) {
+				searchSpace += t.data[i];
+				searchToAcc.push(baseAcc + i);
+			}
+			acc += t.data;
+		}
+	}
+	if (textNodes.length === 0) return;
+
+	// Two-tier search against searchSpace (which mirrors selection.toString()).
+	let searchStart = -1;
+	let searchEnd = -1;
+	const exactOffset = searchSpace.indexOf(needle);
+	if (exactOffset >= 0) {
+		searchStart = exactOffset;
+		searchEnd = exactOffset + needle.length;
+	} else {
+		const norm = normalizeWithMap(searchSpace);
+		const needleNorm = normalizeWS(needle);
+		if (!needleNorm) return;
+		const normOffset = norm.normalized.indexOf(needleNorm);
+		if (normOffset < 0) return;
+		searchStart = norm.rawPositions[normOffset];
+		const lastNormIdx = normOffset + needleNorm.length - 1;
+		if (lastNormIdx >= norm.rawPositions.length) return;
+		searchEnd = norm.rawPositions[lastNormIdx] + 1;
 	}
 
-	const offset = acc.indexOf(needle);
-	if (offset < 0) return; // anchor lost; caller already showed a drift badge
+	// Map searchSpace [start, end) back to acc, skipping synthetic boundary
+	// chars. The first real char at-or-after searchStart anchors `start`;
+	// the last real char before searchEnd anchors `end`.
+	let start = -1;
+	for (let i = searchStart; i < searchToAcc.length; i++) {
+		if (searchToAcc[i] >= 0) {
+			start = searchToAcc[i];
+			break;
+		}
+	}
+	let end = -1;
+	for (let i = searchEnd - 1; i >= 0; i--) {
+		if (searchToAcc[i] >= 0) {
+			end = searchToAcc[i] + 1;
+			break;
+		}
+	}
+	if (start < 0 || end <= start) return;
 
-	const start = offset;
-	const end = offset + needle.length;
+	// Wrap. Try the contiguous Range first; on failure (range crosses sibling
+	// block elements like <li>s), fall back to per-text-node wrap.
+	if (!tryRangeWrap(textNodes, start, end, mark, isActive)) {
+		wrapPerTextNode(textNodes, start, end, mark, isActive);
+	}
+}
 
-	// Find the start text node + offset within it.
+// Tags that produce a literal '\n' in Selection.toString() despite having no
+// text-node children. We have to walk SHOW_ELEMENT to see them and translate
+// each into a synthetic separator.
+const LINE_BREAK_TAGS = new Set(['BR', 'HR']);
+
+// Tags treated as inline for the purpose of "did selection.toString() insert
+// a \n between these two text nodes?". Anything not in this set is treated
+// as a block boundary (paragraphs, list items, headings, code blocks, table
+// cells, etc.). Matches the HTML spec's "phrasing content" tags that the
+// markdown renderer can plausibly emit.
+const INLINE_TAGS = new Set([
+	'A',
+	'ABBR',
+	'B',
+	'BDI',
+	'BDO',
+	'BR',
+	'CITE',
+	'CODE',
+	'DATA',
+	'DEL',
+	'DFN',
+	'EM',
+	'I',
+	'INS',
+	'KBD',
+	'MARK',
+	'Q',
+	'S',
+	'SAMP',
+	'SMALL',
+	'SPAN',
+	'STRONG',
+	'SUB',
+	'SUP',
+	'TIME',
+	'U',
+	'VAR',
+	'WBR'
+]);
+
+function closestBlockAncestor(node: Node): Element | null {
+	let cur: Node | null = node.parentNode;
+	while (cur && cur.nodeType === 1) {
+		if (!INLINE_TAGS.has((cur as Element).tagName)) return cur as Element;
+		cur = cur.parentNode;
+	}
+	return null;
+}
+
+/**
+ * Attempts to wrap [start, end) of the concatenated text-node string in a
+ * single Range surroundContents. Works for ranges that don't cross sibling
+ * block elements. Returns false on any failure so the caller can fall back.
+ */
+function tryRangeWrap(
+	textNodes: Text[],
+	start: number,
+	end: number,
+	mark: InlineMark,
+	isActive: boolean
+): boolean {
 	let cum = 0;
 	let startNode: Text | null = null;
 	let startInner = 0;
@@ -90,30 +277,109 @@ function wrapFirstOccurrence(block: HTMLElement, mark: InlineMark, isActive: boo
 		}
 		cum = next;
 	}
-	if (!startNode || !endNode) return;
+	if (!startNode || !endNode) return false;
 
 	try {
 		const range = document.createRange();
 		range.setStart(startNode, startInner);
 		range.setEnd(endNode, endInner);
+		const wrapper = createMarkWrapper(mark, isActive);
+		range.surroundContents(wrapper);
+		return true;
+	} catch {
+		// surroundContents throws when the range crosses element boundaries
+		// it can't surround (e.g., from inside one <li> to inside another).
+		// We deliberately do NOT call extractContents here — that would rip
+		// the structure apart and put the list contents into one flat <mark>.
+		return false;
+	}
+}
 
-		const wrapper = document.createElement('mark');
-		wrapper.className = CLASS_BY_KIND[mark.kind] + (isActive ? ' is-active' : '');
-		wrapper.dataset.annoId = mark.id;
-
-		// `surroundContents` works for ranges that don't cross element boundaries.
-		// For multi-element ranges we extract+wrap+reinsert which works for inline
-		// content (text + simple inline elements like <code>, <strong>).
+/**
+ * Wraps the [start, end) slice of each text node that overlaps that range.
+ * Each text-node range is its own atom: surroundContents on a single text
+ * node is always safe regardless of the surrounding element structure, so
+ * this preserves <li>/<p>/<code> boundaries when the contiguous Range path
+ * couldn't wrap across them.
+ */
+function wrapPerTextNode(
+	textNodes: Text[],
+	start: number,
+	end: number,
+	mark: InlineMark,
+	isActive: boolean
+): void {
+	let cum = 0;
+	for (const t of textNodes) {
+		const tStart = cum;
+		const tEnd = cum + t.data.length;
+		cum = tEnd;
+		const overlapStart = Math.max(start, tStart);
+		const overlapEnd = Math.min(end, tEnd);
+		if (overlapStart >= overlapEnd) continue;
+		const localStart = overlapStart - tStart;
+		const localEnd = overlapEnd - tStart;
+		// Skip slices that are pure whitespace (e.g., a "\n" between code-block
+		// lines that contributed only to the separator). They shouldn't get
+		// their own visible <mark>.
+		if (!t.data.slice(localStart, localEnd).trim()) continue;
+		if (!t.parentNode) continue;
 		try {
+			const range = document.createRange();
+			range.setStart(t, localStart);
+			range.setEnd(t, localEnd);
+			const wrapper = createMarkWrapper(mark, isActive);
 			range.surroundContents(wrapper);
 		} catch {
-			const frag = range.extractContents();
-			wrapper.appendChild(frag);
-			range.insertNode(wrapper);
+			// A text-node range shouldn't fail surroundContents under normal DOM,
+			// but if it does, skip rather than throw.
 		}
-	} catch {
-		// Range manipulation can fail on edge cases (e.g., needle spans across
-		// block elements). Skip silently — the right-rail card still shows the
-		// annotation so the reviewer's intent isn't lost.
 	}
+}
+
+function createMarkWrapper(mark: InlineMark, isActive: boolean): HTMLElement {
+	const wrapper = document.createElement('mark');
+	wrapper.className = CLASS_BY_KIND[mark.kind] + (isActive ? ' is-active' : '');
+	wrapper.dataset.annoId = mark.id;
+	return wrapper;
+}
+
+/**
+ * Collapses runs of whitespace in `s` to single spaces (trimming ends),
+ * returning the normalized string and a map from each normalized index to
+ * its corresponding index in the original string. Used to bridge the gap
+ * between needle (with \n separators from selection.toString()) and the
+ * flat text walked via TreeWalker (no separators).
+ */
+function normalizeWithMap(s: string): { normalized: string; rawPositions: number[] } {
+	let normalized = '';
+	const rawPositions: number[] = [];
+	let prevWS = true; // skip leading whitespace
+	for (let i = 0; i < s.length; i++) {
+		const ch = s[i];
+		if (isWS(ch)) {
+			if (!prevWS) {
+				normalized += ' ';
+				rawPositions.push(i);
+				prevWS = true;
+			}
+		} else {
+			normalized += ch;
+			rawPositions.push(i);
+			prevWS = false;
+		}
+	}
+	if (normalized.endsWith(' ')) {
+		normalized = normalized.slice(0, -1);
+		rawPositions.pop();
+	}
+	return { normalized, rawPositions };
+}
+
+function normalizeWS(s: string): string {
+	return s.replace(/\s+/g, ' ').trim();
+}
+
+function isWS(ch: string): boolean {
+	return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v';
 }

@@ -7,12 +7,68 @@
 	const {
 		anchorRect,
 		onAction,
-		onDismiss
+		onDismiss,
+		reviewerName,
+		onSetName
 	}: {
 		anchorRect: DOMRect;
 		onAction: (a: ToolbarAction) => void;
 		onDismiss: () => void;
+		reviewerName: string | null;
+		onSetName: (name: string) => void;
 	} = $props();
+
+	// Inline name capture — only rendered when the reviewer has no name yet.
+	// Replaces the legacy modal flow where typing a comment first then being
+	// asked for a name led to people answering with their comment text.
+	// Here the name input lives in the toolbar itself, sibling to the action
+	// icons; actions are visibly inert until the field has content.
+	let nameDraft = $state('');
+	let nameError = $state(false);
+	let nameInput: HTMLInputElement | undefined = $state();
+	const needsName = $derived(!reviewerName);
+	const nameReady = $derived(nameDraft.trim().length > 0);
+
+	function commitName() {
+		const trimmed = nameDraft.trim();
+		if (!trimmed) {
+			flashRequired();
+			return;
+		}
+		onSetName(trimmed);
+	}
+
+	function flashRequired() {
+		nameError = true;
+		nameInput?.focus();
+		setTimeout(() => {
+			nameError = false;
+		}, 700);
+	}
+
+	function handleNameKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commitName();
+		}
+	}
+
+	function tryAction(a: ToolbarAction) {
+		if (needsName) {
+			// Persist what they've typed if it's substantive — they may have
+			// just typed a name and reached for an action. Otherwise flash.
+			if (nameReady) {
+				commitName();
+				// Don't auto-perform: let them deliberately click again now
+				// that the toolbar has woken up. Avoids accidentally posting
+				// "Praise" the moment the name input clears.
+				return;
+			}
+			flashRequired();
+			return;
+		}
+		onAction(a);
+	}
 
 	let toolbar: HTMLDivElement | undefined = $state();
 	// Measured after the toolbar mounts (its width is content-driven, so we
@@ -55,6 +111,9 @@
 		// width — typically ~200px depending on the icon set.
 		await tick();
 		if (toolbar) measuredWidth = toolbar.offsetWidth;
+		// Focus the name field on first render so the user can start typing
+		// without an extra click. Skipped once a name is already on file.
+		if (needsName) nameInput?.focus();
 	});
 
 	onDestroy(() => {
@@ -69,20 +128,75 @@
 		delete: 'text-[var(--ink-delete)] hover:bg-[var(--ink-delete-bg)]',
 		muted: 'text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]'
 	};
+
+	// While the field is empty, action buttons are functionally locked. Their
+	// hover tooltip swaps from the action's normal label to a single directive
+	// — the gentle middle tier between "passively dimmed" and "shake on click".
+	function actionTitle(active: string): string {
+		return needsName ? 'Enter your name first' : active;
+	}
 </script>
 
 <div
 	bind:this={toolbar}
-	class="floating-toolbar fixed z-[100] flex items-center gap-0.5 p-1 ui-sans"
+	class="floating-toolbar fixed z-[100] {needsName
+		? 'needs-name flex-col items-stretch gap-1 p-1.5'
+		: 'flex-row items-center gap-0.5 p-1'} ui-sans flex"
 	style="top: {position.top}px; left: {position.left}px; transform: translateX(-50%);"
 	role="toolbar"
 	aria-label="Annotation actions"
 >
+	{#if needsName}
+		<!-- Name capture row. Renders only when reviewerName is null.
+			 Visual: editorial proof-sheet input (baseline rule, not a box)
+			 by default; on validation fail, snaps red + brief shake. The
+			 dimmed action icons below carry the "locked" signal; their
+			 hover tooltip swaps to "Enter your name first" on hover, and
+			 the shake fires when a locked action is clicked. -->
+		<div class="name-row" class:is-error={nameError}>
+			<input
+				bind:this={nameInput}
+				bind:value={nameDraft}
+				onkeydown={handleNameKey}
+				type="text"
+				class="name-field"
+				placeholder="your name…"
+				aria-label="Your name (required to post annotations)"
+				aria-invalid={nameError}
+				autocomplete="off"
+				spellcheck="false"
+			/>
+			<button
+				type="button"
+				class="name-commit"
+				class:is-ready={nameReady}
+				onclick={commitName}
+				aria-label="Save name"
+				title="Press Enter or click to save"
+			>
+				<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+					<path
+						d="M2 6 H10 M7 3 L10 6 L7 9"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.4"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			</button>
+		</div>
+	{/if}
+
+	<div
+		class="action-row flex flex-row items-center gap-0.5 {needsName ? 'is-locked' : ''}"
+		aria-disabled={needsName}
+	>
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.praise}"
-		title="Mark as praise (looks good)"
-		onclick={() => onAction('praise')}
+		title={actionTitle('Mark as praise (looks good)')}
+		onclick={() => tryAction('praise')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -103,8 +217,8 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.comment}"
-		title="Add a comment"
-		onclick={() => onAction('comment')}
+		title={actionTitle('Add a comment')}
+		onclick={() => tryAction('comment')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -127,8 +241,8 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.delete}"
-		title="Propose removing this text"
-		onclick={() => onAction('delete')}
+		title={actionTitle('Propose removing this text')}
+		onclick={() => tryAction('delete')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -149,8 +263,8 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.comment}"
-		title="Propose replacement text"
-		onclick={() => onAction('suggest')}
+		title={actionTitle('Propose replacement text')}
+		onclick={() => tryAction('suggest')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -171,8 +285,8 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.praise}"
-		title="Pick a label"
-		onclick={() => onAction('quick-label')}
+		title={actionTitle('Pick a label')}
+		onclick={() => tryAction('quick-label')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -205,4 +319,6 @@
 			<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 		</svg>
 	</button>
+	</div>
+
 </div>

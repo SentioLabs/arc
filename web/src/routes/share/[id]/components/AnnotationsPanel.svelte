@@ -9,7 +9,8 @@
 		activeId,
 		onCardClick,
 		onResolve,
-		onEdit
+		onEdit,
+		onRetract
 	}: {
 		states: CommentState[];
 		isAuthor: boolean;
@@ -22,6 +23,7 @@
 			reply?: string
 		) => Promise<void>;
 		onEdit: (commentId: string, body: string, suggestedText: string | undefined) => Promise<void>;
+		onRetract: (commentId: string) => Promise<void>;
 	} = $props();
 
 	const visibleStates = $derived(states); // could filter by status later
@@ -72,6 +74,7 @@
 							onClick={() => onCardClick(entry.event.id)}
 							onResolve={(status, reply) => onResolve(entry.event.id, status, reply)}
 							onEdit={(body, suggestedText) => onEdit(entry.event.id, body, suggestedText)}
+							onRetract={() => onRetract(entry.event.id)}
 						/>
 					</li>
 				{/each}

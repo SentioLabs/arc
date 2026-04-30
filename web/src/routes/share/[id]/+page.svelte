@@ -3,7 +3,7 @@
 	import { PasteClient, b64ToBytes, eventBytes } from '$lib/paste/client';
 	import { importKey, encryptJSON, decryptJSON } from '$lib/paste/crypto';
 	import { replayEvents, type CommentState } from '$lib/paste/events';
-	import { getReviewerName } from '$lib/paste/identity';
+	import { getReviewerName, parseShareFragment, setReviewerName } from '$lib/paste/identity';
 	import type {
 		PlanPlaintext,
 		EventPlaintext,
@@ -12,6 +12,7 @@
 		EditEvent,
 		ResolutionEvent,
 		ResolutionStatus,
+		RetractionEvent,
 		Anchor
 	} from '$lib/paste/types';
 	import PlanRenderer from './components/PlanRenderer.svelte';
@@ -32,8 +33,12 @@
 
 	// --- Reviewer identity ---
 	let reviewerName = $state<string | null>(null);
+	let authorToken = $state<string | null>(null);
 	let showNamePrompt = $state(false);
-	let pendingAfterName: (() => void) | null = null;
+
+	// --- Share-link copy (author-only) ---
+	let copiedShareLink = $state(false);
+	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// --- UI state for selection-driven actions ---
 	type SelectionInfo = {
@@ -52,23 +57,23 @@
 
 	let client: PasteClient | undefined;
 
-	const isAuthor = $derived(
-		reviewerName !== null &&
-			plan !== null &&
-			!!plan.author_name &&
-			plan.author_name === reviewerName
-	);
+	const isAuthor = $derived(authorToken !== null);
 
 	const orderedStates = $derived.by(() => {
-		return [...comments.values()].sort((a, b) =>
-			b.event.created_at.localeCompare(a.event.created_at)
-		);
+		return [...comments.values()]
+			.filter((s) => s.status !== 'retracted')
+			.sort((a, b) => b.event.created_at.localeCompare(a.event.created_at));
 	});
 
 	const marks = $derived.by((): InlineMark[] => {
 		const out: InlineMark[] = [];
 		for (const state of comments.values()) {
-			if (state.status === 'resolved' || state.status === 'rejected') continue;
+			if (
+				state.status === 'resolved' ||
+				state.status === 'rejected' ||
+				state.status === 'retracted'
+			)
+				continue;
 			out.push({
 				id: state.event.id,
 				kind: state.event.action === 'delete' ? 'delete' : 'comment',
@@ -85,14 +90,13 @@
 		client = new PasteClient(window.location.origin);
 
 		try {
-			const fragment = window.location.hash.replace(/^#/, '');
-			const params = new URLSearchParams(fragment);
-			const k = params.get('k');
+			const { k, t } = parseShareFragment(window.location.hash);
 			if (!k) {
 				loadError = 'Missing #k=<key> in URL — share link is incomplete.';
 				return;
 			}
 			key = await importKey(k);
+			authorToken = t;
 
 			const resp = await client.get(data.id);
 			plan = await decryptJSON<PlanPlaintext>(
@@ -100,6 +104,16 @@
 				b64ToBytes(resp.plan_iv),
 				key
 			);
+
+			// Author URL flow: token + plan author name → auto-populate reviewer identity.
+			// If the share was created without --author, fall through to the
+			// reviewerName already loaded from localStorage at the top of onMount —
+			// the lazy NamePromptModal will fire on first action. isAuthor still
+			// stays true via authorToken in that case.
+			if (authorToken && plan?.author_name) {
+				reviewerName = plan.author_name;
+				setReviewerName(plan.author_name);
+			}
 
 			const events: EventPlaintext[] = [];
 			for (const ev of resp.events) {
@@ -116,21 +130,9 @@
 		}
 	});
 
-	function ensureName(after: () => void) {
-		if (reviewerName) {
-			after();
-			return;
-		}
-		pendingAfterName = after;
-		showNamePrompt = true;
-	}
-
 	function handleNameSaved(name: string) {
 		reviewerName = name;
 		showNamePrompt = false;
-		const cb = pendingAfterName;
-		pendingAfterName = null;
-		cb?.();
 	}
 
 	function clearSelection() {
@@ -141,10 +143,35 @@
 		sel?.removeAllRanges();
 	}
 
+	// Build the bare share URL (no &t=) from the current location and copy it.
+	// Author URL fragment carries both k and t; reviewers must only ever see k.
+	async function copyShareLink() {
+		const { k } = parseShareFragment(window.location.hash);
+		if (!k) return;
+		const url = `${window.location.origin}${window.location.pathname}#k=${k}`;
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			return;
+		}
+		copiedShareLink = true;
+		if (copyResetTimer) clearTimeout(copyResetTimer);
+		copyResetTimer = setTimeout(() => {
+			copiedShareLink = false;
+			copyResetTimer = null;
+		}, 1500);
+	}
+
 	async function postEvent(event: EventPlaintext) {
 		if (!key || !client) return;
 		const { blob, iv } = await encryptJSON(event, key);
 		await client.appendEvent(data.id, blob, iv);
+	}
+
+	async function postAuthorEvent(event: EventPlaintext) {
+		// Phase B: identical to postEvent. Phase C will add an auth header here
+		// and route the call through a server endpoint that verifies authorToken.
+		return postEvent(event);
 	}
 
 	function buildAnchor(sel: SelectionInfo): Anchor {
@@ -183,49 +210,48 @@
 		comments = next;
 	}
 
+	// Name capture moved into FloatingToolbar.svelte: when reviewerName is
+	// null, the toolbar renders an inline name field and gates its action
+	// icons on it. By the time we receive an action here, we know the name
+	// is set — so these handlers no longer need ensureName().
 	async function handleToolbarAction(action: ToolbarAction) {
 		if (!activeSelection) return;
 		const sel = activeSelection;
 
 		switch (action) {
 			case 'praise':
-				ensureName(async () => {
-					await createComment({
-						body: 'Looks good',
-						comment_type: 'praise',
-						action: 'comment',
-						anchor: buildAnchor(sel)
-					});
-					clearSelection();
+				await createComment({
+					body: 'Looks good',
+					comment_type: 'praise',
+					action: 'comment',
+					anchor: buildAnchor(sel)
 				});
+				clearSelection();
 				return;
 			case 'comment':
-				ensureName(() => {
-					popoverMode = 'comment';
-				});
+				popoverMode = 'comment';
 				return;
 			case 'delete':
-				ensureName(async () => {
-					await createComment({
-						body: '',
-						comment_type: 'comment',
-						action: 'delete',
-						anchor: buildAnchor(sel)
-					});
-					clearSelection();
+				await createComment({
+					body: '',
+					comment_type: 'comment',
+					action: 'delete',
+					anchor: buildAnchor(sel)
 				});
+				clearSelection();
 				return;
 			case 'suggest':
-				ensureName(() => {
-					popoverMode = 'suggest';
-				});
+				popoverMode = 'suggest';
 				return;
 			case 'quick-label':
-				ensureName(() => {
-					showQuickLabel = true;
-				});
+				showQuickLabel = true;
 				return;
 		}
+	}
+
+	function handleSetName(name: string) {
+		reviewerName = name;
+		setReviewerName(name);
 	}
 
 	async function handlePopoverSave(body: string, suggestedText?: string) {
@@ -282,7 +308,11 @@
 			suggested_text: suggestedText,
 			created_at: new Date().toISOString()
 		};
-		await postEvent(event);
+		if (isAuthor && !isMyComment) {
+			await postAuthorEvent(event);
+		} else {
+			await postEvent(event);
+		}
 
 		// Apply locally so the card updates without a round-trip refetch.
 		const next = new Map(comments);
@@ -309,12 +339,36 @@
 			author_name: reviewerName,
 			created_at: new Date().toISOString()
 		};
-		await postEvent(event);
+		await postAuthorEvent(event);
 		const next = new Map(comments);
 		const target = next.get(commentId);
-		if (target && plan?.author_name === reviewerName) {
+		if (target && isAuthor) {
 			next.set(commentId, { ...target, status, reply, replyAt: event.created_at });
 		}
+		comments = next;
+	}
+
+	// The original commenter retracting their own annotation. Goes through the
+	// regular postEvent (not postAuthorEvent) — retraction is a reviewer-side
+	// authority, not an author privilege, so a future Phase C server-enforced
+	// auth would NOT gate retraction behind the author token.
+	async function handleRetract(commentId: string) {
+		if (!reviewerName) return;
+		const target = comments.get(commentId);
+		if (!target) return;
+		// Replay also enforces this; failing fast here avoids posting events
+		// the replay would silently drop.
+		if (target.event.author_name !== reviewerName) return;
+		const event: RetractionEvent = {
+			kind: 'retraction',
+			id: `x-${crypto.randomUUID()}`,
+			comment_id: commentId,
+			author_name: reviewerName,
+			created_at: new Date().toISOString()
+		};
+		await postEvent(event);
+		const next = new Map(comments);
+		next.set(commentId, { ...target, status: 'retracted' });
 		comments = next;
 	}
 
@@ -363,19 +417,59 @@
 						{plan?.title ?? 'Untitled plan'}
 					</h1>
 				</div>
-				{#if reviewerName}
-					<span class="name-chip">
-						{reviewerName}{isAuthor ? ' · author' : ''}
-					</span>
-				{:else}
-					<button
-						type="button"
-						class="name-chip cursor-pointer hover:border-[var(--ink-comment-edge)]"
-						onclick={() => (showNamePrompt = true)}
-					>
-						Sign in
-					</button>
-				{/if}
+				<div class="header-instruments flex items-center gap-3">
+					{#if isAuthor}
+						<button
+							type="button"
+							class="share-stamp"
+							class:is-copied={copiedShareLink}
+							onclick={copyShareLink}
+							aria-label="Copy reviewer share link"
+							aria-live="polite"
+						>
+							<span class="share-stamp-icon" aria-hidden="true">
+								{#if copiedShareLink}
+									<!-- check -->
+									<svg viewBox="0 0 12 12" width="12" height="12">
+										<path
+											d="M2 6.4 L4.8 9 L10 3.2"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.6"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								{:else}
+									<!-- link -->
+									<svg viewBox="0 0 12 12" width="12" height="12">
+										<path
+											d="M5 7.2 L7.2 5 M4.4 4 L3 5.4 a2.2 2.2 0 0 0 3.1 3.1 L7.4 7.2 M7.6 8 L9 6.6 a2.2 2.2 0 0 0 -3.1 -3.1 L4.6 4.8"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.4"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								{/if}
+							</span>
+							<span class="share-stamp-label">
+								{copiedShareLink ? 'Copied' : 'Share link'}
+							</span>
+						</button>
+					{/if}
+					{#if reviewerName}
+						<button
+							type="button"
+							class="name-chip cursor-pointer hover:border-[var(--ink-comment-edge)]"
+							onclick={() => (showNamePrompt = true)}
+							title="Click to change name"
+						>
+							{reviewerName}{isAuthor ? ' · author' : ''}
+						</button>
+					{/if}
+				</div>
 			</header>
 
 			{#if loadError}
@@ -412,6 +506,7 @@
 				onCardClick={handleCardClick}
 				onResolve={handleResolve}
 				onEdit={handleEdit}
+				onRetract={handleRetract}
 			/>
 		</div>
 	</aside>
@@ -426,6 +521,8 @@
 			anchorRect={activeSelection.rect}
 			onAction={handleToolbarAction}
 			onDismiss={clearSelection}
+			{reviewerName}
+			onSetName={handleSetName}
 		/>
 	{/if}
 
@@ -448,6 +545,6 @@
 	{/if}
 
 	{#if showNamePrompt}
-		<NamePromptModal onSave={handleNameSaved} />
+		<NamePromptModal onSave={handleNameSaved} initialName={reviewerName ?? ''} />
 	{/if}
 </div>

@@ -59,11 +59,18 @@ Validate the shared review feature.
 EOF
 
 ./bin/arc share create /tmp/test-plan.md --local
-# → Share URL:  http://localhost:7432/share/<id>#k=<key>
-# → Edit token: <token> (saved in ~/.arc/shares.json)
+# Output:
+#   Share URL  (send to reviewers):
+#     http://localhost:7432/share/<id>#k=<key>
+#
+#   Author URL (keep private — gives you Accept/Resolve):
+#     http://localhost:7432/share/<id>#k=<key>&t=<token>
+#
+#   Edit token saved to ~/.arc/shares.json
 
-./bin/arc share list                # see all known shares
-ls -la ~/.arc/shares.json           # verify file mode 0600
+./bin/arc share list                       # see all known shares
+ls -la ~/.arc/shares.json                  # verify file mode 0600
+./bin/arc share show <id> --author-url     # reprint the author URL on demand
 ```
 
 The author identity embedded in the plan is resolved in this order (highest to lowest priority):
@@ -73,7 +80,7 @@ The author identity embedded in the plan is resolved in this order (highest to l
 3. `$ARC_SHARE_AUTHOR` env var
 4. `git config user.name`
 
-**Note the name that gets used** — you'll need to type it back in the UI to claim the author role. If none of these produce a value, `arc share create` prints a warning and Accept/Resolve/Reject controls won't appear for anyone.
+**Note the name that gets used** — it is embedded in the share bundle and displayed automatically when the Author URL is opened. If none of these produce a value, `arc share create` prints a warning and Accept/Resolve/Reject controls won't appear for anyone.
 
 To set a persistent default once:
 
@@ -87,16 +94,17 @@ echo '{"share_author":"Ben Firestone"}' | jq -s '.[0] * .[1]' ~/.arc/cli-config.
 
 ### Exercise the UI
 
-Open the printed URL in Chrome/Firefox.
+Open the **Author URL** (the one with `&t=`) in Chrome/Firefox.
 
-1. **Name prompt** appears on first comment — type the **same name** that was embedded as the author at create time (i.e. your `git config user.name` output, or whatever you passed to `--author`). The reviewer-name chip in the header will read `<name> · author` once the names match.
-2. **Highlight a paragraph** in the rendered plan → floating annotation toolbar appears
-3. **Pick a label** (`praise` / `issue` / `suggestion` / `question` / `nit`)
-4. **Type a comment**, optionally toggle "Suggest replacement text"
-5. **Post** — the comment appears in the sidebar
-6. As the author (your localStorage name matches `plan.author_name`), you'll see **Accept / Resolve / Reject** controls. Try Accept on one comment, Reject (with reply) on another, and Resolve on a third. If the controls don't appear, double-check that the name in the header chip matches the value in `git config user.name` (or whatever you passed to `--author`) — the comparison is case- and whitespace-sensitive.
-7. As a reviewer (your localStorage name does NOT match the plan's author), find your own annotation in the sidebar. You should see an **✎ Edit** button on it. Click it; the body becomes a textarea pre-filled with your existing comment. Refine the wording — e.g. expand "expand this more" into a fully-formed suggestion — and **⌘/Ctrl-⏎** (or click Save). The card re-renders with `· edited Nm` next to the timestamp. Confirm `arc share comments <id>` prints the new body, not the original.
-8. Switch back to the author window. The **✎ Edit** button should also appear on every reviewer's annotation (not just your own). Use it to sharpen a thin reviewer comment — the displayed `author_name` stays as the reviewer, only the body changes. Run `arc share comments <id>` again and confirm the refined body shows up; this is the path that lets the author shape feedback for downstream LLM consumption without round-trips with the reviewer.
+1. **Open the Author URL.** The header chip immediately reads `<author_name> · author` (no modal). Author detection is now driven by the `&t=<token>` fragment param, not a name-string match — so even if your localStorage holds a different name, the page knows you're the author and renders Accept/Resolve/Reject controls. (Remember the URL printed by `arc share create`; if you've lost it, run `arc share show <id> --author-url`.)
+2. **Highlight a paragraph** in the rendered plan → floating annotation toolbar appears.
+3. **Pick a label** (`praise` / `issue` / `suggestion` / `question` / `nit`).
+4. **Type a comment**, optionally toggle "Suggest replacement text".
+5. **Post** — the first time you do this, a small modal asks for your name. (As the author you should already have a name from step 1; the modal won't fire.) The comment appears in the sidebar.
+6. As the author, you'll see **Accept / Resolve / Reject** controls on every comment. Try Accept on one, Reject (with reply) on another, and Resolve on a third. If the controls don't appear, you opened the Share URL (no `&t=`) instead of the Author URL — close the tab and reopen via the Author URL.
+7. As a reviewer (a fresh browser profile or incognito window with NO `&t=` in the URL), find your own annotation in the sidebar. You should see an **✎ Edit** button on it. Click it; the body becomes a textarea pre-filled with your existing comment. Refine the wording — e.g. expand "expand this more" into a fully-formed suggestion — and **⌘/Ctrl-⏎** (or click Save). The card re-renders with `· edited Nm` next to the timestamp. Confirm `arc share comments <id>` prints the new body, not the original.
+8. Switch back to the author window. The **✎ Edit** button should also appear on every reviewer's annotation (not just your own). Use it to sharpen a thin reviewer comment — the displayed `author_name` stays as the reviewer, only the body changes. Run `arc share comments <id>` again and confirm the refined body shows up.
+9. **Click the chip** in the header — the name prompt opens prefilled with your current name (text selected). Edit and save → chip updates. This is the rename affordance.
 
 ### Pull comments back to the CLI
 
@@ -108,13 +116,25 @@ Open the printed URL in Chrome/Firefox.
 
 ### Simulate a second reviewer
 
-Without spinning up another machine, open the same URL in an **incognito window** (or a different browser entirely). Incognito gets a fresh `localStorage`, so:
+Without spinning up another machine, open the **Share URL (no `&t=`)** in an **incognito window** (or a different browser entirely). Incognito gets a fresh `localStorage`, so:
 
-1. The name prompt fires again — type any name **other than** the embedded author name (e.g. "Reviewer-2"). The chip in the header should NOT show `· author`.
-2. Post a few comments
-3. Refresh the author's window → new comments replay in via `replayEvents()`
+1. **No chip** appears in the header. There's no "Sign in" button anywhere — identity is captured lazily.
+2. Highlight a paragraph and click Comment in the toolbar. A name prompt fires; type any name (e.g. "Reviewer-2"). The comment posts; the chip now reads `Reviewer-2` (no `· author`, because the URL has no `&t=`).
+3. Post a few more comments (the prompt won't fire again — name is sticky in localStorage).
+4. Refresh the author's window → new comments replay in via `replayEvents()`.
 
-The author's resolution events still apply (their `author_name` matches the plan's). Reviewer-2's comments cannot be marked as `accepted` by Reviewer-2 itself, even if they tried — the client filters out resolution events whose `author_name` doesn't match `plan.author_name`.
+The author's resolution events still apply: their UI is gated on `authorToken` (in-memory, parsed from `&t=` in the fragment), not a name match. Reviewer-2 cannot resolve comments because Reviewer-2 doesn't have the token — the Accept/Resolve/Reject buttons are never rendered for that profile.
+
+### Frictionless auth scenarios
+
+Walk these in order to confirm the new auth UX end-to-end:
+
+1. **Create a share.** `arc share create <plan.md> --local` — confirm output prints both Share URL and Author URL, no raw `Edit token: <hex>` line, and a "saved to ~/.arc/shares.json" pointer.
+2. **Reprint the author URL.** `arc share show <id> --author-url` — single line, contains `&t=`.
+3. **Author URL flow.** Open the Author URL in a fresh browser profile. Header chip shows `<author_name> · author` immediately, no modal. Accept / Resolve buttons visible on existing comments.
+4. **Reviewer URL flow.** Open the Share URL (without `&t=`) in a different fresh profile. No chip in the header, no "Sign in" button. Select text → click Comment in the toolbar → name modal opens → save a name → comment posts → chip now shows the name.
+5. **Rename via chip.** Click the chip on the reviewer side. Modal opens prefilled with the saved name (text selected). Edit, save → chip updates.
+6. **Author opens the bare share URL.** Open the share URL (without `&t=`) on the author's browser. They are now in reviewer mode (no Accept buttons). Reopen via the Author URL → author mode restored.
 
 ## 3. Shared / remote review
 
@@ -198,7 +218,7 @@ Step 7 (review loop) uses `arc share approve` and `arc share pull` instead of th
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Accept / Resolve / Reject controls never appear, even when typing the "right" name | Plan was created without an author name (`arc share create` was run pre-fix, or `git config user.name` was empty and no `--author` flag passed). `plan.author_name` is empty, so `isAuthor` is `false` for every reviewer | Recreate the share with `--author "Your Name"` (or set `git config user.name` first), then enter that exact name in the SPA prompt |
+| Accept / Resolve / Reject controls never appear | You opened the Share URL (no `&t=`) instead of the Author URL — author detection is token-based, not name-based. Or the share was created without an author name (`git config user.name` was empty and no `--author` flag passed), so `plan.author_name` is empty and the chip never shows `· author` | Close the tab and reopen via the Author URL (run `arc share show <id> --author-url` to retrieve it). If the share has no author name, recreate it with `--author "Your Name"` |
 | `/share/<id>` returns `{"message":"Not Found"}` (Echo's default 404 JSON) | Binary built without the `webui` build tag — `web.RegisterSPA` is the no-op stub | Rebuild with `make build` (not `make build-quick`); for arc-paste use `go build -tags webui -o ./bin/arc-paste ./arc-paste` |
 | `/share/<id>` returns blank HTML / cannot find static assets | `web/build/` not present at compile time, even with the `webui` tag | Re-run `bun run build` in `web/`, then rebuild the binary |
 | SPA console says `missing #k=<key> in URL` | URL was pasted without its fragment | Use the full URL printed by `arc share create` — fragments are dropped by some chat apps; copy carefully |

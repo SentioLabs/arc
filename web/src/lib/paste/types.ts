@@ -121,4 +121,29 @@ export type PlanEditEvent = {
 	created_at: string;
 };
 
-export type EventPlaintext = CommentEvent | ResolutionEvent | EditEvent | PlanEditEvent;
+/**
+ * The original commenter retracting their own annotation. Replay marks the
+ * target comment with status='retracted'; UI hides retracted comments and
+ * their inline marks. The encrypted event stays in the log so the action is
+ * auditable, but `arc share comments` filters retracted entries out of the
+ * default output (LLM consumers shouldn't act on retracted material).
+ *
+ * Authorization is replay-time: only an event whose `author_name` matches
+ * the target comment's `author_name` takes effect. The plan author canNOT
+ * retract someone else's comment — they must use Reject (with a reply that
+ * preserves rationale in the audit trail).
+ */
+export type RetractionEvent = {
+	kind: 'retraction';
+	id: string;
+	comment_id: string;
+	author_name: string;
+	created_at: string;
+};
+
+export type EventPlaintext =
+	| CommentEvent
+	| ResolutionEvent
+	| EditEvent
+	| RetractionEvent
+	| PlanEditEvent;

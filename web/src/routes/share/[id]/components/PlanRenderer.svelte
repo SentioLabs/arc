@@ -132,6 +132,20 @@
 		});
 	});
 
+	// Resolve a Range endpoint (text node OR element) to its containing
+	// [data-source-line] block. Triple-click in Chromium frequently puts
+	// the range endpoints at element boundaries (e.g. startContainer = <p>,
+	// startOffset = 0) rather than inside a text node; in that case
+	// `node.parentElement.closest(...)` walks PAST the containing block to
+	// <article>, which has no data-source-line, and returns null — which
+	// would trip the dismiss path below. Treating the node itself as the
+	// closest() search root when it's already an element fixes that.
+	function resolveBlock(node: Node): HTMLElement | null {
+		const el =
+			node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+		return (el?.closest('[data-source-line]') ?? null) as HTMLElement | null;
+	}
+
 	function handleMouseUp(e: MouseEvent) {
 		const target = e.target as Element | null;
 		const existingMark = target?.closest('mark[data-anno-id]') as HTMLElement | null;
@@ -146,12 +160,8 @@
 			return;
 		}
 		const range = sel.getRangeAt(0);
-		const startEl = (range.startContainer.parentElement as Element | null)?.closest(
-			'[data-source-line]'
-		) as HTMLElement | null;
-		const endEl = (range.endContainer.parentElement as Element | null)?.closest(
-			'[data-source-line]'
-		) as HTMLElement | null;
+		const startEl = resolveBlock(range.startContainer);
+		const endEl = resolveBlock(range.endContainer);
 		if (!startEl || !endEl) {
 			onSelection?.(null);
 			return;

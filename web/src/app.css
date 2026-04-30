@@ -993,6 +993,106 @@
 		color 120ms ease-out;
 }
 
+/* ── Inline name capture (when reviewer has no name yet) ─────────────────
+ * The toolbar grows two extra rows: a name input on top, a mono caption
+ * on the bottom. The icons in the middle are visually inert until the
+ * input has content. Editorial proof-sheet treatment — a baseline rule
+ * rather than a form border — keeps the aesthetic of writing on paper. */
+
+.share-page .floating-toolbar.needs-name {
+	min-width: 220px;
+	padding: 0.5rem 0.625rem 0.4rem;
+}
+
+.share-page .floating-toolbar .name-row {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding-bottom: 0.45rem;
+	border-bottom: 1px dashed var(--ink-rule);
+	transition:
+		border-color 160ms ease,
+		transform 80ms ease;
+}
+/* Required-field treatment: thin red baseline (proof mark) + 2px outline
+ * pulse on the input itself. The shake fires once via the .is-error class
+ * being applied for ~700ms by the component. */
+.share-page .floating-toolbar .name-row.is-error {
+	border-bottom-color: var(--ink-delete-edge);
+	animation: name-row-shake 240ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@keyframes name-row-shake {
+	0%, 100% { transform: translateX(0); }
+	25% { transform: translateX(-5px); }
+	75% { transform: translateX(5px); }
+}
+
+.share-page .floating-toolbar .name-field {
+	flex: 1;
+	min-width: 0;
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 0.75rem;
+	letter-spacing: 0.01em;
+	color: var(--ink-text);
+	background: transparent;
+	border: 0;
+	padding: 0.2rem 0.1rem;
+	outline: 0;
+	caret-color: var(--ink-comment);
+}
+.share-page .floating-toolbar .name-field::placeholder {
+	color: var(--ink-text-faint);
+	font-style: italic;
+}
+.share-page .floating-toolbar .name-row.is-error .name-field {
+	outline: 2px solid var(--ink-delete-edge);
+	outline-offset: 2px;
+	border-radius: 2px;
+	background: var(--ink-delete-bg);
+}
+
+.share-page .floating-toolbar .name-commit {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: 1px solid var(--ink-rule);
+	border-radius: 4px;
+	background: var(--ink-paper);
+	color: var(--ink-text-faint);
+	cursor: pointer;
+	flex: none;
+	transition:
+		color 140ms ease,
+		border-color 140ms ease,
+		background-color 140ms ease;
+}
+.share-page .floating-toolbar .name-commit:hover {
+	color: var(--ink-text-muted);
+	border-color: oklch(from var(--ink-rule) calc(l - 0.05) c h);
+}
+/* When the field has substantive content, the commit arrow "wakes up" to
+ * the warm amber comment color — the same idiom we use elsewhere for
+ * "noted / acknowledged" — signaling the action is now available. */
+.share-page .floating-toolbar .name-commit.is-ready {
+	color: var(--ink-comment);
+	border-color: var(--ink-comment-edge);
+	background: var(--ink-comment-bg);
+}
+
+/* Action row: when no name is set, dim the icons so they read as
+ * unavailable. Click handlers still fire (they trigger the name-row flash);
+ * the visual signal is intent only. */
+.share-page .floating-toolbar .action-row.is-locked {
+	opacity: 0.35;
+	pointer-events: auto; /* keep clickable so we can flash the name field */
+}
+.share-page .floating-toolbar .action-row.is-locked button {
+	cursor: not-allowed;
+}
+
 /* Annotation card type chips */
 .share-page .chip-comment {
 	color: var(--ink-comment);
@@ -1087,4 +1187,77 @@
 	border: 1px solid var(--ink-rule);
 	padding: 0.25rem 0.625rem;
 	border-radius: 9999px;
+}
+
+/* Author-only "Share link" stamp.
+ *
+ * Visual sibling of the mono "Plan · <id>" label on the left of the header:
+ * monospace, uppercase, tight tracking. Distinguishes ACTION (verb, mono) from
+ * IDENTITY (noun, sans pill). Confirmation reuses the established amber
+ * --ink-comment palette — already the language of "noted / acknowledged" on
+ * this page — instead of inventing a new accent. */
+.share-page .share-stamp {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	min-width: 7.25rem; /* keeps width stable across "Share link" / "Copied" */
+	justify-content: center;
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 0.6875rem;
+	font-weight: 500;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--ink-text-muted);
+	background: var(--ink-paper-raised);
+	border: 1px solid var(--ink-rule);
+	padding: 0.3rem 0.7rem 0.28rem;
+	border-radius: 4px; /* squarer than the chip — reads as a stamp, not a tag */
+	cursor: pointer;
+	transition:
+		color 140ms ease,
+		border-color 140ms ease,
+		background-color 140ms ease,
+		transform 80ms ease,
+		opacity 80ms ease;
+}
+.share-page .share-stamp:hover {
+	color: var(--ink-text);
+	border-color: oklch(from var(--ink-rule) calc(l - 0.05) c h);
+}
+.share-page .share-stamp:active {
+	/* The "stamp press" — a 1px tap on click before the copied state takes
+	 * over. Subliminal; you feel it more than see it. */
+	transform: translateY(1px);
+	opacity: 0.85;
+}
+.share-page .share-stamp.is-copied {
+	color: var(--ink-comment);
+	background: var(--ink-comment-bg);
+	border-color: var(--ink-comment-edge);
+}
+.share-page .share-stamp-icon {
+	display: inline-flex;
+	width: 12px;
+	height: 12px;
+	flex: none;
+}
+.share-page .share-stamp-label {
+	display: inline-block;
+}
+
+/* Header instruments group: a thin vertical hairline ties the stamp and the
+ * identity chip into one cluster on the right side of the header. The rule
+ * matches --ink-rule from the bottom border of the header itself. */
+.share-page .header-instruments > * + * {
+	position: relative;
+}
+.share-page .header-instruments > * + *::before {
+	content: "";
+	position: absolute;
+	left: -0.625rem; /* halfway into the parent's gap-3 */
+	top: 50%;
+	width: 1px;
+	height: 0.875rem;
+	background: var(--ink-rule);
+	transform: translateY(-50%);
 }

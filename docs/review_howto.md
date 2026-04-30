@@ -19,6 +19,21 @@ Mental shortcut:
 
 The discriminator is whether the comment should *cause an edit downstream*. Accept is the only path that does. Resolve and Reject both close the thread; the difference is whether the disagreement is worth recording — Reject preserves a reply, Resolve doesn't.
 
+## URLs you'll receive
+
+`arc share create` prints two URLs:
+
+| URL | What it is | Who gets it |
+|---|---|---|
+| **Share URL** (`#k=…`) | Read + comment | Reviewers |
+| **Author URL** (`#k=…&t=…`) | Adds Accept / Resolve / Reject | Plan author only |
+
+The author URL is a strict superset of the share URL — anyone given the author URL can also read and comment. Treat it like a write password: don't paste it into tickets, screenshots, or shared chat threads. The first time you open the author URL, the page detects your role from the URL itself; you don't sign in or pick a name.
+
+Lost the URL? Run `arc share show <id> --author-url` to reprint it (uses the `edit_token` saved to `~/.arc/shares.json`).
+
+Reviewers see no sign-in screen. The first time a reviewer leaves a comment, a small modal asks for their name. The name is stored in this browser only.
+
 ## Concrete examples
 
 ### Accept

@@ -1,8 +1,16 @@
 import type { CommentEvent, EventPlaintext, ResolutionStatus } from './types';
 
+/**
+ * 'retracted' is added to the status union for original-commenter retractions.
+ * It is intentionally distinct from author-driven 'rejected': retraction means
+ * "I take this back, never mind"; reject means "the author considered this
+ * and explicitly disagreed." Different semantics, different consumers.
+ */
+export type CommentStatus = 'open' | ResolutionStatus | 'retracted';
+
 export type CommentState = {
 	event: CommentEvent;
-	status: 'open' | ResolutionStatus;
+	status: CommentStatus;
 	reply?: string;
 	replyAt?: string;
 	/**
@@ -58,6 +66,14 @@ export function replayEvents(
 				comment_type: e.comment_type !== undefined ? e.comment_type : target.event.comment_type
 			};
 			target.editedAt = e.created_at;
+		} else if (e.kind === 'retraction') {
+			const target = states.get(e.comment_id);
+			if (!target) continue;
+			// Only the original commenter can retract. Plan author canNOT —
+			// they have Reject (with reply) for that purpose, which preserves
+			// rationale in the audit trail.
+			if (e.author_name !== target.event.author_name) continue;
+			target.status = 'retracted';
 		}
 	}
 	return states;

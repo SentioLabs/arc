@@ -108,6 +108,77 @@ func TestRunShareCommentsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestRunShareCommentsHidesRetracted verifies that a retraction event from the
+// comment's original author removes the comment from `arc share comments`
+// default output, while a forged retraction (mismatched author_name) is
+// silently dropped at replay time. The encrypted retraction event remains in
+// the log for audit.
+func TestRunShareCommentsHidesRetracted(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	plan := filepath.Join(t.TempDir(), "p.md")
+	_ = os.WriteFile(plan, []byte("# P"), 0o600)
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := sharesconfig.Load()
+	s := f.Shares[0]
+	keyBytes := mustDecodeKey(t, s.KeyB64Url)
+
+	postEv := func(t *testing.T, payload map[string]any) {
+		t.Helper()
+		blob, iv, err := paste.EncryptJSON(payload, keyBytes)
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		body, _ := json.Marshal(paste.AppendEventRequest{Blob: blob, IV: iv})
+		if err := postRaw(t, srv.URL+"/api/paste/"+s.ID+"/blobs", body); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Two comments: Alice's (which she'll retract) and Bob's (which she can't).
+	postEv(t, map[string]any{
+		"kind": "comment", "id": "c1", "author_name": "Alice", "comment_type": "comment",
+		"body":       "regret posting this",
+		"anchor":     map[string]any{"line_start": 1, "line_end": 1, "quoted_text": "P"},
+		"created_at": "2026-04-29T00:00:00Z",
+	})
+	postEv(t, map[string]any{
+		"kind": "comment", "id": "c2", "author_name": "Bob", "comment_type": "comment",
+		"body":       "stays visible",
+		"anchor":     map[string]any{"line_start": 1, "line_end": 1, "quoted_text": "P"},
+		"created_at": "2026-04-29T00:01:00Z",
+	})
+
+	// Alice retracts her own — must take effect.
+	postEv(t, map[string]any{
+		"kind": "retraction", "id": "x1", "comment_id": "c1", "author_name": "Alice",
+		"created_at": "2026-04-29T00:02:00Z",
+	})
+	// Mallory tries to retract Bob's — must be silently dropped.
+	postEv(t, map[string]any{
+		"kind": "retraction", "id": "x2", "comment_id": "c2", "author_name": "Mallory",
+		"created_at": "2026-04-29T00:03:00Z",
+	})
+
+	out := captureStdout(t, func() { _ = runShareComments(shareCommentsCmd, []string{s.ID}) })
+
+	if strings.Contains(out, "regret posting this") {
+		t.Errorf("retracted comment must be hidden; got:\n%s", out)
+	}
+	if !strings.Contains(out, "stays visible") {
+		t.Errorf("forged retraction should not have removed Bob's comment; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Bob") {
+		t.Errorf("expected Bob's comment to still be present; got:\n%s", out)
+	}
+}
+
 // TestRunShareCommentsAppliesEdits verifies that an `edit` event from the
 // comment's original author rewrites the body shown by `arc share comments`.
 // This locks in CLI parity with the SPA's replay logic.
@@ -516,6 +587,57 @@ func captureStdout(t *testing.T, fn func()) string {
 // global `configPath` at a temp file, and from the user's git identity by
 // running each subtest with $PATH cleared so `git` is unavailable (the
 // helper falls back silently to "" on git failure).
+func TestShareCreatePrintsBothURLs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	plan := filepath.Join(t.TempDir(), "plan.md")
+	_ = os.WriteFile(plan, []byte("# Hello\n\nBody."), 0o600)
+
+	// Capture stdout.
+	r, w, _ := os.Pipe()
+	stdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = stdout }()
+
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatalf("runShareCreate: %v", err)
+	}
+	_ = w.Close()
+	out, _ := io.ReadAll(r)
+	output := string(out)
+
+	if !strings.Contains(output, "Share URL") {
+		t.Errorf("expected 'Share URL' label, got: %s", output)
+	}
+	if !strings.Contains(output, "Author URL") {
+		t.Errorf("expected 'Author URL' label, got: %s", output)
+	}
+	if !strings.Contains(output, "send to reviewers") {
+		t.Errorf("expected reviewer guidance, got: %s", output)
+	}
+	if !strings.Contains(output, "keep private") {
+		t.Errorf("expected privacy guidance for author URL, got: %s", output)
+	}
+	if strings.Contains(output, "Edit token: ") {
+		t.Errorf("raw 'Edit token: <hex>' line should not appear in output: %s", output)
+	}
+	if !strings.Contains(output, "Edit token saved to") {
+		t.Errorf("expected pointer to shares.json, got: %s", output)
+	}
+
+	// Author URL must contain &t=.
+	for line := range strings.SplitSeq(output, "\n") {
+		if strings.Contains(line, "/share/") && strings.Contains(line, "&t=") {
+			return
+		}
+	}
+	t.Errorf("expected an author URL line with &t=<token>, got: %s", output)
+}
+
 func TestResolveAuthor(t *testing.T) {
 	// Save & restore globals touched by the helper. Env vars use t.Setenv
 	// which auto-restores; configPath is package-global so we restore manually.
@@ -657,6 +779,60 @@ func TestResolveServer(t *testing.T) {
 				t.Errorf("resolveServer = (%q, %q), want (%q, %q)", got, kind, tc.wantURL, tc.wantKind)
 			}
 		})
+	}
+}
+
+func TestShareShowAuthorURL(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	// Create a share so shares.json has an entry.
+	plan := filepath.Join(t.TempDir(), "plan.md")
+	_ = os.WriteFile(plan, []byte("# Hi"), 0o600)
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := sharesconfig.Load()
+	id := f.Shares[0].ID
+	editToken := f.Shares[0].EditToken
+	keyB64 := f.Shares[0].KeyB64Url
+
+	// Capture stdout for `arc share show <id> --author-url`.
+	r, w, _ := os.Pipe()
+	stdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = stdout }()
+
+	shareShowAuthorURL = true
+	defer func() { shareShowAuthorURL = false }()
+	if err := runShareShow(shareShowCmd, []string{id}); err != nil {
+		t.Fatalf("runShareShow: %v", err)
+	}
+	_ = w.Close()
+	out, _ := io.ReadAll(r)
+	got := strings.TrimSpace(string(out))
+
+	want := srv.URL + "/share/" + id + "#k=" + keyB64 + "&t=" + editToken
+	if got != want {
+		t.Errorf("author URL mismatch:\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestShareShowAuthorURLMissingShare(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	shareShowAuthorURL = true
+	defer func() { shareShowAuthorURL = false }()
+	err := runShareShow(shareShowCmd, []string{"abc12345"})
+	if err == nil {
+		t.Fatal("expected error for missing share, got nil")
+	}
+	if !strings.Contains(err.Error(), "abc12345") {
+		t.Errorf("error should reference share id, got: %v", err)
 	}
 }
 

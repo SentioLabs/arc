@@ -98,6 +98,21 @@ type editEvent struct {
 	CreatedAt     string  `json:"created_at"`
 }
 
+// retractionEvent is the original commenter taking their annotation back.
+// Replay marks the target comment with status='retracted'; the printers
+// and JSON bundle filter retracted entries out of the default output so
+// downstream LLM consumers don't act on revoked material. The encrypted
+// event remains in the log as audit. Only an event whose author_name
+// matches the target's author_name takes effect — plan author canNOT
+// retract someone else's comment (they have Reject for that).
+type retractionEvent struct {
+	Kind       string `json:"kind"` // always "retraction"
+	ID         string `json:"id"`
+	CommentID  string `json:"comment_id"`
+	AuthorName string `json:"author_name"`
+	CreatedAt  string `json:"created_at"`
+}
+
 // --- commands ---
 
 var shareCmd = &cobra.Command{
@@ -180,6 +195,7 @@ var (
 	shareCreateTitle      string
 	shareCommentsAccepted bool
 	shareCommentsJSON     bool
+	shareShowAuthorURL    bool
 )
 
 func init() {
@@ -191,11 +207,15 @@ func init() {
 	shareCreateCmd.Flags().StringVar(&shareCreateAuthor, "author", "",
 		"Author name embedded in the plan (precedence: flag > share_author in "+
 			"cli-config.json > $ARC_SHARE_AUTHOR > `git config user.name`). "+
-			"Reviewers entering this exact name gain Accept/Resolve/Reject controls.")
+			"Auto-populates the name chip when the Author URL is opened and is "+
+			"used for display attribution. Author privileges are gated by the "+
+			"&t=<edit_token> in the Author URL, not by this name.")
 	shareCreateCmd.Flags().StringVar(&shareCreateTitle, "title", "",
 		"Optional plan title shown in the share UI header (defaults to the filename)")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsAccepted, "accepted-only", false, "Only print accepted comments")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsJSON, "json", false, "Output as JSON")
+	shareShowCmd.Flags().BoolVar(&shareShowAuthorURL, "author-url", false,
+		"Print the author URL (includes edit_token) instead of the plan content")
 
 	shareCmd.AddCommand(shareCreateCmd, shareListCmd, shareShowCmd, shareCommentsCmd,
 		sharePullCmd, shareApproveCmd, shareUpdateCmd, shareDeleteCmd)
@@ -254,8 +274,12 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 	}); err != nil {
 		return err
 	}
-	fmt.Printf("Share URL:  %s/share/%s#k=%s\n", strings.TrimRight(server, "/"), resp.ID, keyB64)
-	fmt.Printf("Edit token: %s (saved in ~/.arc/shares.json — keep safe)\n", resp.EditToken)
+	trimmedServer := strings.TrimRight(server, "/")
+	fmt.Printf("Share URL  (send to reviewers):\n  %s/share/%s#k=%s\n\n",
+		trimmedServer, resp.ID, keyB64)
+	fmt.Printf("Author URL (keep private — gives you Accept/Resolve):\n  %s/share/%s#k=%s&t=%s\n\n",
+		trimmedServer, resp.ID, keyB64, resp.EditToken)
+	fmt.Println("Edit token saved to ~/.arc/shares.json")
 	return nil
 }
 
@@ -275,6 +299,9 @@ func runShareList(cmd *cobra.Command, args []string) error {
 }
 
 func runShareShow(cmd *cobra.Command, args []string) error {
+	if shareShowAuthorURL {
+		return printAuthorURL(args[0])
+	}
 	id, server, key, err := resolveShareRef(args[0])
 	if err != nil {
 		return err
@@ -284,6 +311,22 @@ func runShareShow(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Println(plan.Markdown)
+	return nil
+}
+
+func printAuthorURL(ref string) error {
+	// Resolve to id; accept either bare id or full share URL.
+	id, _, _, err := resolveShareRef(ref)
+	if err != nil {
+		return err
+	}
+	s, _ := sharesconfig.Find(id)
+	if s == nil || s.EditToken == "" || s.KeyB64Url == "" {
+		return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json "+
+			"(--author-url requires a share registered on this machine)", id)
+	}
+	fmt.Printf("%s/share/%s#k=%s&t=%s\n",
+		strings.TrimRight(s.URL, "/"), id, s.KeyB64Url, s.EditToken)
 	return nil
 }
 
@@ -377,10 +420,11 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 //
 // Returns "" if none of these produce a value.
 //
-// The author name is the only thing that lets the share UI distinguish the
-// plan owner from reviewers — when a visitor enters this exact name in the
-// SPA's name prompt, they get Accept/Resolve/Reject controls. Without it,
-// nobody is recognized as the author and the controls stay hidden for all.
+// The author name is used for: (a) auto-populating the name chip when the
+// Author URL is opened in the SPA, (b) display attribution on resolution and
+// edit events, and (c) the replay-time guard in events.ts that drops forged
+// edits/resolutions. Author UI privileges (Accept/Resolve/Reject) are gated
+// by the &t=<edit_token> in the Author URL fragment, not by this name.
 func resolveAuthor(flag string) string {
 	if s := strings.TrimSpace(flag); s != "" {
 		return s
@@ -563,8 +607,8 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 		return err
 	}
 	decoded := decodeAndSortEvents(events, key)
-	comments, resolutions := replayEvents(decoded, plan.AuthorName)
-	entries := buildCommentEntries(comments, resolutions, acceptedOnly)
+	comments, resolutions, retracted := replayEvents(decoded, plan.AuthorName)
+	entries := buildCommentEntries(comments, resolutions, retracted, acceptedOnly)
 	if asJSON {
 		return emitBundle(id, plan, entries)
 	}
@@ -609,9 +653,13 @@ func decodeAndSortEvents(events []paste.Event, key []byte) []decodedEvent {
 	return out
 }
 
-func replayEvents(events []decodedEvent, planAuthor string) (map[string]commentEvent, map[string]resolutionEvent) {
+func replayEvents(
+	events []decodedEvent,
+	planAuthor string,
+) (map[string]commentEvent, map[string]resolutionEvent, map[string]bool) {
 	comments := map[string]commentEvent{}
 	resolutions := map[string]resolutionEvent{}
+	retracted := map[string]bool{}
 	for _, d := range events {
 		switch d.kind {
 		case "comment":
@@ -620,9 +668,31 @@ func replayEvents(events []decodedEvent, planAuthor string) (map[string]commentE
 			applyResolutionEvent(d.raw, planAuthor, resolutions)
 		case "edit":
 			applyEditEvent(d.raw, planAuthor, comments)
+		case "retraction":
+			applyRetractionEvent(d.raw, comments, retracted)
 		}
 	}
-	return comments, resolutions
+	return comments, resolutions, retracted
+}
+
+// applyRetractionEvent marks the target comment as retracted iff the event's
+// author_name matches the comment's original author_name. Plan author canNOT
+// retract someone else's comment — they have Reject (with reply) for that
+// purpose. Forged retractions are silently dropped, matching the edit-event
+// authorization model.
+func applyRetractionEvent(raw json.RawMessage, comments map[string]commentEvent, retracted map[string]bool) {
+	var r retractionEvent
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return
+	}
+	target, ok := comments[r.CommentID]
+	if !ok {
+		return
+	}
+	if r.AuthorName != target.AuthorName {
+		return
+	}
+	retracted[r.CommentID] = true
 }
 
 func applyCommentEvent(raw json.RawMessage, comments map[string]commentEvent) {
@@ -680,12 +750,19 @@ func applyEditEvent(raw json.RawMessage, planAuthor string, comments map[string]
 func buildCommentEntries(
 	comments map[string]commentEvent,
 	resolutions map[string]resolutionEvent,
+	retracted map[string]bool,
 	acceptedOnly bool,
 ) []commentEntry {
 	// Build a deterministic-order list of comment entries so multiple runs
 	// produce identical output (Go map iteration is randomized).
 	entries := make([]commentEntry, 0, len(comments))
 	for cid, c := range comments {
+		// Retracted comments are filtered from default output; the encrypted
+		// event still lives in the log for audit but downstream LLM consumers
+		// shouldn't see (and act on) revoked material.
+		if retracted[cid] {
+			continue
+		}
 		status := "open"
 		reply := ""
 		if res, ok := resolutions[cid]; ok {

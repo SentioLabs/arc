@@ -2,7 +2,14 @@
 	import { onMount, tick } from 'svelte';
 	import { setReviewerName } from '$lib/paste/identity';
 
-	const { onSave }: { onSave: (name: string) => void } = $props();
+	const {
+		onSave,
+		initialName = ''
+	}: { onSave: (name: string) => void; initialName?: string } = $props();
+	// Seed inside onMount so we don't snapshot the prop at the
+	// reactive-graph top level (svelte/state_referenced_locally). The
+	// modal is destroyed/recreated by `{#if showNamePrompt}`, so reading
+	// `initialName` once on mount captures the correct value each open.
 	let name = $state('');
 	let input: HTMLInputElement | undefined = $state();
 
@@ -21,8 +28,10 @@
 	}
 
 	onMount(async () => {
+		name = initialName;
 		await tick();
 		input?.focus();
+		input?.select();
 	});
 </script>
 
