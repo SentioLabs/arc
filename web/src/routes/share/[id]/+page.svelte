@@ -379,16 +379,13 @@
 					</h1>
 				</div>
 				{#if reviewerName}
-					<span class="name-chip">
-						{reviewerName}{isAuthor ? ' · author' : ''}
-					</span>
-				{:else}
 					<button
 						type="button"
 						class="name-chip cursor-pointer hover:border-[var(--ink-comment-edge)]"
 						onclick={() => (showNamePrompt = true)}
+						title="Click to change name"
 					>
-						Sign in
+						{reviewerName}{isAuthor ? ' · author' : ''}
 					</button>
 				{/if}
 			</header>
