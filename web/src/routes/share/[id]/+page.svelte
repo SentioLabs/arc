@@ -265,9 +265,13 @@
 	) {
 		if (!reviewerName) return;
 		const target = comments.get(commentId);
-		// The replay layer will reject mismatched authors anyway, but failing
-		// fast here avoids posting a useless event to the server.
-		if (!target || target.event.author_name !== reviewerName) return;
+		if (!target) return;
+		// Authorization mirror of replayEvents:
+		//   - Original commenter can edit their own comment.
+		//   - Plan author can edit any comment (sharpening thin feedback).
+		// Failing fast here avoids posting events the replay would discard.
+		const isMyComment = target.event.author_name === reviewerName;
+		if (!isMyComment && !isAuthor) return;
 
 		const event: EditEvent = {
 			kind: 'edit',

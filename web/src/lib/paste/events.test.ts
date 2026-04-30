@@ -130,5 +130,66 @@ describe('replayEvents', () => {
 			expect(s?.status).toBe('accepted');
 			expect(s?.event.body).toBe('expanded reasoning: the issue is X because Y');
 		});
+
+		describe('plan author edits reviewer comments', () => {
+			it('lets the plan author refine a reviewer comment', () => {
+				// Steve leaves a thin "expand this more"; Ben (plan author)
+				// rewrites the body. comment.author_name stays "Alice"
+				// (the original reviewer) — only the body changes.
+				const banEdit = {
+					...baseEdit,
+					author_name: 'Ben',
+					body: 'success criteria for "validated" should be enumerated'
+				};
+				const states = replayEvents('Ben', [c, banEdit]);
+				const s = states.get('c1');
+				expect(s?.event.body).toBe(
+					'success criteria for "validated" should be enumerated'
+				);
+				// Original author attribution preserved.
+				expect(s?.event.author_name).toBe('Alice');
+				expect(s?.editedAt).toBe(banEdit.created_at);
+			});
+
+			it('still drops edits from third parties', () => {
+				const malloryEdit = {
+					...baseEdit,
+					author_name: 'Mallory',
+					body: 'rewrite by random visitor'
+				};
+				const states = replayEvents('Ben', [c, malloryEdit]);
+				expect(states.get('c1')?.event.body).toBe('looks good');
+			});
+
+			it('does not grant plan-author rights when planAuthor is empty', () => {
+				// Edge case: if the plan was created without an author name,
+				// an edit event with empty author_name would otherwise match
+				// the empty plan_author. This must not authorize the edit.
+				const empty = { ...baseEdit, author_name: '', body: 'should not apply' };
+				const states = replayEvents(undefined, [c, empty]);
+				expect(states.get('c1')?.event.body).toBe('looks good');
+			});
+
+			it('applies original-author then plan-author edits chronologically', () => {
+				// Alice refines her own wording, then Ben (author) refines
+				// it further. Last write wins.
+				const aliceFirst = {
+					...baseEdit,
+					id: 'e1',
+					author_name: 'Alice',
+					body: 'alice version',
+					created_at: '2026-04-29T00:05:00Z'
+				};
+				const benSecond = {
+					...baseEdit,
+					id: 'e2',
+					author_name: 'Ben',
+					body: 'ben final',
+					created_at: '2026-04-29T00:10:00Z'
+				};
+				const states = replayEvents('Ben', [c, aliceFirst, benSecond]);
+				expect(states.get('c1')?.event.body).toBe('ben final');
+			});
+		});
 	});
 });

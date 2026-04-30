@@ -96,6 +96,7 @@ Open the printed URL in Chrome/Firefox.
 5. **Post** — the comment appears in the sidebar
 6. As the author (your localStorage name matches `plan.author_name`), you'll see **Accept / Resolve / Reject** controls. Try Accept on one comment, Reject (with reply) on another, and Resolve on a third. If the controls don't appear, double-check that the name in the header chip matches the value in `git config user.name` (or whatever you passed to `--author`) — the comparison is case- and whitespace-sensitive.
 7. As a reviewer (your localStorage name does NOT match the plan's author), find your own annotation in the sidebar. You should see an **✎ Edit** button on it. Click it; the body becomes a textarea pre-filled with your existing comment. Refine the wording — e.g. expand "expand this more" into a fully-formed suggestion — and **⌘/Ctrl-⏎** (or click Save). The card re-renders with `· edited Nm` next to the timestamp. Confirm `arc share comments <id>` prints the new body, not the original.
+8. Switch back to the author window. The **✎ Edit** button should also appear on every reviewer's annotation (not just your own). Use it to sharpen a thin reviewer comment — the displayed `author_name` stays as the reviewer, only the body changes. Run `arc share comments <id>` again and confirm the refined body shows up; this is the path that lets the author shape feedback for downstream LLM consumption without round-trips with the reviewer.
 
 ### Pull comments back to the CLI
 

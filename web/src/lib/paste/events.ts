@@ -35,9 +35,18 @@ export function replayEvents(
 		} else if (e.kind === 'edit') {
 			const target = states.get(e.comment_id);
 			if (!target) continue;
-			// Only the original author of the comment can edit it. The server
-			// can't enforce this (events are encrypted) so the gate lives here.
-			if (e.author_name !== target.event.author_name) continue;
+			// Edits are accepted from two roles:
+			//   1. The original author of the comment (refining their own wording).
+			//   2. The plan author (sharpening reviewer feedback into something
+			//      LLM-consumable without waiting on the reviewer).
+			// The displayed `comment.author_name` does NOT change either way —
+			// the edit event in the log records who actually edited.
+			//
+			// `planAuthor` must be non-empty before granting plan-owner edit
+			// rights; otherwise empty strings would all match each other.
+			const isOriginalAuthor = e.author_name === target.event.author_name;
+			const isPlanAuthor = !!planAuthor && e.author_name === planAuthor;
+			if (!isOriginalAuthor && !isPlanAuthor) continue;
 			// Build a new event object with the supplied fields applied. We
 			// replace `target.event` rather than mutate so consumers that hold
 			// a stale reference don't see partial state during the merge.

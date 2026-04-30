@@ -33,10 +33,17 @@ type planPlaintext struct {
 }
 
 type commentEvent struct {
-	Kind          string `json:"kind"`
-	ID            string `json:"id"`
-	AuthorName    string `json:"author_name"`
-	CommentType   string `json:"comment_type"`
+	Kind        string `json:"kind"`
+	ID          string `json:"id"`
+	AuthorName  string `json:"author_name"`
+	CommentType string `json:"comment_type"`
+	// Action is the reviewer's primary intent: "comment" (default) or
+	// "delete" (strikethrough — body may be empty since the strikethrough
+	// IS the action). Preserved on round-trip so consumers like
+	// `arc share comments --json` can distinguish deletion requests from
+	// regular comments. Mirrors the AnnotationAction type in the SPA
+	// (web/src/lib/paste/types.ts).
+	Action        string `json:"action,omitempty"`
 	Severity      string `json:"severity,omitempty"`
 	Body          string `json:"body"`
 	SuggestedText string `json:"suggested_text,omitempty"`
@@ -60,6 +67,15 @@ type approvalEvent struct {
 	ID         string `json:"id"`
 	AuthorName string `json:"author_name"`
 	CreatedAt  string `json:"created_at"`
+}
+
+// commentEntry is the in-flight aggregation of a comment + its resolution
+// status, used internally by printComments / emitBundle. Lives at package
+// scope so both functions can refer to the same type.
+type commentEntry struct {
+	comment commentEvent
+	status  string
+	reply   string
 }
 
 // editEvent is a reviewer revising their own annotation. Replay merges the
@@ -581,9 +597,19 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 			if !ok {
 				continue
 			}
-			// Replay-time auth: only the comment's original author can
-			// edit it. Forged events are silently dropped.
-			if ed.AuthorName != c.AuthorName {
+			// Replay-time auth: edits are accepted from either the comment's
+			// original author OR the plan author (so the author can sharpen
+			// thin reviewer feedback like "expand this more"). The displayed
+			// comment.author_name is unchanged either way — only the edit
+			// event itself records who actually edited. Forged events from
+			// third parties are silently dropped.
+			//
+			// `plan.AuthorName` must be non-empty before granting plan-owner
+			// edit rights; otherwise empty strings on both sides would all
+			// match and accidentally authorize anonymous edits.
+			isOriginal := ed.AuthorName == c.AuthorName
+			isPlanAuthor := plan.AuthorName != "" && ed.AuthorName == plan.AuthorName
+			if !isOriginal && !isPlanAuthor {
 				continue
 			}
 			if ed.Body != nil {
@@ -598,26 +624,158 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 			comments[ed.CommentID] = c
 		}
 	}
+	// Build a deterministic-order list of comment entries so multiple runs
+	// produce identical output (Go map iteration is randomized).
+	entries := make([]commentEntry, 0, len(comments))
 	for cid, c := range comments {
 		res, ok := resolutions[cid]
 		status := "open"
+		reply := ""
 		if ok {
 			status = res.Status
+			reply = res.Reply
 		}
 		if acceptedOnly && status != "accepted" {
 			continue
 		}
-		if asJSON {
-			payload := map[string]any{"comment": c, "status": status}
-			if ok && res.Reply != "" {
-				payload["reply"] = res.Reply
+		entries = append(entries, commentEntry{comment: c, status: status, reply: reply})
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].comment.CreatedAt < entries[j].comment.CreatedAt
+	})
+
+	if asJSON {
+		return emitBundle(id, plan, entries)
+	}
+	for _, e := range entries {
+		// Mark deletes visually so they don't get mistaken for empty-body comments.
+		prefix := ""
+		if e.comment.Action == "delete" {
+			prefix = "[delete] "
+		}
+		fmt.Printf("[%s] %s%s (%s): %s\n", e.status, prefix, e.comment.AuthorName, e.comment.CommentType, e.comment.Body)
+	}
+	return nil
+}
+
+// shareBundle is the JSON shape emitted by `arc share comments --json`.
+//
+// Designed for LLM consumption: a single object with everything an agent
+// needs to apply review feedback.
+//
+// Plan content is exposed via exactly one of two fields:
+//   - `file` — absolute path on disk. Set when the share is registered in
+//     shares.json AND the file is readable. Agent reads it directly.
+//   - `markdown_b64` — base64-encoded markdown. Set when there's no local
+//     file (e.g. an agent consuming a shared URL it didn't create). Base64
+//     avoids JSON escape bloat (every \n and \" doubles the byte count and
+//     destroys readability) for markdown payloads that can hit tens of KB.
+//
+// resolved_anchor line numbers are always computed against whichever source
+// `file` or `markdown_b64` exposes, so they're ground-truth for the content
+// the agent will actually see.
+type shareBundle struct {
+	Plan     bundlePlan      `json:"plan"`
+	Comments []bundleComment `json:"comments"`
+}
+
+type bundlePlan struct {
+	ID         string `json:"id"`
+	Title      string `json:"title,omitempty"`
+	AuthorName string `json:"author_name,omitempty"`
+	// File is the absolute path the agent should Edit. Present iff the
+	// share is in shares.json and the file is readable.
+	File string `json:"file,omitempty"`
+	// MarkdownB64 is the plan content, base64-encoded. Present iff File
+	// is not set. Decode with standard base64 (RawStdEncoding-compatible).
+	MarkdownB64 string `json:"markdown_b64,omitempty"`
+}
+
+type bundleComment struct {
+	Comment        commentEvent           `json:"comment"`
+	Status         string                 `json:"status"`
+	Reply          string                 `json:"reply,omitempty"`
+	ResolvedAnchor *bundleResolvedAnchor  `json:"resolved_anchor,omitempty"`
+}
+
+type bundleResolvedAnchor struct {
+	Status    string `json:"status"` // "ok" | "drifted" | "orphaned"
+	LineStart int    `json:"line_start"`
+	LineEnd   int    `json:"line_end"`
+	Snippet   string `json:"snippet,omitempty"`
+}
+
+// emitBundle assembles and prints the JSON bundle for `--json` output.
+//
+// Plan content sourcing:
+//   - If the share is in shares.json AND the recorded file is readable,
+//     emit `file` (absolute path) and run anchor resolution against the
+//     file's current bytes. The agent reads the file directly.
+//   - Otherwise, emit `markdown_b64` containing the encrypted blob's
+//     markdown, base64-encoded to avoid JSON escape noise.
+func emitBundle(id string, plan *planPlaintext, entries []commentEntry) error {
+	// `markdown` is what we resolve anchors against — the same bytes the
+	// agent will operate on, whether that's the local file or the shared
+	// blob. We then expose either `file` or `markdown_b64` to the agent
+	// based on what they have access to.
+	markdown := plan.Markdown
+	planFile := ""
+	if s, _ := sharesconfig.Find(id); s != nil && s.PlanFile != "" {
+		if data, err := os.ReadFile(s.PlanFile); err == nil {
+			markdown = string(data)
+			abs, absErr := filepath.Abs(s.PlanFile)
+			if absErr == nil {
+				planFile = abs
+			} else {
+				planFile = s.PlanFile
 			}
-			out, _ := json.Marshal(payload)
-			fmt.Println(string(out))
-		} else {
-			fmt.Printf("[%s] %s (%s): %s\n", status, c.AuthorName, c.CommentType, c.Body)
 		}
 	}
+
+	bp := bundlePlan{
+		ID:         id,
+		Title:      plan.Title,
+		AuthorName: plan.AuthorName,
+	}
+	if planFile != "" {
+		bp.File = planFile
+	} else {
+		bp.MarkdownB64 = base64.StdEncoding.EncodeToString([]byte(markdown))
+	}
+
+	bundle := shareBundle{
+		Plan:     bp,
+		Comments: make([]bundleComment, 0, len(entries)),
+	}
+
+	for _, e := range entries {
+		bc := bundleComment{Comment: e.comment, Status: e.status, Reply: e.reply}
+
+		// Re-encode the anchor (which arrived as `any`) and decode into the
+		// typed struct, so we can run resolution. If the anchor is malformed
+		// we leave resolved_anchor unset rather than fail the whole output.
+		if e.comment.Anchor != nil {
+			if raw, err := json.Marshal(e.comment.Anchor); err == nil {
+				var anc paste.Anchor
+				if json.Unmarshal(raw, &anc) == nil {
+					r := paste.ResolveAnchor(markdown, anc)
+					bc.ResolvedAnchor = &bundleResolvedAnchor{
+						Status:    r.Status,
+						LineStart: r.LineStart,
+						LineEnd:   r.LineEnd,
+						Snippet:   paste.Snippet(markdown, r),
+					}
+				}
+			}
+		}
+		bundle.Comments = append(bundle.Comments, bc)
+	}
+
+	out, err := json.MarshalIndent(bundle, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(out))
 	return nil
 }
 

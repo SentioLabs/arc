@@ -174,6 +174,292 @@ func TestRunShareCommentsAppliesEdits(t *testing.T) {
 	}
 }
 
+// TestRunShareCommentsAppliesPlanAuthorEdits verifies that the plan author
+// can edit any reviewer's comment, mirroring the SPA's replay rule. This is
+// the "Ben sharpens Steve's 'expand this more' into something useful"
+// workflow — comment.author_name stays as the original reviewer.
+func TestRunShareCommentsAppliesPlanAuthorEdits(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	plan := filepath.Join(t.TempDir(), "p.md")
+	_ = os.WriteFile(plan, []byte("# P"), 0o644)
+	shareCreateServer = srv.URL
+	// Pin the plan author via flag so the replay knows who has author rights.
+	shareCreateAuthor = "Ben"
+	t.Cleanup(func() { shareCreateAuthor = "" })
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := sharesconfig.Load()
+	s := f.Shares[0]
+	keyBytes := mustDecodeKey(t, s.KeyB64Url)
+
+	postEv := func(t *testing.T, payload map[string]any) {
+		t.Helper()
+		blob, iv, err := paste.EncryptJSON(payload, keyBytes)
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		body, _ := json.Marshal(paste.AppendEventRequest{Blob: blob, IV: iv})
+		if err := postRaw(t, srv.URL+"/api/paste/"+s.ID+"/blobs", body); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Steve leaves a thin comment, then Ben (plan author) refines the body.
+	postEv(t, map[string]any{
+		"kind": "comment", "id": "c1", "author_name": "Steve", "comment_type": "comment",
+		"body":       "expand this more",
+		"anchor":     map[string]any{"line_start": 1, "line_end": 1, "quoted_text": "P"},
+		"created_at": "2026-04-29T00:00:00Z",
+	})
+	postEv(t, map[string]any{
+		"kind": "edit", "id": "e1", "comment_id": "c1", "author_name": "Ben",
+		"body":       "the goal section needs explicit success criteria for 'validated'",
+		"created_at": "2026-04-29T00:05:00Z",
+	})
+	// Mallory tries to edit too — must be ignored.
+	postEv(t, map[string]any{
+		"kind": "edit", "id": "e2", "comment_id": "c1", "author_name": "Mallory",
+		"body":       "MALICIOUS",
+		"created_at": "2026-04-29T00:06:00Z",
+	})
+
+	out := captureStdout(t, func() { _ = runShareComments(shareCommentsCmd, []string{s.ID}) })
+
+	if !strings.Contains(out, "explicit success criteria") {
+		t.Errorf("expected plan author's edited body in output; got:\n%s", out)
+	}
+	if strings.Contains(out, "expand this more") {
+		t.Errorf("expected stale body to be replaced; got:\n%s", out)
+	}
+	// Author attribution unchanged: the line should still be tagged with Steve.
+	if !strings.Contains(out, "Steve") {
+		t.Errorf("comment.author_name should still be Steve in the output; got:\n%s", out)
+	}
+	if strings.Contains(out, "MALICIOUS") {
+		t.Errorf("third-party edit must be ignored; got:\n%s", out)
+	}
+}
+
+// TestRunShareCommentsJSONBundle verifies the shape of `--json` output:
+// a single JSON object containing plan metadata + comments with action
+// preserved + resolved_anchor populated against the on-disk plan file.
+//
+// This is the contract that `arc share comments --json` exposes to the
+// brainstorm skill / LLM agents — locking it in here so changes that
+// would break agent consumption fail the test.
+func TestRunShareCommentsJSONBundle(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	// A small but realistic plan with sections the SPA would slugify.
+	planText := "# Test Plan\n\n## Goal\n\nValidate the shared review feature.\n\n## Approach\n\n- Selection-based annotation\n- Conventional labels\n"
+	planFile := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(planFile, []byte(planText), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{planFile}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := sharesconfig.Load()
+	s := f.Shares[0]
+	keyBytes := mustDecodeKey(t, s.KeyB64Url)
+
+	postEv := func(t *testing.T, payload map[string]any) {
+		t.Helper()
+		blob, iv, err := paste.EncryptJSON(payload, keyBytes)
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		body, _ := json.Marshal(paste.AppendEventRequest{Blob: blob, IV: iv})
+		if err := postRaw(t, srv.URL+"/api/paste/"+s.ID+"/blobs", body); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// One regular comment + one delete annotation. The delete tests that
+	// `action` round-trips to the JSON output (was the bug — Go side used
+	// to silently drop it).
+	postEv(t, map[string]any{
+		"kind":         "comment",
+		"id":           "c1",
+		"author_name":  "Steve",
+		"comment_type": "issue",
+		"body":         "Goal section should mention success criteria",
+		"anchor": map[string]any{
+			"line_start":   5,
+			"line_end":     5,
+			"quoted_text":  "Validate the shared review feature.",
+			"heading_slug": "goal",
+		},
+		"created_at": "2026-04-29T00:00:00Z",
+	})
+	postEv(t, map[string]any{
+		"kind":         "comment",
+		"id":           "c2",
+		"author_name":  "Mike",
+		"comment_type": "comment",
+		"action":       "delete",
+		"body":         "",
+		"anchor": map[string]any{
+			"line_start":   9,
+			"line_end":     9,
+			"quoted_text":  "Conventional labels",
+			"heading_slug": "approach",
+		},
+		"created_at": "2026-04-29T00:01:00Z",
+	})
+
+	// Run with --json
+	shareCommentsJSON = true
+	t.Cleanup(func() { shareCommentsJSON = false })
+	out := captureStdout(t, func() { _ = runShareComments(shareCommentsCmd, []string{s.ID}) })
+
+	var bundle struct {
+		Plan struct {
+			ID          string `json:"id"`
+			Title       string `json:"title"`
+			File        string `json:"file"`
+			MarkdownB64 string `json:"markdown_b64"`
+		} `json:"plan"`
+		Comments []struct {
+			Comment struct {
+				ID         string `json:"id"`
+				Action     string `json:"action"`
+				AuthorName string `json:"author_name"`
+				Body       string `json:"body"`
+			} `json:"comment"`
+			Status         string `json:"status"`
+			ResolvedAnchor *struct {
+				Status    string `json:"status"`
+				LineStart int    `json:"line_start"`
+				LineEnd   int    `json:"line_end"`
+				Snippet   string `json:"snippet"`
+			} `json:"resolved_anchor"`
+		} `json:"comments"`
+	}
+	if err := json.Unmarshal([]byte(out), &bundle); err != nil {
+		t.Fatalf("output is not valid JSON bundle: %v\noutput:\n%s", err, out)
+	}
+
+	// --- Plan section ---
+	if bundle.Plan.ID != s.ID {
+		t.Errorf("plan.id = %q, want %q", bundle.Plan.ID, s.ID)
+	}
+	// File-readable case: `file` is set, `markdown_b64` MUST be omitted.
+	// The agent reads the file directly — no need to ship its bytes twice.
+	if !strings.HasSuffix(bundle.Plan.File, "plan.md") {
+		t.Errorf("plan.file should be absolute path ending in plan.md; got %q", bundle.Plan.File)
+	}
+	if !filepath.IsAbs(bundle.Plan.File) {
+		t.Errorf("plan.file should be absolute; got %q", bundle.Plan.File)
+	}
+	if bundle.Plan.MarkdownB64 != "" {
+		t.Errorf("plan.markdown_b64 must be empty when plan.file is set; got %d bytes", len(bundle.Plan.MarkdownB64))
+	}
+
+	// --- Comments section ---
+	if len(bundle.Comments) != 2 {
+		t.Fatalf("expected 2 comments, got %d", len(bundle.Comments))
+	}
+	// Sorted by created_at, so c1 comes before c2.
+	if bundle.Comments[0].Comment.ID != "c1" || bundle.Comments[1].Comment.ID != "c2" {
+		t.Errorf("comments not in chronological order: got %s, %s",
+			bundle.Comments[0].Comment.ID, bundle.Comments[1].Comment.ID)
+	}
+	if bundle.Comments[1].Comment.Action != "delete" {
+		t.Errorf("action field dropped on delete comment; got %q, want \"delete\"",
+			bundle.Comments[1].Comment.Action)
+	}
+
+	// --- Resolved anchor ---
+	r0 := bundle.Comments[0].ResolvedAnchor
+	if r0 == nil {
+		t.Fatal("resolved_anchor missing on c1")
+	}
+	if r0.Status != "ok" {
+		t.Errorf("c1 anchor status = %q, want ok (line numbers should match)", r0.Status)
+	}
+	if r0.Snippet == "" {
+		t.Errorf("expected snippet for resolved anchor; got empty")
+	}
+	if !strings.Contains(r0.Snippet, "Validate the shared review") {
+		t.Errorf("snippet should include the quoted text; got %q", r0.Snippet)
+	}
+}
+
+// TestRunShareCommentsJSONBundle_NoLocalFile covers the "agent on a
+// different machine" case: the share isn't in this machine's shares.json
+// (or the recorded file is unreadable), so the bundle must include the
+// markdown as base64 instead of a file path.
+func TestRunShareCommentsJSONBundle_NoLocalFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	// Create a share, then DELETE the registry entry to simulate "this
+	// machine doesn't know about this share." The encrypted blob still
+	// has the plan content, so the CLI falls back to it.
+	planText := "# Test Plan\n\n## Goal\n\nA quick \"quoted\" test with newlines.\n"
+	planFile := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(planFile, []byte(planText), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{planFile}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := sharesconfig.Load()
+	s := f.Shares[0]
+	keyBytes := mustDecodeKey(t, s.KeyB64Url)
+
+	// Wipe shares.json so the lookup fails — same effect as fetching a
+	// share you didn't create on this machine.
+	if err := sharesconfig.Remove(s.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// Also need to pass the full URL since the bare ID won't resolve now.
+	url := srv.URL + "/share/" + s.ID + "#k=" + s.KeyB64Url
+	_ = keyBytes
+
+	shareCommentsJSON = true
+	t.Cleanup(func() { shareCommentsJSON = false })
+	out := captureStdout(t, func() { _ = runShareComments(shareCommentsCmd, []string{url}) })
+
+	var bundle struct {
+		Plan struct {
+			File        string `json:"file"`
+			MarkdownB64 string `json:"markdown_b64"`
+		} `json:"plan"`
+	}
+	if err := json.Unmarshal([]byte(out), &bundle); err != nil {
+		t.Fatalf("not valid JSON: %v\n%s", err, out)
+	}
+	if bundle.Plan.File != "" {
+		t.Errorf("plan.file should be empty when share is not registered; got %q", bundle.Plan.File)
+	}
+	if bundle.Plan.MarkdownB64 == "" {
+		t.Fatal("plan.markdown_b64 must be set when plan.file is empty")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(bundle.Plan.MarkdownB64)
+	if err != nil {
+		t.Fatalf("markdown_b64 not valid base64: %v", err)
+	}
+	if string(decoded) != planText {
+		t.Errorf("decoded markdown_b64 doesn't match original.\n  got:  %q\n  want: %q",
+			string(decoded), planText)
+	}
+}
+
 // mustDecodeKey decodes a base64url key or fatals the test.
 func mustDecodeKey(t *testing.T, b64 string) []byte {
 	t.Helper()

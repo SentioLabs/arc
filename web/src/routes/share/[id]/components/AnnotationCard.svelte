@@ -88,9 +88,16 @@
 	// Edits are only meaningful while the comment is still under discussion.
 	// Once it's accepted/rejected/resolved the meaning has been "consumed" by
 	// the plan author — editing the body would be misleading.
+	//
+	// Two roles can edit:
+	//   - The original commenter (refining their own wording)
+	//   - The plan author (sharpening thin reviewer feedback into something
+	//     LLM-consumable without waiting on the reviewer to update)
+	// The displayed `author_name` doesn't change either way; the edit event
+	// records who actually edited.
 	const canEdit = $derived(
 		reviewerName !== null &&
-			e.author_name === reviewerName &&
+			(e.author_name === reviewerName || isAuthor) &&
 			(entry.status === 'open' || entry.status === 'reopened')
 	);
 

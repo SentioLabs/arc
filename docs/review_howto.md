@@ -68,11 +68,81 @@ You could collapse Resolve and Reject into a single "Decline" — GitHub roughly
 
 If in practice you find yourself never using one of these states, that's a signal we should simplify the UI. The current design errs on the side of preserving rationale, since "feedback that's helpful for an LLM" is the project's product goal.
 
-## Reviewers can refine their own comments
+## Editing annotations
 
-A reviewer who left a thin comment ("expand this more") can revise it themselves before the author has acted on it. Look for the **✎ Edit** button on your own annotation cards — it's only visible while the comment is `open` or `reopened`.
+Two roles can edit an annotation while it's `open` or `reopened`:
 
-Once a comment is Accepted, Rejected, or Resolved, the edit button disappears. The reasoning: the author has already decided based on the wording at that moment, and changing it after the fact would be misleading.
+1. **The original commenter** can refine their own wording.
+2. **The plan author** can sharpen any reviewer's comment — useful for turning a thin "expand this more" into a fully-formed instruction the LLM can act on, without waiting on the reviewer.
+
+Either way, **`comment.author_name` doesn't change** — Steve's comment is still attributed to Steve even after Ben rewrites the body. Only the *body* (and `suggested_text`, `comment_type`) changes. The underlying edit event records who actually edited, so the audit trail is preserved if you ever want to inspect it.
+
+Once a comment is Accepted, Rejected, or Resolved, the edit button disappears for everyone. The reasoning: the meaning has been "consumed" by the resolution decision, and changing it after the fact would invalidate that decision.
+
+## JSON output for LLM consumers
+
+`arc share comments <id> --json` emits a single JSON object structured for direct LLM consumption.
+
+**Local case** — share is registered in `~/.arc/shares.json` and the file is readable:
+
+```json
+{
+  "plan": {
+    "id": "abc123",
+    "title": "Test Plan",
+    "author_name": "Ben",
+    "file": "/abs/path/to/docs/plans/foo.md"
+  },
+  "comments": [
+    {
+      "comment": {
+        "kind": "comment",
+        "id": "c-abc",
+        "author_name": "Steve",
+        "comment_type": "issue",
+        "action": "comment",
+        "body": "Goal section should mention success criteria",
+        "anchor": { "line_start": 5, "line_end": 5, "quoted_text": "...", "heading_slug": "goal" },
+        "created_at": "..."
+      },
+      "status": "accepted",
+      "resolved_anchor": {
+        "status": "ok",
+        "line_start": 5,
+        "line_end": 5,
+        "snippet": "## Goal\n\nValidate the shared review feature."
+      }
+    }
+  ]
+}
+```
+
+The agent reads `plan.file` directly — the markdown content isn't included to avoid bloating every CLI call with content the agent can read in one tool call.
+
+**Remote case** — share isn't registered locally (e.g. an agent consuming a shared URL it didn't create). The `file` field is omitted; `markdown_b64` carries the plan content base64-encoded:
+
+```json
+{
+  "plan": {
+    "id": "abc123",
+    "markdown_b64": "IyBUZXN0IFBsYW4KCiMjIEdvYWwK..."
+  },
+  "comments": [...]
+}
+```
+
+Base64 sidesteps the JSON-escape penalty for markdown (every `\n` and `\"` doubles the size and destroys readability when piped to `cat`). Decode with any standard base64 implementation.
+
+Key fields for an agent applying feedback:
+
+- **`plan.file`** *(local case)* — absolute path the agent should `Edit` directly.
+- **`plan.markdown_b64`** *(remote case)* — base64-encoded plan content. Decode and write to disk if the agent needs to operate on a file.
+- **`comment.action`** — `"comment"` (default) or `"delete"`. Delete annotations request removal of `quoted_text`; the body may be empty since the strikethrough IS the action.
+- **`comment.suggested_text`** — when present, this is a literal find-and-replace candidate.
+- **`resolved_anchor.status`** — `"ok"` if line numbers match the current content; `"drifted"` if the comment was relocated via the heading or fuzzy fallback (use the new line numbers); `"orphaned"` if the quoted text isn't in the current content (the agent should grep or skip).
+- **`resolved_anchor.snippet`** — a few lines of context around the anchor, for orientation.
+
+`arc share pull <id> --json` is the same shape filtered to `status === "accepted"` — typical agent input.
 
 ## What flows where
 
