@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/testutil/gittest"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -1098,12 +1098,8 @@ func TestCreateAISession_LinkedWorktreeOutsideRegistered(t *testing.T) {
 	wtDir := filepath.Join(tmp, "feature-x")
 
 	// Real git init + worktree add so DetectMainRepo can follow the .git pointer.
-	mustRun(t, mainDir, "git", "init", "-q")
-	mustRun(t, mainDir, "git", "commit", "--allow-empty", "-m", "init", "-q")
-	mustRun(t, mainDir, "git", "worktree", "add", "-q", "-b", "feature-x", wtDir)
-	t.Cleanup(func() {
-		_ = exec.Command("git", "worktree", "remove", "--force", wtDir).Run()
-	})
+	gittest.InitRepo(t, mainDir)
+	gittest.AddWorktree(t, mainDir, wtDir, "feature-x")
 
 	projID := createNamedProject(t, e, "linked-worktree-proj", "lwp")
 	addWorkspaceToProject(t, e, projID, mainDir)
@@ -1153,24 +1149,3 @@ func TestCreateAISession_RejectCrossProject(t *testing.T) {
 	}
 }
 
-// mustRun executes a shell command in dir, creating dir if necessary.
-// It sets git identity env vars so git commands work in CI without global config.
-func mustRun(t *testing.T, dir, name string, args ...string) {
-	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	cmd := exec.Command(name, args...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(),
-		"GIT_AUTHOR_NAME=test",
-		"GIT_AUTHOR_EMAIL=test@test",
-		"GIT_COMMITTER_NAME=test",
-		"GIT_COMMITTER_EMAIL=test@test",
-		"GIT_CONFIG_NOSYSTEM=1",
-		"GIT_CONFIG_GLOBAL=/dev/null",
-	)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("%s %v: %v\n%s", name, args, err, out)
-	}
-}
