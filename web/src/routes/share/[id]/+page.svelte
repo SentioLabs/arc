@@ -36,6 +36,10 @@
 	let showNamePrompt = $state(false);
 	let pendingAfterName: (() => void) | null = null;
 
+	// --- Share-link copy (author-only) ---
+	let copiedShareLink = $state(false);
+	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
 	// --- UI state for selection-driven actions ---
 	type SelectionInfo = {
 		lineStart: number;
@@ -144,6 +148,25 @@
 		showQuickLabel = false;
 		const sel = window.getSelection();
 		sel?.removeAllRanges();
+	}
+
+	// Build the bare share URL (no &t=) from the current location and copy it.
+	// Author URL fragment carries both k and t; reviewers must only ever see k.
+	async function copyShareLink() {
+		const { k } = parseShareFragment(window.location.hash);
+		if (!k) return;
+		const url = `${window.location.origin}${window.location.pathname}#k=${k}`;
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			return;
+		}
+		copiedShareLink = true;
+		if (copyResetTimer) clearTimeout(copyResetTimer);
+		copyResetTimer = setTimeout(() => {
+			copiedShareLink = false;
+			copyResetTimer = null;
+		}, 1500);
 	}
 
 	async function postEvent(event: EventPlaintext) {
@@ -378,16 +401,59 @@
 						{plan?.title ?? 'Untitled plan'}
 					</h1>
 				</div>
-				{#if reviewerName}
-					<button
-						type="button"
-						class="name-chip cursor-pointer hover:border-[var(--ink-comment-edge)]"
-						onclick={() => (showNamePrompt = true)}
-						title="Click to change name"
-					>
-						{reviewerName}{isAuthor ? ' · author' : ''}
-					</button>
-				{/if}
+				<div class="header-instruments flex items-center gap-3">
+					{#if isAuthor}
+						<button
+							type="button"
+							class="share-stamp"
+							class:is-copied={copiedShareLink}
+							onclick={copyShareLink}
+							aria-label="Copy reviewer share link"
+							aria-live="polite"
+						>
+							<span class="share-stamp-icon" aria-hidden="true">
+								{#if copiedShareLink}
+									<!-- check -->
+									<svg viewBox="0 0 12 12" width="12" height="12">
+										<path
+											d="M2 6.4 L4.8 9 L10 3.2"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.6"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								{:else}
+									<!-- link -->
+									<svg viewBox="0 0 12 12" width="12" height="12">
+										<path
+											d="M5 7.2 L7.2 5 M4.4 4 L3 5.4 a2.2 2.2 0 0 0 3.1 3.1 L7.4 7.2 M7.6 8 L9 6.6 a2.2 2.2 0 0 0 -3.1 -3.1 L4.6 4.8"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.4"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								{/if}
+							</span>
+							<span class="share-stamp-label">
+								{copiedShareLink ? 'Copied' : 'Share link'}
+							</span>
+						</button>
+					{/if}
+					{#if reviewerName}
+						<button
+							type="button"
+							class="name-chip cursor-pointer hover:border-[var(--ink-comment-edge)]"
+							onclick={() => (showNamePrompt = true)}
+							title="Click to change name"
+						>
+							{reviewerName}{isAuthor ? ' · author' : ''}
+						</button>
+					{/if}
+				</div>
 			</header>
 
 			{#if loadError}

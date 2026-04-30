@@ -1088,3 +1088,76 @@
 	padding: 0.25rem 0.625rem;
 	border-radius: 9999px;
 }
+
+/* Author-only "Share link" stamp.
+ *
+ * Visual sibling of the mono "Plan · <id>" label on the left of the header:
+ * monospace, uppercase, tight tracking. Distinguishes ACTION (verb, mono) from
+ * IDENTITY (noun, sans pill). Confirmation reuses the established amber
+ * --ink-comment palette — already the language of "noted / acknowledged" on
+ * this page — instead of inventing a new accent. */
+.share-page .share-stamp {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	min-width: 7.25rem; /* keeps width stable across "Share link" / "Copied" */
+	justify-content: center;
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 0.6875rem;
+	font-weight: 500;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--ink-text-muted);
+	background: var(--ink-paper-raised);
+	border: 1px solid var(--ink-rule);
+	padding: 0.3rem 0.7rem 0.28rem;
+	border-radius: 4px; /* squarer than the chip — reads as a stamp, not a tag */
+	cursor: pointer;
+	transition:
+		color 140ms ease,
+		border-color 140ms ease,
+		background-color 140ms ease,
+		transform 80ms ease,
+		opacity 80ms ease;
+}
+.share-page .share-stamp:hover {
+	color: var(--ink-text);
+	border-color: oklch(from var(--ink-rule) calc(l - 0.05) c h);
+}
+.share-page .share-stamp:active {
+	/* The "stamp press" — a 1px tap on click before the copied state takes
+	 * over. Subliminal; you feel it more than see it. */
+	transform: translateY(1px);
+	opacity: 0.85;
+}
+.share-page .share-stamp.is-copied {
+	color: var(--ink-comment);
+	background: var(--ink-comment-bg);
+	border-color: var(--ink-comment-edge);
+}
+.share-page .share-stamp-icon {
+	display: inline-flex;
+	width: 12px;
+	height: 12px;
+	flex: none;
+}
+.share-page .share-stamp-label {
+	display: inline-block;
+}
+
+/* Header instruments group: a thin vertical hairline ties the stamp and the
+ * identity chip into one cluster on the right side of the header. The rule
+ * matches --ink-rule from the bottom border of the header itself. */
+.share-page .header-instruments > * + * {
+	position: relative;
+}
+.share-page .header-instruments > * + *::before {
+	content: "";
+	position: absolute;
+	left: -0.625rem; /* halfway into the parent's gap-3 */
+	top: 50%;
+	width: 1px;
+	height: 0.875rem;
+	background: var(--ink-rule);
+	transform: translateY(-50%);
+}
