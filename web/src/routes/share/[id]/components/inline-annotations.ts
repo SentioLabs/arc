@@ -32,9 +32,35 @@ export function applyInlineAnnotations(
 	clearMarks(container);
 
 	for (const mark of marks) {
-		const block = container.querySelector<HTMLElement>(`[data-source-line="${mark.lineStart}"]`);
-		if (!block) continue;
-		wrapFirstOccurrence(block, mark, mark.id === activeId);
+		const isActive = mark.id === activeId;
+		// Single-block selection: existing fast path. Most annotations land here.
+		if (mark.lineStart === mark.lineEnd) {
+			const block = container.querySelector<HTMLElement>(`[data-source-line="${mark.lineStart}"]`);
+			if (block) wrapNeedleInBlock(block, mark.quotedText, mark, isActive);
+			continue;
+		}
+		// Multi-block selection. `selection.toString()` inserts \n (often \n\n)
+		// between block-level elements, so the needle won't be found inside any
+		// single block's textContent. Split on runs of newlines and wrap each
+		// segment in its corresponding block, walked in source-line order.
+		const segments = mark.quotedText
+			.split(/\n+/)
+			.map((s) => s.trim())
+			.filter((s) => s.length > 0);
+		if (segments.length === 0) continue;
+		const blocks: HTMLElement[] = [];
+		for (let line = mark.lineStart; line <= mark.lineEnd; line++) {
+			const b = container.querySelector<HTMLElement>(`[data-source-line="${line}"]`);
+			if (b) blocks.push(b);
+		}
+		// Pair segments with blocks one-for-one. If counts diverge (rare —
+		// would mean the markdown renderer collapsed/dropped a block since
+		// the comment was created), wrap as many as we can rather than
+		// nothing — partial highlight beats a missing one.
+		const n = Math.min(segments.length, blocks.length);
+		for (let i = 0; i < n; i++) {
+			wrapNeedleInBlock(blocks[i], segments[i], mark, isActive);
+		}
 	}
 }
 
@@ -50,8 +76,12 @@ function clearMarks(container: HTMLElement): void {
 	}
 }
 
-function wrapFirstOccurrence(block: HTMLElement, mark: InlineMark, isActive: boolean): void {
-	const needle = mark.quotedText;
+function wrapNeedleInBlock(
+	block: HTMLElement,
+	needle: string,
+	mark: InlineMark,
+	isActive: boolean
+): void {
 	if (!needle) return;
 
 	// Walk text nodes in document order; track running offset so we can find the
