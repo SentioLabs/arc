@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -33,6 +34,9 @@ type Server struct {
 type Config struct {
 	Address string // e.g., ":7432" or "localhost:7432"
 	Store   storage.Storage
+	// DB is the underlying *sql.DB for the arc storage. When non-nil, paste
+	// routes are registered under /api/paste using this connection.
+	DB *sql.DB
 }
 
 // New creates a new API server.
@@ -64,6 +68,11 @@ func New(cfg Config) *Server {
 
 	// Register routes
 	s.registerRoutes()
+
+	// Register paste routes when a database connection is available.
+	if cfg.DB != nil {
+		registerPasteRoutes(e, cfg.DB)
+	}
 
 	// Serve embedded SPA for non-API routes
 	web.RegisterSPA(e)

@@ -36,7 +36,13 @@
 					{issue.id}
 				</span>
 				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-				<span role="presentation" onclick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+				<span
+					role="presentation"
+					onclick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+					}}
+				>
 					<CopyIdButton value={issue.id} reveal="hover" groupHovered={cardHovered} />
 				</span>
 			</span>

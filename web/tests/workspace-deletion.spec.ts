@@ -216,9 +216,7 @@ test.describe('Project Deletion', () => {
 		await dialog.getByRole('button', { name: 'Delete Projects' }).click();
 
 		// Wait for dialog to close
-		await expect(
-			page.getByRole('heading', { name: 'Delete 2 projects?' })
-		).not.toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Delete 2 projects?' })).not.toBeVisible();
 
 		// Deleted projects should be removed
 		await expect(page.locator('main').getByText('Test Project 1')).not.toBeVisible();

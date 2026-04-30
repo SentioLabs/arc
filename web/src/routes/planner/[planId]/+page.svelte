@@ -1,9 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import {
-		getPlan, updatePlanContent,
-		listPlanComments, createPlanComment
-	} from '$lib/api';
+	import { getPlan, updatePlanContent, listPlanComments, createPlanComment } from '$lib/api';
 	import type { PlanWithContent, PlanComment } from '$lib/api';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import { formatRelativeTime } from '$lib/utils';
@@ -41,12 +38,16 @@
 
 	// Count of lines that have comments (for the review tab badge)
 	let lineCommentCount = $derived(
-		[...commentsByLine.entries()].filter(([k]) => k !== null).reduce((sum, [, v]) => sum + v.length, 0)
+		[...commentsByLine.entries()]
+			.filter(([k]) => k !== null)
+			.reduce((sum, [, v]) => sum + v.length, 0)
 	);
 
 	let overallComments = $derived(commentsByLine.get(null) ?? []);
 
-	$effect(() => { if (planId) loadData(); });
+	$effect(() => {
+		if (planId) loadData();
+	});
 
 	async function loadData() {
 		if (!planId) return;
@@ -99,11 +100,16 @@
 
 	function statusColor(status: string): string {
 		switch (status) {
-			case 'draft': return 'bg-surface-600 text-text-secondary';
-			case 'in_review': return 'bg-yellow-900/30 text-yellow-400 border border-yellow-800';
-			case 'approved': return 'bg-green-900/30 text-green-400 border border-green-800';
-			case 'rejected': return 'bg-red-900/30 text-red-400 border border-red-800';
-			default: return 'bg-surface-600 text-text-secondary';
+			case 'draft':
+				return 'bg-surface-600 text-text-secondary';
+			case 'in_review':
+				return 'bg-yellow-900/30 text-yellow-400 border border-yellow-800';
+			case 'approved':
+				return 'bg-green-900/30 text-green-400 border border-green-800';
+			case 'rejected':
+				return 'bg-red-900/30 text-red-400 border border-red-800';
+			default:
+				return 'bg-surface-600 text-text-secondary';
 		}
 	}
 </script>
@@ -134,18 +140,20 @@
 		<!-- View Mode Tabs -->
 		<div class="flex gap-1 border-b border-surface-600">
 			<button
-				onclick={() => viewMode = 'review'}
+				onclick={() => (viewMode = 'review')}
 				class="px-4 py-2 text-sm transition-colors flex items-center gap-1.5 {viewMode === 'review'
 					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
 					: 'text-text-muted hover:text-text-secondary'}"
 			>
 				Review
 				{#if lineCommentCount > 0}
-					<span class="px-1.5 py-0.5 text-xs rounded-full bg-yellow-900/30 text-yellow-400">{lineCommentCount}</span>
+					<span class="px-1.5 py-0.5 text-xs rounded-full bg-yellow-900/30 text-yellow-400"
+						>{lineCommentCount}</span
+					>
 				{/if}
 			</button>
 			<button
-				onclick={() => viewMode = 'read'}
+				onclick={() => (viewMode = 'read')}
 				class="px-4 py-2 text-sm transition-colors {viewMode === 'read'
 					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
 					: 'text-text-muted hover:text-text-secondary'}"
@@ -175,7 +183,8 @@
 						<div class="group">
 							<div class="flex hover:bg-surface-700/50">
 								<button
-									onclick={() => activeCommentLine = activeCommentLine === lineNum ? null : lineNum}
+									onclick={() =>
+										(activeCommentLine = activeCommentLine === lineNum ? null : lineNum)}
 									class="w-12 text-right pr-3 py-0.5 text-text-muted hover:text-primary-400 select-none shrink-0 cursor-pointer"
 								>
 									{lineNum}
@@ -191,7 +200,9 @@
 							</div>
 
 							{#if lineComments.length > 0}
-								<div class="ml-12 pl-3 border-l-2 border-yellow-800 bg-yellow-900/10 py-2 space-y-1">
+								<div
+									class="ml-12 pl-3 border-l-2 border-yellow-800 bg-yellow-900/10 py-2 space-y-1"
+								>
 									{#each lineComments as comment}
 										<div class="text-sm text-text-secondary">
 											{comment.content}
@@ -210,7 +221,9 @@
 										bind:value={commentText}
 										placeholder="Add a comment on line {lineNum}..."
 										class="flex-1 bg-surface-700 text-text-primary text-sm px-3 py-1.5 rounded border border-surface-500 focus:border-primary-500 focus:outline-none"
-										onkeydown={(e) => { if (e.key === 'Enter') handleAddComment(lineNum); }}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') handleAddComment(lineNum);
+										}}
 									/>
 									<button
 										onclick={() => handleAddComment(lineNum)}
@@ -242,12 +255,16 @@
 					spellcheck="false"
 				></textarea>
 				<div class="flex gap-2 justify-end">
-					<button onclick={() => viewMode = 'read'}
-						class="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary">
+					<button
+						onclick={() => (viewMode = 'read')}
+						class="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
+					>
 						Cancel
 					</button>
-					<button onclick={handleSaveEdit}
-						class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500">
+					<button
+						onclick={handleSaveEdit}
+						class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500"
+					>
 						Save
 					</button>
 				</div>
@@ -260,7 +277,10 @@
 				<label for="overall-feedback" class="text-xs text-text-muted uppercase tracking-wide">
 					Overall Feedback
 					{#if overallComments.length > 0}
-						<span class="ml-1.5 px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400 normal-case">{overallComments.length}</span>
+						<span
+							class="ml-1.5 px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400 normal-case"
+							>{overallComments.length}</span
+						>
 					{/if}
 				</label>
 				{#if overallComments.length > 0}
@@ -282,7 +302,9 @@
 						placeholder="Overall feedback on this plan..."
 						rows="2"
 						class="flex-1 bg-surface-700 text-text-primary text-sm p-3 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
-						onkeydown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment(null); }}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment(null);
+						}}
 					></textarea>
 					<button
 						onclick={() => handleAddComment(null)}

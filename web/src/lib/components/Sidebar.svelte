@@ -81,9 +81,7 @@
 	<!-- Project List with Search (only when viewing a project) -->
 	{#if projects.length > 0 && currentProject}
 		<div class="p-3 border-b border-border">
-			<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
-				Projects
-			</div>
+			<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Projects</div>
 			<!-- Search input -->
 			<div class="relative mb-2">
 				<svg

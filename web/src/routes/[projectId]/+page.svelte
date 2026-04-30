@@ -72,9 +72,7 @@
 		renameError = '';
 		try {
 			const updated = await updateProject(projectId!, { name: trimmed });
-			projects.update((list) =>
-				list.map((p) => (p.id === updated.id ? updated : p))
-			);
+			projects.update((list) => list.map((p) => (p.id === updated.id ? updated : p)));
 			renameEditing = false;
 		} catch (err) {
 			renameError = err instanceof Error ? err.message : 'Failed to rename project';
@@ -84,8 +82,14 @@
 	}
 
 	function handleRenameKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
-		if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			saveRename();
+		}
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			cancelRename();
+		}
 	}
 
 	function handleRenameBlur(e: FocusEvent) {
@@ -118,9 +122,7 @@
 
 	// Merge source options: all projects except current
 	const mergeSourceOptions = $derived.by(() => {
-		return $projects
-			.filter((p) => p.id !== projectId)
-			.map((p) => ({ value: p.id, label: p.name }));
+		return $projects.filter((p) => p.id !== projectId).map((p) => ({ value: p.id, label: p.name }));
 	});
 
 	// Load stats when project changes
@@ -325,7 +327,7 @@
 </script>
 
 {#if project}
-	<Header project={project} actions={headerActions} onaction={handleHeaderAction} />
+	<Header {project} actions={headerActions} onaction={handleHeaderAction} />
 
 	<div class="flex-1 p-8 animate-fade-in">
 		<header class="mb-8">
@@ -369,10 +371,14 @@
 				<div class="flex items-center justify-between mb-3">
 					<div class="flex items-center gap-3">
 						<svg class="w-5 h-5 text-text-muted" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+							<path
+								d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+							/>
 						</svg>
 						<h2 class="text-lg font-semibold text-text-primary">Paths</h2>
-						<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-700 text-text-muted">
+						<span
+							class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-700 text-text-muted"
+						>
 							{paths.length}
 						</span>
 					</div>
@@ -381,20 +387,32 @@
 				{#if pathsLoading}
 					<div class="flex items-center gap-2 text-sm text-text-muted py-4">
 						<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							<circle
+								class="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="4"
+							></circle>
+							<path
+								class="opacity-75"
+								fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+							></path>
 						</svg>
 						Loading paths...
 					</div>
 				{:else if paths.length === 0}
 					<div class="bg-surface-900 border border-border-subtle rounded-lg p-6 text-center">
-						<p class="text-sm text-text-muted font-mono">
-							No paths registered
-						</p>
+						<p class="text-sm text-text-muted font-mono">No paths registered</p>
 						<button
 							type="button"
 							class="mt-3 text-sm text-primary-400 hover:text-primary-300 transition-colors"
-							onclick={() => { managingPaths = true; addPathOpen = true; }}
+							onclick={() => {
+								managingPaths = true;
+								addPathOpen = true;
+							}}
 						>
 							+ Add a path
 						</button>
@@ -402,9 +420,21 @@
 				{:else}
 					<!-- Terminal-style table matching `arc paths` output -->
 					<div class="bg-surface-900 border border-border-subtle rounded-lg overflow-x-auto">
-						<pre class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre"><span class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  LABEL</span>
-<span class="text-text-muted/50">{makeSeparator(pathColumns.pathW)}  {makeSeparator(pathColumns.labelW)}</span>
-{#each groupedPaths as entry, i}{#if i > 0}{'\n'}{/if}{#if entry.isSymlink}<span class="text-text-muted">  {padRight('\u2192 ' + entry.path, pathColumns.pathW - 2)}  {entry.label}</span>{:else}{padRight(entry.path, pathColumns.pathW)}  <span class="text-text-secondary">{entry.label}</span>{/if}{/each}</pre>
+						<pre
+							class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre"><span
+								class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  LABEL</span
+							>
+<span class="text-text-muted/50"
+								>{makeSeparator(pathColumns.pathW)}  {makeSeparator(pathColumns.labelW)}</span
+							>
+{#each groupedPaths as entry, i}{#if i > 0}{'\n'}{/if}{#if entry.isSymlink}<span
+										class="text-text-muted">  {padRight(
+											'\u2192 ' + entry.path,
+											pathColumns.pathW - 2
+										)}  {entry.label}</span
+									>{:else}{padRight(entry.path, pathColumns.pathW)}  <span
+										class="text-text-secondary">{entry.label}</span
+									>{/if}{/each}</pre>
 					</div>
 				{/if}
 
@@ -413,7 +443,10 @@
 					<button
 						type="button"
 						class="flex items-center gap-2 text-sm text-text-muted hover:text-text-secondary transition-colors group"
-						onclick={() => { managingPaths = !managingPaths; if (!managingPaths) addPathOpen = false; }}
+						onclick={() => {
+							managingPaths = !managingPaths;
+							if (!managingPaths) addPathOpen = false;
+						}}
 					>
 						<svg
 							class="w-4 h-4 transition-transform {managingPaths ? 'rotate-90' : ''}"
@@ -423,7 +456,9 @@
 							<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
 						</svg>
 						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+							<path
+								d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+							/>
 						</svg>
 						Manage paths
 					</button>
@@ -433,11 +468,27 @@
 							<div class="card p-5">
 								<!-- Editable path list with delete buttons — terminal-style -->
 								{#if paths.length > 0}
-									<div class="bg-surface-900 border border-border-subtle rounded-md overflow-x-auto mb-4">
+									<div
+										class="bg-surface-900 border border-border-subtle rounded-md overflow-x-auto mb-4"
+									>
 										<div class="flex">
-											<pre class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre flex-1"><span class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  LABEL</span>
-<span class="text-text-muted/50">{makeSeparator(pathColumns.pathW)}  {makeSeparator(pathColumns.labelW)}</span>
-{#each groupedPaths as entry, i}{#if i > 0}{'\n'}{/if}{#if entry.isSymlink}<span class="text-text-muted">  {padRight('\u2192 ' + entry.path, pathColumns.pathW - 2)}  {entry.label}</span>{:else}{padRight(entry.path, pathColumns.pathW)}  <span class="text-text-secondary">{entry.label}</span>{/if}{/each}</pre>
+											<pre
+												class="font-mono text-xs leading-relaxed p-4 text-text-primary whitespace-pre flex-1"><span
+													class="text-text-muted">{padRight('PATH', pathColumns.pathW)}  LABEL</span
+												>
+<span class="text-text-muted/50"
+													>{makeSeparator(pathColumns.pathW)}  {makeSeparator(
+														pathColumns.labelW
+													)}</span
+												>
+{#each groupedPaths as entry, i}{#if i > 0}{'\n'}{/if}{#if entry.isSymlink}<span
+															class="text-text-muted">  {padRight(
+																'\u2192 ' + entry.path,
+																pathColumns.pathW - 2
+															)}  {entry.label}</span
+														>{:else}{padRight(entry.path, pathColumns.pathW)}  <span
+															class="text-text-secondary">{entry.label}</span
+														>{/if}{/each}</pre>
 											<div class="flex flex-col pt-4 pr-3" style="padding-top: calc(1rem + 2lh);">
 												{#each groupedPaths as entry (entry.id)}
 													<div class="flex items-center justify-center" style="height: 1lh;">
@@ -448,7 +499,9 @@
 															onclick={() => confirmDeletePathAction(entry.id, entry.path)}
 														>
 															<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-																<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z" />
+																<path
+																	d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"
+																/>
 															</svg>
 														</button>
 													</div>
@@ -472,21 +525,31 @@
 									</button>
 								{:else}
 									<!-- Add path form -->
-									<div class="bg-surface-800 border border-border-subtle rounded-lg p-4 animate-fade-in">
-										<h4 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Add a directory path</h4>
+									<div
+										class="bg-surface-800 border border-border-subtle rounded-lg p-4 animate-fade-in"
+									>
+										<h4 class="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
+											Add a directory path
+										</h4>
 
 										<!-- Mode toggle -->
 										<div class="flex gap-1 mb-4 p-1 bg-surface-900 rounded-lg w-fit">
 											<button
 												type="button"
-												class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'browse' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
+												class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode ===
+												'browse'
+													? 'bg-surface-600 text-text-primary'
+													: 'text-text-muted hover:text-text-secondary'}"
 												onclick={() => (addPathMode = 'browse')}
 											>
 												Browse
 											</button>
 											<button
 												type="button"
-												class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode === 'manual' ? 'bg-surface-600 text-text-primary' : 'text-text-muted hover:text-text-secondary'}"
+												class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {addPathMode ===
+												'manual'
+													? 'bg-surface-600 text-text-primary'
+													: 'text-text-muted hover:text-text-secondary'}"
 												onclick={() => (addPathMode = 'manual')}
 											>
 												Manual
@@ -497,10 +560,16 @@
 											<FilesystemBrowser onSelect={handleBrowseSelect} />
 											{#if selectedPath}
 												<div class="mt-3 flex items-center gap-2 p-2 bg-surface-900 rounded-lg">
-													<svg class="w-4 h-4 text-primary-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+													<svg
+														class="w-4 h-4 text-primary-400 flex-shrink-0"
+														viewBox="0 0 24 24"
+														fill="currentColor"
+													>
 														<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
 													</svg>
-													<span class="text-sm font-mono text-text-primary truncate">{selectedPath}</span>
+													<span class="text-sm font-mono text-text-primary truncate"
+														>{selectedPath}</span
+													>
 												</div>
 											{/if}
 										{:else}
@@ -540,8 +609,19 @@
 											>
 												{#if addingPath}
 													<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+														<circle
+															class="opacity-25"
+															cx="12"
+															cy="12"
+															r="10"
+															stroke="currentColor"
+															stroke-width="4"
+														></circle>
+														<path
+															class="opacity-75"
+															fill="currentColor"
+															d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+														></path>
 													</svg>
 													Adding...
 												{:else}
@@ -672,14 +752,23 @@
 	<dialog
 		class="dialog-modal"
 		open
-		onclick={(e) => { if (e.target === e.currentTarget && !merging) cancelMerge(); }}
-		onkeydown={(e) => { if (e.key === 'Escape' && !merging) { e.preventDefault(); cancelMerge(); } }}
+		onclick={(e) => {
+			if (e.target === e.currentTarget && !merging) cancelMerge();
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape' && !merging) {
+				e.preventDefault();
+				cancelMerge();
+			}
+		}}
 	>
 		<div class="dialog-content animate-dialog-in">
 			{#if mergeResult}
 				<!-- Success state -->
 				<div class="flex items-start gap-4 mb-6">
-					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-status-open/20">
+					<div
+						class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-status-open/20"
+					>
 						<svg class="w-5 h-5 text-status-open" viewBox="0 0 24 24" fill="currentColor">
 							<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
 						</svg>
@@ -687,7 +776,10 @@
 					<div class="flex-1 min-w-0">
 						<h2 class="text-lg font-semibold text-text-primary">Merge complete</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{project?.name}</strong>.
+							Moved {mergeResult.issues_moved}
+							{mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved}
+							{mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into
+							<strong>{project?.name}</strong>.
 						</p>
 					</div>
 				</div>
@@ -700,15 +792,20 @@
 			{:else}
 				<!-- Merge form -->
 				<div class="flex items-start gap-4 mb-6">
-					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-primary-600/20">
+					<div
+						class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-primary-600/20"
+					>
 						<svg class="w-5 h-5 text-primary-400" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z" />
+							<path
+								d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z"
+							/>
 						</svg>
 					</div>
 					<div class="flex-1 min-w-0">
 						<h2 class="text-lg font-semibold text-text-primary">Merge into {project?.name}</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Select projects to merge into this one. All issues and plans will be moved here. The source projects will be deleted.
+							Select projects to merge into this one. All issues and plans will be moved here. The
+							source projects will be deleted.
 						</p>
 					</div>
 				</div>
@@ -718,12 +815,16 @@
 					<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
 						Select projects to merge
 					</div>
-					<div class="bg-surface-900 border border-border-subtle rounded-md max-h-60 overflow-y-auto">
+					<div
+						class="bg-surface-900 border border-border-subtle rounded-md max-h-60 overflow-y-auto"
+					>
 						{#each mergeSourceOptions as option (option.value)}
 							{@const isSelected = selectedMergeSources.includes(option.value)}
 							<button
 								type="button"
-								class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left border-b border-border-subtle last:border-b-0 transition-colors {isSelected ? 'bg-primary-600/10 text-text-primary' : 'text-text-secondary hover:bg-surface-800'}"
+								class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left border-b border-border-subtle last:border-b-0 transition-colors {isSelected
+									? 'bg-primary-600/10 text-text-primary'
+									: 'text-text-secondary hover:bg-surface-800'}"
 								onclick={() => toggleMergeSource(option.value)}
 							>
 								<input
@@ -738,17 +839,29 @@
 						{/each}
 					</div>
 					{#if selectedMergeSources.length > 0}
-						<p class="text-xs text-text-muted mt-2">{selectedMergeSources.length} project{selectedMergeSources.length === 1 ? '' : 's'} selected</p>
+						<p class="text-xs text-text-muted mt-2">
+							{selectedMergeSources.length} project{selectedMergeSources.length === 1 ? '' : 's'} selected
+						</p>
 					{/if}
 				</div>
 
 				<!-- Warning -->
 				{#if selectedMergeSources.length > 0}
-					<div class="flex items-center gap-2 p-3 bg-priority-high/10 border border-priority-high/20 rounded-md mb-6">
-						<svg class="w-4 h-4 text-priority-high shrink-0" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+					<div
+						class="flex items-center gap-2 p-3 bg-priority-high/10 border border-priority-high/20 rounded-md mb-6"
+					>
+						<svg
+							class="w-4 h-4 text-priority-high shrink-0"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+						>
+							<path
+								d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+							/>
 						</svg>
-						<span class="text-xs text-priority-high">Selected projects will be permanently deleted after merge</span>
+						<span class="text-xs text-priority-high"
+							>Selected projects will be permanently deleted after merge</span
+						>
 					</div>
 				{/if}
 
@@ -765,12 +878,25 @@
 					>
 						{#if merging}
 							<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								<circle
+									class="opacity-25"
+									cx="12"
+									cy="12"
+									r="10"
+									stroke="currentColor"
+									stroke-width="4"
+								></circle>
+								<path
+									class="opacity-75"
+									fill="currentColor"
+									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+								></path>
 							</svg>
 							Merging...
 						{:else}
-							Merge {selectedMergeSources.length} project{selectedMergeSources.length === 1 ? '' : 's'}
+							Merge {selectedMergeSources.length} project{selectedMergeSources.length === 1
+								? ''
+								: 's'}
 						{/if}
 					</button>
 				</div>
@@ -803,8 +929,19 @@
 						>
 							{#if renameSaving}
 								<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									<circle
+										class="opacity-25"
+										cx="12"
+										cy="12"
+										r="10"
+										stroke="currentColor"
+										stroke-width="4"
+									></circle>
+									<path
+										class="opacity-75"
+										fill="currentColor"
+										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+									></path>
 								</svg>
 							{:else}
 								Save
@@ -838,7 +975,9 @@
 				onclick={startRename}
 			>
 				<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-					<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+					<path
+						d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+					/>
 				</svg>
 			</button>
 		{/if}

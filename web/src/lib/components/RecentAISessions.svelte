@@ -40,7 +40,9 @@
 		return `${days}d ago`;
 	}
 
-	function formatStatusSummary(summary: AISessionResponse['agent_summary']): Array<{ text: string; className: string }> {
+	function formatStatusSummary(
+		summary: AISessionResponse['agent_summary']
+	): Array<{ text: string; className: string }> {
 		if (!summary) return [];
 		const parts: Array<{ text: string; className: string }> = [];
 		if (summary.running_count && summary.running_count > 0) {
@@ -70,19 +72,32 @@
 <section class="mb-8">
 	<div class="flex items-center justify-between mb-3">
 		<div class="flex items-center gap-3">
-			<svg class="w-5 h-5 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.4V11h3a3 3 0 0 1 3 3v1.5a2.5 2.5 0 0 1 0 5V21a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-.5a2.5 2.5 0 0 1 0-5V14a3 3 0 0 1 3-3h3V9.4A4 4 0 0 1 12 2z" />
+			<svg
+				class="w-5 h-5 text-text-muted"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.4V11h3a3 3 0 0 1 3 3v1.5a2.5 2.5 0 0 1 0 5V21a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-.5a2.5 2.5 0 0 1 0-5V14a3 3 0 0 1 3-3h3V9.4A4 4 0 0 1 12 2z"
+				/>
 				<circle cx="9" cy="17" r="1" fill="currentColor" />
 				<circle cx="15" cy="17" r="1" fill="currentColor" />
 			</svg>
 			<h2 class="text-lg font-semibold text-text-primary">Recent AI Sessions</h2>
 			{#if !loading && sessions.length > 0}
-				<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-700 text-text-muted">
+				<span
+					class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-700 text-text-muted"
+				>
 					{sessions.length}
 				</span>
 			{/if}
 		</div>
-		<a href="/{projectId}/ai" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+		<a
+			href="/{projectId}/ai"
+			class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors"
+		>
 			View all &rarr;
 		</a>
 	</div>
@@ -90,8 +105,13 @@
 	{#if loading}
 		<div class="flex items-center gap-2 text-sm text-text-muted py-4">
 			<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+				></circle>
+				<path
+					class="opacity-75"
+					fill="currentColor"
+					d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+				></path>
 			</svg>
 			Loading sessions...
 		</div>

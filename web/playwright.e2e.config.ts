@@ -11,13 +11,13 @@ export default defineConfig({
 	reporter: [['html', { open: 'never' }]],
 	use: {
 		baseURL: 'http://localhost:7433',
-		trace: 'on-first-retry',
+		trace: 'on-first-retry'
 	},
 	projects: [
 		{
 			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] },
-		},
-	],
+			use: { ...devices['Desktop Chrome'] }
+		}
+	]
 	// No webServer block — test server is managed externally by docker compose
 });

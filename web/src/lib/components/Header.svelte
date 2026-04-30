@@ -78,10 +78,7 @@
 		<div class="flex items-center gap-3 min-w-0">
 			{#if project}
 				<nav class="flex items-center gap-2 text-sm">
-					<a
-						href="/{project.id}"
-						class="text-text-muted hover:text-text-primary transition-colors"
-					>
+					<a href="/{project.id}" class="text-text-muted hover:text-text-primary transition-colors">
 						{project.name}
 					</a>
 					{#if title}
@@ -152,12 +149,16 @@
 						onclick={() => (menuOpen = !menuOpen)}
 					>
 						<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+							<path
+								d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+							/>
 						</svg>
 					</button>
 
 					{#if menuOpen}
-						<div class="absolute right-0 top-full mt-1 bg-surface-800 border border-border rounded-lg shadow-lg min-w-[180px] py-1 animate-fade-in z-20">
+						<div
+							class="absolute right-0 top-full mt-1 bg-surface-800 border border-border rounded-lg shadow-lg min-w-[180px] py-1 animate-fade-in z-20"
+						>
 							{#each actions as action (action.id)}
 								<button
 									type="button"

@@ -39,7 +39,9 @@ test.describe('Comments and Events Timeline', () => {
 
 		// Verify order: First should appear before Second, Second before Third
 		const commentsSection = page.locator('section', { has: page.getByText('Comments (3)') });
-		const commentTexts = await commentsSection.locator('.border-b, .last\\:border-0').allTextContents();
+		const commentTexts = await commentsSection
+			.locator('.border-b, .last\\:border-0')
+			.allTextContents();
 		const orderedTexts = commentTexts.join('|||');
 		expect(orderedTexts.indexOf('First')).toBeLessThan(orderedTexts.indexOf('Second'));
 		expect(orderedTexts.indexOf('Second')).toBeLessThan(orderedTexts.indexOf('Third'));

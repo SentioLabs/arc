@@ -67,7 +67,7 @@
 </svelte:head>
 
 {#if project}
-	<Header project={project} title="New Issue" />
+	<Header {project} title="New Issue" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<div class="max-w-2xl mx-auto">

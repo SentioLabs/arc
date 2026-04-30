@@ -418,19 +418,21 @@
 					{#if $projects.length > selectedCount}
 						<button class="btn btn-primary btn-sm" onclick={handleMerge}>
 							<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z" />
+								<path
+									d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z"
+								/>
 							</svg>
 							Merge into...
 						</button>
 					{/if}
-				<button class="btn btn-danger btn-sm" onclick={handleDeleteSelected}>
-					<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-						<path
-							d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"
-						/>
-					</svg>
-					Delete {selectedCount === 1 ? 'project' : `${selectedCount} projects`}
-				</button>
+					<button class="btn btn-danger btn-sm" onclick={handleDeleteSelected}>
+						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"
+							/>
+						</svg>
+						Delete {selectedCount === 1 ? 'project' : `${selectedCount} projects`}
+					</button>
 				</div>
 			{/if}
 		</div>
@@ -479,10 +481,20 @@
 					<button
 						type="button"
 						class="btn btn-ghost btn-sm gap-1.5"
-						onclick={() => { sortAsc = !sortAsc; }}
+						onclick={() => {
+							sortAsc = !sortAsc;
+						}}
 					>
-						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/>
+						<svg
+							class="w-3.5 h-3.5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4" />
 						</svg>
 						{sortAsc ? 'A–Z' : 'Z–A'}
 					</button>
@@ -490,32 +502,60 @@
 				<div class="flex items-center gap-1">
 					<button
 						type="button"
-						class="btn btn-ghost btn-sm btn-icon {layoutMode === 'grid' ? '!border-primary-600/40 !text-primary-400' : ''}"
+						class="btn btn-ghost btn-sm btn-icon {layoutMode === 'grid'
+							? '!border-primary-600/40 !text-primary-400'
+							: ''}"
 						title="Grid view"
-						onclick={() => { layoutMode = 'grid'; }}
+						onclick={() => {
+							layoutMode = 'grid';
+						}}
 					>
-						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-							<rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+						<svg
+							class="w-3.5 h-3.5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+							<rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
 						</svg>
 					</button>
 					<button
 						type="button"
-						class="btn btn-ghost btn-sm btn-icon {layoutMode === 'list' ? '!border-primary-600/40 !text-primary-400' : ''}"
+						class="btn btn-ghost btn-sm btn-icon {layoutMode === 'list'
+							? '!border-primary-600/40 !text-primary-400'
+							: ''}"
 						title="List view"
-						onclick={() => { layoutMode = 'list'; }}
+						onclick={() => {
+							layoutMode = 'list';
+						}}
 					>
-						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-							<line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
-							<line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+						<svg
+							class="w-3.5 h-3.5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
+							<line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" />
+							<line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
 						</svg>
 					</button>
 				</div>
 			</div>
 		{/if}
 
-		<div class={layoutMode === 'grid' || editMode ? 'grid gap-4 sm:grid-cols-2' : 'flex flex-col gap-2'}>
+		<div
+			class={layoutMode === 'grid' || editMode
+				? 'grid gap-4 sm:grid-cols-2'
+				: 'flex flex-col gap-2'}
+		>
 			{#each filteredProjects as project (project.id)}
 				{@const isSelected = selectedIds.has(project.id)}
 				{#if editMode}
@@ -599,7 +639,9 @@
 					<div class="flex items-center gap-3 mb-4">
 						<div class="w-8 h-8 bg-status-blocked/20 rounded-lg flex items-center justify-center">
 							<svg class="w-4 h-4 text-status-blocked" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+								<path
+									d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+								/>
 							</svg>
 						</div>
 						<h3 class="text-sm font-semibold text-text-primary">Orphaned Projects</h3>
@@ -623,7 +665,9 @@
 					<div class="flex items-center gap-3 mb-4">
 						<div class="w-8 h-8 bg-primary-600/20 rounded-lg flex items-center justify-center">
 							<svg class="w-4 h-4 text-primary-400" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+								<path
+									d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"
+								/>
 							</svg>
 						</div>
 						<h3 class="text-sm font-semibold text-text-primary">Most Active Paths</h3>
@@ -654,7 +698,9 @@
 					<div class="flex items-center gap-3 mb-4">
 						<div class="w-8 h-8 bg-green-600/20 rounded-lg flex items-center justify-center">
 							<svg class="w-4 h-4 text-green-400" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
+								<path
+									d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"
+								/>
 							</svg>
 						</div>
 						<h3 class="text-sm font-semibold text-text-primary">Host Distribution</h3>
@@ -666,9 +712,14 @@
 						<ul class="space-y-2">
 							{#each hostDistribution as [host, count]}
 								<li class="flex items-center justify-between gap-2 min-w-0">
-									<span class="text-xs text-text-secondary truncate min-w-0 flex-1" title={host}>{host}</span>
+									<span class="text-xs text-text-secondary truncate min-w-0 flex-1" title={host}
+										>{host}</span
+									>
 									<div class="flex items-center gap-2 shrink-0">
-										<div class="h-2 bg-primary-600/30 rounded-full" style="width: {Math.max(Math.round((count / maxCount) * 60), 8)}px"></div>
+										<div
+											class="h-2 bg-primary-600/30 rounded-full"
+											style="width: {Math.max(Math.round((count / maxCount) * 60), 8)}px"
+										></div>
 										<span class="text-xs font-mono text-text-muted w-4 text-right">{count}</span>
 									</div>
 								</li>
@@ -709,14 +760,23 @@
 	<dialog
 		class="dialog-modal"
 		open
-		onclick={(e) => { if (e.target === e.currentTarget && !merging) cancelMerge(); }}
-		onkeydown={(e) => { if (e.key === 'Escape' && !merging) { e.preventDefault(); cancelMerge(); } }}
+		onclick={(e) => {
+			if (e.target === e.currentTarget && !merging) cancelMerge();
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape' && !merging) {
+				e.preventDefault();
+				cancelMerge();
+			}
+		}}
 	>
 		<div class="dialog-content animate-dialog-in">
 			{#if mergeResult}
 				<!-- Success state -->
 				<div class="flex items-start gap-4 mb-6">
-					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-status-open/20">
+					<div
+						class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-status-open/20"
+					>
 						<svg class="w-5 h-5 text-status-open" viewBox="0 0 24 24" fill="currentColor">
 							<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
 						</svg>
@@ -724,7 +784,10 @@
 					<div class="flex-1 min-w-0">
 						<h2 class="text-lg font-semibold text-text-primary">Merge complete</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Moved {mergeResult.issues_moved} {mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved} {mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into <strong>{mergeResult.target_project.name}</strong>.
+							Moved {mergeResult.issues_moved}
+							{mergeResult.issues_moved === 1 ? 'issue' : 'issues'} and {mergeResult.plans_moved}
+							{mergeResult.plans_moved === 1 ? 'plan' : 'plans'} into
+							<strong>{mergeResult.target_project.name}</strong>.
 						</p>
 					</div>
 				</div>
@@ -737,15 +800,20 @@
 			{:else}
 				<!-- Merge form -->
 				<div class="flex items-start gap-4 mb-6">
-					<div class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-primary-600/20">
+					<div
+						class="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center bg-primary-600/20"
+					>
 						<svg class="w-5 h-5 text-primary-400" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z" />
+							<path
+								d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z"
+							/>
 						</svg>
 					</div>
 					<div class="flex-1 min-w-0">
 						<h2 class="text-lg font-semibold text-text-primary">Merge projects</h2>
 						<p class="text-sm text-text-secondary mt-1">
-							Move all issues and plans from the selected projects into a target project. The source projects will be deleted.
+							Move all issues and plans from the selected projects into a target project. The source
+							projects will be deleted.
 						</p>
 					</div>
 				</div>
@@ -753,11 +821,17 @@
 				<!-- Source projects list -->
 				<div class="mb-4">
 					<div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">
-						{projectsToMerge.length === 1 ? 'Project to merge' : `${projectsToMerge.length} projects to merge`}
+						{projectsToMerge.length === 1
+							? 'Project to merge'
+							: `${projectsToMerge.length} projects to merge`}
 					</div>
-					<div class="bg-surface-900 border border-border-subtle rounded-md max-h-40 overflow-y-auto">
+					<div
+						class="bg-surface-900 border border-border-subtle rounded-md max-h-40 overflow-y-auto"
+					>
 						{#each projectsToMerge as ws (ws.id)}
-							<div class="px-3 py-2 text-sm font-mono text-text-primary border-b border-border-subtle last:border-b-0">
+							<div
+								class="px-3 py-2 text-sm font-mono text-text-primary border-b border-border-subtle last:border-b-0"
+							>
 								{ws.name}
 							</div>
 						{/each}
@@ -766,23 +840,34 @@
 
 				<!-- Target project select -->
 				<div class="mb-6">
-					<label class="block text-xs font-medium text-text-muted uppercase tracking-wider mb-2" for="merge-target">
+					<label
+						class="block text-xs font-medium text-text-muted uppercase tracking-wider mb-2"
+						for="merge-target"
+					>
 						Merge into
 					</label>
 					<Select
 						options={targetOptions}
 						value={mergeTargetId}
 						placeholder="Select target project..."
-						onchange={(v) => { mergeTargetId = v; }}
+						onchange={(v) => {
+							mergeTargetId = v;
+						}}
 					/>
 				</div>
 
 				<!-- Warning -->
-				<div class="flex items-center gap-2 p-3 bg-priority-high/10 border border-priority-high/20 rounded-md mb-6">
+				<div
+					class="flex items-center gap-2 p-3 bg-priority-high/10 border border-priority-high/20 rounded-md mb-6"
+				>
 					<svg class="w-4 h-4 text-priority-high shrink-0" viewBox="0 0 24 24" fill="currentColor">
-						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+						<path
+							d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+						/>
 					</svg>
-					<span class="text-xs text-priority-high">Source projects will be permanently deleted after merge</span>
+					<span class="text-xs text-priority-high"
+						>Source projects will be permanently deleted after merge</span
+					>
 				</div>
 
 				<!-- Actions -->
@@ -798,8 +883,19 @@
 					>
 						{#if merging}
 							<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								<circle
+									class="opacity-25"
+									cx="12"
+									cy="12"
+									r="10"
+									stroke="currentColor"
+									stroke-width="4"
+								></circle>
+								<path
+									class="opacity-75"
+									fill="currentColor"
+									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+								></path>
 							</svg>
 							Merging...
 						{:else}
@@ -816,20 +912,35 @@
 	<!-- Header: NAME | ID + path count -->
 	<div class="flex items-center justify-between mb-2.5">
 		<div class="flex items-baseline min-w-0 overflow-hidden">
-			<h3 class="text-[1.3rem] font-bold text-primary-400 group-hover:text-primary-300 transition-colors whitespace-nowrap uppercase tracking-wide">
+			<h3
+				class="text-[1.3rem] font-bold text-primary-400 group-hover:text-primary-300 transition-colors whitespace-nowrap uppercase tracking-wide"
+			>
 				{project.name}
 			</h3>
 			<span class="w-px h-4 bg-surface-500/60 mx-2.5 shrink-0 self-center"></span>
-			<span class="font-mono text-[0.7rem] font-medium text-accent-400 whitespace-nowrap opacity-85">
+			<span
+				class="font-mono text-[0.7rem] font-medium text-accent-400 whitespace-nowrap opacity-85"
+			>
 				{project.id}
 			</span>
 		</div>
 		{#if pathCounts[project.id] !== undefined && pathCounts[project.id] > 0}
-			<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.65rem] font-semibold bg-surface-700 text-text-muted border border-border-subtle shrink-0 ml-2 group-hover:bg-surface-600 group-hover:text-text-secondary transition-colors">
-				<svg class="w-2.5 h-2.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+			<span
+				class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.65rem] font-semibold bg-surface-700 text-text-muted border border-border-subtle shrink-0 ml-2 group-hover:bg-surface-600 group-hover:text-text-secondary transition-colors"
+			>
+				<svg
+					class="w-2.5 h-2.5 opacity-70"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
 				</svg>
-				{pathCounts[project.id]} {pathCounts[project.id] === 1 ? 'workspace' : 'workspaces'}
+				{pathCounts[project.id]}
+				{pathCounts[project.id] === 1 ? 'workspace' : 'workspaces'}
 			</span>
 		{/if}
 	</div>
@@ -876,8 +987,13 @@
 			{#if pathsLoading.has(project.id)}
 				<div class="flex items-center gap-2 text-xs text-text-muted py-2">
 					<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+						></circle>
+						<path
+							class="opacity-75"
+							fill="currentColor"
+							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+						></path>
 					</svg>
 					Loading paths...
 				</div>
@@ -897,7 +1013,10 @@
 						<tbody>
 							{#each workspacePaths[project.id] ?? [] as wp (wp.id)}
 								<tr class="border-t border-border-subtle hover:bg-surface-800/50">
-									<td class="px-2 py-1.5 font-mono text-text-primary truncate max-w-[200px]" title={wp.path}>{wp.path}</td>
+									<td
+										class="px-2 py-1.5 font-mono text-text-primary truncate max-w-[200px]"
+										title={wp.path}>{wp.path}</td
+									>
 									<td class="px-2 py-1.5 text-text-secondary">{wp.label ?? '-'}</td>
 									<td class="px-2 py-1.5 text-text-secondary">{wp.hostname ?? '-'}</td>
 									<td class="px-2 py-1.5 text-text-secondary">{formatDate(wp.last_accessed_at)}</td>
@@ -915,11 +1034,15 @@
 	<!-- List mode: two-line compact row -->
 	<div class="flex-1 min-w-0 flex flex-col gap-0.5">
 		<div class="flex items-baseline min-w-0">
-			<h3 class="text-sm font-bold text-primary-400 group-hover:text-primary-300 transition-colors truncate uppercase tracking-wide min-w-0">
+			<h3
+				class="text-sm font-bold text-primary-400 group-hover:text-primary-300 transition-colors truncate uppercase tracking-wide min-w-0"
+			>
 				{project.name}
 			</h3>
 			<span class="w-px h-3.5 bg-surface-500/60 mx-2 shrink-0 self-center"></span>
-			<span class="font-mono text-[0.65rem] font-medium text-accent-400 whitespace-nowrap shrink-0 opacity-85">
+			<span
+				class="font-mono text-[0.65rem] font-medium text-accent-400 whitespace-nowrap shrink-0 opacity-85"
+			>
 				{project.id}
 			</span>
 		</div>
@@ -930,8 +1053,16 @@
 	<div class="flex items-center gap-3 shrink-0">
 		{#if pathCounts[project.id] !== undefined && pathCounts[project.id] > 0}
 			<span class="inline-flex items-center gap-1 text-[0.65rem] font-medium text-text-muted">
-				<svg class="w-2.5 h-2.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+				<svg
+					class="w-2.5 h-2.5 opacity-70"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
 				</svg>
 				{pathCounts[project.id]}
 			</span>

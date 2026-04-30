@@ -132,7 +132,9 @@
 			class="select-dropdown"
 			role="listbox"
 			tabindex="-1"
-			aria-activedescendant={highlightedIndex >= 0 ? `select-${instanceId}-option-${highlightedIndex}` : undefined}
+			aria-activedescendant={highlightedIndex >= 0
+				? `select-${instanceId}-option-${highlightedIndex}`
+				: undefined}
 		>
 			{#each options as option, i (option.value)}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->

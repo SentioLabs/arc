@@ -1,7 +1,10 @@
 /* Import distinctive fonts - must come before @import "tailwindcss" */
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=Inter+Tight:wght@400;500;600;700&display=swap");
 
 @import "tailwindcss";
+
+/* Tailwind v4 plugin registration (CSS-first config) */
+@plugin "@tailwindcss/typography";
 
 /* Custom theme - Refined Terminal aesthetic */
 @theme {
@@ -675,4 +678,413 @@
 	.animate-spin {
 		animation: spin 1s linear infinite;
 	}
+}
+
+/* ==========================================================================
+   Dark Editorial — scoped tokens for /share/[id]
+   Aesthetic: a manuscript on a copyeditor's desk, at night.
+   Newsreader serif body, Inter Tight UI, ink-color metaphor.
+   These tokens only apply inside `.share-page` so the rest of arc's UI
+   keeps its Refined Terminal aesthetic.
+   ========================================================================== */
+
+/*
+ * Editorial spread layout — centered-doc composition.
+ *
+ * Two-column grid: [doc 1fr | rail 360]. The rail stays a fixed
+ * 360px notebook margin on the right. The doc-area fills the rest
+ * and centers its inner content (max-width 760px), so the gap on
+ * the left of the doc always equals the gap between the doc's right
+ * edge and the rail's left edge.
+ *
+ * Behavior across viewport widths:
+ *   - ultrawide (1920px viewport): doc-area is 1560px, doc is 760px,
+ *     gap is 400px on each side — visually centered between the
+ *     viewport edge and the rail.
+ *   - typical (1200px viewport): doc-area is 840px, doc is 760px,
+ *     gap is 40px on each side — close to flush but not pinned.
+ *   - narrow (≤1000px viewport): the doc fills its column, gaps
+ *     collapse to zero.
+ *
+ * `padding-inline` on the inner div keeps the prose from running into
+ * the column edges at any width, while `mx-auto` does the centering.
+ */
+.share-page {
+	grid-template-columns: minmax(0, 1fr) 360px;
+}
+/*
+ * Doc width — fluid clamp so the prose breathes on wide viewports
+ * without ever shrinking the comfortable narrow-screen experience.
+ *
+ *   floor 47.5rem (760px) — same width as before; viewports already
+ *                           comfortable today don't change.
+ *   pref  80%             — 80% of doc-area (= viewport minus rail);
+ *                           grows smoothly with available space.
+ *   ceil  60rem  (960px)  — readable upper bound. Past ~95ch the eye
+ *                           saccade between line-end and next-line
+ *                           gets too long for comfortable reading,
+ *                           even though monospace code blocks tolerate
+ *                           the extra width fine.
+ *
+ * `%` is relative to the parent's content box (the doc-area = `1fr`
+ * column), so we don't have to subtract the rail width by hand —
+ * the layout already did that for us.
+ */
+.share-page .doc-inner {
+	max-width: clamp(47.5rem, 80%, 60rem);
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/*
+ * Token system — `--ink-*` names kept for backward-compat with the
+ * existing annotation UI selectors, but VALUES now point at arc's
+ * standard `--color-*` tokens so the share page reads the same as
+ * /planner and the rest of the app. Annotation-specific tones
+ * (comment / delete / praise) keep their distinctive review-domain
+ * hues since they encode semantic meaning, not just decoration.
+ */
+.share-page {
+	/* Surfaces & text — alias to arc's Refined Terminal palette. */
+	--ink-paper: var(--color-surface-900);
+	--ink-paper-raised: var(--color-surface-800);
+	--ink-paper-edge: var(--color-surface-700);
+	--ink-text: var(--color-text-primary);
+	--ink-text-muted: var(--color-text-secondary);
+	--ink-text-faint: var(--color-text-muted);
+	--ink-rule: var(--color-border);
+
+	/* Annotation inks — these are review-domain semantics (highlight =
+	   amber, deletion = red, praise = green) and stay distinct from
+	   surface chrome. Kept in oklch with explicit alphas so the badges
+	   read clearly against any surface. */
+	--ink-comment: oklch(0.78 0.16 75); /* warm amber highlight */
+	--ink-comment-bg: oklch(0.78 0.16 75 / 0.16);
+	--ink-comment-edge: oklch(0.78 0.16 75 / 0.55);
+	--ink-delete: var(--color-status-blocked);
+	--ink-delete-bg: oklch(from var(--color-status-blocked) l c h / 0.18);
+	--ink-delete-edge: oklch(from var(--color-status-blocked) l c h / 0.55);
+	--ink-praise: var(--color-status-open);
+	--ink-praise-bg: oklch(from var(--color-status-open) l c h / 0.16);
+
+	background: var(--ink-paper);
+	color: var(--ink-text);
+	min-height: 100vh;
+}
+
+.share-page .ui-sans {
+	font-family: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+	font-feature-settings: "kern", "liga", "ss01", "cv11";
+}
+
+.share-page .ui-mono {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/*
+ * Document column — mirrors the planner's `.markdown` styles so
+ * /share/[id] reads as the same product as /planner. Inherits
+ * Instrument Sans from `html` (no font-family override here).
+ */
+.share-page .doc {
+	font-size: 1rem;
+	line-height: 1.7;
+	color: var(--color-text-primary);
+}
+.share-page .doc h1,
+.share-page .doc h2,
+.share-page .doc h3,
+.share-page .doc h4,
+.share-page .doc h5,
+.share-page .doc h6 {
+	color: var(--color-text-primary);
+	font-weight: 600;
+	margin-top: 1.5em;
+	margin-bottom: 0.5em;
+	line-height: 1.25;
+}
+.share-page .doc h1:first-child,
+.share-page .doc h2:first-child,
+.share-page .doc h3:first-child,
+.share-page .doc h4:first-child,
+.share-page .doc h5:first-child,
+.share-page .doc h6:first-child {
+	margin-top: 0;
+}
+.share-page .doc h1 {
+	font-size: 1.5em;
+}
+.share-page .doc h2 {
+	font-size: 1.25em;
+	padding-bottom: 0.25em;
+	border-bottom: 1px solid var(--color-border-subtle);
+}
+.share-page .doc h3 {
+	font-size: 1.1em;
+}
+.share-page .doc h4,
+.share-page .doc h5,
+.share-page .doc h6 {
+	font-size: 1em;
+}
+.share-page .doc p {
+	margin-bottom: 0.75em;
+	color: var(--color-text-secondary);
+	line-height: 1.7;
+}
+.share-page .doc ul,
+.share-page .doc ol {
+	margin: 0.75em 0;
+	padding-left: 1.5em;
+	color: var(--color-text-secondary);
+}
+.share-page .doc ul {
+	list-style-type: disc;
+}
+.share-page .doc ol {
+	list-style-type: decimal;
+}
+.share-page .doc li {
+	margin-bottom: 0.25em;
+	line-height: 1.7;
+}
+.share-page .doc strong {
+	color: var(--color-text-primary);
+}
+.share-page .doc em {
+	font-style: italic;
+}
+.share-page .doc code {
+	font-family: var(--font-mono);
+	font-size: 0.85em;
+	background: var(--color-surface-700);
+	color: var(--color-primary-300);
+	padding: 0.15em 0.4em;
+	border-radius: 3px;
+}
+/*
+ * Code blocks come through shiki (see src/lib/markdown.ts) which sets its
+ * own `background-color` and `color` via inline styles — those take
+ * precedence over our CSS by specificity. We keep border, padding,
+ * border-radius, and font-size for layout consistency, and explicitly
+ * DON'T set `background` so shiki's github-dark-dimmed theme can shine
+ * through. The `.shiki` class is shiki's own marker; targeting both
+ * `pre` and `pre.shiki` keeps non-highlighted text-blocks looking
+ * consistent.
+ */
+/*
+ * Code blocks come through shiki (see src/lib/markdown.ts) which sets
+ * its own `background-color` and `color` via inline styles — those
+ * win over our CSS by specificity. We provide border + padding +
+ * font-size for layout, and only set `background` for plain (no-lang)
+ * fences via the `:not(.shiki)` escape hatch.
+ */
+.share-page .doc pre {
+	font-family: var(--font-mono);
+	font-size: 0.85em;
+	padding: 1em;
+	border-radius: 6px;
+	border: 1px solid var(--color-border);
+	overflow-x: auto;
+	line-height: 1.6;
+	margin: 1em 0;
+}
+.share-page .doc pre:not(.shiki) {
+	background: var(--color-surface-900);
+}
+.share-page .doc pre code {
+	background: transparent;
+	padding: 0;
+	border-radius: 0;
+	color: inherit;
+}
+.share-page .doc blockquote {
+	border-left: 3px solid var(--color-primary-600);
+	background: var(--color-surface-800);
+	padding: 0.75em 1em;
+	margin: 1em 0;
+	font-style: italic;
+	color: var(--color-text-secondary);
+}
+.share-page .doc blockquote p:last-child {
+	margin-bottom: 0;
+}
+.share-page .doc hr {
+	border: none;
+	border-top: 1px solid var(--color-border-subtle);
+	margin: 1.5em 0;
+}
+.share-page .doc a {
+	color: var(--color-primary-400);
+	text-decoration: none;
+}
+.share-page .doc a:hover {
+	text-decoration: underline;
+}
+.share-page .doc table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 1em 0;
+	font-size: 0.875em;
+}
+.share-page .doc th {
+	background: var(--color-surface-700);
+	font-weight: 600;
+	text-align: left;
+	padding: 0.5em 0.75em;
+	border-bottom: 2px solid var(--color-border);
+}
+.share-page .doc td {
+	padding: 0.5em 0.75em;
+	border-bottom: 1px solid var(--color-border-subtle);
+	color: var(--color-text-secondary);
+}
+.share-page .doc tr:hover td {
+	background: var(--color-surface-800);
+}
+
+/* Inline annotation marks (added by inline-annotations.ts after render) */
+.share-page mark.anno-comment {
+	background: var(--ink-comment-bg);
+	color: var(--ink-text);
+	border-bottom: 1.5px dotted var(--ink-comment);
+	padding: 0 1px;
+	border-radius: 1px;
+	cursor: pointer;
+	transition: background 120ms ease-out;
+}
+.share-page mark.anno-comment:hover,
+.share-page mark.anno-comment.is-active {
+	background: oklch(from var(--ink-comment) l c h / 0.3);
+}
+.share-page mark.anno-delete {
+	background: var(--ink-delete-bg);
+	color: var(--ink-text-muted);
+	text-decoration: line-through;
+	text-decoration-color: var(--ink-delete);
+	text-decoration-thickness: 2px;
+	border-bottom: 1.5px wavy var(--ink-delete-edge);
+	padding: 0 1px;
+	border-radius: 1px;
+	cursor: pointer;
+}
+
+/* Native selection highlight */
+.share-page ::selection {
+	background: oklch(from var(--ink-comment) l c h / 0.35);
+	color: var(--ink-text);
+}
+
+/* Floating toolbar */
+.share-page .floating-toolbar {
+	background: var(--ink-paper-raised);
+	border: 1px solid var(--ink-rule);
+	border-radius: 8px;
+	box-shadow:
+		0 1px 0 oklch(1 0 0 / 0.04) inset,
+		0 8px 24px oklch(0 0 0 / 0.45),
+		0 2px 8px oklch(0 0 0 / 0.35);
+	backdrop-filter: blur(8px);
+}
+.share-page .floating-toolbar button {
+	font-family: "Inter Tight", ui-sans-serif, sans-serif;
+	transition:
+		background 120ms ease-out,
+		color 120ms ease-out;
+}
+
+/* Annotation card type chips */
+.share-page .chip-comment {
+	color: var(--ink-comment);
+	background: var(--ink-comment-bg);
+	border: 1px solid var(--ink-comment-edge);
+}
+.share-page .chip-delete {
+	color: var(--ink-delete);
+	background: var(--ink-delete-bg);
+	border: 1px solid var(--ink-delete-edge);
+}
+.share-page .chip-praise {
+	color: var(--ink-praise);
+	background: var(--ink-praise-bg);
+}
+
+/* Annotation cards */
+.share-page .anno-card {
+	background: var(--ink-paper-raised);
+	border: 1px solid var(--ink-rule);
+	border-radius: 8px;
+	transition:
+		border-color 150ms ease-out,
+		transform 150ms ease-out;
+}
+.share-page .anno-card:hover {
+	border-color: oklch(from var(--ink-rule) calc(l + 0.05) c h);
+}
+.share-page .anno-card.is-active {
+	border-color: var(--ink-comment-edge);
+}
+.share-page .anno-card .quote {
+	/* Italic kept as a typographic marker for "this is a quoted span" —
+	   the rest of the card is Instrument Sans like the planner. */
+	font-style: italic;
+	color: var(--ink-text-muted);
+	background: var(--ink-paper);
+	border-left: 2px solid var(--ink-text-faint);
+	padding: 0.5rem 0.75rem;
+	border-radius: 0 4px 4px 0;
+}
+.share-page .anno-card .body {
+	background: var(--ink-paper);
+	border: 1px solid var(--ink-rule);
+	border-radius: 4px;
+	padding: 0.5rem 0.75rem;
+	color: var(--ink-text);
+}
+
+/* Drop-cap animation entrance */
+@keyframes anno-card-in {
+	from {
+		opacity: 0;
+		transform: translateX(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+.share-page .anno-card {
+	animation: anno-card-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toolbar-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, 12px);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
+}
+.share-page .floating-toolbar {
+	animation: toolbar-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.share-page .doc-area {
+	/* Flat surface to match the planner's clean Refined Terminal look. */
+	background: var(--color-surface-900);
+}
+
+/* Reviewer name chip */
+.share-page .name-chip {
+	font-family: "Inter Tight", ui-sans-serif, sans-serif;
+	font-size: 0.75rem;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	color: var(--ink-text-muted);
+	background: var(--ink-paper-raised);
+	border: 1px solid var(--ink-rule);
+	padding: 0.25rem 0.625rem;
+	border-radius: 9999px;
 }

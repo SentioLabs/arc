@@ -208,10 +208,7 @@ export async function getIssue(
 
 export type CreateIssueRequest = components['schemas']['CreateIssueRequest'];
 
-export async function createIssue(
-	projectId: string,
-	request: CreateIssueRequest
-): Promise<Issue> {
+export async function createIssue(projectId: string, request: CreateIssueRequest): Promise<Issue> {
 	const { data, error } = await api.POST('/projects/{projectId}/issues', {
 		params: { path: { projectId } },
 		body: request
@@ -325,12 +322,9 @@ export async function removeLabelFromIssue(
 	issueId: string,
 	labelName: string
 ): Promise<void> {
-	const { error } = await api.DELETE(
-		'/projects/{projectId}/issues/{issueId}/labels/{labelName}',
-		{
-			params: { path: { projectId, issueId, labelName } }
-		}
-	);
+	const { error } = await api.DELETE('/projects/{projectId}/issues/{issueId}/labels/{labelName}', {
+		params: { path: { projectId, issueId, labelName } }
+	});
 	if (error) handleError(error);
 }
 
@@ -348,24 +342,17 @@ export async function createComment(
 	issueId: string,
 	text: string
 ): Promise<Comment> {
-	const { data, error } = await api.POST(
-		'/projects/{projectId}/issues/{issueId}/comments',
-		{
-			params: { path: { projectId, issueId } },
-			body: { text }
-		}
-	);
+	const { data, error } = await api.POST('/projects/{projectId}/issues/{issueId}/comments', {
+		params: { path: { projectId, issueId } },
+		body: { text }
+	});
 	if (error) handleError(error);
 	if (!data) throw new Error('Failed to create comment');
 	return data;
 }
 
 // Event APIs
-export async function getEvents(
-	projectId: string,
-	issueId: string,
-	limit = 50
-): Promise<Event[]> {
+export async function getEvents(projectId: string, issueId: string, limit = 50): Promise<Event[]> {
 	const { data, error } = await api.GET('/projects/{projectId}/issues/{issueId}/events', {
 		params: {
 			path: { projectId, issueId },
@@ -464,7 +451,11 @@ export async function listPlanComments(planId: string): Promise<PlanComment[]> {
 	return data ?? [];
 }
 
-export async function createPlanComment(planId: string, content: string, lineNumber?: number): Promise<PlanComment> {
+export async function createPlanComment(
+	planId: string,
+	content: string,
+	lineNumber?: number
+): Promise<PlanComment> {
 	const { data, error } = await api.POST('/plans/{planId}/comments', {
 		params: { path: { planId } },
 		body: { content, line_number: lineNumber ?? null }
@@ -475,10 +466,7 @@ export async function createPlanComment(planId: string, content: string, lineNum
 }
 
 // Team Context APIs
-export async function getTeamContext(
-	projectId: string,
-	epicId?: string
-): Promise<TeamContext> {
+export async function getTeamContext(projectId: string, epicId?: string): Promise<TeamContext> {
 	const { data, error } = await api.GET('/projects/{projectId}/team-context', {
 		params: {
 			path: { projectId },

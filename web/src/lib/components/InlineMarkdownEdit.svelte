@@ -60,41 +60,29 @@
 			{placeholder}
 		></textarea>
 		<div class="flex gap-2 mt-2">
-			<button
-				type="button"
-				onclick={save}
-				disabled={saving}
-				class="btn btn-primary text-sm"
-			>
+			<button type="button" onclick={save} disabled={saving} class="btn btn-primary text-sm">
 				{saving ? 'Saving...' : 'Save'}
 			</button>
-			<button
-				type="button"
-				onclick={cancel}
-				disabled={saving}
-				class="btn btn-ghost text-sm"
-			>
+			<button type="button" onclick={cancel} disabled={saving} class="btn btn-ghost text-sm">
 				Cancel
 			</button>
 		</div>
+	{:else if value}
+		<button
+			type="button"
+			onclick={startEdit}
+			class="absolute top-1 right-1 text-xs text-text-muted hover:text-text-primary cursor-pointer transition-colors z-10"
+		>
+			Edit
+		</button>
+		<Markdown content={value} />
 	{:else}
-		{#if value}
-			<button
-				type="button"
-				onclick={startEdit}
-				class="absolute top-1 right-1 text-xs text-text-muted hover:text-text-primary cursor-pointer transition-colors z-10"
-			>
-				Edit
-			</button>
-			<Markdown content={value} />
-		{:else}
-			<button
-				type="button"
-				onclick={startEdit}
-				class="w-full text-left cursor-pointer hover:bg-surface-700/50 rounded px-2 py-2 transition-colors"
-			>
-				<span class="text-text-muted italic">{placeholder}</span>
-			</button>
-		{/if}
+		<button
+			type="button"
+			onclick={startEdit}
+			class="w-full text-left cursor-pointer hover:bg-surface-700/50 rounded px-2 py-2 transition-colors"
+		>
+			<span class="text-text-muted italic">{placeholder}</span>
+		</button>
 	{/if}
 </div>

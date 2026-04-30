@@ -136,7 +136,7 @@
 </script>
 
 {#if project}
-	<Header project={project} title="Issues" />
+	<Header {project} title="Issues" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<!-- Filters -->
@@ -208,7 +208,12 @@
 		{:else}
 			<div class="space-y-3">
 				{#each issues as issue (issue.id)}
-					<IssueCard {issue} {labelMap} href="/{projectId}/issues/{issue.id}" onStatusChange={handleStatusChange} />
+					<IssueCard
+						{issue}
+						{labelMap}
+						href="/{projectId}/issues/{issue.id}"
+						onStatusChange={handleStatusChange}
+					/>
 				{/each}
 			</div>
 

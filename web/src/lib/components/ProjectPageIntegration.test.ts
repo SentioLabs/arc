@@ -10,7 +10,9 @@ const pageSource = readFileSync(
 
 describe('Project page AI sessions integration', () => {
 	test('imports RecentAISessions component', () => {
-		expect(pageSource).toContain("import RecentAISessions from '$lib/components/RecentAISessions.svelte'");
+		expect(pageSource).toContain(
+			"import RecentAISessions from '$lib/components/RecentAISessions.svelte'"
+		);
 	});
 
 	test('renders RecentAISessions with projectId prop', () => {

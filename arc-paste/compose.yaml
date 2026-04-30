@@ -1,0 +1,40 @@
+# arc-paste compose — standalone deployment of the encrypted paste service.
+#
+# Build the image and start the service:
+#   docker compose -f arc-paste/compose.yaml up -d --build
+# Tail logs:
+#   docker compose -f arc-paste/compose.yaml logs -f
+# Stop:
+#   docker compose -f arc-paste/compose.yaml down
+#
+# The Dockerfile lives in arc-paste/ but builds from the repo root because it
+# needs the parent Go module — that's what `context: ..` below selects.
+
+services:
+  arc-paste:
+    build:
+      context: ..
+      dockerfile: arc-paste/Dockerfile
+    image: arc-paste:latest
+    container_name: arc-paste
+    ports:
+      - "7433:7433"
+    volumes:
+      # Named volume keeps the SQLite db across container rebuilds.
+      # arc-paste creates the directory itself on startup, so a fresh
+      # volume works without any init step.
+      - arc-paste-data:/data
+    environment:
+      - TZ=UTC
+      # Defaults set in the Dockerfile; uncomment to override per deployment:
+      # - ARC_PASTE_ADDR=:7433
+      # - ARC_PASTE_DB=/data/arc-paste.db
+    restart: unless-stopped
+    # No healthcheck: the runtime image is `scratch`, which has no shell,
+    # wget, curl, or anything else compose's `healthcheck.test` could exec.
+    # For production monitoring, run an external probe (Cloudflare health
+    # check, Uptime Kuma, etc.) against the host port instead.
+
+volumes:
+  arc-paste-data:
+    name: arc-paste-data

@@ -107,13 +107,7 @@
 			{#if loading}
 				<div class="flex items-center justify-center py-8 text-text-muted text-sm">
 					<svg class="w-4 h-4 animate-spin mr-2" viewBox="0 0 24 24" fill="none">
-						<circle
-							class="opacity-25"
-							cx="12"
-							cy="12"
-							r="10"
-							stroke="currentColor"
-							stroke-width="4"
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
 						></circle>
 						<path
 							class="opacity-75"

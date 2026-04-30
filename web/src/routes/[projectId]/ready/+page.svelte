@@ -45,7 +45,7 @@
 </script>
 
 {#if project}
-	<Header project={project} title="Ready Work" />
+	<Header {project} title="Ready Work" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<header class="mb-6">

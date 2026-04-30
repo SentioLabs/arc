@@ -118,12 +118,9 @@ export async function listAIAgents(
 	projectId: string,
 	sessionId: string
 ): Promise<AIAgentResponse[]> {
-	const { data, error } = await api.GET(
-		'/projects/{projectId}/ai/sessions/{sessionId}/agents',
-		{
-			params: { path: { projectId, sessionId } }
-		}
-	);
+	const { data, error } = await api.GET('/projects/{projectId}/ai/sessions/{sessionId}/agents', {
+		params: { path: { projectId, sessionId } }
+	});
 	if (error) {
 		if (typeof error === 'object' && error !== null && 'error' in error) {
 			throw new Error(String((error as { error: string }).error));

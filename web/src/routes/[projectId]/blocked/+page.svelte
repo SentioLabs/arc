@@ -33,7 +33,7 @@
 </script>
 
 {#if project}
-	<Header project={project} title="Blocked Issues" />
+	<Header {project} title="Blocked Issues" />
 
 	<div class="flex-1 p-6 animate-fade-in">
 		<header class="mb-6">

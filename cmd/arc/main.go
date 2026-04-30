@@ -79,6 +79,25 @@ func main() {
 type Config struct {
 	ServerURL string `json:"server_url"`
 	Channel   string `json:"channel,omitempty"`
+	// ShareAuthor is the default author name embedded in `arc share create`
+	// plans. It's the canonical reviewer identity used by the share UI to
+	// gate Accept / Resolve / Reject controls — only visitors who type this
+	// exact name in the SPA's prompt are recognized as the plan owner.
+	// Resolution precedence in `arc share create`:
+	//   1. --author flag (highest)
+	//   2. this config field
+	//   3. $ARC_SHARE_AUTHOR
+	//   4. `git config user.name`
+	ShareAuthor string `json:"share_author,omitempty"`
+	// ShareServer is the default URL for the remote paste server used by
+	// `arc share create --share`. Lets users persistently target a private
+	// arc-paste deployment instead of the public default.
+	// Resolution precedence in `arc share create --share`:
+	//   1. --server flag (highest)
+	//   2. this config field
+	//   3. $ARC_SHARE_SERVER
+	//   4. https://arcplanner.sentiolabs.io (built-in default)
+	ShareServer string `json:"share_server,omitempty"`
 }
 
 // ProjectSource indicates how the project was resolved

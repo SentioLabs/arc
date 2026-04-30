@@ -3,10 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const componentSource = readFileSync(
-	resolve(import.meta.dir, 'TranscriptViewer.svelte'),
-	'utf-8'
-);
+const componentSource = readFileSync(resolve(import.meta.dir, 'TranscriptViewer.svelte'), 'utf-8');
 
 describe('TranscriptViewer component', () => {
 	test('accepts transcript prop', () => {

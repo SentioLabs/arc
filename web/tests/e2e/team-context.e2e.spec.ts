@@ -6,7 +6,7 @@ import {
 	deleteTestLabel,
 	addLabelToIssue,
 	uniqueName,
-	addTestDependency,
+	addTestDependency
 } from './fixtures';
 
 test.describe('Team Context Page', () => {
@@ -37,11 +37,11 @@ test.describe('Team Context Page', () => {
 			// Create issues with teammate labels
 			const feIssue = await createTestIssue(wsId, {
 				title: 'FE task for alice',
-				issue_type: 'task',
+				issue_type: 'task'
 			});
 			const beIssue = await createTestIssue(wsId, {
 				title: 'BE task for bob',
-				issue_type: 'task',
+				issue_type: 'task'
 			});
 
 			// Add teammate labels to issues
@@ -82,13 +82,13 @@ test.describe('Team Context Page', () => {
 			// Create an epic
 			const epic = await createTestIssue(wsId, {
 				title: 'Test Epic for filtering',
-				issue_type: 'epic',
+				issue_type: 'epic'
 			});
 
 			// Create a child task with teammate label
 			const childTask = await createTestIssue(wsId, {
 				title: 'Child task under epic',
-				issue_type: 'task',
+				issue_type: 'task'
 			});
 
 			// Set parent-child dependency (child depends on parent)
@@ -104,7 +104,9 @@ test.describe('Team Context Page', () => {
 			await expect(page.getByText('Scope:')).toBeVisible();
 
 			// Open the custom Select dropdown by clicking the trigger button
-			const selectTrigger = page.locator('button[aria-haspopup="listbox"]').filter({ hasText: 'All teammate issues' });
+			const selectTrigger = page
+				.locator('button[aria-haspopup="listbox"]')
+				.filter({ hasText: 'All teammate issues' });
 			await selectTrigger.click();
 
 			// Click the epic option in the dropdown
@@ -133,7 +135,7 @@ test.describe('Team Context Page', () => {
 			// Create issue with teammate label
 			const issue = await createTestIssue(wsId, {
 				title: 'Clickable team issue',
-				issue_type: 'task',
+				issue_type: 'task'
 			});
 			const issueId = issue.id as string;
 			await addLabelToIssue(wsId, issueId, labelName);
