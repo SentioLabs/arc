@@ -3,7 +3,7 @@
 	import { PasteClient, b64ToBytes, eventBytes } from '$lib/paste/client';
 	import { importKey, encryptJSON, decryptJSON } from '$lib/paste/crypto';
 	import { replayEvents, type CommentState } from '$lib/paste/events';
-	import { getReviewerName } from '$lib/paste/identity';
+	import { getReviewerName, parseShareFragment } from '$lib/paste/identity';
 	import type {
 		PlanPlaintext,
 		EventPlaintext,
@@ -85,14 +85,14 @@
 		client = new PasteClient(window.location.origin);
 
 		try {
-			const fragment = window.location.hash.replace(/^#/, '');
-			const params = new URLSearchParams(fragment);
-			const k = params.get('k');
+			const { k, t } = parseShareFragment(window.location.hash);
 			if (!k) {
 				loadError = 'Missing #k=<key> in URL — share link is incomplete.';
 				return;
 			}
 			key = await importKey(k);
+			// `t` is unused in this commit; consumed in the next task.
+			void t;
 
 			const resp = await client.get(data.id);
 			plan = await decryptJSON<PlanPlaintext>(
