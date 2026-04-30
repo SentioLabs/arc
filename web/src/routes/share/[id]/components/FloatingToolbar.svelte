@@ -7,12 +7,68 @@
 	const {
 		anchorRect,
 		onAction,
-		onDismiss
+		onDismiss,
+		reviewerName,
+		onSetName
 	}: {
 		anchorRect: DOMRect;
 		onAction: (a: ToolbarAction) => void;
 		onDismiss: () => void;
+		reviewerName: string | null;
+		onSetName: (name: string) => void;
 	} = $props();
+
+	// Inline name capture — only rendered when the reviewer has no name yet.
+	// Replaces the legacy modal flow where typing a comment first then being
+	// asked for a name led to people answering with their comment text.
+	// Here the name input lives in the toolbar itself, sibling to the action
+	// icons; actions are visibly inert until the field has content.
+	let nameDraft = $state('');
+	let nameError = $state(false);
+	let nameInput: HTMLInputElement | undefined = $state();
+	const needsName = $derived(!reviewerName);
+	const nameReady = $derived(nameDraft.trim().length > 0);
+
+	function commitName() {
+		const trimmed = nameDraft.trim();
+		if (!trimmed) {
+			flashRequired();
+			return;
+		}
+		onSetName(trimmed);
+	}
+
+	function flashRequired() {
+		nameError = true;
+		nameInput?.focus();
+		setTimeout(() => {
+			nameError = false;
+		}, 700);
+	}
+
+	function handleNameKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commitName();
+		}
+	}
+
+	function tryAction(a: ToolbarAction) {
+		if (needsName) {
+			// Persist what they've typed if it's substantive — they may have
+			// just typed a name and reached for an action. Otherwise flash.
+			if (nameReady) {
+				commitName();
+				// Don't auto-perform: let them deliberately click again now
+				// that the toolbar has woken up. Avoids accidentally posting
+				// "Praise" the moment the name input clears.
+				return;
+			}
+			flashRequired();
+			return;
+		}
+		onAction(a);
+	}
 
 	let toolbar: HTMLDivElement | undefined = $state();
 	// Measured after the toolbar mounts (its width is content-driven, so we
@@ -73,16 +129,62 @@
 
 <div
 	bind:this={toolbar}
-	class="floating-toolbar fixed z-[100] flex items-center gap-0.5 p-1 ui-sans"
+	class="floating-toolbar fixed z-[100] {needsName
+		? 'needs-name flex-col items-stretch gap-1 p-1.5'
+		: 'flex-row items-center gap-0.5 p-1'} ui-sans flex"
 	style="top: {position.top}px; left: {position.left}px; transform: translateX(-50%);"
 	role="toolbar"
 	aria-label="Annotation actions"
 >
+	{#if needsName}
+		<!-- Name capture row. Renders only when reviewerName is null.
+			 Visual: editorial proof-sheet input (baseline rule, not a box)
+			 by default; on validation fail, snaps red + brief shake. The
+			 caption below mirrors state ("ENTER YOUR NAME..." → "NAME REQUIRED"). -->
+		<div class="name-row" class:is-error={nameError}>
+			<input
+				bind:this={nameInput}
+				bind:value={nameDraft}
+				onkeydown={handleNameKey}
+				type="text"
+				class="name-field"
+				placeholder="your name to begin"
+				aria-label="Your name (required to post annotations)"
+				aria-invalid={nameError}
+				autocomplete="off"
+				spellcheck="false"
+			/>
+			<button
+				type="button"
+				class="name-commit"
+				class:is-ready={nameReady}
+				onclick={commitName}
+				aria-label="Save name"
+				title="Press Enter or click to save"
+			>
+				<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+					<path
+						d="M2 6 H10 M7 3 L10 6 L7 9"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.4"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			</button>
+		</div>
+	{/if}
+
+	<div
+		class="action-row flex flex-row items-center gap-0.5 {needsName ? 'is-locked' : ''}"
+		aria-disabled={needsName}
+	>
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.praise}"
 		title="Mark as praise (looks good)"
-		onclick={() => onAction('praise')}
+		onclick={() => tryAction('praise')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -104,7 +206,7 @@
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.comment}"
 		title="Add a comment"
-		onclick={() => onAction('comment')}
+		onclick={() => tryAction('comment')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -128,7 +230,7 @@
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.delete}"
 		title="Propose removing this text"
-		onclick={() => onAction('delete')}
+		onclick={() => tryAction('delete')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -150,7 +252,7 @@
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.comment}"
 		title="Propose replacement text"
-		onclick={() => onAction('suggest')}
+		onclick={() => tryAction('suggest')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -172,7 +274,7 @@
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.praise}"
 		title="Pick a label"
-		onclick={() => onAction('quick-label')}
+		onclick={() => tryAction('quick-label')}
 	>
 		<svg
 			class="h-4 w-4"
@@ -205,4 +307,14 @@
 			<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 		</svg>
 	</button>
+	</div>
+
+	{#if needsName}
+		<!-- Mono micro-caption. Doubles as instruction (default) and error
+			 (on flash). Text-swaps in place rather than fading; the change
+			 reads like a typewriter advancing one frame. -->
+		<div class="name-caption" class:is-error={nameError} aria-live="polite">
+			{nameError ? 'Name required' : 'Enter your name to begin'}
+		</div>
+	{/if}
 </div>

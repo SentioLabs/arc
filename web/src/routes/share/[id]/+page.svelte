@@ -34,7 +34,6 @@
 	let reviewerName = $state<string | null>(null);
 	let authorToken = $state<string | null>(null);
 	let showNamePrompt = $state(false);
-	let pendingAfterName: (() => void) | null = null;
 
 	// --- Share-link copy (author-only) ---
 	let copiedShareLink = $state(false);
@@ -125,21 +124,9 @@
 		}
 	});
 
-	function ensureName(after: () => void) {
-		if (reviewerName) {
-			after();
-			return;
-		}
-		pendingAfterName = after;
-		showNamePrompt = true;
-	}
-
 	function handleNameSaved(name: string) {
 		reviewerName = name;
 		showNamePrompt = false;
-		const cb = pendingAfterName;
-		pendingAfterName = null;
-		cb?.();
 	}
 
 	function clearSelection() {
@@ -217,49 +204,48 @@
 		comments = next;
 	}
 
+	// Name capture moved into FloatingToolbar.svelte: when reviewerName is
+	// null, the toolbar renders an inline name field and gates its action
+	// icons on it. By the time we receive an action here, we know the name
+	// is set — so these handlers no longer need ensureName().
 	async function handleToolbarAction(action: ToolbarAction) {
 		if (!activeSelection) return;
 		const sel = activeSelection;
 
 		switch (action) {
 			case 'praise':
-				ensureName(async () => {
-					await createComment({
-						body: 'Looks good',
-						comment_type: 'praise',
-						action: 'comment',
-						anchor: buildAnchor(sel)
-					});
-					clearSelection();
+				await createComment({
+					body: 'Looks good',
+					comment_type: 'praise',
+					action: 'comment',
+					anchor: buildAnchor(sel)
 				});
+				clearSelection();
 				return;
 			case 'comment':
-				ensureName(() => {
-					popoverMode = 'comment';
-				});
+				popoverMode = 'comment';
 				return;
 			case 'delete':
-				ensureName(async () => {
-					await createComment({
-						body: '',
-						comment_type: 'comment',
-						action: 'delete',
-						anchor: buildAnchor(sel)
-					});
-					clearSelection();
+				await createComment({
+					body: '',
+					comment_type: 'comment',
+					action: 'delete',
+					anchor: buildAnchor(sel)
 				});
+				clearSelection();
 				return;
 			case 'suggest':
-				ensureName(() => {
-					popoverMode = 'suggest';
-				});
+				popoverMode = 'suggest';
 				return;
 			case 'quick-label':
-				ensureName(() => {
-					showQuickLabel = true;
-				});
+				showQuickLabel = true;
 				return;
 		}
+	}
+
+	function handleSetName(name: string) {
+		reviewerName = name;
+		setReviewerName(name);
 	}
 
 	async function handlePopoverSave(body: string, suggestedText?: string) {
@@ -504,6 +490,8 @@
 			anchorRect={activeSelection.rect}
 			onAction={handleToolbarAction}
 			onDismiss={clearSelection}
+			{reviewerName}
+			onSetName={handleSetName}
 		/>
 	{/if}
 
