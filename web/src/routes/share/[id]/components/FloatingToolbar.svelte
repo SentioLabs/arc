@@ -111,6 +111,9 @@
 		// width — typically ~200px depending on the icon set.
 		await tick();
 		if (toolbar) measuredWidth = toolbar.offsetWidth;
+		// Focus the name field on first render so the user can start typing
+		// without an extra click. Skipped once a name is already on file.
+		if (needsName) nameInput?.focus();
 	});
 
 	onDestroy(() => {
@@ -125,6 +128,13 @@
 		delete: 'text-[var(--ink-delete)] hover:bg-[var(--ink-delete-bg)]',
 		muted: 'text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]'
 	};
+
+	// While the field is empty, action buttons are functionally locked. Their
+	// hover tooltip swaps from the action's normal label to a single directive
+	// — the gentle middle tier between "passively dimmed" and "shake on click".
+	function actionTitle(active: string): string {
+		return needsName ? 'Enter your name first' : active;
+	}
 </script>
 
 <div
@@ -140,7 +150,9 @@
 		<!-- Name capture row. Renders only when reviewerName is null.
 			 Visual: editorial proof-sheet input (baseline rule, not a box)
 			 by default; on validation fail, snaps red + brief shake. The
-			 caption below mirrors state ("ENTER YOUR NAME..." → "NAME REQUIRED"). -->
+			 dimmed action icons below carry the "locked" signal; their
+			 hover tooltip swaps to "Enter your name first" on hover, and
+			 the shake fires when a locked action is clicked. -->
 		<div class="name-row" class:is-error={nameError}>
 			<input
 				bind:this={nameInput}
@@ -148,7 +160,7 @@
 				onkeydown={handleNameKey}
 				type="text"
 				class="name-field"
-				placeholder="your name to begin"
+				placeholder="your name…"
 				aria-label="Your name (required to post annotations)"
 				aria-invalid={nameError}
 				autocomplete="off"
@@ -183,7 +195,7 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.praise}"
-		title="Mark as praise (looks good)"
+		title={actionTitle('Mark as praise (looks good)')}
 		onclick={() => tryAction('praise')}
 	>
 		<svg
@@ -205,7 +217,7 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.comment}"
-		title="Add a comment"
+		title={actionTitle('Add a comment')}
 		onclick={() => tryAction('comment')}
 	>
 		<svg
@@ -229,7 +241,7 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.delete}"
-		title="Propose removing this text"
+		title={actionTitle('Propose removing this text')}
 		onclick={() => tryAction('delete')}
 	>
 		<svg
@@ -251,7 +263,7 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.comment}"
-		title="Propose replacement text"
+		title={actionTitle('Propose replacement text')}
 		onclick={() => tryAction('suggest')}
 	>
 		<svg
@@ -273,7 +285,7 @@
 	<button
 		type="button"
 		class="rounded-md p-2 transition-colors {toneClass.praise}"
-		title="Pick a label"
+		title={actionTitle('Pick a label')}
 		onclick={() => tryAction('quick-label')}
 	>
 		<svg
@@ -309,12 +321,4 @@
 	</button>
 	</div>
 
-	{#if needsName}
-		<!-- Mono micro-caption. Doubles as instruction (default) and error
-			 (on flash). Text-swaps in place rather than fading; the change
-			 reads like a typewriter advancing one frame. -->
-		<div class="name-caption" class:is-error={nameError} aria-live="polite">
-			{nameError ? 'Name required' : 'Enter your name to begin'}
-		</div>
-	{/if}
 </div>
