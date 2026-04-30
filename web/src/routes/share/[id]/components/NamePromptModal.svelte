@@ -2,8 +2,11 @@
 	import { onMount, tick } from 'svelte';
 	import { setReviewerName } from '$lib/paste/identity';
 
-	const { onSave }: { onSave: (name: string) => void } = $props();
-	let name = $state('');
+	const {
+		onSave,
+		initialName = ''
+	}: { onSave: (name: string) => void; initialName?: string } = $props();
+	let name = $state(initialName);
 	let input: HTMLInputElement | undefined = $state();
 
 	function save() {
@@ -23,6 +26,7 @@
 	onMount(async () => {
 		await tick();
 		input?.focus();
+		input?.select();
 	});
 </script>
 

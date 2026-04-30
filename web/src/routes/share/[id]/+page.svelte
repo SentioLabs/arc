@@ -460,6 +460,6 @@
 	{/if}
 
 	{#if showNamePrompt}
-		<NamePromptModal onSave={handleNameSaved} />
+		<NamePromptModal onSave={handleNameSaved} initialName={reviewerName ?? ''} />
 	{/if}
 </div>
