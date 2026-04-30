@@ -406,14 +406,15 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 	s, _ := sharesconfig.Find(id)
 	if s == nil || s.EditToken == "" {
 		if !shareDeleteForce {
-			return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json (use --force to remove the local entry)", id)
+			return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json "+
+				"(use --force to remove the local entry)", id)
 		}
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: no edit_token for %s; skipping server delete\n", id)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: no edit_token for %s; skipping server delete\n", id)
 	} else if err := deleteShare(server, id, s.EditToken); err != nil {
 		if !shareDeleteForce {
 			return err
 		}
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: server delete failed: %v; removing local entry anyway\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: server delete failed: %v; removing local entry anyway\n", err)
 	}
 	return sharesconfig.Remove(id)
 }
