@@ -192,7 +192,9 @@ func init() {
 	shareCreateCmd.Flags().StringVar(&shareCreateAuthor, "author", "",
 		"Author name embedded in the plan (precedence: flag > share_author in "+
 			"cli-config.json > $ARC_SHARE_AUTHOR > `git config user.name`). "+
-			"Reviewers entering this exact name gain Accept/Resolve/Reject controls.")
+			"Auto-populates the name chip when the Author URL is opened and is "+
+			"used for display attribution. Author privileges are gated by the "+
+			"&t=<edit_token> in the Author URL, not by this name.")
 	shareCreateCmd.Flags().StringVar(&shareCreateTitle, "title", "",
 		"Optional plan title shown in the share UI header (defaults to the filename)")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsAccepted, "accepted-only", false, "Only print accepted comments")
@@ -403,10 +405,11 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 //
 // Returns "" if none of these produce a value.
 //
-// The author name is the only thing that lets the share UI distinguish the
-// plan owner from reviewers — when a visitor enters this exact name in the
-// SPA's name prompt, they get Accept/Resolve/Reject controls. Without it,
-// nobody is recognized as the author and the controls stay hidden for all.
+// The author name is used for: (a) auto-populating the name chip when the
+// Author URL is opened in the SPA, (b) display attribution on resolution and
+// edit events, and (c) the replay-time guard in events.ts that drops forged
+// edits/resolutions. Author UI privileges (Accept/Resolve/Reject) are gated
+// by the &t=<edit_token> in the Author URL fragment, not by this name.
 func resolveAuthor(flag string) string {
 	if s := strings.TrimSpace(flag); s != "" {
 		return s
