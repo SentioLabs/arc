@@ -152,6 +152,12 @@
 		await client.appendEvent(data.id, blob, iv);
 	}
 
+	async function postAuthorEvent(event: EventPlaintext) {
+		// Phase B: identical to postEvent. Phase C will add an auth header here
+		// and route the call through a server endpoint that verifies authorToken.
+		return postEvent(event);
+	}
+
 	function buildAnchor(sel: SelectionInfo): Anchor {
 		return {
 			line_start: sel.lineStart,
@@ -287,7 +293,11 @@
 			suggested_text: suggestedText,
 			created_at: new Date().toISOString()
 		};
-		await postEvent(event);
+		if (isAuthor && !isMyComment) {
+			await postAuthorEvent(event);
+		} else {
+			await postEvent(event);
+		}
 
 		// Apply locally so the card updates without a round-trip refetch.
 		const next = new Map(comments);
@@ -314,7 +324,7 @@
 			author_name: reviewerName,
 			created_at: new Date().toISOString()
 		};
-		await postEvent(event);
+		await postAuthorEvent(event);
 		const next = new Map(comments);
 		const target = next.get(commentId);
 		if (target && isAuthor) {
