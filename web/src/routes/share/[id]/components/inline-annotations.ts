@@ -1,15 +1,31 @@
 /**
  * Apply inline annotation marks to already-rendered markdown.
  *
- * Strategy: for each annotation, gather the [data-source-line] blocks in
- * [lineStart, lineEnd], walk all their text nodes in document order, and find
- * the anchor's quoted_text. The needle from selection.toString() may contain
- * \n separators between block-level elements (paragraphs, <li>s, etc.) while
- * the flat text walked via TreeWalker has none — so the search is two-tier:
+ * The hard problem: selection.toString() inserts \n separators at block
+ * boundaries (between <li>s, between <p>s, after a heading) and at <br>
+ * elements, but a TreeWalker over the same DOM yields just the text-node
+ * data with no separators. Naively searching the concatenated text-node
+ * string for the needle, or even a whitespace-normalized version of it,
+ * fails when the gap between blocks is zero whitespace — normalization can
+ * only collapse existing runs.
  *
- *   1. Exact substring match (most annotations land here).
- *   2. Whitespace-normalized match (collapses runs of whitespace, including
- *      block-boundary newlines) with a position map back to raw offsets.
+ * Strategy: for each annotation, gather the [data-source-line] blocks in
+ * [lineStart, lineEnd], walk all their text nodes plus <br>/<hr> elements
+ * in document order, and build TWO parallel strings:
+ *
+ *   - `acc`: raw concatenation of text-node data. Cumulative offsets into
+ *     this string map directly into textNodes via length math — used by the
+ *     wrap step.
+ *   - `searchSpace`: same content but with a synthetic '\n' inserted at
+ *     every block-level boundary AND every <br>/<hr> element. This mirrors
+ *     what selection.toString() emits, so the needle can match.
+ *     `searchToAcc[i]` maps every searchSpace index to its acc index, with
+ *     -1 marking a synthetic boundary char.
+ *
+ * Search is two-tier on `searchSpace`: exact indexOf, then whitespace-
+ * normalized fallback for cases like extra trailing whitespace. The hit's
+ * range gets mapped back through `searchToAcc` (skipping synthetic chars)
+ * before reaching the wrap step.
  *
  * Wrapping is also two-tier:
  *
@@ -77,43 +93,158 @@ function wrapNeedleAcrossBlocks(
 ): void {
 	if (!needle) return;
 
-	// Walk text nodes across all blocks in DOM order.
+	// Walk text nodes AND inline structural elements (<br>/<hr>) across all
+	// blocks in document order. We build:
+	//
+	//   - `acc`: raw text-node concatenation (textNode position math basis).
+	//   - `searchSpace`: acc with synthetic '\n' at:
+	//       * block-level boundaries (different closest-block ancestor), and
+	//       * <br>/<hr> elements (invisible to SHOW_TEXT but they produce a
+	//         '\n' in Selection.toString()).
+	//     Mirrors what selection.toString() emits so the needle can match.
 	const textNodes: Text[] = [];
 	let acc = '';
+	let searchSpace = '';
+	const searchToAcc: number[] = [];
+	let prevBlock: Element | null = null;
+	const filter: NodeFilter = {
+		acceptNode(node) {
+			if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+			if (
+				node.nodeType === Node.ELEMENT_NODE &&
+				LINE_BREAK_TAGS.has((node as Element).tagName)
+			) {
+				return NodeFilter.FILTER_ACCEPT;
+			}
+			return NodeFilter.FILTER_SKIP;
+		}
+	};
 	for (const block of blocks) {
-		const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+		const walker = document.createTreeWalker(
+			block,
+			NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+			filter
+		);
 		while (walker.nextNode()) {
-			const t = walker.currentNode as Text;
+			const node = walker.currentNode;
+			if (node.nodeType === Node.ELEMENT_NODE) {
+				if (acc.length > 0) {
+					searchSpace += '\n';
+					searchToAcc.push(-1);
+				}
+				continue;
+			}
+			const t = node as Text;
+			const curBlock = closestBlockAncestor(t);
+			if (prevBlock && curBlock !== prevBlock) {
+				searchSpace += '\n';
+				searchToAcc.push(-1);
+			}
+			prevBlock = curBlock;
 			textNodes.push(t);
+			const baseAcc = acc.length;
+			for (let i = 0; i < t.data.length; i++) {
+				searchSpace += t.data[i];
+				searchToAcc.push(baseAcc + i);
+			}
 			acc += t.data;
 		}
 	}
 	if (textNodes.length === 0) return;
 
-	// Two-tier search.
-	let start = -1;
-	let end = -1;
-	const exactOffset = acc.indexOf(needle);
+	// Two-tier search against searchSpace (which mirrors selection.toString()).
+	let searchStart = -1;
+	let searchEnd = -1;
+	const exactOffset = searchSpace.indexOf(needle);
 	if (exactOffset >= 0) {
-		start = exactOffset;
-		end = exactOffset + needle.length;
+		searchStart = exactOffset;
+		searchEnd = exactOffset + needle.length;
 	} else {
-		const norm = normalizeWithMap(acc);
+		const norm = normalizeWithMap(searchSpace);
 		const needleNorm = normalizeWS(needle);
 		if (!needleNorm) return;
 		const normOffset = norm.normalized.indexOf(needleNorm);
-		if (normOffset < 0) return; // anchor lost
-		start = norm.rawPositions[normOffset];
+		if (normOffset < 0) return;
+		searchStart = norm.rawPositions[normOffset];
 		const lastNormIdx = normOffset + needleNorm.length - 1;
 		if (lastNormIdx >= norm.rawPositions.length) return;
-		end = norm.rawPositions[lastNormIdx] + 1;
+		searchEnd = norm.rawPositions[lastNormIdx] + 1;
 	}
+
+	// Map searchSpace [start, end) back to acc, skipping synthetic boundary
+	// chars. The first real char at-or-after searchStart anchors `start`;
+	// the last real char before searchEnd anchors `end`.
+	let start = -1;
+	for (let i = searchStart; i < searchToAcc.length; i++) {
+		if (searchToAcc[i] >= 0) {
+			start = searchToAcc[i];
+			break;
+		}
+	}
+	let end = -1;
+	for (let i = searchEnd - 1; i >= 0; i--) {
+		if (searchToAcc[i] >= 0) {
+			end = searchToAcc[i] + 1;
+			break;
+		}
+	}
+	if (start < 0 || end <= start) return;
 
 	// Wrap. Try the contiguous Range first; on failure (range crosses sibling
 	// block elements like <li>s), fall back to per-text-node wrap.
 	if (!tryRangeWrap(textNodes, start, end, mark, isActive)) {
 		wrapPerTextNode(textNodes, start, end, mark, isActive);
 	}
+}
+
+// Tags that produce a literal '\n' in Selection.toString() despite having no
+// text-node children. We have to walk SHOW_ELEMENT to see them and translate
+// each into a synthetic separator.
+const LINE_BREAK_TAGS = new Set(['BR', 'HR']);
+
+// Tags treated as inline for the purpose of "did selection.toString() insert
+// a \n between these two text nodes?". Anything not in this set is treated
+// as a block boundary (paragraphs, list items, headings, code blocks, table
+// cells, etc.). Matches the HTML spec's "phrasing content" tags that the
+// markdown renderer can plausibly emit.
+const INLINE_TAGS = new Set([
+	'A',
+	'ABBR',
+	'B',
+	'BDI',
+	'BDO',
+	'BR',
+	'CITE',
+	'CODE',
+	'DATA',
+	'DEL',
+	'DFN',
+	'EM',
+	'I',
+	'INS',
+	'KBD',
+	'MARK',
+	'Q',
+	'S',
+	'SAMP',
+	'SMALL',
+	'SPAN',
+	'STRONG',
+	'SUB',
+	'SUP',
+	'TIME',
+	'U',
+	'VAR',
+	'WBR'
+]);
+
+function closestBlockAncestor(node: Node): Element | null {
+	let cur: Node | null = node.parentNode;
+	while (cur && cur.nodeType === 1) {
+		if (!INLINE_TAGS.has((cur as Element).tagName)) return cur as Element;
+		cur = cur.parentNode;
+	}
+	return null;
 }
 
 /**
