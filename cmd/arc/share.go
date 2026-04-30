@@ -653,7 +653,10 @@ func decodeAndSortEvents(events []paste.Event, key []byte) []decodedEvent {
 	return out
 }
 
-func replayEvents(events []decodedEvent, planAuthor string) (map[string]commentEvent, map[string]resolutionEvent, map[string]bool) {
+func replayEvents(
+	events []decodedEvent,
+	planAuthor string,
+) (map[string]commentEvent, map[string]resolutionEvent, map[string]bool) {
 	comments := map[string]commentEvent{}
 	resolutions := map[string]resolutionEvent{}
 	retracted := map[string]bool{}
