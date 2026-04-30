@@ -97,8 +97,10 @@
 			);
 
 			// Author URL flow: token + plan author name → auto-populate reviewer identity.
-			// If the share was created without --author, fall through to the standard
-			// reviewer flow; isAuthor still stays true via authorToken.
+			// If the share was created without --author, fall through to the
+			// reviewerName already loaded from localStorage at the top of onMount —
+			// the lazy NamePromptModal will fire on first action. isAuthor still
+			// stays true via authorToken in that case.
 			if (authorToken && plan?.author_name) {
 				reviewerName = plan.author_name;
 				setReviewerName(plan.author_name);
@@ -315,7 +317,7 @@
 		await postEvent(event);
 		const next = new Map(comments);
 		const target = next.get(commentId);
-		if (target && plan?.author_name === reviewerName) {
+		if (target && isAuthor) {
 			next.set(commentId, { ...target, status, reply, replyAt: event.created_at });
 		}
 		comments = next;
