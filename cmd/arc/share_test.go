@@ -43,7 +43,7 @@ func TestShareCreateRoundTrip(t *testing.T) {
 	defer srv.Close()
 
 	plan := filepath.Join(t.TempDir(), "plan.md")
-	_ = os.WriteFile(plan, []byte("# Hello\n\nBody."), 0o644)
+	_ = os.WriteFile(plan, []byte("# Hello\n\nBody."), 0o600)
 
 	shareCreateServer = srv.URL
 	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
@@ -81,7 +81,7 @@ func TestRunShareCommentsRoundTrip(t *testing.T) {
 
 	// Create a plan
 	plan := filepath.Join(t.TempDir(), "p.md")
-	_ = os.WriteFile(plan, []byte("# P"), 0o644)
+	_ = os.WriteFile(plan, []byte("# P"), 0o600)
 	shareCreateServer = srv.URL
 	_ = runShareCreate(shareCreateCmd, []string{plan})
 
@@ -118,7 +118,7 @@ func TestRunShareCommentsAppliesEdits(t *testing.T) {
 	defer srv.Close()
 
 	plan := filepath.Join(t.TempDir(), "p.md")
-	_ = os.WriteFile(plan, []byte("# P"), 0o644)
+	_ = os.WriteFile(plan, []byte("# P"), 0o600)
 	shareCreateServer = srv.URL
 	_ = runShareCreate(shareCreateCmd, []string{plan})
 
@@ -185,7 +185,7 @@ func TestRunShareCommentsAppliesPlanAuthorEdits(t *testing.T) {
 	defer srv.Close()
 
 	plan := filepath.Join(t.TempDir(), "p.md")
-	_ = os.WriteFile(plan, []byte("# P"), 0o644)
+	_ = os.WriteFile(plan, []byte("# P"), 0o600)
 	shareCreateServer = srv.URL
 	// Pin the plan author via flag so the replay knows who has author rights.
 	shareCreateAuthor = "Ben"
@@ -259,9 +259,10 @@ func TestRunShareCommentsJSONBundle(t *testing.T) {
 	defer srv.Close()
 
 	// A small but realistic plan with sections the SPA would slugify.
-	planText := "# Test Plan\n\n## Goal\n\nValidate the shared review feature.\n\n## Approach\n\n- Selection-based annotation\n- Conventional labels\n"
+	planText := "# Test Plan\n\n## Goal\n\nValidate the shared review feature.\n\n" +
+		"## Approach\n\n- Selection-based annotation\n- Conventional labels\n"
 	planFile := filepath.Join(t.TempDir(), "plan.md")
-	if err := os.WriteFile(planFile, []byte(planText), 0o644); err != nil {
+	if err := os.WriteFile(planFile, []byte(planText), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	shareCreateServer = srv.URL
@@ -410,7 +411,7 @@ func TestRunShareCommentsJSONBundle_NoLocalFile(t *testing.T) {
 	// has the plan content, so the CLI falls back to it.
 	planText := "# Test Plan\n\n## Goal\n\nA quick \"quoted\" test with newlines.\n"
 	planFile := filepath.Join(t.TempDir(), "plan.md")
-	if err := os.WriteFile(planFile, []byte(planText), 0o644); err != nil {
+	if err := os.WriteFile(planFile, []byte(planText), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	shareCreateServer = srv.URL
@@ -474,7 +475,8 @@ func mustDecodeKey(t *testing.T, b64 string) []byte {
 // is not 2xx.
 func postRaw(t *testing.T, url string, body []byte) error {
 	t.Helper()
-	resp, err := http.Post(url, "application/json", bytes.NewReader(body))
+	// Variable URL is intentional — tests post to httptest.Server URLs.
+	resp, err := http.Post(url, "application/json", bytes.NewReader(body)) //nolint:gosec // G107: test-controlled URL
 	if err != nil {
 		return err
 	}
@@ -499,16 +501,11 @@ func captureStdout(t *testing.T, fn func()) string {
 
 	fn()
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = old
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r)
 	return buf.String()
-}
-
-// contains is a convenience wrapper around strings.Contains.
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }
 
 // TestResolveAuthor locks in the resolution precedence:
@@ -520,18 +517,13 @@ func contains(s, substr string) bool {
 // running each subtest with $PATH cleared so `git` is unavailable (the
 // helper falls back silently to "" on git failure).
 func TestResolveAuthor(t *testing.T) {
-	// Save & restore globals touched by the helper.
+	// Save & restore globals touched by the helper. Env vars use t.Setenv
+	// which auto-restores; configPath is package-global so we restore manually.
 	origConfigPath := configPath
-	origEnv := os.Getenv("ARC_SHARE_AUTHOR")
-	origPath := os.Getenv("PATH")
-	t.Cleanup(func() {
-		configPath = origConfigPath
-		_ = os.Setenv("ARC_SHARE_AUTHOR", origEnv)
-		_ = os.Setenv("PATH", origPath)
-	})
+	t.Cleanup(func() { configPath = origConfigPath })
 
 	// Strip git from PATH so the lowest tier resolves to "" deterministically.
-	_ = os.Setenv("PATH", "")
+	t.Setenv("PATH", "")
 
 	writeConfig := func(t *testing.T, author string) {
 		t.Helper()
@@ -542,14 +534,14 @@ func TestResolveAuthor(t *testing.T) {
 			body += `,"share_author":"` + author + `"`
 		}
 		body += `}`
-		if err := os.WriteFile(configPath, []byte(body), 0600); err != nil {
+		if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
 			t.Fatalf("write config: %v", err)
 		}
 	}
 
 	t.Run("flag wins over everything", func(t *testing.T) {
 		writeConfig(t, "from-config")
-		_ = os.Setenv("ARC_SHARE_AUTHOR", "from-env")
+		t.Setenv("ARC_SHARE_AUTHOR", "from-env")
 		if got := resolveAuthor("from-flag"); got != "from-flag" {
 			t.Errorf("flag should win; got %q", got)
 		}
@@ -557,7 +549,7 @@ func TestResolveAuthor(t *testing.T) {
 
 	t.Run("config wins over env when no flag", func(t *testing.T) {
 		writeConfig(t, "from-config")
-		_ = os.Setenv("ARC_SHARE_AUTHOR", "from-env")
+		t.Setenv("ARC_SHARE_AUTHOR", "from-env")
 		if got := resolveAuthor(""); got != "from-config" {
 			t.Errorf("config should win over env; got %q", got)
 		}
@@ -565,7 +557,7 @@ func TestResolveAuthor(t *testing.T) {
 
 	t.Run("env wins when config empty", func(t *testing.T) {
 		writeConfig(t, "")
-		_ = os.Setenv("ARC_SHARE_AUTHOR", "from-env")
+		t.Setenv("ARC_SHARE_AUTHOR", "from-env")
 		if got := resolveAuthor(""); got != "from-env" {
 			t.Errorf("env should win; got %q", got)
 		}
@@ -573,7 +565,7 @@ func TestResolveAuthor(t *testing.T) {
 
 	t.Run("flag whitespace is trimmed and treated as empty", func(t *testing.T) {
 		writeConfig(t, "from-config")
-		_ = os.Setenv("ARC_SHARE_AUTHOR", "")
+		t.Setenv("ARC_SHARE_AUTHOR", "")
 		if got := resolveAuthor("   "); got != "from-config" {
 			t.Errorf("whitespace flag should fall through; got %q", got)
 		}
@@ -581,7 +573,7 @@ func TestResolveAuthor(t *testing.T) {
 
 	t.Run("everything empty resolves to empty string", func(t *testing.T) {
 		writeConfig(t, "")
-		_ = os.Setenv("ARC_SHARE_AUTHOR", "")
+		t.Setenv("ARC_SHARE_AUTHOR", "")
 		if got := resolveAuthor(""); got != "" {
 			t.Errorf("expected empty; got %q", got)
 		}
@@ -599,80 +591,87 @@ func TestResolveAuthor(t *testing.T) {
 func TestResolveServer(t *testing.T) {
 	const builtinDefault = "https://arcplanner.sentiolabs.io"
 
+	// Save & restore configPath manually; ARC_SHARE_SERVER uses t.Setenv
+	// inside subtests for auto-restore.
 	origConfigPath := configPath
-	origEnv := os.Getenv("ARC_SHARE_SERVER")
-	t.Cleanup(func() {
-		configPath = origConfigPath
-		_ = os.Setenv("ARC_SHARE_SERVER", origEnv)
-	})
+	t.Cleanup(func() { configPath = origConfigPath })
 
-	writeConfigShareServer := func(t *testing.T, server string) {
-		t.Helper()
-		dir := t.TempDir()
-		configPath = filepath.Join(dir, "cli-config.json")
-		body := `{"server_url":"http://localhost:7432"`
-		if server != "" {
-			body += `,"share_server":"` + server + `"`
-		}
-		body += `}`
-		if err := os.WriteFile(configPath, []byte(body), 0600); err != nil {
-			t.Fatalf("write config: %v", err)
-		}
+	cases := []struct {
+		name      string
+		config    string // share_server in cli-config.json; "" omits the field
+		env       string // ARC_SHARE_SERVER value; "" clears it
+		share     bool
+		local     bool
+		flag      string
+		wantURL   string
+		wantKind  string
+		wantNoEnv bool // true → don't t.Setenv at all (skip env priming)
+	}{
+		{
+			name:   "flag wins over everything",
+			config: "https://from-config.example", env: "https://from-env.example",
+			share: true, flag: "https://from-flag.example",
+			wantURL: "https://from-flag.example", wantKind: shareKindShared,
+		},
+		{
+			// The override flag is intentionally global — it forces shared mode
+			// regardless of which boolean flags are set, mirroring the previous
+			// behavior. Locked in here so it doesn't silently drift.
+			name:   "flag wins even without --share",
+			config: "https://from-config.example",
+			local:  true, flag: "https://from-flag.example", wantNoEnv: true,
+			wantURL: "https://from-flag.example", wantKind: shareKindShared,
+		},
+		{
+			name:   "config wins over env when no flag",
+			config: "https://from-config.example", env: "https://from-env.example",
+			share:   true,
+			wantURL: "https://from-config.example", wantKind: shareKindShared,
+		},
+		{
+			name: "env wins when config empty",
+			env:  "https://from-env.example", share: true,
+			wantURL: "https://from-env.example", wantKind: shareKindShared,
+		},
+		{
+			name:    "falls back to built-in default",
+			share:   true,
+			wantURL: builtinDefault, wantKind: shareKindShared,
+		},
+		{
+			name:   "flag whitespace is trimmed and treated as empty",
+			config: "https://from-config.example",
+			share:  true, flag: "   ",
+			wantURL: "https://from-config.example", wantKind: shareKindShared,
+		},
 	}
 
-	t.Run("flag wins over everything", func(t *testing.T) {
-		writeConfigShareServer(t, "https://from-config.example")
-		_ = os.Setenv("ARC_SHARE_SERVER", "https://from-env.example")
-		got, kind := resolveServer(false, true, "https://from-flag.example")
-		if got != "https://from-flag.example" || kind != "shared" {
-			t.Errorf("flag should win; got (%q, %q)", got, kind)
-		}
-	})
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			writeShareServerConfig(t, tc.config)
+			if !tc.wantNoEnv {
+				t.Setenv("ARC_SHARE_SERVER", tc.env)
+			}
+			got, kind := resolveServer(tc.local, tc.share, tc.flag)
+			if got != tc.wantURL || kind != tc.wantKind {
+				t.Errorf("resolveServer = (%q, %q), want (%q, %q)", got, kind, tc.wantURL, tc.wantKind)
+			}
+		})
+	}
+}
 
-	t.Run("flag wins even without --share", func(t *testing.T) {
-		// The override flag is intentionally global — it forces shared mode
-		// regardless of which boolean flags are set, mirroring the previous
-		// behavior. Locked in here so it doesn't silently drift.
-		writeConfigShareServer(t, "https://from-config.example")
-		got, kind := resolveServer(true, false, "https://from-flag.example")
-		if got != "https://from-flag.example" || kind != "shared" {
-			t.Errorf("flag should win even without --share; got (%q, %q)", got, kind)
-		}
-	})
-
-	t.Run("config wins over env when no flag", func(t *testing.T) {
-		writeConfigShareServer(t, "https://from-config.example")
-		_ = os.Setenv("ARC_SHARE_SERVER", "https://from-env.example")
-		got, kind := resolveServer(false, true, "")
-		if got != "https://from-config.example" || kind != "shared" {
-			t.Errorf("config should win over env; got (%q, %q)", got, kind)
-		}
-	})
-
-	t.Run("env wins when config empty", func(t *testing.T) {
-		writeConfigShareServer(t, "")
-		_ = os.Setenv("ARC_SHARE_SERVER", "https://from-env.example")
-		got, kind := resolveServer(false, true, "")
-		if got != "https://from-env.example" || kind != "shared" {
-			t.Errorf("env should win; got (%q, %q)", got, kind)
-		}
-	})
-
-	t.Run("falls back to built-in default", func(t *testing.T) {
-		writeConfigShareServer(t, "")
-		_ = os.Setenv("ARC_SHARE_SERVER", "")
-		got, kind := resolveServer(false, true, "")
-		if got != builtinDefault || kind != "shared" {
-			t.Errorf("expected default; got (%q, %q)", got, kind)
-		}
-	})
-
-	t.Run("flag whitespace is trimmed and treated as empty", func(t *testing.T) {
-		writeConfigShareServer(t, "https://from-config.example")
-		_ = os.Setenv("ARC_SHARE_SERVER", "")
-		got, kind := resolveServer(false, true, "   ")
-		if got != "https://from-config.example" || kind != "shared" {
-			t.Errorf("whitespace flag should fall through; got (%q, %q)", got, kind)
-		}
-	})
+// writeShareServerConfig points the global configPath at a temp cli-config.json
+// containing the given share_server (omitted entirely when empty).
+func writeShareServerConfig(t *testing.T, server string) {
+	t.Helper()
+	dir := t.TempDir()
+	configPath = filepath.Join(dir, "cli-config.json")
+	body := `{"server_url":"http://localhost:7432"`
+	if server != "" {
+		body += `,"share_server":"` + server + `"`
+	}
+	body += `}`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
 }

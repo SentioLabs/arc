@@ -10,6 +10,16 @@ import (
 	"time"
 )
 
+// File permission bits for the shares registry. shares.json holds edit
+// tokens, so it must not be world-readable.
+const (
+	dirMode  os.FileMode = 0o700
+	fileMode os.FileMode = 0o600
+)
+
+// ErrShareNotFound is returned by Find when no share matches the given ID.
+var ErrShareNotFound = errors.New("share not found")
+
 // Share holds the metadata for a single paste share created by this machine.
 type Share struct {
 	ID        string    `json:"id"`
@@ -63,14 +73,14 @@ func Save(f *File) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), dirMode); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return os.WriteFile(path, data, fileMode)
 }
 
 // Add upserts a Share into the registry. If a share with the same ID already
@@ -90,7 +100,8 @@ func Add(s Share) error {
 	return Save(f)
 }
 
-// Find returns the Share with the given ID, or nil if not found.
+// Find returns the Share with the given ID, or ErrShareNotFound if no entry
+// matches. Callers may also use errors.Is(err, ErrShareNotFound) to branch.
 func Find(id string) (*Share, error) {
 	f, err := Load()
 	if err != nil {
@@ -101,7 +112,7 @@ func Find(id string) (*Share, error) {
 			return &s, nil
 		}
 	}
-	return nil, nil
+	return nil, ErrShareNotFound
 }
 
 // Remove deletes the share with the given ID from the registry. It is a no-op

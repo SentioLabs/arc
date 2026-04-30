@@ -21,7 +21,10 @@ type fixture struct {
 }
 
 func main() {
-	cases := []struct{ name string; v any }{
+	cases := []struct {
+		name string
+		v    any
+	}{
 		{"simple-string", "hello world"},
 		{"empty-object", map[string]any{}},
 		{"nested-object", map[string]any{
@@ -29,7 +32,7 @@ func main() {
 			"anchor": map[string]any{"line_start": 1, "line_end": 1, "quoted_text": "x"},
 		}},
 	}
-	var out []fixture
+	out := make([]fixture, 0, len(cases))
 	for _, c := range cases {
 		key, _ := paste.GenerateKey()
 		ct, iv, err := paste.EncryptJSON(c.v, key)
@@ -46,5 +49,6 @@ func main() {
 	}
 	data, _ := json.MarshalIndent(out, "", "  ")
 	fmt.Println(string(data))
-	_ = os.WriteFile("internal/paste/testdata/xlang_fixtures.json", data, 0o644)
+	const fixtureMode = 0o600
+	_ = os.WriteFile("internal/paste/testdata/xlang_fixtures.json", data, fixtureMode)
 }

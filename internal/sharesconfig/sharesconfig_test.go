@@ -11,7 +11,10 @@ import (
 
 func TestAddAndFind(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	s := sharesconfig.Share{ID: "abc", Kind: "local", URL: "http://x", KeyB64Url: "k", EditToken: "t", CreatedAt: time.Now()}
+	s := sharesconfig.Share{
+		ID: "abc", Kind: "local", URL: "http://x",
+		KeyB64Url: "k", EditToken: "t", CreatedAt: time.Now(),
+	}
 	if err := sharesconfig.Add(s); err != nil {
 		t.Fatal(err)
 	}

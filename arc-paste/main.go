@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,7 +20,18 @@ import (
 	"github.com/sentiolabs/arc/web"
 )
 
+// dbDirMode is the permission used when creating the parent directory of the
+// SQLite database. World-readable on purpose — the file mode itself (which
+// SQLite controls) is what protects the data.
+const dbDirMode = 0o755
+
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	addr := envOr("ARC_PASTE_ADDR", ":7433")
 	dbPath := envOr("ARC_PASTE_DB", "./arc-paste.db")
 
@@ -27,19 +39,19 @@ func main() {
 	// not the directory, which matters when running under scratch / distroless
 	// images that mount a fresh volume at a path the binary has never seen.
 	if dir := filepath.Dir(dbPath); dir != "." && dir != "/" {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			log.Fatalf("create db dir %q: %v", dir, err)
+		if err := os.MkdirAll(dir, dbDirMode); err != nil {
+			return fmt.Errorf("create db dir %q: %w", dir, err)
 		}
 	}
 
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		log.Fatalf("open db: %v", err)
+		return fmt.Errorf("open db: %w", err)
 	}
 	defer db.Close()
 
 	if err := pastesqlite.Apply(context.Background(), db); err != nil {
-		log.Fatalf("apply migrations: %v", err)
+		return fmt.Errorf("apply migrations: %w", err)
 	}
 
 	store := pastesqlite.New(db)
@@ -47,7 +59,16 @@ func main() {
 
 	e := echo.New()
 	e.HideBanner = true
-	e.Use(middleware.Logger())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus: true,
+		LogURI:    true,
+		LogMethod: true,
+		LogError:  true,
+		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
+			log.Printf("%s %s -> %d (err=%v)", v.Method, v.URI, v.Status, v.Error)
+			return nil
+		},
+	}))
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
@@ -57,9 +78,7 @@ func main() {
 	// Serve embedded SPA with fallback to index.html for routing
 	web.RegisterSPA(e)
 
-	if err := e.Start(addr); err != nil {
-		log.Fatalf("start server: %v", err)
-	}
+	return e.Start(addr)
 }
 
 // envOr returns the value of env variable key, or defaultVal if not set.

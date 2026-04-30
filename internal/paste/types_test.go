@@ -1,32 +1,33 @@
-package paste
+package paste_test
 
 import (
 	"testing"
-	"time"
+
+	"github.com/sentiolabs/arc/internal/paste"
 )
 
-func TestPasteShareContract(t *testing.T) {
-	var s PasteShare
-	var _ string = s.ID
-	var _ []byte = s.PlanBlob
-	var _ []byte = s.PlanIV
-	var _ int = s.SchemaVer
-	var _ time.Time = s.CreatedAt
-	var _ time.Time = s.UpdatedAt
-	var _ *time.Time = s.ExpiresAt
+func TestShareContract(t *testing.T) {
+	var s paste.Share
+	_ = s.ID
+	_ = s.PlanBlob
+	_ = s.PlanIV
+	_ = s.SchemaVer
+	_ = s.CreatedAt
+	_ = s.UpdatedAt
+	_ = s.ExpiresAt
 }
 
-func TestPasteEventContract(t *testing.T) {
-	var e PasteEvent
-	var _ string = e.ID
-	var _ string = e.ShareID
-	var _ []byte = e.Blob
-	var _ []byte = e.IV
-	var _ time.Time = e.CreatedAt
+func TestEventContract(t *testing.T) {
+	var e paste.Event
+	_ = e.ID
+	_ = e.ShareID
+	_ = e.Blob
+	_ = e.IV
+	_ = e.CreatedAt
 }
 
 func TestCreatePasteResponseContract(t *testing.T) {
-	var r CreatePasteResponse
-	var _ string = r.ID
-	var _ string = r.EditToken
+	var r paste.CreatePasteResponse
+	_ = r.ID
+	_ = r.EditToken
 }

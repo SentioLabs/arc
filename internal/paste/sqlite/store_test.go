@@ -3,6 +3,7 @@ package sqlite_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func newTestStore(t *testing.T) *sqlite.Store {
 func TestCreateAndGetShare(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Now().UTC().Truncate(time.Second)
-	share := paste.PasteShare{
+	share := paste.Share{
 		ID:        "abc12345",
 		PlanBlob:  []byte{1, 2, 3},
 		PlanIV:    []byte{4, 5, 6},
@@ -52,7 +53,7 @@ func TestCreateAndGetShare(t *testing.T) {
 func TestVerifyEditToken(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Now().UTC()
-	_ = s.CreateShare(context.Background(), paste.PasteShare{
+	_ = s.CreateShare(context.Background(), paste.Share{
 		ID:        "x",
 		PlanBlob:  []byte{0},
 		PlanIV:    []byte{0},
@@ -73,7 +74,7 @@ func TestVerifyEditToken(t *testing.T) {
 func TestUpdateSharePlanRequiresToken(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Now().UTC()
-	_ = s.CreateShare(context.Background(), paste.PasteShare{
+	_ = s.CreateShare(context.Background(), paste.Share{
 		ID:        "x",
 		PlanBlob:  []byte{0},
 		PlanIV:    []byte{0},
@@ -82,7 +83,7 @@ func TestUpdateSharePlanRequiresToken(t *testing.T) {
 		UpdatedAt: now,
 	}, "good")
 	err := s.UpdateSharePlan(context.Background(), "x", []byte{9}, []byte{8}, "bad")
-	if err != paste.ErrInvalidEditToken {
+	if !errors.Is(err, paste.ErrInvalidEditToken) {
 		t.Errorf("expected ErrInvalidEditToken, got %v", err)
 	}
 }
@@ -90,7 +91,7 @@ func TestUpdateSharePlanRequiresToken(t *testing.T) {
 func TestAppendAndListEvents(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Now().UTC()
-	_ = s.CreateShare(context.Background(), paste.PasteShare{
+	_ = s.CreateShare(context.Background(), paste.Share{
 		ID:        "x",
 		PlanBlob:  []byte{0},
 		PlanIV:    []byte{0},
@@ -98,14 +99,14 @@ func TestAppendAndListEvents(t *testing.T) {
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, "tok")
-	_ = s.AppendEvent(context.Background(), paste.PasteEvent{
+	_ = s.AppendEvent(context.Background(), paste.Event{
 		ID:        "e1",
 		ShareID:   "x",
 		Blob:      []byte{1},
 		IV:        []byte{1},
 		CreatedAt: now,
 	})
-	_ = s.AppendEvent(context.Background(), paste.PasteEvent{
+	_ = s.AppendEvent(context.Background(), paste.Event{
 		ID:        "e2",
 		ShareID:   "x",
 		Blob:      []byte{2},

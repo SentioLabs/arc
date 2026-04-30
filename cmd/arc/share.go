@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -53,11 +54,11 @@ type commentEvent struct {
 }
 
 type resolutionEvent struct {
-	Kind      string `json:"kind"`
-	ID        string `json:"id"`
-	CommentID string `json:"comment_id"`
-	Status    string `json:"status"`
-	Reply     string `json:"reply,omitempty"`
+	Kind       string `json:"kind"`
+	ID         string `json:"id"`
+	CommentID  string `json:"comment_id"`
+	Status     string `json:"status"`
+	Reply      string `json:"reply,omitempty"`
 	AuthorName string `json:"author_name"`
 	CreatedAt  string `json:"created_at"`
 }
@@ -87,14 +88,14 @@ type commentEntry struct {
 // fields distinguish "field omitted (keep)" from "field set to empty
 // (clear)" — Go zero values would conflate the two.
 type editEvent struct {
-	Kind        string  `json:"kind"` // always "edit"
-	ID          string  `json:"id"`
-	CommentID   string  `json:"comment_id"`
-	AuthorName  string  `json:"author_name"`
-	Body        *string `json:"body,omitempty"`
+	Kind          string  `json:"kind"` // always "edit"
+	ID            string  `json:"id"`
+	CommentID     string  `json:"comment_id"`
+	AuthorName    string  `json:"author_name"`
+	Body          *string `json:"body,omitempty"`
 	SuggestedText *string `json:"suggested_text,omitempty"`
-	CommentType *string `json:"comment_type,omitempty"`
-	CreatedAt   string  `json:"created_at"`
+	CommentType   *string `json:"comment_type,omitempty"`
+	CreatedAt     string  `json:"created_at"`
 }
 
 // --- commands ---
@@ -148,9 +149,21 @@ var shareApproveCmd = &cobra.Command{
 var shareUpdateCmd = &cobra.Command{
 	Use:   "update <id-or-url> <plan-file>",
 	Short: "Replace the encrypted plan content (uses edit_token from shares.json)",
-	Args:  cobra.ExactArgs(2),
-	RunE:  runShareUpdate,
+	// `update` takes exactly the share ref AND the plan file path.
+	Args: cobra.ExactArgs(shareUpdateArgCount),
+	RunE: runShareUpdate,
 }
+
+const shareUpdateArgCount = 2
+
+// shareKindLocal / shareKindShared label the resolved server in the saved
+// shares.json registry and surface in `arc share list` output.
+const (
+	shareKindLocal  = "local"
+	shareKindShared = "shared"
+)
+
+const defaultShareServer = "https://arcplanner.sentiolabs.io"
 
 var shareDeleteCmd = &cobra.Command{
 	Use:   "delete <id-or-url>",
@@ -172,9 +185,15 @@ var (
 func init() {
 	shareCreateCmd.Flags().BoolVar(&shareCreateLocal, "local", false, "Use the local arc-server")
 	shareCreateCmd.Flags().BoolVar(&shareCreateRemote, "share", false, "Use the configured remote share server")
-	shareCreateCmd.Flags().StringVar(&shareCreateServer, "server", "", "Server URL override. With --share, resolution is: --server flag → share_server in ~/.arc/cli-config.json → $ARC_SHARE_SERVER → https://arcplanner.sentiolabs.io.")
-	shareCreateCmd.Flags().StringVar(&shareCreateAuthor, "author", "", "Author name embedded in the plan. Resolution: --author flag → share_author in ~/.arc/cli-config.json → $ARC_SHARE_AUTHOR → `git config user.name`. Reviewers who enter this exact name in the share UI gain Accept/Resolve/Reject controls.")
-	shareCreateCmd.Flags().StringVar(&shareCreateTitle, "title", "", "Optional plan title shown in the share UI header (defaults to the filename)")
+	shareCreateCmd.Flags().StringVar(&shareCreateServer, "server", "",
+		"Server URL override (precedence: flag > share_server in cli-config.json > "+
+			"$ARC_SHARE_SERVER > built-in default).")
+	shareCreateCmd.Flags().StringVar(&shareCreateAuthor, "author", "",
+		"Author name embedded in the plan (precedence: flag > share_author in "+
+			"cli-config.json > $ARC_SHARE_AUTHOR > `git config user.name`). "+
+			"Reviewers entering this exact name gain Accept/Resolve/Reject controls.")
+	shareCreateCmd.Flags().StringVar(&shareCreateTitle, "title", "",
+		"Optional plan title shown in the share UI header (defaults to the filename)")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsAccepted, "accepted-only", false, "Only print accepted comments")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsJSON, "json", false, "Output as JSON")
 
@@ -198,11 +217,11 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 	}
 	author := resolveAuthor(shareCreateAuthor)
 	if author == "" {
-		fmt.Fprintln(os.Stderr, "warning: no author name resolved.")
-		fmt.Fprintln(os.Stderr, "         Set one via --author, share_author in ~/.arc/cli-config.json,")
-		fmt.Fprintln(os.Stderr, "         $ARC_SHARE_AUTHOR, or `git config user.name`.")
-		fmt.Fprintln(os.Stderr, "         Without an author, Accept/Resolve/Reject controls in the share UI")
-		fmt.Fprintln(os.Stderr, "         stay hidden for every reviewer.")
+		_, _ = fmt.Fprintln(os.Stderr, "warning: no author name resolved.")
+		_, _ = fmt.Fprintln(os.Stderr, "         Set one via --author, share_author in ~/.arc/cli-config.json,")
+		_, _ = fmt.Fprintln(os.Stderr, "         $ARC_SHARE_AUTHOR, or `git config user.name`.")
+		_, _ = fmt.Fprintln(os.Stderr, "         Without an author, Accept/Resolve/Reject controls in the share UI")
+		_, _ = fmt.Fprintln(os.Stderr, "         stay hidden for every reviewer.")
 	}
 	title := shareCreateTitle
 	if title == "" {
@@ -390,14 +409,14 @@ func resolveAuthor(flag string) string {
 // For local mode, the server URL comes from `server_url` in the CLI config
 // (defaulting to http://localhost:7432). The `--server` flag still wins over
 // everything in either mode.
-func resolveServer(_ bool, share bool, override string) (string, string) {
+func resolveServer(_, share bool, override string) (server, kind string) {
 	if s := strings.TrimSpace(override); s != "" {
-		return s, "shared"
+		return s, shareKindShared
 	}
 	if share {
-		return resolveShareServer(), "shared"
+		return resolveShareServer(), shareKindShared
 	}
-	return cliConfigServerURL(), "local"
+	return cliConfigServerURL(), shareKindLocal
 }
 
 // resolveShareServer returns the URL of the remote paste server, resolving in
@@ -412,7 +431,7 @@ func resolveShareServer() string {
 	if s := strings.TrimSpace(os.Getenv("ARC_SHARE_SERVER")); s != "" {
 		return s
 	}
-	return "https://arcplanner.sentiolabs.io"
+	return defaultShareServer
 }
 
 // cliConfigServerURL returns the server URL from the CLI config, falling back
@@ -429,6 +448,8 @@ func cliConfigServerURL() string {
 func postCreate(server string, blob, iv []byte) (*paste.CreatePasteResponse, error) {
 	u := strings.TrimRight(server, "/") + "/api/paste"
 	body, _ := json.Marshal(paste.CreatePasteRequest{PlanBlob: blob, PlanIV: iv, SchemaVer: 1})
+	// Variable URL is the entire point of the CLI — the user picks the server.
+	//nolint:gosec // G107: intentional user-supplied server URL
 	resp, err := http.Post(u, "application/json", strings.NewReader(string(body)))
 	if err != nil {
 		return nil, err
@@ -446,6 +467,8 @@ func postCreate(server string, blob, iv []byte) (*paste.CreatePasteResponse, err
 func postEvent(server, id string, blob, iv []byte) error {
 	u := strings.TrimRight(server, "/") + "/api/paste/" + url.PathEscape(id) + "/blobs"
 	body, _ := json.Marshal(paste.AppendEventRequest{Blob: blob, IV: iv})
+	// Variable URL is the entire point of the CLI — the user picks the server.
+	//nolint:gosec // G107: intentional user-supplied server URL
 	resp, err := http.Post(u, "application/json", strings.NewReader(string(body)))
 	if err != nil {
 		return err
@@ -496,8 +519,10 @@ func deleteShare(server, id, token string) error {
 
 // fetchAndDecrypt retrieves a share from the server and decrypts the plan
 // blob using the provided key.
-func fetchAndDecrypt(server, id string, key []byte) (*planPlaintext, []paste.PasteEvent, error) {
-	resp, err := http.Get(strings.TrimRight(server, "/") + "/api/paste/" + url.PathEscape(id))
+func fetchAndDecrypt(server, id string, key []byte) (*planPlaintext, []paste.Event, error) {
+	// Variable URL is the entire point of the CLI — the user picks the server.
+	getURL := strings.TrimRight(server, "/") + "/api/paste/" + url.PathEscape(id)
+	resp, err := http.Get(getURL) //nolint:gosec // G107: intentional user-supplied server URL
 	if err != nil {
 		return nil, nil, err
 	}
@@ -506,8 +531,8 @@ func fetchAndDecrypt(server, id string, key []byte) (*planPlaintext, []paste.Pas
 		return nil, nil, fmt.Errorf("get paste: %s", resp.Status)
 	}
 	var pr struct {
-		paste.PasteShare
-		Events []paste.PasteEvent `json:"events"`
+		paste.Share
+		Events []paste.Event `json:"events"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
 		return nil, nil, err
@@ -537,13 +562,28 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 	if err != nil {
 		return err
 	}
-	type decoded struct {
-		kind string
-		raw  json.RawMessage
-		ts   string
-		eid  string
+	decoded := decodeAndSortEvents(events, key)
+	comments, resolutions := replayEvents(decoded, plan.AuthorName)
+	entries := buildCommentEntries(comments, resolutions, acceptedOnly)
+	if asJSON {
+		return emitBundle(id, plan, entries)
 	}
-	decodedEvents := make([]decoded, 0, len(events))
+	printCommentEntries(entries)
+	return nil
+}
+
+// decodedEvent is the intermediate form used to sort events chronologically
+// before replaying them. raw is kept around so the typed unmarshal can run in
+// the replay loop without re-decrypting.
+type decodedEvent struct {
+	kind string
+	raw  json.RawMessage
+	ts   string
+	eid  string
+}
+
+func decodeAndSortEvents(events []paste.Event, key []byte) []decodedEvent {
+	out := make([]decodedEvent, 0, len(events))
 	for _, e := range events {
 		var raw json.RawMessage
 		if err := paste.DecryptJSON(e.Blob, e.IV, key, &raw); err != nil {
@@ -557,81 +597,98 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 		if err := json.Unmarshal(raw, &generic); err != nil {
 			continue
 		}
-		decodedEvents = append(decodedEvents, decoded{
-			kind: generic.Kind,
-			raw:  raw,
-			ts:   generic.CreatedAt,
-			eid:  generic.ID,
-		})
+		out = append(out, decodedEvent{kind: generic.Kind, raw: raw, ts: generic.CreatedAt, eid: generic.ID})
 	}
 	// Stable chronological order for deterministic edit application.
-	sort.SliceStable(decodedEvents, func(i, j int) bool {
-		if decodedEvents[i].ts != decodedEvents[j].ts {
-			return decodedEvents[i].ts < decodedEvents[j].ts
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].ts != out[j].ts {
+			return out[i].ts < out[j].ts
 		}
-		return decodedEvents[i].eid < decodedEvents[j].eid
+		return out[i].eid < out[j].eid
 	})
+	return out
+}
 
+func replayEvents(events []decodedEvent, planAuthor string) (map[string]commentEvent, map[string]resolutionEvent) {
 	comments := map[string]commentEvent{}
 	resolutions := map[string]resolutionEvent{}
-	for _, d := range decodedEvents {
+	for _, d := range events {
 		switch d.kind {
 		case "comment":
-			var c commentEvent
-			if err := json.Unmarshal(d.raw, &c); err == nil {
-				comments[c.ID] = c
-			}
+			applyCommentEvent(d.raw, comments)
 		case "resolution":
-			var r resolutionEvent
-			if err := json.Unmarshal(d.raw, &r); err == nil {
-				if plan.AuthorName == "" || r.AuthorName == plan.AuthorName {
-					resolutions[r.CommentID] = r
-				}
-			}
+			applyResolutionEvent(d.raw, planAuthor, resolutions)
 		case "edit":
-			var ed editEvent
-			if err := json.Unmarshal(d.raw, &ed); err != nil {
-				continue
-			}
-			c, ok := comments[ed.CommentID]
-			if !ok {
-				continue
-			}
-			// Replay-time auth: edits are accepted from either the comment's
-			// original author OR the plan author (so the author can sharpen
-			// thin reviewer feedback like "expand this more"). The displayed
-			// comment.author_name is unchanged either way — only the edit
-			// event itself records who actually edited. Forged events from
-			// third parties are silently dropped.
-			//
-			// `plan.AuthorName` must be non-empty before granting plan-owner
-			// edit rights; otherwise empty strings on both sides would all
-			// match and accidentally authorize anonymous edits.
-			isOriginal := ed.AuthorName == c.AuthorName
-			isPlanAuthor := plan.AuthorName != "" && ed.AuthorName == plan.AuthorName
-			if !isOriginal && !isPlanAuthor {
-				continue
-			}
-			if ed.Body != nil {
-				c.Body = *ed.Body
-			}
-			if ed.SuggestedText != nil {
-				c.SuggestedText = *ed.SuggestedText
-			}
-			if ed.CommentType != nil {
-				c.CommentType = *ed.CommentType
-			}
-			comments[ed.CommentID] = c
+			applyEditEvent(d.raw, planAuthor, comments)
 		}
 	}
+	return comments, resolutions
+}
+
+func applyCommentEvent(raw json.RawMessage, comments map[string]commentEvent) {
+	var c commentEvent
+	if err := json.Unmarshal(raw, &c); err == nil {
+		comments[c.ID] = c
+	}
+}
+
+func applyResolutionEvent(raw json.RawMessage, planAuthor string, resolutions map[string]resolutionEvent) {
+	var r resolutionEvent
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return
+	}
+	if planAuthor == "" || r.AuthorName == planAuthor {
+		resolutions[r.CommentID] = r
+	}
+}
+
+// applyEditEvent merges body/suggested_text/comment_type fields onto the
+// target comment. Replay-time auth: edits are accepted from either the
+// comment's original author OR the plan author (so the author can sharpen
+// thin reviewer feedback like "expand this more"). The displayed
+// comment.author_name is unchanged either way — only the edit event itself
+// records who actually edited. Forged events from third parties are silently
+// dropped. planAuthor must be non-empty before granting plan-owner edit
+// rights; otherwise empty strings on both sides would all match and
+// accidentally authorize anonymous edits.
+func applyEditEvent(raw json.RawMessage, planAuthor string, comments map[string]commentEvent) {
+	var ed editEvent
+	if err := json.Unmarshal(raw, &ed); err != nil {
+		return
+	}
+	c, ok := comments[ed.CommentID]
+	if !ok {
+		return
+	}
+	isOriginal := ed.AuthorName == c.AuthorName
+	isPlanAuthor := planAuthor != "" && ed.AuthorName == planAuthor
+	if !isOriginal && !isPlanAuthor {
+		return
+	}
+	if ed.Body != nil {
+		c.Body = *ed.Body
+	}
+	if ed.SuggestedText != nil {
+		c.SuggestedText = *ed.SuggestedText
+	}
+	if ed.CommentType != nil {
+		c.CommentType = *ed.CommentType
+	}
+	comments[ed.CommentID] = c
+}
+
+func buildCommentEntries(
+	comments map[string]commentEvent,
+	resolutions map[string]resolutionEvent,
+	acceptedOnly bool,
+) []commentEntry {
 	// Build a deterministic-order list of comment entries so multiple runs
 	// produce identical output (Go map iteration is randomized).
 	entries := make([]commentEntry, 0, len(comments))
 	for cid, c := range comments {
-		res, ok := resolutions[cid]
 		status := "open"
 		reply := ""
-		if ok {
+		if res, ok := resolutions[cid]; ok {
 			status = res.Status
 			reply = res.Reply
 		}
@@ -643,19 +700,19 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 	sort.SliceStable(entries, func(i, j int) bool {
 		return entries[i].comment.CreatedAt < entries[j].comment.CreatedAt
 	})
+	return entries
+}
 
-	if asJSON {
-		return emitBundle(id, plan, entries)
-	}
+func printCommentEntries(entries []commentEntry) {
 	for _, e := range entries {
 		// Mark deletes visually so they don't get mistaken for empty-body comments.
 		prefix := ""
 		if e.comment.Action == "delete" {
 			prefix = "[delete] "
 		}
-		fmt.Printf("[%s] %s%s (%s): %s\n", e.status, prefix, e.comment.AuthorName, e.comment.CommentType, e.comment.Body)
+		fmt.Printf("[%s] %s%s (%s): %s\n",
+			e.status, prefix, e.comment.AuthorName, e.comment.CommentType, e.comment.Body)
 	}
-	return nil
 }
 
 // shareBundle is the JSON shape emitted by `arc share comments --json`.
@@ -692,10 +749,10 @@ type bundlePlan struct {
 }
 
 type bundleComment struct {
-	Comment        commentEvent           `json:"comment"`
-	Status         string                 `json:"status"`
-	Reply          string                 `json:"reply,omitempty"`
-	ResolvedAnchor *bundleResolvedAnchor  `json:"resolved_anchor,omitempty"`
+	Comment        commentEvent          `json:"comment"`
+	Status         string                `json:"status"`
+	Reply          string                `json:"reply,omitempty"`
+	ResolvedAnchor *bundleResolvedAnchor `json:"resolved_anchor,omitempty"`
 }
 
 type bundleResolvedAnchor struct {
@@ -780,39 +837,46 @@ func emitBundle(id string, plan *planPlaintext, entries []commentEntry) error {
 }
 
 // resolveShareRef parses a share reference which may be either a full share
-// URL (e.g. https://arcplanner.sentiolabs.io/share/abc12345#k=KEY) or a bare share ID
-// known to ~/.arc/shares.json.
-func resolveShareRef(ref string) (string, string, []byte, error) {
+// URL (e.g. https://arcplanner.sentiolabs.io/share/abc12345#k=KEY) or a bare
+// share ID known to ~/.arc/shares.json.
+func resolveShareRef(ref string) (id, server string, key []byte, err error) {
 	if strings.Contains(ref, "://") {
-		u, err := url.Parse(ref)
-		if err != nil {
-			return "", "", nil, err
-		}
-		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-		if len(parts) < 2 || parts[0] != "share" {
-			return "", "", nil, fmt.Errorf("invalid share URL: %s", ref)
-		}
-		id := parts[1]
-		frag, _ := url.ParseQuery(u.Fragment)
-		keyB64 := frag.Get("k")
-		if keyB64 == "" {
-			if s, _ := sharesconfig.Find(id); s != nil {
-				keyB64 = s.KeyB64Url
-			}
-		}
-		key, err := base64.RawURLEncoding.DecodeString(keyB64)
-		if err != nil {
-			return "", "", nil, err
-		}
-		return id, u.Scheme + "://" + u.Host, key, nil
+		return resolveShareURL(ref)
 	}
-	s, err := sharesconfig.Find(ref)
-	if err != nil {
-		return "", "", nil, err
+	s, ferr := sharesconfig.Find(ref)
+	if ferr != nil {
+		if errors.Is(ferr, sharesconfig.ErrShareNotFound) {
+			return "", "", nil, fmt.Errorf("unknown share id: %s", ref)
+		}
+		return "", "", nil, ferr
 	}
-	if s == nil {
-		return "", "", nil, fmt.Errorf("unknown share id: %s", ref)
-	}
-	key, _ := base64.RawURLEncoding.DecodeString(s.KeyB64Url)
+	key, _ = base64.RawURLEncoding.DecodeString(s.KeyB64Url)
 	return s.ID, s.URL, key, nil
+}
+
+// resolveShareURL is the URL branch of resolveShareRef, split out to keep the
+// nesting depth low. Falls back to ~/.arc/shares.json for the key if the URL
+// has no fragment.
+func resolveShareURL(ref string) (id, server string, key []byte, err error) {
+	u, perr := url.Parse(ref)
+	if perr != nil {
+		return "", "", nil, perr
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 2 || parts[0] != "share" {
+		return "", "", nil, fmt.Errorf("invalid share URL: %s", ref)
+	}
+	id = parts[1]
+	frag, _ := url.ParseQuery(u.Fragment)
+	keyB64 := frag.Get("k")
+	if keyB64 == "" {
+		if s, ferr := sharesconfig.Find(id); ferr == nil {
+			keyB64 = s.KeyB64Url
+		}
+	}
+	key, derr := base64.RawURLEncoding.DecodeString(keyB64)
+	if derr != nil {
+		return "", "", nil, derr
+	}
+	return id, u.Scheme + "://" + u.Host, key, nil
 }

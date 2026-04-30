@@ -9,10 +9,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	_ "modernc.org/sqlite"
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/paste"
 	pastesqlite "github.com/sentiolabs/arc/internal/paste/sqlite"
+	_ "modernc.org/sqlite"
 )
 
 func TestArcPasteCreate(t *testing.T) {

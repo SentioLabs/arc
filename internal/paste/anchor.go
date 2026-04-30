@@ -1,5 +1,3 @@
-// Package paste — anchor.go
-//
 // Anchor resolution for replaying reviewer annotations against a possibly-
 // edited plan. Mirror of web/src/lib/paste/anchor.ts; the two sides MUST
 // stay in sync since both consume the same encrypted Anchor payloads.
@@ -11,13 +9,17 @@
 //     → status=drifted
 //  4. None of the above: status=orphaned, original line numbers preserved
 //     for display purposes.
-
 package paste
 
 import (
 	"regexp"
 	"strings"
 )
+
+// headingWindowLines bounds the heading-scoped fuzzy search at step 2 of
+// ResolveAnchor — large enough to span typical sections, small enough that an
+// unrelated re-occurrence later in the plan can't accidentally match.
+const headingWindowLines = 50
 
 // Anchor mirrors the TS Anchor type (web/src/lib/paste/types.ts). Encoded as
 // JSON inside encrypted comment events; decoded here only when the CLI needs
@@ -33,6 +35,20 @@ type Anchor struct {
 	HeadingSlug   string `json:"heading_slug,omitempty"`
 }
 
+// AnchorStatus values for AnchorResolution.Status. Mirrored on the SPA side;
+// adding/renaming a status here breaks the cross-language contract.
+const (
+	// AnchorStatusOK means the original line numbers still contain the quoted
+	// text — no relocation was needed.
+	AnchorStatusOK = "ok"
+	// AnchorStatusDrifted means the anchor was relocated via heading scope
+	// or fuzzy context match; the new line numbers are best-effort.
+	AnchorStatusDrifted = "drifted"
+	// AnchorStatusOrphaned means we couldn't relocate the anchor at all; the
+	// original line numbers are preserved for display only.
+	AnchorStatusOrphaned = "orphaned"
+)
+
 // AnchorResolution is the result of running ResolveAnchor against a plan.
 // Status disambiguates "found at original location" from "relocated" from
 // "couldn't find at all" — agents care about this for deciding whether to
@@ -40,7 +56,7 @@ type Anchor struct {
 type AnchorResolution struct {
 	LineStart int    `json:"line_start"`
 	LineEnd   int    `json:"line_end"`
-	Status    string `json:"status"` // "ok" | "drifted" | "orphaned"
+	Status    string `json:"status"` // one of AnchorStatus* constants
 }
 
 // ResolveAnchor finds the current location of an anchor in plan markdown.
@@ -56,7 +72,7 @@ func ResolveAnchor(plan string, a Anchor) AnchorResolution {
 			return AnchorResolution{
 				LineStart: a.LineStart,
 				LineEnd:   a.LineEnd,
-				Status:    "ok",
+				Status:    AnchorStatusOK,
 			}
 		}
 	}
@@ -64,14 +80,14 @@ func ResolveAnchor(plan string, a Anchor) AnchorResolution {
 	// Step 2: heading-scoped — look 50 lines past the matching heading.
 	if a.HeadingSlug != "" {
 		if hi := findHeadingIndex(lines, a.HeadingSlug); hi >= 0 {
-			end := min(hi+50, len(lines))
+			end := min(hi+headingWindowLines, len(lines))
 			window := strings.Join(lines[hi:end], "\n")
 			if off := strings.Index(window, a.QuotedText); off >= 0 {
 				lineNum := hi + 1 + countNewlinesBefore(window, off)
 				return AnchorResolution{
 					LineStart: lineNum,
 					LineEnd:   lineNum + countNewlinesBefore(a.QuotedText, len(a.QuotedText)),
-					Status:    "drifted",
+					Status:    AnchorStatusDrifted,
 				}
 			}
 		}
@@ -86,7 +102,7 @@ func ResolveAnchor(plan string, a Anchor) AnchorResolution {
 			return AnchorResolution{
 				LineStart: lineNum,
 				LineEnd:   lineNum + countNewlinesBefore(a.QuotedText, len(a.QuotedText)),
-				Status:    "drifted",
+				Status:    AnchorStatusDrifted,
 			}
 		}
 	}
@@ -96,7 +112,7 @@ func ResolveAnchor(plan string, a Anchor) AnchorResolution {
 	return AnchorResolution{
 		LineStart: a.LineStart,
 		LineEnd:   a.LineEnd,
-		Status:    "orphaned",
+		Status:    AnchorStatusOrphaned,
 	}
 }
 
@@ -105,7 +121,7 @@ func ResolveAnchor(plan string, a Anchor) AnchorResolution {
 // whole plan. Returns "" if the resolution is orphaned (no reliable
 // location to extract from).
 func Snippet(plan string, r AnchorResolution) string {
-	if r.Status == "orphaned" {
+	if r.Status == AnchorStatusOrphaned {
 		return ""
 	}
 	lines := strings.Split(plan, "\n")

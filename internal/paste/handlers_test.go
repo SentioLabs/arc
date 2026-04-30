@@ -90,9 +90,9 @@ func TestGetPaste(t *testing.T) {
 	if got.ID != created.ID {
 		t.Errorf("expected id %q, got %q", created.ID, got.ID)
 	}
-	if got.Events == nil {
-		// Events may be nil when empty slice; just ensure no panic
-	}
+	// got.Events may be nil for an empty event log — that's fine, we just
+	// want to confirm the unmarshal didn't blow up above.
+	_ = got.Events
 }
 
 func TestGetPasteNotFound(t *testing.T) {
@@ -118,7 +118,7 @@ func TestUpdatePasteWithToken(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &created)
 
 	// Update with correct token
-	upd, _ := json.Marshal(map[string]interface{}{"plan_blob": []byte{9}, "plan_iv": []byte{8}})
+	upd, _ := json.Marshal(map[string]any{"plan_blob": []byte{9}, "plan_iv": []byte{8}})
 	req2 := httptest.NewRequest(http.MethodPut, "/api/paste/"+created.ID, bytes.NewReader(upd))
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("Authorization", "Bearer "+created.EditToken)
@@ -142,7 +142,7 @@ func TestUpdatePasteWrongToken(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &created)
 
 	// Update with wrong token
-	upd, _ := json.Marshal(map[string]interface{}{"plan_blob": []byte{9}, "plan_iv": []byte{8}})
+	upd, _ := json.Marshal(map[string]any{"plan_blob": []byte{9}, "plan_iv": []byte{8}})
 	req2 := httptest.NewRequest(http.MethodPut, "/api/paste/"+created.ID, bytes.NewReader(upd))
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("Authorization", "Bearer wrongtoken")
@@ -166,7 +166,7 @@ func TestUpdatePasteMissingAuth(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &created)
 
 	// Update with no Authorization header
-	upd, _ := json.Marshal(map[string]interface{}{"plan_blob": []byte{9}, "plan_iv": []byte{8}})
+	upd, _ := json.Marshal(map[string]any{"plan_blob": []byte{9}, "plan_iv": []byte{8}})
 	req2 := httptest.NewRequest(http.MethodPut, "/api/paste/"+created.ID, bytes.NewReader(upd))
 	req2.Header.Set("Content-Type", "application/json")
 	rec2 := httptest.NewRecorder()

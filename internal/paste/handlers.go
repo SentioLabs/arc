@@ -11,6 +11,32 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// ID and token sizes for paste resources. Picked to give plenty of entropy
+// without being painful to copy/paste manually.
+const (
+	// shareIDLen is the length, in characters, of a share's URL slug.
+	shareIDLen = 8
+	// editTokenBytes is the random byte count behind an edit token.
+	// 32 bytes → 64 hex chars, matching the format used by `arc share` clients.
+	editTokenBytes = 32
+	// eventIDRandBytes is the random tail appended to event IDs after the
+	// nanosecond timestamp prefix.
+	eventIDRandBytes = 12
+)
+
+// 64-bit nanosecond timestamps are split into 8 bytes by repeated >> 8 shifts;
+// these constants name the high-order shift amounts to keep the byte build-up
+// readable.
+const (
+	tsShift56 = 56
+	tsShift48 = 48
+	tsShift40 = 40
+	tsShift32 = 32
+	tsShift24 = 24
+	tsShift16 = 16
+	tsShift8  = 8
+)
+
 // Handlers holds the paste HTTP handler dependencies.
 type Handlers struct {
 	store Storage
@@ -30,6 +56,9 @@ func (h *Handlers) Register(g *echo.Group) {
 	g.POST("/:id/blobs", h.appendEvent)
 }
 
+// createPaste handles POST /. Creates a new share with a freshly minted ID
+// and edit token. The edit token is returned to the caller exactly once —
+// there is no recovery path if it's lost.
 func (h *Handlers) createPaste(c echo.Context) error {
 	var req CreatePasteRequest
 	if err := c.Bind(&req); err != nil {
@@ -47,7 +76,7 @@ func (h *Handlers) createPaste(c echo.Context) error {
 		return err
 	}
 	now := time.Now().UTC()
-	sh := PasteShare{
+	sh := Share{
 		ID:        id,
 		PlanBlob:  req.PlanBlob,
 		PlanIV:    req.PlanIV,
@@ -62,6 +91,9 @@ func (h *Handlers) createPaste(c echo.Context) error {
 	return c.JSON(http.StatusCreated, CreatePasteResponse{ID: id, EditToken: token})
 }
 
+// getPaste handles GET /:id. Returns the share row plus its event log.
+// Anonymous — no auth — since the encrypted blobs are already key-gated
+// client-side via the URL fragment.
 func (h *Handlers) getPaste(c echo.Context) error {
 	id := c.Param("id")
 	sh, err := h.store.GetShare(c.Request().Context(), id)
@@ -76,9 +108,9 @@ func (h *Handlers) getPaste(c echo.Context) error {
 		return err
 	}
 	if events == nil {
-		events = []PasteEvent{}
+		events = []Event{}
 	}
-	return c.JSON(http.StatusOK, GetPasteResponse{PasteShare: *sh, Events: events})
+	return c.JSON(http.StatusOK, GetPasteResponse{Share: *sh, Events: events})
 }
 
 func (h *Handlers) updatePaste(c echo.Context) error {
@@ -143,7 +175,7 @@ func (h *Handlers) appendEvent(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	e := PasteEvent{
+	e := Event{
 		ID:        eventID,
 		ShareID:   id,
 		Blob:      req.Blob,
@@ -166,38 +198,40 @@ func bearerToken(c echo.Context) (string, error) {
 	return strings.TrimPrefix(auth, prefix), nil
 }
 
-// newShareID returns an 8-character Crockford base32 (lowercase, without i/l/o/u) ID.
+// newShareID returns a Crockford base32 (lowercase, without i/l/o/u) ID.
 func newShareID() (string, error) {
 	const alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
-	buf := make([]byte, 8)
+	buf := make([]byte, shareIDLen)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
-	out := make([]byte, 8)
+	out := make([]byte, shareIDLen)
 	for i := range out {
 		out[i] = alphabet[int(buf[i])%len(alphabet)]
 	}
 	return string(out), nil
 }
 
-// newEditToken returns a 64-character hex-encoded random token (32 random bytes).
+// newEditToken returns a hex-encoded random token (editTokenBytes random bytes).
 func newEditToken() (string, error) {
-	buf := make([]byte, 32)
+	buf := make([]byte, editTokenBytes)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
 }
 
-// newEventID returns a time-prefixed random hex event ID.
+// newEventID returns a time-prefixed random hex event ID. The nanosecond
+// timestamp goes first so the event IDs sort lexicographically by creation
+// time, which is convenient when scanning logs or storage.
 func newEventID() (string, error) {
-	buf := make([]byte, 12)
+	buf := make([]byte, eventIDRandBytes)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 	ts := time.Now().UTC().UnixNano()
 	return hex.EncodeToString([]byte{
-		byte(ts >> 56), byte(ts >> 48), byte(ts >> 40), byte(ts >> 32),
-		byte(ts >> 24), byte(ts >> 16), byte(ts >> 8), byte(ts),
+		byte(ts >> tsShift56), byte(ts >> tsShift48), byte(ts >> tsShift40), byte(ts >> tsShift32),
+		byte(ts >> tsShift24), byte(ts >> tsShift16), byte(ts >> tsShift8), byte(ts),
 	}) + hex.EncodeToString(buf), nil
 }

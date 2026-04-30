@@ -5,7 +5,7 @@ package paste
 
 import "time"
 
-type PasteShare struct {
+type Share struct {
 	ID        string     `json:"id"`
 	PlanBlob  []byte     `json:"plan_blob"`
 	PlanIV    []byte     `json:"plan_iv"`
@@ -15,7 +15,7 @@ type PasteShare struct {
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
-type PasteEvent struct {
+type Event struct {
 	ID        string    `json:"id"`
 	ShareID   string    `json:"share_id"`
 	Blob      []byte    `json:"blob"`
@@ -41,6 +41,6 @@ type AppendEventRequest struct {
 }
 
 type GetPasteResponse struct {
-	PasteShare
-	Events []PasteEvent `json:"events"`
+	Share
+	Events []Event `json:"events"`
 }

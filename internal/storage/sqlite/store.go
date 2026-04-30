@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
+	pastesqlite "github.com/sentiolabs/arc/internal/paste/sqlite"
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
-	pastesqlite "github.com/sentiolabs/arc/internal/paste/sqlite"
 
 	_ "modernc.org/sqlite"
 )

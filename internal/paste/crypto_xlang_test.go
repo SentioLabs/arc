@@ -1,4 +1,4 @@
-package paste
+package paste_test
 
 import (
 	"encoding/base64"
@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/paste"
 )
 
 type xlangFixture struct {
@@ -38,7 +40,7 @@ func TestCryptoXLangFixtures(t *testing.T) {
 			ct, _ := base64.StdEncoding.DecodeString(f.CiphertextB64)
 			iv, _ := base64.StdEncoding.DecodeString(f.IvB64)
 			var got json.RawMessage
-			if err := DecryptJSON(ct, iv, key, &got); err != nil {
+			if err := paste.DecryptJSON(ct, iv, key, &got); err != nil {
 				t.Fatalf("decrypt: %v", err)
 			}
 			var a, b any
@@ -60,12 +62,12 @@ func TestCryptoXLangRoundtrip(t *testing.T) {
 	for _, f := range fixtures {
 		t.Run(f.Name+"-roundtrip", func(t *testing.T) {
 			key, _ := base64UrlDecode(f.KeyB64Url)
-			ct, iv, err := EncryptJSON(json.RawMessage(f.Plaintext), key)
+			ct, iv, err := paste.EncryptJSON(f.Plaintext, key)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var out json.RawMessage
-			if err := DecryptJSON(ct, iv, key, &out); err != nil {
+			if err := paste.DecryptJSON(ct, iv, key, &out); err != nil {
 				t.Fatal(err)
 			}
 		})
