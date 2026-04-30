@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -21,6 +22,15 @@ import (
 func main() {
 	addr := envOr("ARC_PASTE_ADDR", ":7433")
 	dbPath := envOr("ARC_PASTE_DB", "./arc-paste.db")
+
+	// Ensure the parent directory exists. SQLite will create the db file but
+	// not the directory, which matters when running under scratch / distroless
+	// images that mount a fresh volume at a path the binary has never seen.
+	if dir := filepath.Dir(dbPath); dir != "." && dir != "/" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			log.Fatalf("create db dir %q: %v", dir, err)
+		}
+	}
 
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {

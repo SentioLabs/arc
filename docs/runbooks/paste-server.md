@@ -126,6 +126,15 @@ Remote mode runs the standalone `arc-paste` binary (a thin wrapper around the sa
 ARC_PASTE_ADDR=:7433 ARC_PASTE_DB=/tmp/arc-paste.db ./bin/arc-paste
 ```
 
+Or via Docker (uses the `arc-paste/Dockerfile` scratch image and a named volume):
+
+```bash
+docker compose -f arc-paste/compose.yaml up -d --build
+docker compose -f arc-paste/compose.yaml logs -f
+```
+
+The compose file binds host port 7433, persists SQLite to the `arc-paste-data` named volume, and sets `restart: unless-stopped`. Note: the runtime image is `scratch`, so there's no in-container healthcheck — pair with an external probe (Cloudflare health check, Uptime Kuma, etc.) for production.
+
 ### Create a shared paste pointed at the standalone server
 
 ```bash
