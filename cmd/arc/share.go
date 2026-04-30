@@ -180,6 +180,7 @@ var (
 	shareCreateTitle      string
 	shareCommentsAccepted bool
 	shareCommentsJSON     bool
+	shareShowAuthorURL    bool
 )
 
 func init() {
@@ -196,6 +197,8 @@ func init() {
 		"Optional plan title shown in the share UI header (defaults to the filename)")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsAccepted, "accepted-only", false, "Only print accepted comments")
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsJSON, "json", false, "Output as JSON")
+	shareShowCmd.Flags().BoolVar(&shareShowAuthorURL, "author-url", false,
+		"Print the author URL (includes edit_token) instead of the plan content")
 
 	shareCmd.AddCommand(shareCreateCmd, shareListCmd, shareShowCmd, shareCommentsCmd,
 		sharePullCmd, shareApproveCmd, shareUpdateCmd, shareDeleteCmd)
@@ -279,6 +282,9 @@ func runShareList(cmd *cobra.Command, args []string) error {
 }
 
 func runShareShow(cmd *cobra.Command, args []string) error {
+	if shareShowAuthorURL {
+		return printAuthorURL(args[0])
+	}
 	id, server, key, err := resolveShareRef(args[0])
 	if err != nil {
 		return err
@@ -288,6 +294,22 @@ func runShareShow(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Println(plan.Markdown)
+	return nil
+}
+
+func printAuthorURL(ref string) error {
+	// Resolve to id; accept either bare id or full share URL.
+	id, _, _, err := resolveShareRef(ref)
+	if err != nil {
+		return err
+	}
+	s, _ := sharesconfig.Find(id)
+	if s == nil || s.EditToken == "" || s.KeyB64Url == "" {
+		return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json "+
+			"(--author-url requires a share registered on this machine)", id)
+	}
+	fmt.Printf("%s/share/%s#k=%s&t=%s\n",
+		strings.TrimRight(s.URL, "/"), id, s.KeyB64Url, s.EditToken)
 	return nil
 }
 

@@ -711,6 +711,60 @@ func TestResolveServer(t *testing.T) {
 	}
 }
 
+func TestShareShowAuthorURL(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	// Create a share so shares.json has an entry.
+	plan := filepath.Join(t.TempDir(), "plan.md")
+	_ = os.WriteFile(plan, []byte("# Hi"), 0o600)
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := sharesconfig.Load()
+	id := f.Shares[0].ID
+	editToken := f.Shares[0].EditToken
+	keyB64 := f.Shares[0].KeyB64Url
+
+	// Capture stdout for `arc share show <id> --author-url`.
+	r, w, _ := os.Pipe()
+	stdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = stdout }()
+
+	shareShowAuthorURL = true
+	defer func() { shareShowAuthorURL = false }()
+	if err := runShareShow(shareShowCmd, []string{id}); err != nil {
+		t.Fatalf("runShareShow: %v", err)
+	}
+	_ = w.Close()
+	out, _ := io.ReadAll(r)
+	got := strings.TrimSpace(string(out))
+
+	want := srv.URL + "/share/" + id + "#k=" + keyB64 + "&t=" + editToken
+	if got != want {
+		t.Errorf("author URL mismatch:\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestShareShowAuthorURLMissingShare(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	shareShowAuthorURL = true
+	defer func() { shareShowAuthorURL = false }()
+	err := runShareShow(shareShowCmd, []string{"abc12345"})
+	if err == nil {
+		t.Fatal("expected error for missing share, got nil")
+	}
+	if !strings.Contains(err.Error(), "abc12345") {
+		t.Errorf("error should reference share id, got: %v", err)
+	}
+}
+
 // writeShareServerConfig points the global configPath at a temp cli-config.json
 // containing the given share_server (omitted entirely when empty).
 func writeShareServerConfig(t *testing.T, server string) {
