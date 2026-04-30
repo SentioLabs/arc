@@ -181,10 +181,11 @@ const (
 const defaultShareServer = "https://arcplanner.sentiolabs.io"
 
 var shareDeleteCmd = &cobra.Command{
-	Use:   "delete <id-or-url>",
-	Short: "Delete a share (uses edit_token from shares.json)",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runShareDelete,
+	Use:          "delete <id-or-url>",
+	Short:        "Delete a share (uses edit_token from shares.json)",
+	Args:         cobra.ExactArgs(1),
+	SilenceUsage: true,
+	RunE:         runShareDelete,
 }
 
 var (
@@ -196,6 +197,7 @@ var (
 	shareCommentsAccepted bool
 	shareCommentsJSON     bool
 	shareShowAuthorURL    bool
+	shareDeleteForce      bool
 )
 
 func init() {
@@ -216,6 +218,8 @@ func init() {
 	shareCommentsCmd.Flags().BoolVar(&shareCommentsJSON, "json", false, "Output as JSON")
 	shareShowCmd.Flags().BoolVar(&shareShowAuthorURL, "author-url", false,
 		"Print the author URL (includes edit_token) instead of the plan content")
+	shareDeleteCmd.Flags().BoolVarP(&shareDeleteForce, "force", "f", false,
+		"Remove the local registry entry even if the edit token is missing or the server delete fails")
 
 	shareCmd.AddCommand(shareCreateCmd, shareListCmd, shareShowCmd, shareCommentsCmd,
 		sharePullCmd, shareApproveCmd, shareUpdateCmd, shareDeleteCmd)
@@ -401,10 +405,16 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 	}
 	s, _ := sharesconfig.Find(id)
 	if s == nil || s.EditToken == "" {
-		return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json", id)
-	}
-	if err := deleteShare(server, id, s.EditToken); err != nil {
-		return err
+		if !shareDeleteForce {
+			return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json "+
+				"(use --force to remove the local entry)", id)
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "warning: no edit_token for %s; skipping server delete\n", id)
+	} else if err := deleteShare(server, id, s.EditToken); err != nil {
+		if !shareDeleteForce {
+			return err
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "warning: server delete failed: %v; removing local entry anyway\n", err)
 	}
 	return sharesconfig.Remove(id)
 }
