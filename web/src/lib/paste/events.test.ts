@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { replayEvents, acceptedOnly } from './events';
-import type { CommentEvent, EditEvent, ResolutionEvent } from './types';
+import type { CommentEvent, EditEvent, ResolutionEvent, RetractionEvent } from './types';
 
 const c: CommentEvent = {
 	kind: 'comment',
@@ -190,6 +190,43 @@ describe('replayEvents', () => {
 				const states = replayEvents('Ben', [c, aliceFirst, benSecond]);
 				expect(states.get('c1')?.event.body).toBe('ben final');
 			});
+		});
+	});
+
+	describe('retraction events', () => {
+		const retract: RetractionEvent = {
+			kind: 'retraction',
+			id: 'x1',
+			comment_id: 'c1',
+			author_name: 'Alice',
+			created_at: '2026-04-29T00:08:00Z'
+		};
+
+		it('marks comment retracted when original author retracts', () => {
+			const states = replayEvents('Ben', [c, retract]);
+			expect(states.get('c1')?.status).toBe('retracted');
+		});
+
+		it('ignores retraction by someone other than the original commenter', () => {
+			// Plan author Ben tries to retract Alice's comment — must be silently dropped.
+			const states = replayEvents('Ben', [c, { ...retract, author_name: 'Ben' }]);
+			expect(states.get('c1')?.status).toBe('open');
+		});
+
+		it('ignores forged retraction by a third party', () => {
+			const states = replayEvents('Ben', [c, { ...retract, author_name: 'Mallory' }]);
+			expect(states.get('c1')?.status).toBe('open');
+		});
+
+		it('ignores retraction targeting a non-existent comment', () => {
+			const states = replayEvents('Ben', [c, { ...retract, comment_id: 'nope' }]);
+			expect(states.get('c1')?.status).toBe('open');
+		});
+
+		it('retraction overrides a prior accept (chronological replay)', () => {
+			// Edge case: author accepts, reviewer then retracts. Last write wins.
+			const states = replayEvents('Ben', [c, accept, retract]);
+			expect(states.get('c1')?.status).toBe('retracted');
 		});
 	});
 });

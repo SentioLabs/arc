@@ -98,6 +98,21 @@ type editEvent struct {
 	CreatedAt     string  `json:"created_at"`
 }
 
+// retractionEvent is the original commenter taking their annotation back.
+// Replay marks the target comment with status='retracted'; the printers
+// and JSON bundle filter retracted entries out of the default output so
+// downstream LLM consumers don't act on revoked material. The encrypted
+// event remains in the log as audit. Only an event whose author_name
+// matches the target's author_name takes effect — plan author canNOT
+// retract someone else's comment (they have Reject for that).
+type retractionEvent struct {
+	Kind       string `json:"kind"` // always "retraction"
+	ID         string `json:"id"`
+	CommentID  string `json:"comment_id"`
+	AuthorName string `json:"author_name"`
+	CreatedAt  string `json:"created_at"`
+}
+
 // --- commands ---
 
 var shareCmd = &cobra.Command{
@@ -592,8 +607,8 @@ func printComments(server, id string, key []byte, acceptedOnly, asJSON bool) err
 		return err
 	}
 	decoded := decodeAndSortEvents(events, key)
-	comments, resolutions := replayEvents(decoded, plan.AuthorName)
-	entries := buildCommentEntries(comments, resolutions, acceptedOnly)
+	comments, resolutions, retracted := replayEvents(decoded, plan.AuthorName)
+	entries := buildCommentEntries(comments, resolutions, retracted, acceptedOnly)
 	if asJSON {
 		return emitBundle(id, plan, entries)
 	}
@@ -638,9 +653,10 @@ func decodeAndSortEvents(events []paste.Event, key []byte) []decodedEvent {
 	return out
 }
 
-func replayEvents(events []decodedEvent, planAuthor string) (map[string]commentEvent, map[string]resolutionEvent) {
+func replayEvents(events []decodedEvent, planAuthor string) (map[string]commentEvent, map[string]resolutionEvent, map[string]bool) {
 	comments := map[string]commentEvent{}
 	resolutions := map[string]resolutionEvent{}
+	retracted := map[string]bool{}
 	for _, d := range events {
 		switch d.kind {
 		case "comment":
@@ -649,9 +665,31 @@ func replayEvents(events []decodedEvent, planAuthor string) (map[string]commentE
 			applyResolutionEvent(d.raw, planAuthor, resolutions)
 		case "edit":
 			applyEditEvent(d.raw, planAuthor, comments)
+		case "retraction":
+			applyRetractionEvent(d.raw, comments, retracted)
 		}
 	}
-	return comments, resolutions
+	return comments, resolutions, retracted
+}
+
+// applyRetractionEvent marks the target comment as retracted iff the event's
+// author_name matches the comment's original author_name. Plan author canNOT
+// retract someone else's comment — they have Reject (with reply) for that
+// purpose. Forged retractions are silently dropped, matching the edit-event
+// authorization model.
+func applyRetractionEvent(raw json.RawMessage, comments map[string]commentEvent, retracted map[string]bool) {
+	var r retractionEvent
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return
+	}
+	target, ok := comments[r.CommentID]
+	if !ok {
+		return
+	}
+	if r.AuthorName != target.AuthorName {
+		return
+	}
+	retracted[r.CommentID] = true
 }
 
 func applyCommentEvent(raw json.RawMessage, comments map[string]commentEvent) {
@@ -709,12 +747,19 @@ func applyEditEvent(raw json.RawMessage, planAuthor string, comments map[string]
 func buildCommentEntries(
 	comments map[string]commentEvent,
 	resolutions map[string]resolutionEvent,
+	retracted map[string]bool,
 	acceptedOnly bool,
 ) []commentEntry {
 	// Build a deterministic-order list of comment entries so multiple runs
 	// produce identical output (Go map iteration is randomized).
 	entries := make([]commentEntry, 0, len(comments))
 	for cid, c := range comments {
+		// Retracted comments are filtered from default output; the encrypted
+		// event still lives in the log for audit but downstream LLM consumers
+		// shouldn't see (and act on) revoked material.
+		if retracted[cid] {
+			continue
+		}
 		status := "open"
 		reply := ""
 		if res, ok := resolutions[cid]; ok {

@@ -12,6 +12,7 @@
 		EditEvent,
 		ResolutionEvent,
 		ResolutionStatus,
+		RetractionEvent,
 		Anchor
 	} from '$lib/paste/types';
 	import PlanRenderer from './components/PlanRenderer.svelte';
@@ -59,15 +60,20 @@
 	const isAuthor = $derived(authorToken !== null);
 
 	const orderedStates = $derived.by(() => {
-		return [...comments.values()].sort((a, b) =>
-			b.event.created_at.localeCompare(a.event.created_at)
-		);
+		return [...comments.values()]
+			.filter((s) => s.status !== 'retracted')
+			.sort((a, b) => b.event.created_at.localeCompare(a.event.created_at));
 	});
 
 	const marks = $derived.by((): InlineMark[] => {
 		const out: InlineMark[] = [];
 		for (const state of comments.values()) {
-			if (state.status === 'resolved' || state.status === 'rejected') continue;
+			if (
+				state.status === 'resolved' ||
+				state.status === 'rejected' ||
+				state.status === 'retracted'
+			)
+				continue;
 			out.push({
 				id: state.event.id,
 				kind: state.event.action === 'delete' ? 'delete' : 'comment',
@@ -342,6 +348,30 @@
 		comments = next;
 	}
 
+	// The original commenter retracting their own annotation. Goes through the
+	// regular postEvent (not postAuthorEvent) — retraction is a reviewer-side
+	// authority, not an author privilege, so a future Phase C server-enforced
+	// auth would NOT gate retraction behind the author token.
+	async function handleRetract(commentId: string) {
+		if (!reviewerName) return;
+		const target = comments.get(commentId);
+		if (!target) return;
+		// Replay also enforces this; failing fast here avoids posting events
+		// the replay would silently drop.
+		if (target.event.author_name !== reviewerName) return;
+		const event: RetractionEvent = {
+			kind: 'retraction',
+			id: `x-${crypto.randomUUID()}`,
+			comment_id: commentId,
+			author_name: reviewerName,
+			created_at: new Date().toISOString()
+		};
+		await postEvent(event);
+		const next = new Map(comments);
+		next.set(commentId, { ...target, status: 'retracted' });
+		comments = next;
+	}
+
 	function handleSelection(sel: SelectionInfo | null) {
 		if (!sel) {
 			if (!popoverMode && !showQuickLabel) activeSelection = null;
@@ -476,6 +506,7 @@
 				onCardClick={handleCardClick}
 				onResolve={handleResolve}
 				onEdit={handleEdit}
+				onRetract={handleRetract}
 			/>
 		</div>
 	</aside>

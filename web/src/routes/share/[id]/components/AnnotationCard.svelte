@@ -11,7 +11,8 @@
 		isActive = false,
 		onClick,
 		onResolve,
-		onEdit
+		onEdit,
+		onRetract
 	}: {
 		entry: CommentState;
 		isAuthor: boolean;
@@ -20,6 +21,7 @@
 		onClick: () => void;
 		onResolve: (status: ResolutionStatus, reply?: string) => Promise<void>;
 		onEdit: (body: string, suggestedText: string | undefined) => Promise<void>;
+		onRetract: () => Promise<void>;
 	} = $props();
 
 	const modKey = modifierGlyph();
@@ -100,6 +102,30 @@
 			(e.author_name === reviewerName || isAuthor) &&
 			(entry.status === 'open' || entry.status === 'reopened')
 	);
+
+	// Retraction is strictly the original commenter's authority — author
+	// keeps Reject (with reply) for unwanted feedback so rationale survives
+	// in the audit trail. Same status window as canEdit: only meaningful
+	// while the comment is still under discussion.
+	const canRetract = $derived(
+		reviewerName !== null &&
+			e.author_name === reviewerName &&
+			(entry.status === 'open' || entry.status === 'reopened')
+	);
+
+	let showRetractConfirm = $state(false);
+	let retracting = $state(false);
+
+	async function confirmRetract() {
+		if (retracting) return;
+		retracting = true;
+		try {
+			await onRetract();
+		} finally {
+			retracting = false;
+			showRetractConfirm = false;
+		}
+	}
 
 	async function startEdit() {
 		editBody = e.body ?? '';
@@ -302,7 +328,7 @@
 		  - Reject: `--ink-delete` (editorial red — load-bearing no)
 		  - Resolve / Reopen: muted (closing actions, no decision weight)
 	-->
-	{#if (canEdit || isAuthor) && !isEditing && !showRejectReply}
+	{#if (canEdit || canRetract || isAuthor) && !isEditing && !showRejectReply && !showRetractConfirm}
 		<div class="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[var(--ink-rule)] pt-2">
 			{#if canEdit}
 				<button
@@ -318,7 +344,22 @@
 				</button>
 			{/if}
 
-			{#if canEdit && isAuthor}
+			{#if canRetract}
+				<button
+					type="button"
+					class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-delete-bg)] hover:text-[var(--ink-delete)]"
+					onclick={(ev) => {
+						ev.stopPropagation();
+						showRetractConfirm = true;
+					}}
+					title="Take this annotation back (it disappears from the rail)"
+					aria-label="Delete this annotation"
+				>
+					🗑 Delete
+				</button>
+			{/if}
+
+			{#if (canEdit || canRetract) && isAuthor}
 				<span
 					class="select-none px-0.5 text-[11px] text-[var(--ink-text-faint)]"
 					aria-hidden="true">·</span
@@ -410,6 +451,41 @@
 					}}
 				>
 					Confirm reject
+				</button>
+			</div>
+		</div>
+	{/if}
+
+	{#if showRetractConfirm}
+		<!-- Inline confirm. Mirrors the reject-reply pattern's footprint
+			 (top-rule + flex justify-end action row) but skips the textarea —
+			 retraction has no rationale field, just a binary confirm. -->
+		<div class="mt-3 space-y-2 border-t border-[var(--ink-rule)] pt-2">
+			<p class="text-[11px] italic text-[var(--ink-text-muted)]">
+				Take this annotation back? It disappears from the rail and is excluded from
+				<code class="ui-mono">arc share comments</code> output.
+			</p>
+			<div class="flex justify-end gap-2">
+				<button
+					type="button"
+					class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)]"
+					onclick={(ev) => {
+						ev.stopPropagation();
+						showRetractConfirm = false;
+					}}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					disabled={retracting}
+					class="rounded-md border border-[var(--ink-delete-edge)] bg-[var(--ink-delete-bg)] px-2 py-1 text-[11px] font-medium text-[var(--ink-delete)] disabled:opacity-50"
+					onclick={(ev) => {
+						ev.stopPropagation();
+						void confirmRetract();
+					}}
+				>
+					{retracting ? 'Deleting…' : 'Yes, delete'}
 				</button>
 			</div>
 		</div>

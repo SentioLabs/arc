@@ -108,6 +108,77 @@ func TestRunShareCommentsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestRunShareCommentsHidesRetracted verifies that a retraction event from the
+// comment's original author removes the comment from `arc share comments`
+// default output, while a forged retraction (mismatched author_name) is
+// silently dropped at replay time. The encrypted retraction event remains in
+// the log for audit.
+func TestRunShareCommentsHidesRetracted(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	plan := filepath.Join(t.TempDir(), "p.md")
+	_ = os.WriteFile(plan, []byte("# P"), 0o600)
+	shareCreateServer = srv.URL
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := sharesconfig.Load()
+	s := f.Shares[0]
+	keyBytes := mustDecodeKey(t, s.KeyB64Url)
+
+	postEv := func(t *testing.T, payload map[string]any) {
+		t.Helper()
+		blob, iv, err := paste.EncryptJSON(payload, keyBytes)
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		body, _ := json.Marshal(paste.AppendEventRequest{Blob: blob, IV: iv})
+		if err := postRaw(t, srv.URL+"/api/paste/"+s.ID+"/blobs", body); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Two comments: Alice's (which she'll retract) and Bob's (which she can't).
+	postEv(t, map[string]any{
+		"kind": "comment", "id": "c1", "author_name": "Alice", "comment_type": "comment",
+		"body":       "regret posting this",
+		"anchor":     map[string]any{"line_start": 1, "line_end": 1, "quoted_text": "P"},
+		"created_at": "2026-04-29T00:00:00Z",
+	})
+	postEv(t, map[string]any{
+		"kind": "comment", "id": "c2", "author_name": "Bob", "comment_type": "comment",
+		"body":       "stays visible",
+		"anchor":     map[string]any{"line_start": 1, "line_end": 1, "quoted_text": "P"},
+		"created_at": "2026-04-29T00:01:00Z",
+	})
+
+	// Alice retracts her own — must take effect.
+	postEv(t, map[string]any{
+		"kind": "retraction", "id": "x1", "comment_id": "c1", "author_name": "Alice",
+		"created_at": "2026-04-29T00:02:00Z",
+	})
+	// Mallory tries to retract Bob's — must be silently dropped.
+	postEv(t, map[string]any{
+		"kind": "retraction", "id": "x2", "comment_id": "c2", "author_name": "Mallory",
+		"created_at": "2026-04-29T00:03:00Z",
+	})
+
+	out := captureStdout(t, func() { _ = runShareComments(shareCommentsCmd, []string{s.ID}) })
+
+	if strings.Contains(out, "regret posting this") {
+		t.Errorf("retracted comment must be hidden; got:\n%s", out)
+	}
+	if !strings.Contains(out, "stays visible") {
+		t.Errorf("forged retraction should not have removed Bob's comment; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Bob") {
+		t.Errorf("expected Bob's comment to still be present; got:\n%s", out)
+	}
+}
+
 // TestRunShareCommentsAppliesEdits verifies that an `edit` event from the
 // comment's original author rewrites the body shown by `arc share comments`.
 // This locks in CLI parity with the SPA's replay logic.
