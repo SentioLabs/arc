@@ -289,71 +289,91 @@
 		</div>
 	{/if}
 
-	{#if canEdit && !isEditing && !showRejectReply}
-		<div class="mt-3 flex flex-wrap gap-1.5 border-t border-[var(--ink-rule)] pt-2">
-			<button
-				type="button"
-				class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-				onclick={(ev) => {
-					ev.stopPropagation();
-					void startEdit();
-				}}
-				title="Edit your annotation"
-			>
-				✎ Edit
-			</button>
-		</div>
-	{/if}
+	<!--
+		Single action toolbar combining Edit + the resolution actions, with
+		a middle-dot separator between the two groups when both are present
+		(plan author looking at an editable comment). The separator uses the
+		same `·` glyph the card already uses for header metadata, keeping the
+		editorial aesthetic consistent across the component.
 
-	{#if isAuthor && !showRejectReply && !isEditing}
-		<div class="mt-3 flex flex-wrap gap-1.5 border-t border-[var(--ink-rule)] pt-2">
-			{#if entry.status !== 'accepted'}
-				<button
-					type="button"
-					class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-praise)] hover:bg-[var(--ink-praise-bg)]"
-					onclick={(e) => {
-						e.stopPropagation();
-						onResolve('accepted');
-					}}
-				>
-					✓ Accept
-				</button>
-			{/if}
-			{#if entry.status !== 'resolved'}
+		Color hierarchy carries the visual semantics:
+		  - Edit: `--ink-text-muted` (soft, recessive — it's a refinement)
+		  - Accept: `--ink-praise` (sage green — load-bearing yes)
+		  - Reject: `--ink-delete` (editorial red — load-bearing no)
+		  - Resolve / Reopen: muted (closing actions, no decision weight)
+	-->
+	{#if (canEdit || isAuthor) && !isEditing && !showRejectReply}
+		<div class="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[var(--ink-rule)] pt-2">
+			{#if canEdit}
 				<button
 					type="button"
 					class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-					onclick={(e) => {
-						e.stopPropagation();
-						onResolve('resolved');
+					onclick={(ev) => {
+						ev.stopPropagation();
+						void startEdit();
 					}}
+					title="Refine the wording before deciding"
 				>
-					— Resolve
+					✎ Edit
 				</button>
 			{/if}
-			{#if entry.status !== 'rejected'}
-				<button
-					type="button"
-					class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-delete)] hover:bg-[var(--ink-delete-bg)]"
-					onclick={(e) => {
-						e.stopPropagation();
-						showRejectReply = true;
-					}}
+
+			{#if canEdit && isAuthor}
+				<span
+					class="select-none px-0.5 text-[11px] text-[var(--ink-text-faint)]"
+					aria-hidden="true">·</span
 				>
-					✕ Reject
-				</button>
 			{/if}
-			{#if entry.status !== 'open' && entry.status !== 'reopened'}
-				<button
-					type="button"
-					class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-					onclick={(e) => {
-						e.stopPropagation();
-						onResolve('reopened');
-					}}
-				>
-					↻ Reopen
-				</button>
+
+			{#if isAuthor}
+				{#if entry.status !== 'accepted'}
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-praise)] hover:bg-[var(--ink-praise-bg)]"
+						onclick={(e) => {
+							e.stopPropagation();
+							onResolve('accepted');
+						}}
+					>
+						✓ Accept
+					</button>
+				{/if}
+				{#if entry.status !== 'resolved'}
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
+						onclick={(e) => {
+							e.stopPropagation();
+							onResolve('resolved');
+						}}
+					>
+						— Resolve
+					</button>
+				{/if}
+				{#if entry.status !== 'rejected'}
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-delete)] hover:bg-[var(--ink-delete-bg)]"
+						onclick={(e) => {
+							e.stopPropagation();
+							showRejectReply = true;
+						}}
+					>
+						✕ Reject
+					</button>
+				{/if}
+				{#if entry.status !== 'open' && entry.status !== 'reopened'}
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
+						onclick={(e) => {
+							e.stopPropagation();
+							onResolve('reopened');
+						}}
+					>
+						↻ Reopen
+					</button>
+				{/if}
 			{/if}
 		</div>
 	{/if}

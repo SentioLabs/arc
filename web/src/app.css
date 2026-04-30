@@ -717,27 +717,37 @@
 	margin-right: auto;
 }
 
+/*
+ * Token system — `--ink-*` names kept for backward-compat with the
+ * existing annotation UI selectors, but VALUES now point at arc's
+ * standard `--color-*` tokens so the share page reads the same as
+ * /planner and the rest of the app. Annotation-specific tones
+ * (comment / delete / praise) keep their distinctive review-domain
+ * hues since they encode semantic meaning, not just decoration.
+ */
 .share-page {
-	--ink-paper: oklch(0.16 0.02 260);
-	--ink-paper-raised: oklch(0.2 0.015 260);
-	--ink-paper-edge: oklch(0.24 0.015 260);
-	--ink-text: oklch(0.92 0.02 85);
-	--ink-text-muted: oklch(0.72 0.02 85);
-	--ink-text-faint: oklch(0.55 0.02 260);
-	--ink-rule: oklch(0.3 0.015 260);
+	/* Surfaces & text — alias to arc's Refined Terminal palette. */
+	--ink-paper: var(--color-surface-900);
+	--ink-paper-raised: var(--color-surface-800);
+	--ink-paper-edge: var(--color-surface-700);
+	--ink-text: var(--color-text-primary);
+	--ink-text-muted: var(--color-text-secondary);
+	--ink-text-faint: var(--color-text-muted);
+	--ink-rule: var(--color-border);
 
-	/* Annotation inks */
-	--ink-comment: oklch(0.78 0.16 75); /* warm amber - quill on parchment */
+	/* Annotation inks — these are review-domain semantics (highlight =
+	   amber, deletion = red, praise = green) and stay distinct from
+	   surface chrome. Kept in oklch with explicit alphas so the badges
+	   read clearly against any surface. */
+	--ink-comment: oklch(0.78 0.16 75); /* warm amber highlight */
 	--ink-comment-bg: oklch(0.78 0.16 75 / 0.16);
 	--ink-comment-edge: oklch(0.78 0.16 75 / 0.55);
-	--ink-delete: oklch(0.68 0.2 25); /* editorial red */
-	--ink-delete-bg: oklch(0.68 0.2 25 / 0.18);
-	--ink-delete-edge: oklch(0.68 0.2 25 / 0.55);
-	--ink-praise: oklch(0.72 0.14 150); /* sage / proofreader green */
-	--ink-praise-bg: oklch(0.72 0.14 150 / 0.16);
+	--ink-delete: var(--color-status-blocked);
+	--ink-delete-bg: oklch(from var(--color-status-blocked) l c h / 0.18);
+	--ink-delete-edge: oklch(from var(--color-status-blocked) l c h / 0.55);
+	--ink-praise: var(--color-status-open);
+	--ink-praise-bg: oklch(from var(--color-status-open) l c h / 0.16);
 
-	font-family: "Newsreader", ui-serif, Georgia, serif;
-	font-feature-settings: "kern", "liga", "clig", "calt", "onum";
 	background: var(--ink-paper);
 	color: var(--ink-text);
 	min-height: 100vh;
@@ -752,142 +762,166 @@
 	font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
-/* Document column — the "page" being read */
+/*
+ * Document column — mirrors the planner's `.markdown` styles so
+ * /share/[id] reads as the same product as /planner. Inherits
+ * Instrument Sans from `html` (no font-family override here).
+ */
 .share-page .doc {
-	font-family: "Newsreader", ui-serif, Georgia, serif;
-	font-size: 1.0625rem; /* 17px */
+	font-size: 1rem;
 	line-height: 1.7;
-	color: var(--ink-text);
+	color: var(--color-text-primary);
 }
 .share-page .doc h1,
 .share-page .doc h2,
 .share-page .doc h3,
-.share-page .doc h4 {
-	font-family: "Newsreader", ui-serif, Georgia, serif;
+.share-page .doc h4,
+.share-page .doc h5,
+.share-page .doc h6 {
+	color: var(--color-text-primary);
 	font-weight: 600;
-	letter-spacing: -0.01em;
-	color: var(--ink-text);
+	margin-top: 1.5em;
+	margin-bottom: 0.5em;
 	line-height: 1.25;
 }
+.share-page .doc h1:first-child,
+.share-page .doc h2:first-child,
+.share-page .doc h3:first-child,
+.share-page .doc h4:first-child,
+.share-page .doc h5:first-child,
+.share-page .doc h6:first-child {
+	margin-top: 0;
+}
 .share-page .doc h1 {
-	font-size: 2rem;
-	margin: 0 0 1.5rem 0;
-	font-weight: 600;
-	font-style: italic;
-	letter-spacing: -0.02em;
+	font-size: 1.5em;
 }
 .share-page .doc h2 {
-	font-size: 1.375rem;
-	margin: 2.5rem 0 1rem 0;
-	border-bottom: 1px solid var(--ink-rule);
-	padding-bottom: 0.5rem;
+	font-size: 1.25em;
+	padding-bottom: 0.25em;
+	border-bottom: 1px solid var(--color-border-subtle);
 }
 .share-page .doc h3 {
-	font-size: 1.125rem;
-	margin: 2rem 0 0.75rem 0;
+	font-size: 1.1em;
 }
-.share-page .doc h4 {
-	font-size: 1rem;
-	margin: 1.5rem 0 0.5rem 0;
-	color: var(--ink-text-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	font-size: 0.85rem;
+.share-page .doc h4,
+.share-page .doc h5,
+.share-page .doc h6 {
+	font-size: 1em;
 }
 .share-page .doc p {
-	margin: 0 0 1rem 0;
+	margin-bottom: 0.75em;
+	color: var(--color-text-secondary);
+	line-height: 1.7;
 }
 .share-page .doc ul,
 .share-page .doc ol {
-	margin: 0 0 1rem 0;
-	padding-left: 1.5rem;
+	margin: 0.75em 0;
+	padding-left: 1.5em;
+	color: var(--color-text-secondary);
 }
-.share-page .doc ul li {
-	list-style: none;
-	position: relative;
-}
-.share-page .doc ul li::before {
-	content: "·";
-	position: absolute;
-	left: -1rem;
-	color: var(--ink-text-faint);
-	font-size: 1.4em;
-	line-height: 1;
+.share-page .doc ul {
+	list-style-type: disc;
 }
 .share-page .doc ol {
-	list-style: decimal;
-}
-.share-page .doc ol li::marker {
-	color: var(--ink-text-faint);
-	font-feature-settings: "onum";
+	list-style-type: decimal;
 }
 .share-page .doc li {
-	margin: 0.25rem 0;
+	margin-bottom: 0.25em;
+	line-height: 1.7;
 }
 .share-page .doc strong {
-	font-weight: 600;
-	color: var(--ink-text);
+	color: var(--color-text-primary);
 }
 .share-page .doc em {
 	font-style: italic;
 }
 .share-page .doc code {
-	font-family: "JetBrains Mono", ui-monospace, monospace;
-	font-size: 0.875em;
-	background: var(--ink-paper-edge);
-	padding: 0.125rem 0.375rem;
+	font-family: var(--font-mono);
+	font-size: 0.85em;
+	background: var(--color-surface-700);
+	color: var(--color-primary-300);
+	padding: 0.15em 0.4em;
 	border-radius: 3px;
-	color: var(--ink-text);
 }
+/*
+ * Code blocks come through shiki (see src/lib/markdown.ts) which sets its
+ * own `background-color` and `color` via inline styles — those take
+ * precedence over our CSS by specificity. We keep border, padding,
+ * border-radius, and font-size for layout consistency, and explicitly
+ * DON'T set `background` so shiki's github-dark-dimmed theme can shine
+ * through. The `.shiki` class is shiki's own marker; targeting both
+ * `pre` and `pre.shiki` keeps non-highlighted text-blocks looking
+ * consistent.
+ */
+/*
+ * Code blocks come through shiki (see src/lib/markdown.ts) which sets
+ * its own `background-color` and `color` via inline styles — those
+ * win over our CSS by specificity. We provide border + padding +
+ * font-size for layout, and only set `background` for plain (no-lang)
+ * fences via the `:not(.shiki)` escape hatch.
+ */
 .share-page .doc pre {
-	font-family: "JetBrains Mono", ui-monospace, monospace;
-	font-size: 0.8125rem;
-	background: var(--ink-paper-edge);
-	padding: 1rem 1.25rem;
+	font-family: var(--font-mono);
+	font-size: 0.85em;
+	padding: 1em;
 	border-radius: 6px;
-	border: 1px solid var(--ink-rule);
+	border: 1px solid var(--color-border);
 	overflow-x: auto;
 	line-height: 1.6;
-	margin: 1rem 0;
+	margin: 1em 0;
+}
+.share-page .doc pre:not(.shiki) {
+	background: var(--color-surface-900);
 }
 .share-page .doc pre code {
 	background: transparent;
 	padding: 0;
 	border-radius: 0;
+	color: inherit;
 }
 .share-page .doc blockquote {
-	border-left: 2px solid var(--ink-text-faint);
-	padding: 0.25rem 0 0.25rem 1.25rem;
-	margin: 1rem 0;
-	color: var(--ink-text-muted);
+	border-left: 3px solid var(--color-primary-600);
+	background: var(--color-surface-800);
+	padding: 0.75em 1em;
+	margin: 1em 0;
 	font-style: italic;
+	color: var(--color-text-secondary);
+}
+.share-page .doc blockquote p:last-child {
+	margin-bottom: 0;
 }
 .share-page .doc hr {
 	border: none;
-	border-top: 1px solid var(--ink-rule);
-	margin: 2rem 0;
+	border-top: 1px solid var(--color-border-subtle);
+	margin: 1.5em 0;
 }
 .share-page .doc a {
-	color: var(--ink-comment);
+	color: var(--color-primary-400);
+	text-decoration: none;
+}
+.share-page .doc a:hover {
 	text-decoration: underline;
-	text-decoration-color: var(--ink-comment-edge);
-	text-underline-offset: 3px;
 }
 .share-page .doc table {
+	width: 100%;
 	border-collapse: collapse;
-	margin: 1rem 0;
-	font-family: "Inter Tight", ui-sans-serif, sans-serif;
-	font-size: 0.9rem;
-}
-.share-page .doc th,
-.share-page .doc td {
-	border: 1px solid var(--ink-rule);
-	padding: 0.5rem 0.75rem;
-	text-align: left;
+	margin: 1em 0;
+	font-size: 0.875em;
 }
 .share-page .doc th {
-	background: var(--ink-paper-raised);
+	background: var(--color-surface-700);
 	font-weight: 600;
+	text-align: left;
+	padding: 0.5em 0.75em;
+	border-bottom: 2px solid var(--color-border);
+}
+.share-page .doc td {
+	padding: 0.5em 0.75em;
+	border-bottom: 1px solid var(--color-border-subtle);
+	color: var(--color-text-secondary);
+}
+.share-page .doc tr:hover td {
+	background: var(--color-surface-800);
 }
 
 /* Inline annotation marks (added by inline-annotations.ts after render) */
@@ -972,7 +1006,8 @@
 	border-color: var(--ink-comment-edge);
 }
 .share-page .anno-card .quote {
-	font-family: "Newsreader", ui-serif, Georgia, serif;
+	/* Italic kept as a typographic marker for "this is a quoted span" —
+	   the rest of the card is Instrument Sans like the planner. */
 	font-style: italic;
 	color: var(--ink-text-muted);
 	background: var(--ink-paper);
@@ -1017,15 +1052,9 @@
 	animation: toolbar-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Subtle paper grain — barely-there to break up the flat dark surface */
 .share-page .doc-area {
-	background:
-		radial-gradient(circle at 0 0, oklch(1 0 0 / 0.015) 1px, transparent 1px),
-		radial-gradient(circle at 12px 12px, oklch(1 0 0 / 0.012) 1px, transparent 1px),
-		var(--ink-paper);
-	background-size:
-		24px 24px,
-		24px 24px;
+	/* Flat surface to match the planner's clean Refined Terminal look. */
+	background: var(--color-surface-900);
 }
 
 /* Reviewer name chip */
