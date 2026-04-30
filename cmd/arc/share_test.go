@@ -559,7 +559,7 @@ func TestShareCreatePrintsBothURLs(t *testing.T) {
 	}
 
 	// Author URL must contain &t=.
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if strings.Contains(line, "/share/") && strings.Contains(line, "&t=") {
 			return
 		}
