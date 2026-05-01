@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.14.0](https://github.com/SentioLabs/arc/compare/v0.13.0...v0.14.0) (2026-05-01)
+
+
+### Features
+
+* **arc-paste:** add caddy ssl compose setup ([95bf955](https://github.com/SentioLabs/arc/commit/95bf9552e5a3da108ebe5d6ac8fb99c663954c28))
+* **arc-paste:** add Caddy SSL setup ([8c79ab5](https://github.com/SentioLabs/arc/commit/8c79ab5b80675660035fde363478caa6d93dd831))
+
+
+### Bug Fixes
+
+* **share:** honor --json on `arc share list` ([ae8088e](https://github.com/SentioLabs/arc/commit/ae8088e12dc4c738f6138e91aeb196882424df28))
+* **share:** honor --json on `arc share list` ([5783029](https://github.com/SentioLabs/arc/commit/5783029d39ea2dab871cca70e42bac864f8456ad))
+
+
+### Refactoring
+
+* **arc-paste:** switch caddy to Caddyfile + pin version ([a471caa](https://github.com/SentioLabs/arc/commit/a471caab160bdb9015dbf3efcb9ffb865ba2a4e3))
+
 ## [0.13.0](https://github.com/SentioLabs/arc/compare/v0.12.0...v0.13.0) (2026-05-01)
 
 
