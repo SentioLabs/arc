@@ -154,7 +154,13 @@ docker compose -f arc-paste/compose.yaml up -d --build
 docker compose -f arc-paste/compose.yaml logs -f
 ```
 
-The compose file publishes Caddy on host ports 80/443 (including UDP 443 for HTTP/3), exposes `arc-paste` only on the internal Docker network, persists SQLite to the `arc-paste-data` named volume, persists Caddy certificate state to named volumes, and sets `restart: unless-stopped`. Make sure DNS for `arcpaste.company.com` points to the host and ports 80/443 are reachable for Let's Encrypt issuance and renewal. Note: the runtime image is `scratch`, so there's no in-container healthcheck — pair with an external probe (Cloudflare health check, Uptime Kuma, etc.) against the HTTPS endpoint for production.
+The compose file publishes Caddy on host ports 80/443 (including UDP 443 for HTTP/3), exposes `arc-paste` only on the internal Docker network, persists SQLite to the `arc-paste-data` named volume, persists Caddy certificate state to named volumes, and sets `restart: unless-stopped`. Caddy is configured via `arc-paste/Caddyfile` (mounted read-only) — edit the site address there to change the public hostname, or `email` in the global block to change the ACME contact. After editing, reload without downtime:
+
+```bash
+docker compose -f arc-paste/compose.yaml exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+Make sure DNS for `arcpaste.company.com` points to the host and ports 80/443 are reachable for Let's Encrypt issuance and renewal. Note: the runtime image is `scratch`, so there's no in-container healthcheck — pair with an external probe (Cloudflare health check, Uptime Kuma, etc.) against the HTTPS endpoint for production.
 
 ### Create a shared paste pointed at the remote server
 
