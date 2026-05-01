@@ -17,6 +17,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
+	"github.com/sentiolabs/arc/internal/sharesconfig"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/sentiolabs/arc/internal/version"
 	"github.com/spf13/cobra"
@@ -330,6 +331,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&projectID, "project", "", "Project ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
+
+	// Wire sharesconfig to talk to arc-server over HTTP. The factory is
+	// invoked lazily so flag/env/config resolution happens at command time,
+	// not at process start.
+	sharesconfig.SetClientFactory(func() (sharesconfig.Client, error) {
+		return getClient()
+	})
 
 	// Add commands
 	rootCmd.AddCommand(projectCmd)

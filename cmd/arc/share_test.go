@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -17,23 +15,52 @@ import (
 	"github.com/labstack/echo/v4"
 	_ "modernc.org/sqlite"
 
+	"github.com/sentiolabs/arc/internal/api"
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/paste"
 	pastesqlite "github.com/sentiolabs/arc/internal/paste/sqlite"
 	"github.com/sentiolabs/arc/internal/sharesconfig"
+	"github.com/sentiolabs/arc/internal/storage/sqlite"
 )
 
 func startTestPasteServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	db, err := sql.Open("sqlite", ":memory:")
+	// Open an arc storage backed by a temp-file sqlite db so the full
+	// migration set (including 017_shares.sql) is applied. The paste
+	// subsystem migrations are run by sqlite.New itself, so the same db
+	// connection serves both /api/paste and /api/v1/shares.
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	store, err := sqlite.New(dbPath)
 	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
+		t.Fatalf("sqlite.New: %v", err)
 	}
-	if err := pastesqlite.Apply(context.Background(), db); err != nil {
-		t.Fatalf("apply migrations: %v", err)
-	}
+	t.Cleanup(func() { _ = store.Close() })
+
 	e := echo.New()
-	paste.NewHandlers(pastesqlite.New(db)).Register(e.Group("/api/paste"))
-	return httptest.NewServer(e)
+	paste.NewHandlers(pastesqlite.New(store.DB())).Register(e.Group("/api/paste"))
+
+	// Mount the share keyring routes on /api/v1 against the same store so
+	// sharesconfig.{Load,Add,Find,Remove} hits a real handler chain.
+	apiSrv := api.New(api.Config{Store: store})
+	apiSrv.RegisterShareRoutes(e.Group("/api/v1"))
+
+	srv := httptest.NewServer(e)
+	t.Cleanup(srv.Close)
+
+	// Inject a client pointed at this test server so sharesconfig calls
+	// from CLI command code reach our in-process handlers. Restore the
+	// production factory on test exit so other tests in this package
+	// (and the CLI's main init) still see the real getClient wiring.
+	sharesconfig.SetClientFactory(func() (sharesconfig.Client, error) {
+		return client.New(srv.URL), nil
+	})
+	t.Cleanup(func() {
+		sharesconfig.SetClientFactory(func() (sharesconfig.Client, error) {
+			return getClient()
+		})
+	})
+
+	return srv
 }
 
 func TestShareCreateRoundTrip(t *testing.T) {
@@ -824,6 +851,9 @@ func TestShareShowAuthorURL(t *testing.T) {
 func TestShareShowAuthorURLMissingShare(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	// Bring up an empty in-process server so sharesconfig.Find returns
+	// a clean ErrShareNotFound rather than trying to dial localhost:7432.
+	_ = startTestPasteServer(t)
 
 	shareShowAuthorURL = true
 	defer func() { shareShowAuthorURL = false }()
