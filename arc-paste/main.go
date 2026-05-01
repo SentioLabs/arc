@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -54,9 +55,13 @@ func run() error {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
-	store := pastesqlite.New(db)
-	handlers := paste.NewHandlers(store)
+	handlers := paste.NewHandlers(pastesqlite.New(db))
+	return newRouter(handlers).Start(addr)
+}
 
+// newRouter wires the arc-paste HTTP surface. Extracted so tests can exercise
+// route precedence (/, /api/v1/*, SPA fallback) without binding a real listener.
+func newRouter(handlers *paste.Handlers) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -72,13 +77,23 @@ func run() error {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
-	// Mount paste handlers at /api/paste
+	// arc-paste only owns /api/paste/*. The arc SPA shell probes /api/v1/* on
+	// boot; without this guard those probes fall through to the SPA fallback
+	// and return HTML, which the browser then fails to JSON.parse.
+	e.Any("/api/v1/*", func(c echo.Context) error {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
+	})
+
+	// Paste deployments don't serve the arc app shell — the only useful
+	// destination is /share/<id>. Mirrors the Caddy edge config so dev and
+	// prod behave the same.
+	e.Any("/", func(c echo.Context) error {
+		return c.String(http.StatusNotFound, "Not found")
+	})
+
 	handlers.Register(e.Group("/api/paste"))
-
-	// Serve embedded SPA with fallback to index.html for routing
 	web.RegisterSPA(e)
-
-	return e.Start(addr)
+	return e
 }
 
 // envOr returns the value of env variable key, or defaultVal if not set.

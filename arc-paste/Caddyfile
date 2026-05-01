@@ -6,7 +6,6 @@
 # To change the public hostname, edit the site address below. To change the
 # ACME contact, edit `email` in the global block. Reload without downtime via:
 #   docker compose -f arc-paste/compose.yaml exec caddy caddy reload --config /etc/caddy/Caddyfile
-
 {
 	# Let's Encrypt sends expiry + revocation notices here. Without it, you
 	# only learn about cert problems when the site goes down.
@@ -17,9 +16,33 @@ arcpaste.company.com {
 	# Negotiate compression with the client. zstd preferred, gzip fallback.
 	encode zstd gzip
 
-	# arc-paste listens on the internal Docker network — the service name
-	# resolves via Compose's embedded DNS.
-	reverse_proxy arc-paste:7433
+	# Default-deny edge: arc-paste only needs to expose four things to render
+	# a share — the share route itself, SvelteKit's hashed asset bundle, the
+	# paste API, and robots.txt. Anything else (the arc app shell at /, stray
+	# /api/v1/* probes from the SPA, /labels, /planner/*, etc.) is rejected
+	# before it reaches the upstream. arc-paste/main.go has matching in-binary
+	# guards so dev (no Caddy) behaves the same.
+	#
+	# Note: directives inside one named-matcher block are AND'd. To OR
+	# different matcher *kinds* (path-list vs. regex), define them separately
+	# and use multiple handle blocks pointing at the same upstream.
+	# /api/paste covers `arc share create` (POST to bare /api/paste);
+	# /api/paste/* covers GET/PUT/append against an existing share id.
+	@assets path /_app/* /api/paste /api/paste/* /robots.txt
+	@share path_regexp ^/share/[^/]+$
+
+	handle @assets {
+		# arc-paste listens on the internal Docker network — the service
+		# name resolves via Compose's embedded DNS.
+		reverse_proxy arc-paste:7433
+	}
+	handle @share {
+		reverse_proxy arc-paste:7433
+	}
+
+	handle {
+		respond "Not found" 404
+	}
 
 	# Structured access logs to stdout so `docker compose logs caddy`
 	# stays parseable by jq / log shippers.
