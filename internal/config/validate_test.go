@@ -49,3 +49,29 @@ func TestValidateRejectsBadChannel(t *testing.T) {
 		t.Errorf("missing updates.channel in errors: %v", ve)
 	}
 }
+
+func TestValidateRejectsEmptyCLIServer(t *testing.T) {
+	cfg := Default()
+	cfg.CLI.Server = ""
+	err := Validate(cfg)
+	var ve ValidationErrors
+	if !errors.As(err, &ve) {
+		t.Fatalf("err type = %T, want ValidationErrors", err)
+	}
+	if _, ok := ve["cli.server"]; !ok {
+		t.Errorf("missing cli.server in errors: %v", ve)
+	}
+}
+
+func TestValidateRejectsEmptyShareServer(t *testing.T) {
+	cfg := Default()
+	cfg.Share.Server = ""
+	err := Validate(cfg)
+	var ve ValidationErrors
+	if !errors.As(err, &ve) {
+		t.Fatalf("err type = %T, want ValidationErrors", err)
+	}
+	if _, ok := ve["share.server"]; !ok {
+		t.Errorf("missing share.server in errors: %v", ve)
+	}
+}

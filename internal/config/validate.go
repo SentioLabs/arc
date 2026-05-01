@@ -29,18 +29,14 @@ func (v ValidationErrors) Error() string {
 // Validate returns a ValidationErrors if cfg has invalid values, or nil if OK.
 func Validate(cfg *Config) error {
 	errs := ValidationErrors{}
-	if cfg.CLI.Server != "" {
-		if u, err := url.Parse(cfg.CLI.Server); err != nil || u.Scheme == "" || u.Host == "" {
-			errs["cli.server"] = "must be a valid URL with scheme and host"
-		}
+	if u, err := url.Parse(cfg.CLI.Server); err != nil || u.Scheme == "" || u.Host == "" {
+		errs["cli.server"] = "must be a valid URL with scheme and host"
 	}
 	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
 		errs["server.port"] = "must be between 1 and 65535"
 	}
-	if cfg.Share.Server != "" {
-		if u, err := url.Parse(cfg.Share.Server); err != nil || u.Scheme == "" || u.Host == "" {
-			errs["share.server"] = "must be a valid URL with scheme and host"
-		}
+	if u, err := url.Parse(cfg.Share.Server); err != nil || u.Scheme == "" || u.Host == "" {
+		errs["share.server"] = "must be a valid URL with scheme and host"
 	}
 	channelOK := false
 	for _, c := range ValidChannels {

@@ -21,6 +21,14 @@ type ServerConfig struct {
 	DBPath string `toml:"db_path" json:"db_path"`
 }
 
+// ResolvedDBPath returns DBPath with a leading ~ expanded to the user's home
+// directory. Use this when you need a real filesystem path (e.g., opening the
+// SQLite database). Do NOT call this before writing DBPath back to TOML — the
+// raw value (which may contain ~) should be stored as-is for portability.
+func (s ServerConfig) ResolvedDBPath() string {
+	return expandHome(s.DBPath)
+}
+
 // ShareConfig holds defaults for `arc share` and the web share UI.
 type ShareConfig struct {
 	Author string `toml:"author" json:"author"`

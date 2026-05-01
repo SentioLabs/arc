@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,13 +13,19 @@ import (
 
 // DefaultPath returns ~/.arc/config.toml.
 func DefaultPath() string {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Errorf("cannot determine home directory: %w", err))
+	}
 	return filepath.Join(home, ".arc", "config.toml")
 }
 
 // LegacyJSONPath returns ~/.arc/cli-config.json (the pre-TOML location).
 func LegacyJSONPath() string {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Errorf("cannot determine home directory: %w", err))
+	}
 	return filepath.Join(home, ".arc", "cli-config.json")
 }
 
@@ -49,12 +57,11 @@ func Load(path string) (*Config, error) {
 		if _, err := toml.DecodeFile(path, cfg); err != nil {
 			return nil, fmt.Errorf("decode toml %s: %w", path, err)
 		}
-		cfg.Server.DBPath = expandHome(cfg.Server.DBPath)
 		if err := Validate(cfg); err != nil {
 			return nil, err
 		}
 		return cfg, nil
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("stat %s: %w", path, err)
 	}
 
@@ -65,13 +72,14 @@ func Load(path string) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		cfg.Server.DBPath = expandHome(cfg.Server.DBPath)
-		if err := Save(path, cfg); err != nil {
-			return nil, err
-		}
+		// Fix 1: rename legacy → .bak FIRST, then save TOML.
+		// If rename fails, return error before touching the TOML path.
 		backup := legacy + ".bak"
 		if err := os.Rename(legacy, backup); err != nil {
 			return nil, fmt.Errorf("backup legacy: %w", err)
+		}
+		if err := Save(path, cfg); err != nil {
+			return nil, err
 		}
 		fmt.Fprintf(os.Stderr, "migrated %s → %s (backup: %s)\n", legacy, path, filepath.Base(backup))
 		return cfg, nil
@@ -79,7 +87,6 @@ func Load(path string) (*Config, error) {
 
 	// No config anywhere — write defaults.
 	cfg := Default()
-	cfg.Server.DBPath = expandHome(cfg.Server.DBPath)
 	if err := Save(path, cfg); err != nil {
 		return nil, err
 	}

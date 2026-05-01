@@ -26,7 +26,12 @@ func Save(path string, cfg *Config) error {
 		return fmt.Errorf("create temp file: %w", err)
 	}
 	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(tmpName)
+		}
+	}()
 
 	if err := toml.NewEncoder(tmp).Encode(cfg); err != nil {
 		_ = tmp.Close()
@@ -45,5 +50,6 @@ func Save(path string, cfg *Config) error {
 	if err := os.Rename(tmpName, path); err != nil {
 		return fmt.Errorf("rename: %w", err)
 	}
+	success = true
 	return nil
 }
