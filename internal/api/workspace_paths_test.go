@@ -318,6 +318,22 @@ func (m *mockWPStore) GetAgentSummariesForSessions(
 	panic("not implemented")
 }
 
+func (m *mockWPStore) UpsertShare(_ context.Context, _ *types.Share) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) GetShare(_ context.Context, _ string) (*types.Share, error) {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) ListShares(_ context.Context) ([]*types.Share, error) {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) DeleteShare(_ context.Context, _ string) error {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) Close() error { return nil }
 func (m *mockWPStore) Path() string { return "" }
 
