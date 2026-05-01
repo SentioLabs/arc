@@ -147,21 +147,24 @@ Remote mode runs the standalone `arc-paste` binary (a thin wrapper around the sa
 ARC_PASTE_ADDR=:7433 ARC_PASTE_DB=/tmp/arc-paste.db ./bin/arc-paste
 ```
 
-Or via Docker (uses the `arc-paste/Dockerfile` scratch image and a named volume):
+Or via Docker for the production-style HTTPS stack (uses the `arc-paste/Dockerfile` scratch image, a named SQLite volume, and Caddy for `https://arcpaste.company.com`):
 
 ```bash
 docker compose -f arc-paste/compose.yaml up -d --build
 docker compose -f arc-paste/compose.yaml logs -f
 ```
 
-The compose file binds host port 7433, persists SQLite to the `arc-paste-data` named volume, and sets `restart: unless-stopped`. Note: the runtime image is `scratch`, so there's no in-container healthcheck — pair with an external probe (Cloudflare health check, Uptime Kuma, etc.) for production.
+The compose file publishes Caddy on host ports 80/443 (including UDP 443 for HTTP/3), exposes `arc-paste` only on the internal Docker network, persists SQLite to the `arc-paste-data` named volume, persists Caddy certificate state to named volumes, and sets `restart: unless-stopped`. Make sure DNS for `arcpaste.company.com` points to the host and ports 80/443 are reachable for Let's Encrypt issuance and renewal. Note: the runtime image is `scratch`, so there's no in-container healthcheck — pair with an external probe (Cloudflare health check, Uptime Kuma, etc.) against the HTTPS endpoint for production.
 
-### Create a shared paste pointed at the standalone server
+### Create a shared paste pointed at the remote server
 
 ```bash
-# Terminal 2
-./bin/arc share create /tmp/test-plan.md --share --server http://localhost:7433
-# → Share URL:  http://localhost:7433/share/<id>#k=<key>
+# Terminal 2 (Docker/Caddy stack)
+./bin/arc share create /tmp/test-plan.md --share --server https://arcpaste.company.com
+# → Share URL:  https://arcpaste.company.com/share/<id>#k=<key>
+
+# If you launched the standalone binary directly instead, use:
+# ./bin/arc share create /tmp/test-plan.md --share --server http://localhost:7433
 ```
 
 That URL is what you'd send to a real reviewer (Slack, email, etc.). It contains everything they need: the share id and the decryption key in the fragment.
