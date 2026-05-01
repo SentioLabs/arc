@@ -125,33 +125,45 @@ func TestImportLegacySharesJSONValidJSON(t *testing.T) {
 	}
 }
 
-// TestImportLegacySharesJSONNonEmptyTable verifies that if the shares table already
-// has rows, the function returns (0, nil) without importing or renaming the file.
-func TestImportLegacySharesJSONNonEmptyTable(t *testing.T) {
+// TestImportLegacySharesJSONIdempotentUpsert verifies that re-importing entries
+// already in the table is a clean no-op upsert: pre-existing rows that aren't
+// in the file are preserved, and rows that are in both get overwritten.
+func TestImportLegacySharesJSONIdempotentUpsert(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
 
-	// Pre-populate the table with one share
-	existingShare := &types.Share{
-		ID:        "existing-share",
+	// Pre-populate the table with two shares: one that will also appear in
+	// the JSON (overwritten on import) and one that won't (preserved).
+	existingShared := &types.Share{
+		ID:        "share-overlapping",
 		Kind:      types.ShareKindLocal,
-		URL:       "https://example.com/existing",
+		URL:       "https://example.com/old",
+		KeyB64Url: "oldkey",
+		EditToken: "oldtoken",
+		CreatedAt: time.Now().UTC(),
+	}
+	existingPreserved := &types.Share{
+		ID:        "share-preserved",
+		Kind:      types.ShareKindLocal,
+		URL:       "https://example.com/preserved",
 		KeyB64Url: "key",
 		EditToken: "token",
 		CreatedAt: time.Now().UTC(),
 	}
-	if err := server.store.UpsertShare(context.Background(), existingShare); err != nil {
-		t.Fatalf("failed to upsert existing share: %v", err)
+	for _, s := range []*types.Share{existingShared, existingPreserved} {
+		if err := server.store.UpsertShare(context.Background(), s); err != nil {
+			t.Fatalf("seed share: %v", err)
+		}
 	}
 
 	tmpDir := t.TempDir()
 	jsonPath := filepath.Join(tmpDir, "shares.json")
 
-	// Create a JSON file with different shares
+	// JSON contains the overlapping ID with new field values.
 	legacyData := map[string]any{
 		"shares": []map[string]any{
 			{
-				"id":         "share-new",
+				"id":         "share-overlapping",
 				"kind":       "shared",
 				"url":        "https://example.com/new",
 				"key_b64url": "newkey",
@@ -165,34 +177,40 @@ func TestImportLegacySharesJSONNonEmptyTable(t *testing.T) {
 		t.Fatalf("failed to write JSON file: %v", err)
 	}
 
-	// Attempt import
+	// Import should succeed and rename the file — the row-count is no longer
+	// a guard; the file's presence is.
 	count, err := server.ImportLegacySharesJSON(context.Background(), jsonPath)
 	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+		t.Fatalf("expected no error, got %v", err)
 	}
-	if count != 0 {
-		t.Errorf("count = %d, want 0 (no import)", count)
+	if count != 1 {
+		t.Errorf("count = %d, want 1", count)
 	}
-
-	// Verify JSON file was NOT renamed
-	if _, err := os.Stat(jsonPath); err != nil {
-		t.Errorf("expected original JSON file to still exist: %v", err)
+	if _, err := os.Stat(jsonPath); err == nil {
+		t.Error("expected original file to be renamed")
 	}
-	bakPath := jsonPath + ".bak"
-	if _, err := os.Stat(bakPath); err == nil {
-		t.Error("expected .bak file to NOT be created when table is non-empty")
+	if _, err := os.Stat(jsonPath + ".bak"); err != nil {
+		t.Errorf("expected .bak file to exist: %v", err)
 	}
 
-	// Verify table still has only the existing share
+	// Overlapping row should be overwritten with the JSON's values; the
+	// preserved row should still be there untouched.
 	shares, err := server.store.ListShares(context.Background())
 	if err != nil {
 		t.Fatalf("failed to list shares: %v", err)
 	}
-	if len(shares) != 1 {
-		t.Errorf("expected 1 share in table, got %d", len(shares))
+	if len(shares) != 2 {
+		t.Fatalf("expected 2 shares in table, got %d", len(shares))
 	}
-	if shares[0].ID != "existing-share" {
-		t.Errorf("expected existing-share to be only share, got %q", shares[0].ID)
+	byID := map[string]*types.Share{}
+	for _, s := range shares {
+		byID[s.ID] = s
+	}
+	if got, want := byID["share-overlapping"].URL, "https://example.com/new"; got != want {
+		t.Errorf("overlapping URL = %q, want %q (upsert should have overwritten)", got, want)
+	}
+	if got, want := byID["share-preserved"].URL, "https://example.com/preserved"; got != want {
+		t.Errorf("preserved URL = %q, want %q (untouched row mutated)", got, want)
 	}
 }
 
@@ -238,9 +256,10 @@ func TestImportLegacySharesJSONMalformedJSON(t *testing.T) {
 	}
 }
 
-// TestImportLegacySharesJSONValidationFailureMidImport verifies that when a validation
-// error occurs mid-import (e.g., empty ID), the function returns (partial_count, err),
-// the file is NOT renamed, and the inserted shares remain in the table.
+// TestImportLegacySharesJSONValidationFailureMidImport verifies atomic rollback:
+// a validation error on any entry must roll the entire batch back so the file
+// stays as shares.json (un-renamed) and the table stays empty. The next
+// startup can then retry once the operator fixes the bad entry.
 func TestImportLegacySharesJSONValidationFailureMidImport(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -248,7 +267,7 @@ func TestImportLegacySharesJSONValidationFailureMidImport(t *testing.T) {
 	tmpDir := t.TempDir()
 	jsonPath := filepath.Join(tmpDir, "shares.json")
 
-	// Create a JSON file where the second share has an empty ID (will fail validation)
+	// First entry is valid; second has an empty ID and will fail Validate().
 	legacyData := map[string]any{
 		"shares": []map[string]any{
 			{
@@ -274,34 +293,29 @@ func TestImportLegacySharesJSONValidationFailureMidImport(t *testing.T) {
 		t.Fatalf("failed to write JSON file: %v", err)
 	}
 
-	// Attempt import
 	count, err := server.ImportLegacySharesJSON(context.Background(), jsonPath)
 	if err == nil {
 		t.Error("expected error for validation failure, got nil")
 	}
-	if count != 1 {
-		t.Errorf("count = %d, want 1 (first share inserted before error)", count)
+	if count != 0 {
+		t.Errorf("count = %d, want 0 (transactional rollback)", count)
 	}
 
-	// Verify JSON file was NOT renamed (crash-safe: allows retry)
+	// File stays as shares.json so the next startup retries.
 	if _, err := os.Stat(jsonPath); err != nil {
 		t.Errorf("expected original file to still exist after mid-import error: %v", err)
 	}
-	bakPath := jsonPath + ".bak"
-	if _, err := os.Stat(bakPath); err == nil {
+	if _, err := os.Stat(jsonPath + ".bak"); err == nil {
 		t.Error("expected .bak file to NOT be created on mid-import error")
 	}
 
-	// Verify only the first (valid) share was inserted
+	// No partial state — table must be empty.
 	shares, err := server.store.ListShares(context.Background())
 	if err != nil {
 		t.Fatalf("failed to list shares: %v", err)
 	}
-	if len(shares) != 1 {
-		t.Errorf("expected 1 share in table (first one inserted), got %d", len(shares))
-	}
-	if shares[0].ID != "share-valid" {
-		t.Errorf("expected share-valid to be in table, got %q", shares[0].ID)
+	if len(shares) != 0 {
+		t.Errorf("expected 0 shares (rollback), got %d", len(shares))
 	}
 }
 

@@ -322,6 +322,10 @@ func (m *mockWPStore) UpsertShare(_ context.Context, _ *types.Share) error {
 	panic("not implemented")
 }
 
+func (m *mockWPStore) UpsertShares(_ context.Context, _ []*types.Share) error {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) GetShare(_ context.Context, _ string) (*types.Share, error) {
 	panic("not implemented")
 }

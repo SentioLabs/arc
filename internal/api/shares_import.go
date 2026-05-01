@@ -1,7 +1,8 @@
 // Legacy share keyring import — one-shot migration from ~/.arc/shares.json
 // into the shares table. Runs at arc-server startup after schema migrations.
-// Idempotent: skips if the shares table already has rows. On successful
-// import, renames the JSON file to shares.json.bak so the cutover is visible.
+// Idempotency comes from the file's presence: a successful import renames
+// the JSON to shares.json.bak, so subsequent startups simply find no file
+// to read and return early.
 package api
 
 import (
@@ -33,9 +34,12 @@ type legacyShare struct {
 // ImportLegacySharesJSON imports the legacy shares.json keyring into the
 // shares table. Returns the number of records imported. Behavior:
 //   - if path does not exist: returns (0, nil)
-//   - if shares table already has rows: returns (0, nil) without touching the file
-//   - on success: renames path to path+".bak" so subsequent startups treat it as already-imported
 //   - on parse error: returns (0, err) and does not modify the file or database
+//   - on per-share validation/constraint failure: rolls the whole batch back
+//     atomically, leaves the JSON file untouched, and returns the error so
+//     the next startup can retry after the user fixes the entry
+//   - on success: renames path to path+".bak" so subsequent startups find no
+//     file to read and return early
 func (s *Server) ImportLegacySharesJSON(ctx context.Context, path string) (int, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -45,22 +49,14 @@ func (s *Server) ImportLegacySharesJSON(ctx context.Context, path string) (int, 
 		return 0, fmt.Errorf("read legacy shares.json: %w", err)
 	}
 
-	existing, err := s.store.ListShares(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("list shares: %w", err)
-	}
-	if len(existing) > 0 {
-		return 0, nil
-	}
-
 	var lf legacyFile
 	if err := json.Unmarshal(data, &lf); err != nil {
 		return 0, fmt.Errorf("parse legacy shares.json: %w", err)
 	}
 
-	count := 0
+	shares := make([]*types.Share, 0, len(lf.Shares))
 	for _, ls := range lf.Shares {
-		share := &types.Share{
+		shares = append(shares, &types.Share{
 			ID:        ls.ID,
 			Kind:      types.ShareKind(ls.Kind),
 			URL:       ls.URL,
@@ -68,16 +64,16 @@ func (s *Server) ImportLegacySharesJSON(ctx context.Context, path string) (int, 
 			EditToken: ls.EditToken,
 			PlanFile:  ls.PlanFile,
 			CreatedAt: ls.CreatedAt,
-		}
-		if err := s.store.UpsertShare(ctx, share); err != nil {
-			return count, fmt.Errorf("upsert legacy share %s: %w", ls.ID, err)
-		}
-		count++
+		})
+	}
+
+	if err := s.store.UpsertShares(ctx, shares); err != nil {
+		return 0, fmt.Errorf("import legacy shares: %w", err)
 	}
 
 	if err := os.Rename(path, path+".bak"); err != nil {
-		return count, fmt.Errorf("rename legacy shares.json to .bak: %w", err)
+		return len(shares), fmt.Errorf("rename legacy shares.json to .bak: %w", err)
 	}
 
-	return count, nil
+	return len(shares), nil
 }

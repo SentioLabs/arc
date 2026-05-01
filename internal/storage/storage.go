@@ -93,6 +93,7 @@ type Storage interface {
 
 	// Shares (author-side keyring)
 	UpsertShare(ctx context.Context, share *types.Share) error
+	UpsertShares(ctx context.Context, shares []*types.Share) error
 	GetShare(ctx context.Context, id string) (*types.Share, error)
 	ListShares(ctx context.Context) ([]*types.Share, error)
 	DeleteShare(ctx context.Context, id string) error
