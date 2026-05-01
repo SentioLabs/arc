@@ -3,9 +3,13 @@ package storage
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sentiolabs/arc/internal/types"
 )
+
+// ErrShareNotFound is returned when a requested share does not exist.
+var ErrShareNotFound = errors.New("share not found")
 
 //nolint:interfacebloat // Storage interface intentionally covers all operations as a single contract
 type Storage interface {
@@ -86,6 +90,13 @@ type Storage interface {
 	GetAIAgent(ctx context.Context, id string) (*types.AIAgent, error)
 	ListAIAgents(ctx context.Context, sessionID string) ([]*types.AIAgent, error)
 	GetAgentSummariesForSessions(ctx context.Context, sessionIDs []string) (map[string]*types.AgentSummary, error)
+
+	// Shares (author-side keyring)
+	UpsertShare(ctx context.Context, share *types.Share) error
+	UpsertShares(ctx context.Context, shares []*types.Share) error
+	GetShare(ctx context.Context, id string) (*types.Share, error)
+	ListShares(ctx context.Context) ([]*types.Share, error)
+	DeleteShare(ctx context.Context, id string) error
 
 	// Events (audit trail)
 	GetEvents(ctx context.Context, issueID string, limit int) ([]*types.Event, error)

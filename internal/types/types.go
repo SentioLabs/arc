@@ -345,6 +345,55 @@ type MergeResult struct {
 	SourcesDeleted []string `json:"sources_deleted"`
 }
 
+// ShareKind distinguishes local-only shares from hosted (published) shares.
+type ShareKind string
+
+const (
+	ShareKindLocal  ShareKind = "local"
+	ShareKindShared ShareKind = "shared"
+)
+
+// IsValid checks if the share kind value is valid.
+func (k ShareKind) IsValid() bool {
+	return k == ShareKindLocal || k == ShareKindShared
+}
+
+// AllShareKinds returns all valid share kind values.
+func AllShareKinds() []ShareKind {
+	return []ShareKind{ShareKindLocal, ShareKindShared}
+}
+
+// Share represents an entry in the author-side keyring of paste shares created on this machine.
+type Share struct {
+	ID        string    `json:"id"`
+	Kind      ShareKind `json:"kind"`
+	URL       string    `json:"url"`
+	KeyB64Url string    `json:"key_b64url"`
+	EditToken string    `json:"edit_token"`
+	PlanFile  string    `json:"plan_file,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Validate checks if the share has valid field values.
+func (s *Share) Validate() error {
+	if s.ID == "" {
+		return errors.New("share: id is required")
+	}
+	if !s.Kind.IsValid() {
+		return fmt.Errorf("share: invalid kind %q", s.Kind)
+	}
+	if s.URL == "" {
+		return errors.New("share: url is required")
+	}
+	if s.KeyB64Url == "" {
+		return errors.New("share: key_b64url is required")
+	}
+	if s.EditToken == "" {
+		return errors.New("share: edit_token is required")
+	}
+	return nil
+}
+
 // Workspace represents a directory path associated with a project.
 // Multiple workspaces can be linked to a single project to support multi-directory projects.
 // Previously named WorkspacePath; renamed because this IS the workspace (a directory where work happens).

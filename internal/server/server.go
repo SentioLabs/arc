@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sentiolabs/arc/internal/api"
+	"github.com/sentiolabs/arc/internal/sharesconfig"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 )
 
@@ -69,6 +70,19 @@ func Run(cfg Config) error {
 		Store:   store,
 		DB:      store.DB(),
 	})
+
+	// One-shot import of legacy ~/.arc/shares.json keyring into the shares
+	// table. Idempotent — skips when the table already has rows. On success
+	// the JSON file is renamed to .bak so subsequent startups are no-ops.
+	if path, pathErr := sharesconfig.LegacyPath(); pathErr == nil {
+		n, importErr := server.ImportLegacySharesJSON(context.Background(), path)
+		switch {
+		case importErr != nil:
+			log.Printf("legacy shares.json import failed: %v", importErr)
+		case n > 0:
+			log.Printf("imported %d legacy share(s) from %s", n, path)
+		}
+	}
 
 	// Start server in goroutine
 	errCh := make(chan error, 1)

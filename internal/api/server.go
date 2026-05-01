@@ -95,6 +95,17 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
+// RegisterShareRoutes mounts the /shares endpoints on the given group.
+// Exported so test fixtures outside the api package can wire the share
+// keyring routes onto an in-process Echo server without spinning up the
+// full registerRoutes() surface.
+func (s *Server) RegisterShareRoutes(g *echo.Group) {
+	g.GET("/shares", s.listShares)
+	g.POST("/shares", s.upsertShare)
+	g.GET("/shares/:id", s.getShare)
+	g.DELETE("/shares/:id", s.deleteShare)
+}
+
 // registerRoutes sets up all API routes.
 func (s *Server) registerRoutes() {
 	// Health check
@@ -147,6 +158,9 @@ func (s *Server) registerRoutes() {
 	v1.POST("/labels", s.createLabel)
 	v1.PUT("/labels/:name", s.updateLabel)
 	v1.DELETE("/labels/:name", s.deleteLabel)
+
+	// Shares (author-side keyring of paste shares created on this machine)
+	s.RegisterShareRoutes(v1)
 
 	// Project-scoped routes (issues, AI sessions, etc.)
 	s.registerProjectRoutes(v1)

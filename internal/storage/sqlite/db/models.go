@@ -135,6 +135,16 @@ type Project struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
+type Share struct {
+	ID        string         `json:"id"`
+	Kind      string         `json:"kind"`
+	Url       string         `json:"url"`
+	KeyB64url string         `json:"key_b64url"`
+	EditToken string         `json:"edit_token"`
+	PlanFile  sql.NullString `json:"plan_file"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
 type Workspace struct {
 	ID             string         `json:"id"`
 	ProjectID      string         `json:"project_id"`
