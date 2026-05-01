@@ -7,6 +7,10 @@
 # Stop:
 #   docker compose -f arc-paste/compose.yaml down
 #
+# Caddy terminates HTTPS for arcpaste.company.com. Make sure DNS points to this
+# host and inbound ports 80/443 are reachable for Let's Encrypt certificate
+# issuance and renewal.
+#
 # The Dockerfile lives in arc-paste/ but builds from the repo root because it
 # needs the parent Go module — that's what `context: ..` below selects.
 
@@ -17,8 +21,8 @@ services:
       dockerfile: arc-paste/Dockerfile
     image: arc-paste:latest
     container_name: arc-paste
-    ports:
-      - "7433:7433"
+    expose:
+      - "7433"
     volumes:
       # Named volume keeps the SQLite db across container rebuilds.
       # arc-paste creates the directory itself on startup, so a fresh
@@ -33,8 +37,33 @@ services:
     # No healthcheck: the runtime image is `scratch`, which has no shell,
     # wget, curl, or anything else compose's `healthcheck.test` could exec.
     # For production monitoring, run an external probe (Cloudflare health
-    # check, Uptime Kuma, etc.) against the host port instead.
+    # check, Uptime Kuma, etc.) against the Caddy HTTPS endpoint instead.
+
+  caddy:
+    # Pin minor version for reproducible deploys; bump deliberately when you
+    # want new features. Floating `:2-alpine` would silently follow upstream.
+    image: caddy:2.11-alpine
+    container_name: arc-paste-caddy
+    depends_on:
+      - arc-paste
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      # Caddyfile drives the reverse proxy + ACME config. Mounted read-only
+      # so the container can't accidentally rewrite it on `caddy reload`.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persist ACME certificates and Caddy autosave config across restarts.
+      # Losing /data means losing the ACME account + certs — risks LE rate limits.
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
 
 volumes:
   arc-paste-data:
     name: arc-paste-data
+  caddy-data:
+    name: arc-paste-caddy-data
+  caddy-config:
+    name: arc-paste-caddy-config

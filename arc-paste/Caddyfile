@@ -1,0 +1,30 @@
+# Caddyfile — TLS termination + reverse proxy for arc-paste.
+#
+# Mounted read-only at /etc/caddy/Caddyfile by compose.yaml. Caddy reads this
+# automatically on startup, so the compose service has no `command:` block.
+#
+# To change the public hostname, edit the site address below. To change the
+# ACME contact, edit `email` in the global block. Reload without downtime via:
+#   docker compose -f arc-paste/compose.yaml exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+{
+	# Let's Encrypt sends expiry + revocation notices here. Without it, you
+	# only learn about cert problems when the site goes down.
+	email ops@company.com
+}
+
+arcpaste.company.com {
+	# Negotiate compression with the client. zstd preferred, gzip fallback.
+	encode zstd gzip
+
+	# arc-paste listens on the internal Docker network — the service name
+	# resolves via Compose's embedded DNS.
+	reverse_proxy arc-paste:7433
+
+	# Structured access logs to stdout so `docker compose logs caddy`
+	# stays parseable by jq / log shippers.
+	log {
+		output stdout
+		format json
+	}
+}
