@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -28,7 +29,7 @@ func (f *fakeClient) ListShares() ([]*types.Share, error) {
 func (f *fakeClient) GetShare(id string) (*types.Share, error) {
 	s, ok := f.store[id]
 	if !ok {
-		return nil, errors.New("share not found")
+		return nil, client.ErrShareNotFound
 	}
 	return s, nil
 }

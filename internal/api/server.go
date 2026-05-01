@@ -160,10 +160,7 @@ func (s *Server) registerRoutes() {
 	v1.DELETE("/labels/:name", s.deleteLabel)
 
 	// Shares (author-side keyring of paste shares created on this machine)
-	v1.GET("/shares", s.listShares)
-	v1.POST("/shares", s.upsertShare)
-	v1.GET("/shares/:id", s.getShare)
-	v1.DELETE("/shares/:id", s.deleteShare)
+	s.RegisterShareRoutes(v1)
 
 	// Project-scoped routes (issues, AI sessions, etc.)
 	s.registerProjectRoutes(v1)

@@ -163,7 +163,7 @@ var shareApproveCmd = &cobra.Command{
 
 var shareUpdateCmd = &cobra.Command{
 	Use:   "update <id-or-url> <plan-file>",
-	Short: "Replace the encrypted plan content (uses edit_token from shares.json)",
+	Short: "Replace the encrypted plan content (uses the edit_token from the local arc keyring)",
 	// `update` takes exactly the share ref AND the plan file path.
 	Args: cobra.ExactArgs(shareUpdateArgCount),
 	RunE: runShareUpdate,
@@ -171,8 +171,8 @@ var shareUpdateCmd = &cobra.Command{
 
 const shareUpdateArgCount = 2
 
-// shareKindLocal / shareKindShared label the resolved server in the saved
-// shares.json registry and surface in `arc share list` output.
+// shareKindLocal / shareKindShared label the resolved server in the local
+// arc keyring and surface in `arc share list` output.
 const (
 	shareKindLocal  = "local"
 	shareKindShared = "shared"
@@ -182,7 +182,7 @@ const defaultShareServer = "https://arcplanner.sentiolabs.io"
 
 var shareDeleteCmd = &cobra.Command{
 	Use:          "delete <id-or-url>",
-	Short:        "Delete a share (uses edit_token from shares.json)",
+	Short:        "Delete a share (uses the edit_token from the local arc keyring)",
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE:         runShareDelete,
@@ -283,7 +283,7 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 		trimmedServer, resp.ID, keyB64)
 	fmt.Printf("Author URL (keep private — gives you Accept/Resolve):\n  %s/share/%s#k=%s&t=%s\n\n",
 		trimmedServer, resp.ID, keyB64, resp.EditToken)
-	fmt.Println("Edit token saved to ~/.arc/shares.json")
+	fmt.Println("Edit token saved to the local arc keyring")
 	return nil
 }
 
@@ -326,7 +326,7 @@ func printAuthorURL(ref string) error {
 	}
 	s, _ := sharesconfig.Find(id)
 	if s == nil || s.EditToken == "" || s.KeyB64Url == "" {
-		return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json "+
+		return fmt.Errorf("no edit_token for share %s in the local arc keyring "+
 			"(--author-url requires a share registered on this machine)", id)
 	}
 	fmt.Printf("%s/share/%s#k=%s&t=%s\n",
@@ -384,7 +384,7 @@ func runShareUpdate(cmd *cobra.Command, args []string) error {
 	}
 	s, _ := sharesconfig.Find(id)
 	if s == nil || s.EditToken == "" {
-		return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json", id)
+		return fmt.Errorf("no edit_token for share %s in the local arc keyring", id)
 	}
 	plain := planPlaintext{
 		Version:   1,
@@ -406,7 +406,7 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 	s, _ := sharesconfig.Find(id)
 	if s == nil || s.EditToken == "" {
 		if !shareDeleteForce {
-			return fmt.Errorf("no edit_token for share %s in ~/.arc/shares.json "+
+			return fmt.Errorf("no edit_token for share %s in the local arc keyring "+
 				"(use --force to remove the local entry)", id)
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "warning: no edit_token for %s; skipping server delete\n", id)
@@ -809,7 +809,7 @@ func printCommentEntries(entries []commentEntry) {
 //
 // Plan content is exposed via exactly one of two fields:
 //   - `file` — absolute path on disk. Set when the share is registered in
-//     shares.json AND the file is readable. Agent reads it directly.
+//     the local arc keyring AND the file is readable. Agent reads it directly.
 //   - `markdown_b64` — base64-encoded markdown. Set when there's no local
 //     file (e.g. an agent consuming a shared URL it didn't create). Base64
 //     avoids JSON escape bloat (every \n and \" doubles the byte count and
@@ -828,7 +828,7 @@ type bundlePlan struct {
 	Title      string `json:"title,omitempty"`
 	AuthorName string `json:"author_name,omitempty"`
 	// File is the absolute path the agent should Edit. Present iff the
-	// share is in shares.json and the file is readable.
+	// share is in the local arc keyring and the file is readable.
 	File string `json:"file,omitempty"`
 	// MarkdownB64 is the plan content, base64-encoded. Present iff File
 	// is not set. Decode with standard base64 (RawStdEncoding-compatible).
@@ -852,7 +852,7 @@ type bundleResolvedAnchor struct {
 // emitBundle assembles and prints the JSON bundle for `--json` output.
 //
 // Plan content sourcing:
-//   - If the share is in shares.json AND the recorded file is readable,
+//   - If the share is in the local arc keyring AND the recorded file is readable,
 //     emit `file` (absolute path) and run anchor resolution against the
 //     file's current bytes. The agent reads the file directly.
 //   - Otherwise, emit `markdown_b64` containing the encrypted blob's
@@ -925,7 +925,7 @@ func emitBundle(id string, plan *planPlaintext, entries []commentEntry) error {
 
 // resolveShareRef parses a share reference which may be either a full share
 // URL (e.g. https://arcplanner.sentiolabs.io/share/abc12345#k=KEY) or a bare
-// share ID known to ~/.arc/shares.json.
+// share ID known to the local arc keyring.
 func resolveShareRef(ref string) (id, server string, key []byte, err error) {
 	if strings.Contains(ref, "://") {
 		return resolveShareURL(ref)
@@ -942,8 +942,8 @@ func resolveShareRef(ref string) (id, server string, key []byte, err error) {
 }
 
 // resolveShareURL is the URL branch of resolveShareRef, split out to keep the
-// nesting depth low. Falls back to ~/.arc/shares.json for the key if the URL
-// has no fragment.
+// nesting depth low. Falls back to the local arc keyring for the key if the
+// URL has no fragment.
 func resolveShareURL(ref string) (id, server string, key []byte, err error) {
 	u, perr := url.Parse(ref)
 	if perr != nil {

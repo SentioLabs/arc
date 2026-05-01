@@ -6,7 +6,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/storage"
@@ -35,14 +34,13 @@ func (s *Server) getShare(c echo.Context) error {
 	return successJSON(c, share)
 }
 
-// upsertShare inserts or replaces a keyring entry by share ID.
+// upsertShare inserts or replaces a keyring entry by share ID. The store
+// stamps CreatedAt when callers omit it, so handlers and the legacy import
+// path both end up with consistent timestamps.
 func (s *Server) upsertShare(c echo.Context) error {
 	var share types.Share
 	if err := c.Bind(&share); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
-	}
-	if share.CreatedAt.IsZero() {
-		share.CreatedAt = time.Now().UTC()
 	}
 	if err := share.Validate(); err != nil {
 		return errorJSON(c, http.StatusBadRequest, err.Error())
@@ -50,12 +48,7 @@ func (s *Server) upsertShare(c echo.Context) error {
 	if err := s.store.UpsertShare(c.Request().Context(), &share); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
-	// Return the stored record (server may have normalized timestamps).
-	stored, err := s.store.GetShare(c.Request().Context(), share.ID)
-	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-	return successJSON(c, stored)
+	return successJSON(c, &share)
 }
 
 // deleteShare removes a keyring entry by share ID. Idempotent: 204 even if

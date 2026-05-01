@@ -142,7 +142,7 @@ type Share struct {
 	KeyB64url string         `json:"key_b64url"`
 	EditToken string         `json:"edit_token"`
 	PlanFile  sql.NullString `json:"plan_file"`
-	CreatedAt string         `json:"created_at"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 type Workspace struct {

@@ -39,7 +39,6 @@ func doShareRequest(e *echo.Echo, method, path string, body any) *httptest.Respo
 	return rec
 }
 
-// TestListSharesEmpty verifies GET /api/v1/shares returns 200 with empty list when no shares exist.
 func TestListSharesEmpty(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -58,7 +57,6 @@ func TestListSharesEmpty(t *testing.T) {
 	}
 }
 
-// TestUpsertShareValid verifies POST /api/v1/shares with a valid payload returns 200 and the stored record.
 func TestUpsertShareValid(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -84,7 +82,6 @@ func TestUpsertShareValid(t *testing.T) {
 	}
 }
 
-// TestUpsertShareInvalidKind verifies POST /api/v1/shares with an invalid kind returns 400.
 func TestUpsertShareInvalidKind(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -97,7 +94,6 @@ func TestUpsertShareInvalidKind(t *testing.T) {
 	}
 }
 
-// TestUpsertShareMissingRequiredFields verifies POST /api/v1/shares with missing required fields returns 400.
 func TestUpsertShareMissingRequiredFields(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -113,7 +109,6 @@ func TestUpsertShareMissingRequiredFields(t *testing.T) {
 	}
 }
 
-// TestUpsertShareReplaces verifies POST /api/v1/shares with same ID replaces the existing share.
 func TestUpsertShareReplaces(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -146,7 +141,6 @@ func TestUpsertShareReplaces(t *testing.T) {
 	}
 }
 
-// TestGetShareFound verifies GET /api/v1/shares/:id returns 200 with the share.
 func TestGetShareFound(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -172,7 +166,6 @@ func TestGetShareFound(t *testing.T) {
 	}
 }
 
-// TestGetShareNotFound verifies GET /api/v1/shares/:id returns 404 for unknown ID.
 func TestGetShareNotFound(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -183,7 +176,6 @@ func TestGetShareNotFound(t *testing.T) {
 	}
 }
 
-// TestDeleteShareExisting verifies DELETE /api/v1/shares/:id returns 204, then GET returns 404.
 func TestDeleteShareExisting(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -208,7 +200,6 @@ func TestDeleteShareExisting(t *testing.T) {
 	}
 }
 
-// TestDeleteShareIdempotent verifies DELETE /api/v1/shares/:id returns 204 even for unknown ID.
 func TestDeleteShareIdempotent(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -219,7 +210,6 @@ func TestDeleteShareIdempotent(t *testing.T) {
 	}
 }
 
-// TestListSharesNewestFirst verifies GET /api/v1/shares returns shares newest first after multiple POSTs.
 func TestListSharesNewestFirst(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()
@@ -266,8 +256,6 @@ func TestListSharesNewestFirst(t *testing.T) {
 	}
 }
 
-// TestUpsertShareStampsCreatedAt verifies that posting a share without created_at
-// results in the server stamping a recent time.
 func TestUpsertShareStampsCreatedAt(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()

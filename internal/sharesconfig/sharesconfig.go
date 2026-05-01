@@ -59,7 +59,7 @@ func SetClientFactory(fn func() (Client, error)) {
 // hasn't been set, so misuse is loud.
 func getClient() (Client, error) {
 	if clientFactory == nil {
-		return nil, errors.New("sharesconfig: client factory not initialized — call SetClientFactory in main")
+		return nil, errors.New("sharesconfig: client factory not initialized: call SetClientFactory in main")
 	}
 	return clientFactory()
 }
@@ -111,10 +111,7 @@ func Find(id string) (*Share, error) {
 	}
 	remote, err := c.GetShare(id)
 	if err != nil {
-		// Translate the client's not-found sentinel (and any error carrying
-		// the same message, such as fake implementations in tests) into our
-		// own ErrShareNotFound so callers can use errors.Is consistently.
-		if errors.Is(err, client.ErrShareNotFound) || err.Error() == client.ErrShareNotFound.Error() {
+		if errors.Is(err, client.ErrShareNotFound) {
 			return nil, ErrShareNotFound
 		}
 		return nil, err

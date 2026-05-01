@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 const deleteShare = `-- name: DeleteShare :exec
@@ -92,7 +93,7 @@ type UpsertShareParams struct {
 	KeyB64url string         `json:"key_b64url"`
 	EditToken string         `json:"edit_token"`
 	PlanFile  sql.NullString `json:"plan_file"`
-	CreatedAt string         `json:"created_at"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 func (q *Queries) UpsertShare(ctx context.Context, arg UpsertShareParams) error {

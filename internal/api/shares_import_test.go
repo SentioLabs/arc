@@ -44,8 +44,8 @@ func TestImportLegacySharesJSONValidJSON(t *testing.T) {
 	jsonPath := filepath.Join(tmpDir, "shares.json")
 
 	// Create a valid legacy shares.json file with 2 shares
-	legacyData := map[string]interface{}{
-		"shares": []map[string]interface{}{
+	legacyData := map[string]any{
+		"shares": []map[string]any{
 			{
 				"id":         "share-legacy-1",
 				"kind":       "shared",
@@ -68,7 +68,7 @@ func TestImportLegacySharesJSONValidJSON(t *testing.T) {
 	}
 
 	jsonBytes, _ := json.Marshal(legacyData)
-	if err := os.WriteFile(jsonPath, jsonBytes, 0644); err != nil {
+	if err := os.WriteFile(jsonPath, jsonBytes, 0o644); err != nil {
 		t.Fatalf("failed to write JSON file: %v", err)
 	}
 
@@ -148,8 +148,8 @@ func TestImportLegacySharesJSONNonEmptyTable(t *testing.T) {
 	jsonPath := filepath.Join(tmpDir, "shares.json")
 
 	// Create a JSON file with different shares
-	legacyData := map[string]interface{}{
-		"shares": []map[string]interface{}{
+	legacyData := map[string]any{
+		"shares": []map[string]any{
 			{
 				"id":         "share-new",
 				"kind":       "shared",
@@ -161,7 +161,7 @@ func TestImportLegacySharesJSONNonEmptyTable(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(legacyData)
-	if err := os.WriteFile(jsonPath, jsonBytes, 0644); err != nil {
+	if err := os.WriteFile(jsonPath, jsonBytes, 0o644); err != nil {
 		t.Fatalf("failed to write JSON file: %v", err)
 	}
 
@@ -206,7 +206,7 @@ func TestImportLegacySharesJSONMalformedJSON(t *testing.T) {
 	jsonPath := filepath.Join(tmpDir, "shares.json")
 
 	// Create a malformed JSON file
-	if err := os.WriteFile(jsonPath, []byte("{not json"), 0644); err != nil {
+	if err := os.WriteFile(jsonPath, []byte("{not json"), 0o644); err != nil {
 		t.Fatalf("failed to write malformed JSON: %v", err)
 	}
 
@@ -249,8 +249,8 @@ func TestImportLegacySharesJSONValidationFailureMidImport(t *testing.T) {
 	jsonPath := filepath.Join(tmpDir, "shares.json")
 
 	// Create a JSON file where the second share has an empty ID (will fail validation)
-	legacyData := map[string]interface{}{
-		"shares": []map[string]interface{}{
+	legacyData := map[string]any{
+		"shares": []map[string]any{
 			{
 				"id":         "share-valid",
 				"kind":       "shared",
@@ -270,7 +270,7 @@ func TestImportLegacySharesJSONValidationFailureMidImport(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(legacyData)
-	if err := os.WriteFile(jsonPath, jsonBytes, 0644); err != nil {
+	if err := os.WriteFile(jsonPath, jsonBytes, 0o644); err != nil {
 		t.Fatalf("failed to write JSON file: %v", err)
 	}
 
@@ -316,13 +316,13 @@ func TestImportLegacySharesJSONBakAlreadyExists(t *testing.T) {
 	bakPath := jsonPath + ".bak"
 
 	// Pre-create the .bak file
-	if err := os.WriteFile(bakPath, []byte("old backup"), 0644); err != nil {
+	if err := os.WriteFile(bakPath, []byte("old backup"), 0o644); err != nil {
 		t.Fatalf("failed to create .bak file: %v", err)
 	}
 
 	// Create a valid legacy shares.json file
-	legacyData := map[string]interface{}{
-		"shares": []map[string]interface{}{
+	legacyData := map[string]any{
+		"shares": []map[string]any{
 			{
 				"id":         "share-new",
 				"kind":       "shared",
@@ -334,7 +334,7 @@ func TestImportLegacySharesJSONBakAlreadyExists(t *testing.T) {
 		},
 	}
 	jsonBytes, _ := json.Marshal(legacyData)
-	if err := os.WriteFile(jsonPath, jsonBytes, 0644); err != nil {
+	if err := os.WriteFile(jsonPath, jsonBytes, 0o644); err != nil {
 		t.Fatalf("failed to write JSON file: %v", err)
 	}
 

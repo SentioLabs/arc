@@ -14,9 +14,13 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// UpsertShare inserts or replaces a share record.
-// Returns a validation error if the share fields are invalid.
+// UpsertShare inserts or replaces a share record. Stamps CreatedAt to now
+// when callers omit it, so HTTP handlers and the legacy import path don't
+// each need their own default.
 func (s *Store) UpsertShare(ctx context.Context, share *types.Share) error {
+	if share.CreatedAt.IsZero() {
+		share.CreatedAt = time.Now().UTC()
+	}
 	if err := share.Validate(); err != nil {
 		return fmt.Errorf("upsert share: %w", err)
 	}
@@ -27,7 +31,7 @@ func (s *Store) UpsertShare(ctx context.Context, share *types.Share) error {
 		KeyB64url: share.KeyB64Url,
 		EditToken: share.EditToken,
 		PlanFile:  toNullString(share.PlanFile),
-		CreatedAt: share.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt: share.CreatedAt.UTC(),
 	})
 	if err != nil {
 		return fmt.Errorf("upsert share: %w", err)
@@ -72,7 +76,6 @@ func (s *Store) DeleteShare(ctx context.Context, id string) error {
 
 // rowToShare converts a db.Share row to a types.Share.
 func rowToShare(r *db.Share) *types.Share {
-	t, _ := time.Parse(time.RFC3339, r.CreatedAt)
 	return &types.Share{
 		ID:        r.ID,
 		Kind:      types.ShareKind(r.Kind),
@@ -80,6 +83,6 @@ func rowToShare(r *db.Share) *types.Share {
 		KeyB64Url: r.KeyB64url,
 		EditToken: r.EditToken,
 		PlanFile:  fromNullString(r.PlanFile),
-		CreatedAt: t.UTC(),
+		CreatedAt: r.CreatedAt.UTC(),
 	}
 }
