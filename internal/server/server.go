@@ -65,7 +65,7 @@ func Run(cfg Config) error {
 	defer store.Close()
 
 	// Create API server
-	server := api.New(api.NewServerConfig{
+	server := api.New(api.ServerOptions{
 		Address: cfg.Address,
 		Store:   store,
 		DB:      store.DB(),

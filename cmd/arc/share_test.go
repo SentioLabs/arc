@@ -41,7 +41,7 @@ func startTestPasteServer(t *testing.T) *httptest.Server {
 
 	// Mount the share keyring routes on /api/v1 against the same store so
 	// sharesconfig.{Load,Add,Find,Remove} hits a real handler chain.
-	apiSrv := api.New(api.NewServerConfig{Store: store})
+	apiSrv := api.New(api.ServerOptions{Store: store})
 	apiSrv.RegisterShareRoutes(e.Group("/api/v1"))
 
 	srv := httptest.NewServer(e)
