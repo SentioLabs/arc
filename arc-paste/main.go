@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -60,7 +61,7 @@ func run() error {
 }
 
 // newRouter wires the arc-paste HTTP surface. Extracted so tests can exercise
-// route precedence (/, /api/v1/*, SPA fallback) without binding a real listener.
+// the allowlist without binding a real listener.
 func newRouter(handlers *paste.Handlers) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
@@ -77,23 +78,48 @@ func newRouter(handlers *paste.Handlers) *echo.Echo {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
-	// arc-paste only owns /api/paste/*. The arc SPA shell probes /api/v1/* on
-	// boot; without this guard those probes fall through to the SPA fallback
-	// and return HTML, which the browser then fails to JSON.parse.
-	e.Any("/api/v1/*", func(c echo.Context) error {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
-	})
-
-	// Paste deployments don't serve the arc app shell — the only useful
-	// destination is /share/<id>. Mirrors the Caddy edge config so dev and
-	// prod behave the same.
-	e.Any("/", func(c echo.Context) error {
-		return c.String(http.StatusNotFound, "Not found")
+	// Default-deny everything outside the share surface. This mirrors the
+	// Caddyfile allowlist (arc-paste/Caddyfile) exactly so dev (no Caddy)
+	// and prod behave the same — without this, the SPA wildcard registered
+	// by web.RegisterSPA would happily serve the arc app shell at /labels,
+	// /dashboard, /<projectId>/issues, etc., even though arc-paste deploys
+	// have no use for any of those routes.
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if !arcPasteAllowedPath(c.Request().URL.Path) {
+				return c.String(http.StatusNotFound, "Not found")
+			}
+			return next(c)
+		}
 	})
 
 	handlers.Register(e.Group("/api/paste"))
 	web.RegisterSPA(e)
 	return e
+}
+
+// arcPasteAllowedPath mirrors the Caddyfile allowlist:
+//
+//	/_app/*           SvelteKit hashed asset bundle
+//	/api/paste        paste API (create)
+//	/api/paste/*      paste API (per-share routes)
+//	/robots.txt       robots
+//	/share/<id>       share page (exactly one segment after /share/)
+//
+// Anything else is rejected with the same 404 Caddy returns at the edge.
+// Keep this function in sync with arc-paste/Caddyfile if either changes.
+func arcPasteAllowedPath(p string) bool {
+	switch p {
+	case "/api/paste", "/robots.txt":
+		return true
+	}
+	if strings.HasPrefix(p, "/_app/") || strings.HasPrefix(p, "/api/paste/") {
+		return true
+	}
+	if rest, ok := strings.CutPrefix(p, "/share/"); ok {
+		return rest != "" && !strings.Contains(rest, "/")
+	}
+	return false
 }
 
 // envOr returns the value of env variable key, or defaultVal if not set.

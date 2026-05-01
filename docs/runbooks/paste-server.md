@@ -98,7 +98,7 @@ Open the **Author URL** (the one with `&t=`) in Chrome/Firefox.
 3. **Pick a label** (`praise` / `issue` / `suggestion` / `question` / `nit`).
 4. **Type a comment**, optionally toggle "Suggest replacement text".
 5. **Post** — the first time you do this, a small modal asks for your name. (As the author you should already have a name from step 1; the modal won't fire.) The comment appears in the sidebar.
-6. As the author, you'll see **Accept / Resolve / Reject** controls on every comment. Try Accept on one, Reject (with reply) on another, and Resolve on a third. If the controls don't appear, you opened the Share URL (no `&t=`) instead of the Author URL — close the tab and reopen via the Author URL.
+6. As the author, you'll see **Accept / Resolve / Reject** controls on every comment. Try Accept on one, Reject (with reply) on another, and Resolve on a third. If the controls don't appear, you opened a reviewer URL (no `&t=`) instead of the Author URL — close the tab and reopen via the Author URL.
 7. As a reviewer (a fresh browser profile or incognito window with NO `&t=` in the URL), find your own annotation in the sidebar. You should see an **✎ Edit** button on it. Click it; the body becomes a textarea pre-filled with your existing comment. Refine the wording — e.g. expand "expand this more" into a fully-formed suggestion — and **⌘/Ctrl-⏎** (or click Save). The card re-renders with `· edited Nm` next to the timestamp. Confirm `arc share comments <id>` prints the new body, not the original.
 8. Switch back to the author window. The **✎ Edit** button should also appear on every reviewer's annotation (not just your own). Use it to sharpen a thin reviewer comment — the displayed `author_name` stays as the reviewer, only the body changes. Run `arc share comments <id>` again and confirm the refined body shows up.
 9. **Click the chip** in the header — the name prompt opens prefilled with your current name (text selected). Edit and save → chip updates. This is the rename affordance.
@@ -113,7 +113,7 @@ Open the **Author URL** (the one with `&t=`) in Chrome/Firefox.
 
 ### Simulate a second reviewer
 
-Without spinning up another machine, open the **Share URL (no `&t=`)** in an **incognito window** (or a different browser entirely). Incognito gets a fresh `localStorage`, so:
+Without spinning up another machine, click the in-page **Share link** button (in the page header on the author's tab) to copy the reviewer URL (`#k=…` only, no `&t=`), then open that URL in an **incognito window** (or a different browser entirely). Incognito gets a fresh `localStorage`, so:
 
 1. **No chip** appears in the header. There's no "Sign in" button anywhere — identity is captured lazily.
 2. Highlight a paragraph and click Comment in the toolbar. A name prompt fires; type any name (e.g. "Reviewer-2"). The comment posts; the chip now reads `Reviewer-2` (no `· author`, because the URL has no `&t=`).
@@ -131,7 +131,7 @@ Walk these in order to confirm the new auth UX end-to-end:
 3. **Author URL flow.** Open the Preview URL in a fresh browser profile. Header chip shows `<author_name> · author` immediately, no modal. Accept / Resolve buttons visible on existing comments.
 4. **Reviewer URL flow.** From the author's browser tab, click the **Share link** button in the page header — clipboard now holds the bare reviewer URL (`#k=…` only, no `&t=`). Open that copied URL in a different fresh profile. No chip in the header, no "Sign in" button. Select text → click Comment in the toolbar → name modal opens → save a name → comment posts → chip now shows the name.
 5. **Rename via chip.** Click the chip on the reviewer side. Modal opens prefilled with the saved name (text selected). Edit, save → chip updates.
-6. **Author opens the bare share URL.** Open the share URL (without `&t=`) on the author's browser. They are now in reviewer mode (no Accept buttons). Reopen via the Author URL → author mode restored.
+6. **Author opens the bare reviewer URL.** Click the in-page **Share link** button to copy the reviewer URL (`#k=…` only), then paste it into a new tab in the same browser. They are now in reviewer mode (no Accept buttons). Reopen via the Author URL → author mode restored.
 
 ## 3. Shared / remote review
 
@@ -224,7 +224,7 @@ Step 7 (review loop) uses `arc share approve` and `arc share pull` instead of th
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Accept / Resolve / Reject controls never appear | You opened the Share URL (no `&t=`) instead of the Author URL — author detection is token-based, not name-based. Or the share was created without an author name (`git config user.name` was empty and no `--author` flag passed), so `plan.author_name` is empty and the chip never shows `· author` | Close the tab and reopen via the Author URL (run `arc share show <id> --author-url` to retrieve it). If the share has no author name, recreate it with `--author "Your Name"` |
+| Accept / Resolve / Reject controls never appear | You opened a reviewer URL (no `&t=`) instead of the Author URL — author detection is token-based, not name-based. Or the share was created without an author name (`git config user.name` was empty and no `--author` flag passed), so `plan.author_name` is empty and the chip never shows `· author` | Close the tab and reopen via the Author URL (run `arc share show <id> --author-url` to retrieve it). If the share has no author name, recreate it with `--author "Your Name"` |
 | `/share/<id>` returns `{"message":"Not Found"}` (Echo's default 404 JSON) | Binary built without the `webui` build tag — `web.RegisterSPA` is the no-op stub | Rebuild with `make build` (not `make build-quick`); for arc-paste use `go build -tags webui -o ./bin/arc-paste ./arc-paste` |
 | `/share/<id>` returns blank HTML / cannot find static assets | `web/build/` not present at compile time, even with the `webui` tag | Re-run `bun run build` in `web/`, then rebuild the binary |
 | SPA console says `missing #k=<key> in URL` | URL was pasted without its fragment | Use the full URL printed by `arc share create` — fragments are dropped by some chat apps; copy carefully |

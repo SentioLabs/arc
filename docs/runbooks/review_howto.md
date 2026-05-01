@@ -21,14 +21,14 @@ The discriminator is whether the comment should *cause an edit downstream*. Acce
 
 ## URLs you'll receive
 
-`arc share create` prints two URLs:
+`arc share create` prints exactly one URL — the **Author URL** (or **Preview URL** for `--local` shares). It contains both the decryption key and the `&t=<edit_token>` that grants Accept / Resolve / Reject. Treat it like a write password: don't paste it into tickets, screenshots, or shared chat threads. The first time you open it, the page detects your role from the URL itself; you don't sign in or pick a name.
 
-| URL | What it is | Who gets it |
-|---|---|---|
-| **Share URL** (`#k=…`) | Read + comment | Reviewers |
-| **Author URL** (`#k=…&t=…`) | Adds Accept / Resolve / Reject | Plan author only |
+| URL form | What it is | Who gets it | Source |
+|---|---|---|---|
+| **Author URL** (`#k=…&t=…`) | Read + comment + Accept / Resolve / Reject | Plan author only | Printed by `arc share create` |
+| **Reviewer URL** (`#k=…` only, no `&t=`) | Read + comment | Reviewers | Click the in-page **Share link** button on the share page header |
 
-The author URL is a strict superset of the share URL — anyone given the author URL can also read and comment. Treat it like a write password: don't paste it into tickets, screenshots, or shared chat threads. The first time you open the author URL, the page detects your role from the URL itself; you don't sign in or pick a name.
+To send a reviewer link: open the Author URL in your browser, click the **Share link** button in the page header, and paste the resulting URL into your message. The button strips `&t=` so the URL you share grants reviewer-only access — copy-pasting the bare Author URL would hand the recipient your edit token.
 
 Lost the URL? Run `arc share show <id> --author-url` to reprint it (uses the `edit_token` saved to `~/.arc/shares.json`).
 
