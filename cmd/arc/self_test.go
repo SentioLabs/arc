@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -16,8 +15,7 @@ import (
 
 func TestSelfChannelShowDefault(t *testing.T) {
 	tmp := t.TempDir()
-	cfgFile := filepath.Join(tmp, "cli-config.json")
-	require.NoError(t, os.WriteFile(cfgFile, []byte(`{"server_url":"http://localhost:7432"}`), 0o600))
+	cfgFile := filepath.Join(tmp, "config.toml")
 
 	origPath := configPath
 	configPath = cfgFile
@@ -27,7 +25,7 @@ func TestSelfChannelShowDefault(t *testing.T) {
 	cfg, err := loadConfig()
 	require.NoError(t, err)
 
-	channel := cfg.Channel
+	channel := cfg.Updates.Channel
 	if channel == "" {
 		channel = channelStable
 	}
@@ -36,8 +34,7 @@ func TestSelfChannelShowDefault(t *testing.T) {
 
 func TestSelfChannelSwitchNightly(t *testing.T) {
 	tmp := t.TempDir()
-	cfgFile := filepath.Join(tmp, "cli-config.json")
-	require.NoError(t, os.WriteFile(cfgFile, []byte(`{"server_url":"http://localhost:7432"}`), 0o600))
+	cfgFile := filepath.Join(tmp, "config.toml")
 
 	origPath := configPath
 	configPath = cfgFile
@@ -53,13 +50,12 @@ func TestSelfChannelSwitchNightly(t *testing.T) {
 	// Re-read and verify
 	cfg, err = loadConfig()
 	require.NoError(t, err)
-	assert.Equal(t, channelNightly, cfg.Channel)
+	assert.Equal(t, channelNightly, cfg.Updates.Channel)
 }
 
 func TestSelfChannelSwitchRC(t *testing.T) {
 	tmp := t.TempDir()
-	cfgFile := filepath.Join(tmp, "cli-config.json")
-	require.NoError(t, os.WriteFile(cfgFile, []byte(`{"server_url":"http://localhost:7432"}`), 0o600))
+	cfgFile := filepath.Join(tmp, "config.toml")
 
 	origPath := configPath
 	configPath = cfgFile
@@ -73,13 +69,12 @@ func TestSelfChannelSwitchRC(t *testing.T) {
 
 	cfg, err = loadConfig()
 	require.NoError(t, err)
-	assert.Equal(t, channelRC, cfg.Channel)
+	assert.Equal(t, channelRC, cfg.Updates.Channel)
 }
 
 func TestSelfChannelInvalid(t *testing.T) {
 	tmp := t.TempDir()
-	cfgFile := filepath.Join(tmp, "cli-config.json")
-	require.NoError(t, os.WriteFile(cfgFile, []byte(`{"server_url":"http://localhost:7432"}`), 0o600))
+	cfgFile := filepath.Join(tmp, "config.toml")
 
 	origPath := configPath
 	configPath = cfgFile

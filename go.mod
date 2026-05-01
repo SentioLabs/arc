@@ -5,6 +5,7 @@ go 1.26.0
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
+	github.com/BurntSushi/toml v1.3.2
 	github.com/blevesearch/bleve/v2 v2.5.7
 	github.com/fatih/color v1.18.0
 	github.com/getkin/kin-openapi v0.133.0

@@ -30,8 +30,8 @@ type Server struct {
 	startTime time.Time
 }
 
-// Config holds server configuration.
-type Config struct {
+// ServerOptions holds the configuration needed to create a new API server.
+type ServerOptions struct {
 	Address string // e.g., ":7432" or "localhost:7432"
 	Store   storage.Storage
 	// DB is the underlying *sql.DB for the arc storage. When non-nil, paste
@@ -40,7 +40,7 @@ type Config struct {
 }
 
 // New creates a new API server.
-func New(cfg Config) *Server {
+func New(cfg ServerOptions) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -158,6 +158,10 @@ func (s *Server) registerRoutes() {
 	v1.POST("/labels", s.createLabel)
 	v1.PUT("/labels/:name", s.updateLabel)
 	v1.DELETE("/labels/:name", s.deleteLabel)
+
+	// Config (singleton document)
+	v1.GET("/config", s.getConfig)
+	v1.PUT("/config", s.putConfig)
 
 	// Shares (author-side keyring of paste shares created on this machine)
 	s.RegisterShareRoutes(v1)

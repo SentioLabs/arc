@@ -465,6 +465,26 @@ export async function createPlanComment(
 	return data;
 }
 
+// Config APIs
+export type Config = components['schemas']['Config'];
+export type ConfigResponse = components['schemas']['ConfigResponse'];
+
+export async function getConfig(): Promise<ConfigResponse> {
+	const { data, error } = await api.GET('/config');
+	if (error || !data) throw new Error(`getConfig failed: ${error ?? 'no data'}`);
+	return data;
+}
+
+export async function updateConfig(cfg: Config): Promise<ConfigResponse> {
+	const { data, error, response } = await api.PUT('/config', { body: cfg });
+	if (response.status === 400 && error) {
+		const e = error as { errors?: Record<string, string> };
+		throw Object.assign(new Error('validation failed'), { fieldErrors: e.errors ?? {} });
+	}
+	if (error || !data) throw new Error(`updateConfig failed: ${error ?? 'no data'}`);
+	return data;
+}
+
 // Team Context APIs
 export async function getTeamContext(projectId: string, epicId?: string): Promise<TeamContext> {
 	const { data, error } = await api.GET('/projects/{projectId}/team-context', {

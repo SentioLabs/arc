@@ -24,7 +24,7 @@ func testClientServer(t *testing.T) (*client.Client, func()) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	server := api.New(api.Config{
+	server := api.New(api.ServerOptions{
 		Address: ":0",
 		Store:   store,
 	})

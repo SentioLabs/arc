@@ -140,7 +140,7 @@ func arcCmdWithStdinSuccess(t *testing.T, homeDir string, stdin string, args ...
 }
 
 // setupHome creates an isolated temporary directory to serve as HOME for
-// a single test. It writes a minimal arc CLI config pointing at the test
+// a single test. It writes a minimal arc TOML config pointing at the test
 // server. The directory is cleaned up when the test finishes.
 func setupHome(t *testing.T) string {
 	t.Helper()
@@ -153,14 +153,15 @@ func setupHome(t *testing.T) string {
 		t.Fatalf("create arc config dir: %v", err)
 	}
 
-	cfg := map[string]string{"server_url": serverURL}
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("marshal config: %v", err)
-	}
-
-	cfgPath := filepath.Join(arcDir, "cli-config.json")
-	if err := os.WriteFile(cfgPath, data, 0o600); err != nil {
+	// Seed the modern TOML form directly — pre-seeding cli-config.json
+	// would trigger the auto-migration stderr notice and break tests
+	// that assert no output.
+	cfg := fmt.Sprintf(
+		"[cli]\nserver = %q\n[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[share]\nserver = \"https://arcplanner.sentiolabs.io\"\n[updates]\nchannel = \"stable\"\n",
+		serverURL,
+	)
+	cfgPath := filepath.Join(arcDir, "config.toml")
+	if err := os.WriteFile(cfgPath, []byte(cfg), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 

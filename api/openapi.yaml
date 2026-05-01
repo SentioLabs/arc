@@ -25,6 +25,8 @@ tags:
     description: Issue dependency management
   - name: labels
     description: Label management
+  - name: config
+    description: Arc configuration management
   - name: comments
     description: Comments and audit events
   - name: teams
@@ -967,6 +969,50 @@ paths:
           description: Label deleted
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ====================
+  # Config (singleton)
+  # ====================
+  /config:
+    get:
+      operationId: getConfig
+      tags: [config]
+      summary: Get the current arc configuration
+      responses:
+        "200":
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      operationId: putConfig
+      tags: [config]
+      summary: Replace the arc configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Config"
+      responses:
+        "200":
+          description: Updated configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigValidationError"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -2207,6 +2253,81 @@ components:
         type: object
         additionalProperties: true
       description: Array of transcript entries
+
+    # ====================
+    # Config Schemas
+    # ====================
+    Config:
+      type: object
+      required: [cli, server, share, updates]
+      properties:
+        cli:
+          $ref: "#/components/schemas/CLIConfig"
+        server:
+          $ref: "#/components/schemas/ServerConfig"
+        share:
+          $ref: "#/components/schemas/ShareConfig"
+        updates:
+          $ref: "#/components/schemas/UpdatesConfig"
+
+    CLIConfig:
+      type: object
+      properties:
+        server:
+          type: string
+          description: URL the CLI uses to talk to the arc server.
+
+    ServerConfig:
+      type: object
+      properties:
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        db_path:
+          type: string
+
+    ShareConfig:
+      type: object
+      properties:
+        author:
+          type: string
+        server:
+          type: string
+
+    UpdatesConfig:
+      type: object
+      properties:
+        channel:
+          type: string
+          enum: [stable, rc, nightly]
+
+    ConfigResponse:
+      type: object
+      required: [cli, server, share, updates, meta]
+      allOf:
+        - $ref: "#/components/schemas/Config"
+        - type: object
+          properties:
+            meta:
+              type: object
+              required: [path, requires_restart]
+              properties:
+                path:
+                  type: string
+                requires_restart:
+                  type: array
+                  items:
+                    type: string
+
+    ConfigValidationError:
+      type: object
+      required: [errors]
+      properties:
+        errors:
+          type: object
+          additionalProperties:
+            type: string
 
     # ====================
     # Plan Schemas

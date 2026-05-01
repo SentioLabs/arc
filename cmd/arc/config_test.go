@@ -1,83 +1,159 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	cfgpkg "github.com/sentiolabs/arc/internal/config"
 )
 
-func TestConfigChannelRoundTrip(t *testing.T) {
-	tmp := t.TempDir()
-	cfgFile := filepath.Join(tmp, "cli-config.json")
+const dbPathKey = "server.db_path"
 
-	// Write config with channel
-	data := []byte(`{"server_url":"http://localhost:7432","channel":"nightly"}`)
-	require.NoError(t, os.WriteFile(cfgFile, data, 0o600))
-
-	// Point loadConfig at our temp file
-	origPath := configPath
-	configPath = cfgFile
-	t.Cleanup(func() { configPath = origPath })
+func TestConfigSetGetRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	configPath = filepath.Join(dir, "config.toml")
+	defer func() { configPath = "" }()
 
 	cfg, err := loadConfig()
-	require.NoError(t, err)
-	assert.Equal(t, "nightly", cfg.Channel)
-
-	// Save and re-read
-	require.NoError(t, saveConfig(cfg))
-	raw, err := os.ReadFile(cfgFile)
-	require.NoError(t, err)
-
-	var reloaded Config
-	require.NoError(t, json.Unmarshal(raw, &reloaded))
-	assert.Equal(t, "nightly", reloaded.Channel)
-}
-
-func TestConfigChannelDefault(t *testing.T) {
-	tmp := t.TempDir()
-	cfgFile := filepath.Join(tmp, "cli-config.json")
-
-	data := []byte(`{"server_url":"http://localhost:7432"}`)
-	require.NoError(t, os.WriteFile(cfgFile, data, 0o600))
-
-	origPath := configPath
-	configPath = cfgFile
-	t.Cleanup(func() { configPath = origPath })
-
-	cfg, err := loadConfig()
-	require.NoError(t, err)
-	assert.Empty(t, cfg.Channel)
-}
-
-func TestConfigSetInvalidChannel(t *testing.T) {
-	tmp := t.TempDir()
-	cfgFile := filepath.Join(tmp, "cli-config.json")
-
-	data := []byte(`{"server_url":"http://localhost:7432"}`)
-	require.NoError(t, os.WriteFile(cfgFile, data, 0o600))
-
-	origPath := configPath
-	configPath = cfgFile
-	t.Cleanup(func() { configPath = origPath })
-
-	// Simulate what configSetCmd does for an invalid channel
-	cfg, err := loadConfig()
-	require.NoError(t, err)
-
-	value := "beta"
-	var setErr error
-	switch value {
-	case "stable", "rc", "nightly":
-		cfg.Channel = value
-	default:
-		setErr = fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", value)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if err := setKey(cfg, "share.author", "Ada"); err != nil {
+		t.Fatalf("setKey: %v", err)
+	}
+	if err := saveConfig(cfg); err != nil {
+		t.Fatalf("saveConfig: %v", err)
 	}
 
-	require.Error(t, setErr)
-	assert.Contains(t, setErr.Error(), "invalid channel")
+	got, err := loadConfig()
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if got.Share.Author != "Ada" {
+		t.Errorf("share.author = %q", got.Share.Author)
+	}
+}
+
+func TestNormalizeKeyUnknownReturnsHint(t *testing.T) {
+	_, err := normalizeKey("server_url")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "did you mean") {
+		t.Errorf("error missing hint: %v", err)
+	}
+}
+
+func TestNormalizeKeyLegacyAliases(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"server_url", "cli.server"},
+		{"share_author", "share.author"},
+		{"share_server", "share.server"},
+		{"channel", "updates.channel"},
+	}
+	for _, tc := range cases {
+		_, err := normalizeKey(tc.input)
+		if err == nil {
+			t.Errorf("normalizeKey(%q): expected error, got nil", tc.input)
+			continue
+		}
+		if !strings.Contains(err.Error(), "did you mean "+tc.want) {
+			t.Errorf("normalizeKey(%q): expected hint %q in error, got: %v", tc.input, tc.want, err)
+		}
+	}
+}
+
+func TestSetKeyRejectsBadPort(t *testing.T) {
+	cfg, _ := loadConfigForTest(t)
+	if err := setKey(cfg, "server.port", "abc"); err == nil {
+		t.Fatal("expected parse error")
+	}
+	if err := setKey(cfg, "server.port", "70000"); err == nil {
+		t.Fatal("expected validation error")
+	}
+}
+
+func loadConfigForTest(t *testing.T) (*cfgpkg.Config, string) {
+	t.Helper()
+	dir := t.TempDir()
+	configPath = filepath.Join(dir, "config.toml")
+	t.Cleanup(func() { configPath = ""; _ = os.RemoveAll(dir) })
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	return cfg, configPath
+}
+
+func TestNormalizeKeyValid(t *testing.T) {
+	validKeys := []string{
+		"cli.server",
+		"server.port",
+		dbPathKey,
+		"share.author",
+		"share.server",
+		"updates.channel",
+	}
+	for _, k := range validKeys {
+		got, err := normalizeKey(k)
+		if err != nil {
+			t.Errorf("normalizeKey(%q) returned error: %v", k, err)
+		}
+		if got != k {
+			t.Errorf("normalizeKey(%q) = %q, want %q", k, got, k)
+		}
+	}
+}
+
+func TestNormalizeKeyNormalizes(t *testing.T) {
+	// Should normalize dashes to underscores
+	got, err := normalizeKey("server.db-path")
+	if err != nil {
+		t.Errorf("normalizeKey(server.db-path): %v", err)
+	}
+	if got != dbPathKey {
+		t.Errorf("got %q, want %s", got, dbPathKey)
+	}
+}
+
+func TestGetKeyReturnsDefaults(t *testing.T) {
+	cfg := cfgpkg.Default()
+	val := getKey(cfg, "cli.server")
+	if val != "http://localhost:7432" {
+		t.Errorf("cli.server default = %q", val)
+	}
+	val = getKey(cfg, "server.port")
+	if val != "7432" {
+		t.Errorf("server.port default = %q", val)
+	}
+}
+
+func TestSetKeyCliServer(t *testing.T) {
+	cfg, _ := loadConfigForTest(t)
+	if err := setKey(cfg, "cli.server", "http://example.com:9000"); err != nil {
+		t.Fatalf("setKey: %v", err)
+	}
+	if cfg.CLI.Server != "http://example.com:9000" {
+		t.Errorf("cli.server = %q", cfg.CLI.Server)
+	}
+}
+
+func TestLevenshtein(t *testing.T) {
+	// Exact match
+	if d := levenshtein("foo", "foo"); d != 0 {
+		t.Errorf("levenshtein(foo, foo) = %d, want 0", d)
+	}
+	// Empty
+	if d := levenshtein("", "abc"); d != 3 {
+		t.Errorf("levenshtein('', abc) = %d, want 3", d)
+	}
+	// One edit
+	if d := levenshtein("cat", "cut"); d != 1 {
+		t.Errorf("levenshtein(cat, cut) = %d, want 1", d)
+	}
 }

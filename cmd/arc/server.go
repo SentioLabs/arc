@@ -82,8 +82,20 @@ func init() {
 
 func runServerStart(cmd *cobra.Command, args []string) error {
 	foreground, _ := cmd.Flags().GetBool("foreground")
-	port, _ := cmd.Flags().GetInt("port")
-	dbPath, _ := cmd.Flags().GetString("db")
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+	port := cfg.Server.Port
+	if cmd.Flags().Changed("port") {
+		p, _ := cmd.Flags().GetInt("port")
+		port = p
+	}
+	dbPath := cfg.Server.ResolvedDBPath()
+	if cmd.Flags().Changed("db") {
+		dbPath, _ = cmd.Flags().GetString("db")
+	}
 
 	addr := fmt.Sprintf(":%d", port)
 

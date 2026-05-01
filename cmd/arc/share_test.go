@@ -41,7 +41,7 @@ func startTestPasteServer(t *testing.T) *httptest.Server {
 
 	// Mount the share keyring routes on /api/v1 against the same store so
 	// sharesconfig.{Load,Add,Find,Remove} hits a real handler chain.
-	apiSrv := api.New(api.Config{Store: store})
+	apiSrv := api.New(api.ServerOptions{Store: store})
 	apiSrv.RegisterShareRoutes(e.Group("/api/v1"))
 
 	srv := httptest.NewServer(e)
@@ -703,8 +703,10 @@ func TestShareCreatePrintsPreviewURLForLocal(t *testing.T) {
 	origConfigPath := configPath
 	t.Cleanup(func() { configPath = origConfigPath })
 	dir := t.TempDir()
-	configPath = filepath.Join(dir, "cli-config.json")
-	if err := os.WriteFile(configPath, []byte(`{"server_url":"`+srv.URL+`"}`), 0o600); err != nil {
+	configPath = filepath.Join(dir, "config.toml")
+	tomlBody := "[cli]\nserver = \"" + srv.URL + "\"\n" +
+		"[share]\n[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[updates]\nchannel = \"stable\"\n"
+	if err := os.WriteFile(configPath, []byte(tomlBody), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
@@ -758,6 +760,12 @@ func TestShareCreatePrintsPreviewURLForLocal(t *testing.T) {
 	if !hasToken {
 		t.Errorf("expected the preview URL line to carry &t=, got: %s", output)
 	}
+	// Verify the URL uses the configured test server — not the fallback
+	// localhost:7432. This catches a stale/invalid config fixture that causes
+	// loadConfig to fail and silently fall back to defaults.
+	if !strings.Contains(output, srv.URL) {
+		t.Errorf("expected output to contain configured server URL %s, got: %s", srv.URL, output)
+	}
 }
 
 func TestResolveAuthor(t *testing.T) {
@@ -772,12 +780,12 @@ func TestResolveAuthor(t *testing.T) {
 	writeConfig := func(t *testing.T, author string) {
 		t.Helper()
 		dir := t.TempDir()
-		configPath = filepath.Join(dir, "cli-config.json")
-		body := `{"server_url":"http://localhost:7432"`
+		configPath = filepath.Join(dir, "config.toml")
+		body := "[cli]\nserver = \"http://localhost:7432\"\n[share]\n"
 		if author != "" {
-			body += `,"share_author":"` + author + `"`
+			body += "author = \"" + author + "\"\n"
 		}
-		body += `}`
+		body += "[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[updates]\nchannel = \"stable\"\n"
 		if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
 			t.Fatalf("write config: %v", err)
 		}
@@ -960,17 +968,19 @@ func TestShareShowAuthorURLMissingShare(t *testing.T) {
 	}
 }
 
-// writeShareServerConfig points the global configPath at a temp cli-config.json
-// containing the given share_server (omitted entirely when empty).
+// writeShareServerConfig points the global configPath at a temp config.toml
+// containing the given share.server (omitted/default when empty).
 func writeShareServerConfig(t *testing.T, server string) {
 	t.Helper()
 	dir := t.TempDir()
-	configPath = filepath.Join(dir, "cli-config.json")
-	body := `{"server_url":"http://localhost:7432"`
+	configPath = filepath.Join(dir, "config.toml")
+	body := "[cli]\nserver = \"http://localhost:7432\"\n[share]\n"
 	if server != "" {
-		body += `,"share_server":"` + server + `"`
+		body += "server = \"" + server + "\"\n"
+	} else {
+		body += "server = \"https://arcplanner.sentiolabs.io\"\n"
 	}
-	body += `}`
+	body += "[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[updates]\nchannel = \"stable\"\n"
 	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

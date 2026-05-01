@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/fatih/color"
 	"github.com/sentiolabs/arc/internal/client"
+	cfgpkg "github.com/sentiolabs/arc/internal/config"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/sharesconfig"
 	"github.com/sentiolabs/arc/internal/types"
@@ -25,12 +25,6 @@ import (
 
 // CLI constants for default values and formatting.
 const (
-	// defaultDirPerm is the default permission for created directories.
-	defaultDirPerm = 0o755
-
-	// defaultFilePerm is the default permission for sensitive config files (owner read/write only).
-	defaultFilePerm = 0o600
-
 	// tabwriterPadding is the minimum padding between columns in tabwriter output.
 	tabwriterPadding = 2
 
@@ -75,31 +69,6 @@ func main() {
 	}
 }
 
-// Config holds CLI configuration
-type Config struct {
-	ServerURL string `json:"server_url"`
-	Channel   string `json:"channel,omitempty"`
-	// ShareAuthor is the default author name embedded in `arc share create`
-	// plans. It's the canonical reviewer identity used by the share UI to
-	// gate Accept / Resolve / Reject controls — only visitors who type this
-	// exact name in the SPA's prompt are recognized as the plan owner.
-	// Resolution precedence in `arc share create`:
-	//   1. --author flag (highest)
-	//   2. this config field
-	//   3. $ARC_SHARE_AUTHOR
-	//   4. `git config user.name`
-	ShareAuthor string `json:"share_author,omitempty"`
-	// ShareServer is the default URL for the remote paste server used by
-	// `arc share create --remote`. Lets users persistently target a private
-	// arc-paste deployment instead of the public default.
-	// Resolution precedence in `arc share create --remote`:
-	//   1. --server flag (highest)
-	//   2. this config field
-	//   3. $ARC_SHARE_SERVER
-	//   4. https://arcplanner.sentiolabs.io (built-in default)
-	ShareServer string `json:"share_server,omitempty"`
-}
-
 // ProjectSource indicates how the project was resolved
 type ProjectSource int
 
@@ -122,63 +91,24 @@ func (s ProjectSource) String() string {
 	}
 }
 
-// defaultConfigPath returns the default config file path.
-func defaultConfigPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".arc", "cli-config.json")
-}
-
-// loadConfig reads CLI configuration from disk, creating a default on first use.
-func loadConfig() (*Config, error) {
-	if configPath == "" {
-		configPath = defaultConfigPath()
+// loadConfig reads CLI configuration from disk, creating defaults on first use.
+// It delegates to the internal/config package which handles TOML load, legacy
+// JSON migration, and validation.
+func loadConfig() (*cfgpkg.Config, error) {
+	path := configPath
+	if path == "" {
+		path = cfgpkg.DefaultPath()
 	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Create default config on first use
-			cfg := &Config{
-				ServerURL: "http://localhost:7432",
-			}
-			// Try to save, but don't fail if we can't
-			_ = saveConfig(cfg)
-			return cfg, nil
-		}
-		return nil, fmt.Errorf("read config: %w", err)
-	}
-
-	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parse config: %w", err)
-	}
-
-	if cfg.ServerURL == "" {
-		cfg.ServerURL = "http://localhost:7432"
-	}
-
-	return &cfg, nil
+	return cfgpkg.Load(path)
 }
 
 // saveConfig persists the CLI configuration to disk.
-func saveConfig(cfg *Config) error {
+func saveConfig(cfg *cfgpkg.Config) error {
 	path := configPath
 	if path == "" {
-		path = defaultConfigPath()
+		path = cfgpkg.DefaultPath()
 	}
-
-	// Create directory
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, defaultDirPerm); err != nil {
-		return fmt.Errorf("create config dir: %w", err)
-	}
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal config: %w", err)
-	}
-
-	return os.WriteFile(path, data, defaultFilePerm)
+	return cfgpkg.Save(path, cfg)
 }
 
 // getClient returns an HTTP client configured for the current server URL.
@@ -195,7 +125,7 @@ func getClient() (*client.Client, error) {
 		}
 	}
 	if url == "" {
-		url = cfg.ServerURL
+		url = cfg.CLI.Server
 	}
 
 	return client.New(url), nil
