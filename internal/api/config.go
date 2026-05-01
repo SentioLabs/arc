@@ -56,12 +56,8 @@ func (s *Server) putConfig(c echo.Context) error {
 	if err := cfgpkg.Save(path, &incoming); err != nil {
 		return errorJSON(c, http.StatusInternalServerError, err.Error())
 	}
-	cfg, err := cfgpkg.Load(path)
-	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
 	return successJSON(c, configResponse{
-		Config: cfg,
+		Config: &incoming,
 		Meta:   configMeta{Path: path, RequiresRestart: cfgpkg.RequiresRestart()},
 	})
 }

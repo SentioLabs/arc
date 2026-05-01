@@ -42,8 +42,25 @@ func TestGetConfigReturnsDefaults(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got["cli"] == nil || got["meta"] == nil {
-		t.Errorf("response missing fields: %v", got)
+	for _, key := range []string{"cli", "server", "share", "updates", "meta"} {
+		if got[key] == nil {
+			t.Errorf("response missing key %q: %v", key, got)
+		}
+	}
+	cli, ok := got["cli"].(map[string]any)
+	if !ok {
+		t.Fatalf("cli is not an object: %T", got["cli"])
+	}
+	if cli["server"] != "http://localhost:7432" {
+		t.Errorf("cli.server = %q, want %q", cli["server"], "http://localhost:7432")
+	}
+	meta, ok := got["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("meta is not an object: %T", got["meta"])
+	}
+	requiresRestart, ok := meta["requires_restart"].([]any)
+	if !ok || len(requiresRestart) == 0 {
+		t.Errorf("meta.requires_restart is empty or missing: %v", meta["requires_restart"])
 	}
 }
 
@@ -51,7 +68,10 @@ func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 	s := newTestServerWithTempHome(t)
 	in := cfgpkg.Default()
 	in.Share.Author = "Grace"
-	body, _ := json.Marshal(in)
+	body, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/config", bytes.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
@@ -63,12 +83,29 @@ func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body)
 	}
 
+	// Assert response body contains share.author and meta.
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	share, ok := got["share"].(map[string]any)
+	if !ok {
+		t.Fatalf("share is not an object: %T", got["share"])
+	}
+	if share["author"] != "Grace" {
+		t.Errorf("response share.author = %q, want %q", share["author"], "Grace")
+	}
+	if got["meta"] == nil {
+		t.Errorf("response missing meta field")
+	}
+
+	// Also verify disk state.
 	reloaded, err := cfgpkg.Load(cfgpkg.DefaultPath())
 	if err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 	if reloaded.Share.Author != "Grace" {
-		t.Errorf("share.author = %q", reloaded.Share.Author)
+		t.Errorf("disk share.author = %q", reloaded.Share.Author)
 	}
 }
 
