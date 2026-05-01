@@ -1,8 +1,12 @@
 package client_test
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,8 +26,27 @@ func TestListShares(t *testing.T) {
 }
 
 func TestUpsertShare(t *testing.T) {
-	c, cleanup := testClientServer(t)
-	defer cleanup()
+	// Create a custom test server that captures the request body
+	var receivedBody types.Share
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/shares" && r.Method == http.MethodPost {
+			// Decode request body
+			if err := json.NewDecoder(r.Body).Decode(&receivedBody); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+			// Return the share with CreatedAt set by server
+			responseShare := receivedBody
+			responseShare.CreatedAt = time.Now()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(responseShare)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL)
+	c.SetActor("test-user")
 
 	share := &types.Share{
 		ID:        "share-123",
@@ -44,6 +67,14 @@ func TestUpsertShare(t *testing.T) {
 	assert.Equal(t, "plan.md", stored.PlanFile)
 	// CreatedAt should be set by server
 	assert.False(t, stored.CreatedAt.IsZero())
+
+	// Verify the request body matches the input share
+	assert.Equal(t, share.ID, receivedBody.ID, "request body ID mismatch")
+	assert.Equal(t, share.Kind, receivedBody.Kind, "request body Kind mismatch")
+	assert.Equal(t, share.URL, receivedBody.URL, "request body URL mismatch")
+	assert.Equal(t, share.KeyB64Url, receivedBody.KeyB64Url, "request body KeyB64Url mismatch")
+	assert.Equal(t, share.EditToken, receivedBody.EditToken, "request body EditToken mismatch")
+	assert.Equal(t, share.PlanFile, receivedBody.PlanFile, "request body PlanFile mismatch")
 }
 
 func TestGetShare(t *testing.T) {
