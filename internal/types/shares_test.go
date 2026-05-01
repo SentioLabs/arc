@@ -59,3 +59,19 @@ func TestShareValidate(t *testing.T) {
 		}
 	}
 }
+
+func TestAllShareKinds(t *testing.T) {
+	kinds := AllShareKinds()
+	if len(kinds) != 2 {
+		t.Fatalf("expected 2 kinds, got %d", len(kinds))
+	}
+	found := map[ShareKind]bool{}
+	for _, k := range kinds {
+		found[k] = true
+	}
+	for _, want := range []ShareKind{ShareKindLocal, ShareKindShared} {
+		if !found[want] {
+			t.Errorf("AllShareKinds missing %q", want)
+		}
+	}
+}
