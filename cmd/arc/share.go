@@ -287,10 +287,37 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// shareListEntry is the shape emitted by `arc share list --json`.
+// Edit tokens are deliberately excluded — they're bearer secrets that
+// belong in the keyring, not in machine-readable output.
+type shareListEntry struct {
+	ID        string    `json:"id"`
+	Kind      string    `json:"kind"`
+	URL       string    `json:"url"`
+	KeyB64Url string    `json:"key_b64url,omitempty"`
+	PlanFile  string    `json:"plan_file,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 func runShareList(cmd *cobra.Command, args []string) error {
 	f, err := sharesconfig.Load()
 	if err != nil {
 		return err
+	}
+	if outputJSON {
+		entries := make([]shareListEntry, 0, len(f.Shares))
+		for _, s := range f.Shares {
+			entries = append(entries, shareListEntry{
+				ID:        s.ID,
+				Kind:      s.Kind,
+				URL:       s.URL,
+				KeyB64Url: s.KeyB64Url,
+				PlanFile:  s.PlanFile,
+				CreatedAt: s.CreatedAt,
+			})
+		}
+		outputResult(entries)
+		return nil
 	}
 	if len(f.Shares) == 0 {
 		fmt.Println("(no shares)")

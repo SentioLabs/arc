@@ -881,3 +881,102 @@ func writeShareServerConfig(t *testing.T, server string) {
 		t.Fatalf("write config: %v", err)
 	}
 }
+
+// TestRunShareListJSON locks in `arc share list --json` emitting a JSON
+// array of share entries (vs the default tab-separated text). Regression
+// guard: this command silently ignored the global --json flag prior to
+// this test landing.
+func TestRunShareListJSON(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	// Seed two shares via the keyring so the list output has multiple rows.
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatalf("seed share: %v", err)
+		}
+	}
+	must(sharesconfig.Add(sharesconfig.Share{
+		ID:        "abc12345",
+		Kind:      "local",
+		URL:       "http://localhost:7432/share/abc12345#k=key1",
+		KeyB64Url: "key1",
+		EditToken: "tok1",
+		PlanFile:  "docs/plans/a.md",
+	}))
+	must(sharesconfig.Add(sharesconfig.Share{
+		ID:        "def67890",
+		Kind:      "shared",
+		URL:       "https://arcplanner.sentiolabs.io/share/def67890#k=key2",
+		KeyB64Url: "key2",
+		EditToken: "tok2",
+		PlanFile:  "docs/plans/b.md",
+	}))
+
+	// Force the global --json flag on for this test, restore after.
+	prev := outputJSON
+	outputJSON = true
+	t.Cleanup(func() { outputJSON = prev })
+
+	out := captureStdout(t, func() {
+		if err := runShareList(shareListCmd, nil); err != nil {
+			t.Fatalf("runShareList: %v", err)
+		}
+	})
+
+	// Output must parse as a JSON array (not the legacy tab-separated text).
+	var got []sharesconfig.Share
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not valid JSON array: %v\noutput: %q", err, out)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 shares, got %d: %+v", len(got), got)
+	}
+	ids := map[string]bool{got[0].ID: true, got[1].ID: true}
+	if !ids["abc12345"] || !ids["def67890"] {
+		t.Errorf("expected both seeded share IDs in output, got: %+v", got)
+	}
+
+	// Edit tokens are bearer secrets gated behind the Author URL — they
+	// must NOT appear in the JSON list output. The list view exposes
+	// id/kind/url/plan_file/created_at, matching the parity of the text
+	// columns plus a timestamp. (Decryption keys travel inside the URL
+	// fragment, the same way they do in the text output, so excluding
+	// them from --json would produce inconsistent surface area.)
+	for _, secret := range []string{"tok1", "tok2"} {
+		if strings.Contains(out, secret) {
+			t.Errorf("edit_token %q leaked in --json output: %s", secret, out)
+		}
+	}
+}
+
+// TestRunShareListJSONEmpty verifies that `arc share list --json` with no
+// shares returns an empty JSON array rather than the human-friendly
+// "(no shares)" string, so JSON consumers can `[].length` safely.
+func TestRunShareListJSONEmpty(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	prev := outputJSON
+	outputJSON = true
+	t.Cleanup(func() { outputJSON = prev })
+
+	out := captureStdout(t, func() {
+		if err := runShareList(shareListCmd, nil); err != nil {
+			t.Fatalf("runShareList: %v", err)
+		}
+	})
+
+	var got []sharesconfig.Share
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not valid JSON array: %v\noutput: %q", err, out)
+	}
+	if len(got) != 0 {
+		t.Errorf("expected empty array, got %+v", got)
+	}
+}
