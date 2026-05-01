@@ -90,9 +90,9 @@ type Config struct {
 	//   4. `git config user.name`
 	ShareAuthor string `json:"share_author,omitempty"`
 	// ShareServer is the default URL for the remote paste server used by
-	// `arc share create --share`. Lets users persistently target a private
+	// `arc share create --remote`. Lets users persistently target a private
 	// arc-paste deployment instead of the public default.
-	// Resolution precedence in `arc share create --share`:
+	// Resolution precedence in `arc share create --remote`:
 	//   1. --server flag (highest)
 	//   2. this config field
 	//   3. $ARC_SHARE_SERVER

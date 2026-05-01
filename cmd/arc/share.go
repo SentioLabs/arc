@@ -189,7 +189,6 @@ var shareDeleteCmd = &cobra.Command{
 }
 
 var (
-	shareCreateLocal      bool
 	shareCreateRemote     bool
 	shareCreateServer     string
 	shareCreateAuthor     string
@@ -201,8 +200,7 @@ var (
 )
 
 func init() {
-	shareCreateCmd.Flags().BoolVar(&shareCreateLocal, "local", false, "Use the local arc-server")
-	shareCreateCmd.Flags().BoolVar(&shareCreateRemote, "share", false, "Use the configured remote share server")
+	shareCreateCmd.Flags().BoolVar(&shareCreateRemote, "remote", false, "Use the configured remote share server (precedence: --server flag > share_server in cli-config.json > $ARC_SHARE_SERVER > built-in default). Without --remote, --server, or an explicit URL, the share is created on the local arc-server.")
 	shareCreateCmd.Flags().StringVar(&shareCreateServer, "server", "",
 		"Server URL override (precedence: flag > share_server in cli-config.json > "+
 			"$ARC_SHARE_SERVER > built-in default).")
@@ -234,7 +232,7 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	server, kind := resolveServer(shareCreateLocal, shareCreateRemote, shareCreateServer)
+	server, kind := resolveServer(shareCreateRemote, shareCreateServer)
 	key, err := paste.GenerateKey()
 	if err != nil {
 		return err
@@ -279,10 +277,16 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	trimmedServer := strings.TrimRight(server, "/")
-	fmt.Printf("Share URL  (send to reviewers):\n  %s/share/%s#k=%s\n\n",
-		trimmedServer, resp.ID, keyB64)
-	fmt.Printf("Author URL (keep private — gives you Accept/Resolve):\n  %s/share/%s#k=%s&t=%s\n\n",
-		trimmedServer, resp.ID, keyB64, resp.EditToken)
+	authorURL := fmt.Sprintf("%s/share/%s#k=%s&t=%s", trimmedServer, resp.ID, keyB64, resp.EditToken)
+	// Reviewer URL is intentionally NOT printed — copy-pasting the wrong line
+	// would hand a recipient author privileges (the &t=<editToken> grants
+	// Accept/Resolve/Reject). Authors get a reviewer URL by opening the link
+	// below and clicking the in-page "Share link" button, which strips &t=.
+	if kind == shareKindLocal {
+		fmt.Printf("Preview URL (local-only — not reachable by others):\n  %s\n\n", authorURL)
+	} else {
+		fmt.Printf("Author URL (keep private — open it, then use the in-page Share link button to copy a reviewer URL):\n  %s\n\n", authorURL)
+	}
 	fmt.Println("Edit token saved to the local arc keyring")
 	return nil
 }
@@ -489,12 +493,13 @@ func resolveAuthor(flag string) string {
 //
 // For local mode, the server URL comes from `server_url` in the CLI config
 // (defaulting to http://localhost:7432). The `--server` flag still wins over
-// everything in either mode.
-func resolveServer(_, share bool, override string) (server, kind string) {
+// everything in either mode — passing a URL there forces shared mode regardless
+// of `--remote`.
+func resolveServer(remote bool, override string) (server, kind string) {
 	if s := strings.TrimSpace(override); s != "" {
 		return s, shareKindShared
 	}
-	if share {
+	if remote {
 		return resolveShareServer(), shareKindShared
 	}
 	return cliConfigServerURL(), shareKindLocal

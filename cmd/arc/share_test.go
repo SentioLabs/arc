@@ -614,7 +614,12 @@ func captureStdout(t *testing.T, fn func()) string {
 // global `configPath` at a temp file, and from the user's git identity by
 // running each subtest with $PATH cleared so `git` is unavailable (the
 // helper falls back silently to "" on git failure).
-func TestShareCreatePrintsBothURLs(t *testing.T) {
+// In shared (remote) mode, `arc share create` prints exactly one URL — the
+// Author URL with &t= — labeled with privacy guidance and a pointer at the
+// in-page Share-link button. The standalone reviewer URL line is gone:
+// printing it was a footgun (copy-pasting the wrong line gave recipients
+// author privileges via the &t= token).
+func TestShareCreatePrintsAuthorURLOnly(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	srv := startTestPasteServer(t)
@@ -623,13 +628,13 @@ func TestShareCreatePrintsBothURLs(t *testing.T) {
 	plan := filepath.Join(t.TempDir(), "plan.md")
 	_ = os.WriteFile(plan, []byte("# Hello\n\nBody."), 0o600)
 
-	// Capture stdout.
 	r, w, _ := os.Pipe()
 	stdout := os.Stdout
 	os.Stdout = w
 	defer func() { os.Stdout = stdout }()
 
-	shareCreateServer = srv.URL
+	shareCreateServer = srv.URL // forces shared mode regardless of --remote
+	t.Cleanup(func() { shareCreateServer = "" })
 	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
 		t.Fatalf("runShareCreate: %v", err)
 	}
@@ -637,17 +642,24 @@ func TestShareCreatePrintsBothURLs(t *testing.T) {
 	out, _ := io.ReadAll(r)
 	output := string(out)
 
-	if !strings.Contains(output, "Share URL") {
-		t.Errorf("expected 'Share URL' label, got: %s", output)
-	}
 	if !strings.Contains(output, "Author URL") {
 		t.Errorf("expected 'Author URL' label, got: %s", output)
 	}
-	if !strings.Contains(output, "send to reviewers") {
-		t.Errorf("expected reviewer guidance, got: %s", output)
-	}
 	if !strings.Contains(output, "keep private") {
 		t.Errorf("expected privacy guidance for author URL, got: %s", output)
+	}
+	if !strings.Contains(output, "Share link button") {
+		t.Errorf("expected pointer at the in-page Share-link button, got: %s", output)
+	}
+	// Reviewer-URL artifacts from the old dual-print MUST be gone.
+	if strings.Contains(output, "Share URL") {
+		t.Errorf("'Share URL' label leaked back into output: %s", output)
+	}
+	if strings.Contains(output, "send to reviewers") {
+		t.Errorf("'send to reviewers' guidance leaked back into output: %s", output)
+	}
+	if strings.Contains(output, "Preview URL") {
+		t.Errorf("'Preview URL' label appeared in shared-mode output: %s", output)
 	}
 	if strings.Contains(output, "Edit token: ") {
 		t.Errorf("raw 'Edit token: <hex>' line should not appear in output: %s", output)
@@ -656,13 +668,96 @@ func TestShareCreatePrintsBothURLs(t *testing.T) {
 		t.Errorf("expected pointer to shares.json, got: %s", output)
 	}
 
-	// Author URL must contain &t=.
+	// Exactly one /share/ line should appear, and it must carry &t=.
+	shareLines := 0
+	hasToken := false
 	for line := range strings.SplitSeq(output, "\n") {
-		if strings.Contains(line, "/share/") && strings.Contains(line, "&t=") {
-			return
+		if strings.Contains(line, "/share/") {
+			shareLines++
+			if strings.Contains(line, "&t=") {
+				hasToken = true
+			}
 		}
 	}
-	t.Errorf("expected an author URL line with &t=<token>, got: %s", output)
+	if shareLines != 1 {
+		t.Errorf("expected exactly one /share/ line, got %d. output: %s", shareLines, output)
+	}
+	if !hasToken {
+		t.Errorf("expected the single share line to carry &t=, got: %s", output)
+	}
+}
+
+// In local (default) mode, `arc share create` labels the URL "Preview URL"
+// and notes it's local-only — printing a "Share URL" / "Author URL" label
+// would suggest the link is shareable, but a localhost URL can't be opened
+// by anyone else.
+func TestShareCreatePrintsPreviewURLForLocal(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	srv := startTestPasteServer(t)
+	defer srv.Close()
+
+	// Point the local CLI config at the test server so cliConfigServerURL()
+	// returns srv.URL during this test. The shared/remote escape hatches
+	// (--server flag, --remote) are deliberately left clear.
+	origConfigPath := configPath
+	t.Cleanup(func() { configPath = origConfigPath })
+	dir := t.TempDir()
+	configPath = filepath.Join(dir, "cli-config.json")
+	if err := os.WriteFile(configPath, []byte(`{"server_url":"`+srv.URL+`"}`), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	plan := filepath.Join(t.TempDir(), "plan.md")
+	_ = os.WriteFile(plan, []byte("# Hello\n\nBody."), 0o600)
+
+	r, w, _ := os.Pipe()
+	stdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = stdout }()
+
+	// shareCreateRemote is false and shareCreateServer is empty → local mode.
+	shareCreateRemote = false
+	shareCreateServer = ""
+	if err := runShareCreate(shareCreateCmd, []string{plan}); err != nil {
+		t.Fatalf("runShareCreate: %v", err)
+	}
+	_ = w.Close()
+	out, _ := io.ReadAll(r)
+	output := string(out)
+
+	if !strings.Contains(output, "Preview URL") {
+		t.Errorf("expected 'Preview URL' label, got: %s", output)
+	}
+	if !strings.Contains(output, "local-only") {
+		t.Errorf("expected 'local-only' guidance, got: %s", output)
+	}
+	if strings.Contains(output, "Author URL") {
+		t.Errorf("'Author URL' label should NOT appear for local shares, got: %s", output)
+	}
+	if strings.Contains(output, "Share URL") {
+		t.Errorf("'Share URL' label should NOT appear, got: %s", output)
+	}
+
+	// Even for local, the printed URL is the author-token URL — it's the
+	// preview the author opens themselves. Just confirm exactly one /share/
+	// line and that it carries &t=.
+	shareLines := 0
+	hasToken := false
+	for line := range strings.SplitSeq(output, "\n") {
+		if strings.Contains(line, "/share/") {
+			shareLines++
+			if strings.Contains(line, "&t=") {
+				hasToken = true
+			}
+		}
+	}
+	if shareLines != 1 {
+		t.Errorf("expected exactly one /share/ line, got %d. output: %s", shareLines, output)
+	}
+	if !hasToken {
+		t.Errorf("expected the preview URL line to carry &t=, got: %s", output)
+	}
 }
 
 func TestResolveAuthor(t *testing.T) {
@@ -749,8 +844,7 @@ func TestResolveServer(t *testing.T) {
 		name      string
 		config    string // share_server in cli-config.json; "" omits the field
 		env       string // ARC_SHARE_SERVER value; "" clears it
-		share     bool
-		local     bool
+		remote    bool
 		flag      string
 		wantURL   string
 		wantKind  string
@@ -759,38 +853,38 @@ func TestResolveServer(t *testing.T) {
 		{
 			name:   "flag wins over everything",
 			config: "https://from-config.example", env: "https://from-env.example",
-			share: true, flag: "https://from-flag.example",
+			remote: true, flag: "https://from-flag.example",
 			wantURL: "https://from-flag.example", wantKind: shareKindShared,
 		},
 		{
 			// The override flag is intentionally global — it forces shared mode
-			// regardless of which boolean flags are set, mirroring the previous
-			// behavior. Locked in here so it doesn't silently drift.
-			name:   "flag wins even without --share",
-			config: "https://from-config.example",
-			local:  true, flag: "https://from-flag.example", wantNoEnv: true,
+			// even without --remote, mirroring the previous behavior. Locked in
+			// here so it doesn't silently drift.
+			name:    "flag wins even without --remote",
+			config:  "https://from-config.example",
+			flag:    "https://from-flag.example", wantNoEnv: true,
 			wantURL: "https://from-flag.example", wantKind: shareKindShared,
 		},
 		{
 			name:   "config wins over env when no flag",
 			config: "https://from-config.example", env: "https://from-env.example",
-			share:   true,
+			remote:  true,
 			wantURL: "https://from-config.example", wantKind: shareKindShared,
 		},
 		{
 			name: "env wins when config empty",
-			env:  "https://from-env.example", share: true,
+			env:  "https://from-env.example", remote: true,
 			wantURL: "https://from-env.example", wantKind: shareKindShared,
 		},
 		{
 			name:    "falls back to built-in default",
-			share:   true,
+			remote:  true,
 			wantURL: builtinDefault, wantKind: shareKindShared,
 		},
 		{
 			name:   "flag whitespace is trimmed and treated as empty",
 			config: "https://from-config.example",
-			share:  true, flag: "   ",
+			remote: true, flag: "   ",
 			wantURL: "https://from-config.example", wantKind: shareKindShared,
 		},
 	}
@@ -801,7 +895,7 @@ func TestResolveServer(t *testing.T) {
 			if !tc.wantNoEnv {
 				t.Setenv("ARC_SHARE_SERVER", tc.env)
 			}
-			got, kind := resolveServer(tc.local, tc.share, tc.flag)
+			got, kind := resolveServer(tc.remote, tc.flag)
 			if got != tc.wantURL || kind != tc.wantKind {
 				t.Errorf("resolveServer = (%q, %q), want (%q, %q)", got, kind, tc.wantURL, tc.wantKind)
 			}
