@@ -772,12 +772,12 @@ func TestResolveAuthor(t *testing.T) {
 	writeConfig := func(t *testing.T, author string) {
 		t.Helper()
 		dir := t.TempDir()
-		configPath = filepath.Join(dir, "cli-config.json")
-		body := `{"server_url":"http://localhost:7432"`
+		configPath = filepath.Join(dir, "config.toml")
+		body := "[cli]\nserver = \"http://localhost:7432\"\n[share]\n"
 		if author != "" {
-			body += `,"share_author":"` + author + `"`
+			body += "author = \"" + author + "\"\n"
 		}
-		body += `}`
+		body += "[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[updates]\nchannel = \"stable\"\n"
 		if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
 			t.Fatalf("write config: %v", err)
 		}
@@ -960,17 +960,19 @@ func TestShareShowAuthorURLMissingShare(t *testing.T) {
 	}
 }
 
-// writeShareServerConfig points the global configPath at a temp cli-config.json
-// containing the given share_server (omitted entirely when empty).
+// writeShareServerConfig points the global configPath at a temp config.toml
+// containing the given share.server (omitted/default when empty).
 func writeShareServerConfig(t *testing.T, server string) {
 	t.Helper()
 	dir := t.TempDir()
-	configPath = filepath.Join(dir, "cli-config.json")
-	body := `{"server_url":"http://localhost:7432"`
+	configPath = filepath.Join(dir, "config.toml")
+	body := "[cli]\nserver = \"http://localhost:7432\"\n[share]\n"
 	if server != "" {
-		body += `,"share_server":"` + server + `"`
+		body += "server = \"" + server + "\"\n"
+	} else {
+		body += "server = \"https://arcplanner.sentiolabs.io\"\n"
 	}
-	body += `}`
+	body += "[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[updates]\nchannel = \"stable\"\n"
 	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
