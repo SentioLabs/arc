@@ -7,9 +7,8 @@
 
 	let { data }: { data: { config: ConfigResponse | null; available: boolean; error?: string } } = $props();
 
-	function stripMeta(r: ConfigResponse): Config {
-		const { meta: _meta, ...rest } = r as Config & { meta?: unknown };
-		return rest as Config;
+	function stripMeta({ meta: _meta, ...rest }: ConfigResponse): Config {
+		return rest;
 	}
 
 	const initial = $derived(data.config);
@@ -62,6 +61,9 @@
 	{#if !data.available || !working}
 		<div class="card p-8 text-center">
 			<p class="text-sm text-text-secondary">Settings are unavailable on this deployment.</p>
+			{#if data.error}
+				<p class="text-xs text-text-muted mt-2">{data.error}</p>
+			{/if}
 		</div>
 	{:else}
 		<SettingsSection title="CLI">

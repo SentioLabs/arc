@@ -472,7 +472,7 @@ export type ConfigResponse = components['schemas']['ConfigResponse'];
 export async function getConfig(): Promise<ConfigResponse> {
 	const { data, error } = await api.GET('/config');
 	if (error || !data) throw new Error(`getConfig failed: ${error ?? 'no data'}`);
-	return data as ConfigResponse;
+	return data;
 }
 
 export async function updateConfig(cfg: Config): Promise<ConfigResponse> {
@@ -482,7 +482,7 @@ export async function updateConfig(cfg: Config): Promise<ConfigResponse> {
 		throw Object.assign(new Error('validation failed'), { fieldErrors: e.errors ?? {} });
 	}
 	if (error || !data) throw new Error(`updateConfig failed: ${error ?? 'no data'}`);
-	return data as ConfigResponse;
+	return data;
 }
 
 // Team Context APIs
