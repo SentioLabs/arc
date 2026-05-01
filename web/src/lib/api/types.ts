@@ -488,6 +488,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current arc configuration */
+        get: operations["getConfig"];
+        /** Replace the arc configuration */
+        put: operations["putConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/shares": {
         parameters: {
             query?: never;
@@ -1050,6 +1068,39 @@ export interface components {
         TranscriptResponse: {
             [key: string]: unknown;
         }[];
+        Config: {
+            cli: components["schemas"]["CLIConfig"];
+            server: components["schemas"]["ServerConfig"];
+            share: components["schemas"]["ShareConfig"];
+            updates: components["schemas"]["UpdatesConfig"];
+        };
+        CLIConfig: {
+            /** @description URL the CLI uses to talk to the arc server. */
+            server?: string;
+        };
+        ServerConfig: {
+            port?: number;
+            db_path?: string;
+        };
+        ShareConfig: {
+            author?: string;
+            server?: string;
+        };
+        UpdatesConfig: {
+            /** @enum {string} */
+            channel?: "stable" | "rc" | "nightly";
+        };
+        ConfigResponse: WithRequired<components["schemas"]["Config"], "cli" | "server" | "share" | "updates"> & {
+            meta: {
+                path: string;
+                requires_restart: string[];
+            };
+        };
+        ConfigValidationError: {
+            errors: {
+                [key: string]: string;
+            };
+        };
         /** @enum {string} */
         PlanStatus: "draft" | "in_review" | "approved" | "rejected";
         Plan: {
@@ -2117,6 +2168,61 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    getConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current configuration */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigResponse"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    putConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Config"];
+            };
+        };
+        responses: {
+            /** @description Updated configuration */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigResponse"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigValidationError"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
     listShares: {
         parameters: {
             query?: never;
@@ -2608,3 +2714,6 @@ export interface operations {
         };
     };
 }
+type WithRequired<T, K extends keyof T> = T & {
+    [P in K]-?: T[P];
+};

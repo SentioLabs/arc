@@ -25,7 +25,7 @@ func testServer(t *testing.T) (*Server, func()) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	server := New(Config{
+	server := New(NewServerConfig{
 		Address: ":0",
 		Store:   store,
 	})

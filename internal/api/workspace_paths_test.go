@@ -344,7 +344,7 @@ func (m *mockWPStore) Path() string { return "" }
 func setupWorkspaceTest(t *testing.T) (*echo.Echo, *mockWPStore) {
 	t.Helper()
 	store := newMockWPStore()
-	srv := New(Config{
+	srv := New(NewServerConfig{
 		Address: ":0",
 		Store:   store,
 	})

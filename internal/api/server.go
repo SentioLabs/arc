@@ -30,8 +30,8 @@ type Server struct {
 	startTime time.Time
 }
 
-// Config holds server configuration.
-type Config struct {
+// NewServerConfig holds the configuration needed to create a new API server.
+type NewServerConfig struct {
 	Address string // e.g., ":7432" or "localhost:7432"
 	Store   storage.Storage
 	// DB is the underlying *sql.DB for the arc storage. When non-nil, paste
@@ -40,7 +40,7 @@ type Config struct {
 }
 
 // New creates a new API server.
-func New(cfg Config) *Server {
+func New(cfg NewServerConfig) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
