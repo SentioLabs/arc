@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.15.0](https://github.com/SentioLabs/arc/compare/v0.14.0...v0.15.0) (2026-05-01)
+
+
+### Features
+
+* **api:** add GET/PUT /api/v1/config endpoints ([7be355a](https://github.com/SentioLabs/arc/commit/7be355a7cd6ca0062509544850d8316e950bf055))
+* **api:** document /config endpoints in OpenAPI and regen types ([599d864](https://github.com/SentioLabs/arc/commit/599d864b5c6c9c220a36b7a599b26497ba32d16d))
+* **cli:** adopt internal/config and dotted-path keys for arc config ([4a82a78](https://github.com/SentioLabs/arc/commit/4a82a78290c5dc787a043dd9b3354c758c79dba5))
+* **config:** add internal/config package with TOML load/save/migrate ([074bfe8](https://github.com/SentioLabs/arc/commit/074bfe8977574eac9368ef698fd0e21f6877753b))
+* consolidate config to TOML + add web edit UI ([957fb1c](https://github.com/SentioLabs/arc/commit/957fb1c7454ff1400a7741df66486554c797e768))
+* **web:** add /settings page for editing arc config ([a8a533e](https://github.com/SentioLabs/arc/commit/a8a533eb98bd0f61fb55ea00ab0542a9294dc0bf))
+
+
+### Bug Fixes
+
+* **api:** rename NewServerConfig to ServerOptions; repair missed call site ([cd5a12a](https://github.com/SentioLabs/arc/commit/cd5a12a1940a9e03c78644345b53b14d13b2b2a1))
+* **api:** return saved config directly + tighten test assertions ([02308e7](https://github.com/SentioLabs/arc/commit/02308e7fed09846db597d25488af840b6ea7b709))
+* **arc-paste:** default-deny non-share routes at edge and in binary ([ffc0c6e](https://github.com/SentioLabs/arc/commit/ffc0c6efe17cfe7676c04ec631eea95b7c62b095))
+* **arc-paste:** default-deny via allowlist + scrub stale dual-URL docs ([aa37952](https://github.com/SentioLabs/arc/commit/aa379529d3bcedf5ba2520cc6af2d84060d0588f))
+* **arc-paste:** default-deny via allowlist + scrub stale dual-URL docs ([36cf59a](https://github.com/SentioLabs/arc/commit/36cf59a3c3ba5fb3106bab6d8fb878f4adba7030))
+* **cli:** repair share_test fixture and add legacy-alias hints ([54ad4ac](https://github.com/SentioLabs/arc/commit/54ad4ac64d90400244629ee5043d031a5cdaf68f))
+* **config:** address review findings (atomic migration, db_path round-trip, lint) ([5d05fab](https://github.com/SentioLabs/arc/commit/5d05fab5e6b870b1cdf7ef2f6968108be3a41170))
+* **share:** tighten arc-paste edge + share-create UX ([876e40f](https://github.com/SentioLabs/arc/commit/876e40f25853ddb5a96bacae4d81ab342348b7fe))
+* **web:** preserve quick-label type when popover handles comment body ([8a439e7](https://github.com/SentioLabs/arc/commit/8a439e782e7d38dc4844fee225e8c19c8a0ee08c))
+* **web:** tighten settings type safety + a11y; surface load errors ([5e32b24](https://github.com/SentioLabs/arc/commit/5e32b2474a559b03bf294a23be6612cca696bde8))
+
+
+### Refactoring
+
+* **share:** drop --local/--share, add --remote, print one URL by kind ([3103f62](https://github.com/SentioLabs/arc/commit/3103f62c701aeb5dfabda9dc2483d78e7928db28))
+
 ## [0.14.0](https://github.com/SentioLabs/arc/compare/v0.13.0...v0.14.0) (2026-05-01)
 
 
