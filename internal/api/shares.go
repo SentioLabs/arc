@@ -6,6 +6,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/storage"
@@ -39,6 +40,9 @@ func (s *Server) upsertShare(c echo.Context) error {
 	var share types.Share
 	if err := c.Bind(&share); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	}
+	if share.CreatedAt.IsZero() {
+		share.CreatedAt = time.Now().UTC()
 	}
 	if err := share.Validate(); err != nil {
 		return errorJSON(c, http.StatusBadRequest, err.Error())

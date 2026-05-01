@@ -265,3 +265,33 @@ func TestListSharesNewestFirst(t *testing.T) {
 		t.Errorf("last share = %q, want %q (newest first)", shares[2].ID, "share-first")
 	}
 }
+
+// TestUpsertShareStampsCreatedAt verifies that posting a share without created_at
+// results in the server stamping a recent time.
+func TestUpsertShareStampsCreatedAt(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+
+	// Build a share with a zero CreatedAt.
+	s := shareFixture()
+	s.CreatedAt = time.Time{}
+
+	before := time.Now().UTC().Add(-time.Second)
+	rec := doShareRequest(server.echo, http.MethodPost, "/api/v1/shares", s)
+	after := time.Now().UTC().Add(time.Second)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	var stored types.Share
+	if err := json.Unmarshal(rec.Body.Bytes(), &stored); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if stored.CreatedAt.IsZero() {
+		t.Errorf("expected server-stamped CreatedAt, got zero value")
+	}
+	if stored.CreatedAt.Before(before) || stored.CreatedAt.After(after) {
+		t.Errorf("CreatedAt %v outside expected window [%v, %v]",
+			stored.CreatedAt, before, after)
+	}
+}
