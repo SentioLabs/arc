@@ -1,17 +1,19 @@
-package types
+package types_test
 
 import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 // --- Contract assertions ---
 // Verify Share JSON tag stability — wire format must stay backward-compatible
 // with the legacy shares.json field names so the one-shot import is 1:1.
 func TestShareJSONTags(t *testing.T) {
-	b, _ := json.Marshal(Share{
-		ID: "x", Kind: ShareKindLocal, URL: "u",
+	b, _ := json.Marshal(types.Share{
+		ID: "x", Kind: types.ShareKindLocal, URL: "u",
 		KeyB64Url: "k", EditToken: "t", PlanFile: "p",
 	})
 	for _, want := range []string{
@@ -26,11 +28,11 @@ func TestShareJSONTags(t *testing.T) {
 
 func TestShareKindIsValid(t *testing.T) {
 	cases := []struct {
-		kind ShareKind
+		kind types.ShareKind
 		want bool
 	}{
-		{ShareKindLocal, true},
-		{ShareKindShared, true},
+		{types.ShareKindLocal, true},
+		{types.ShareKindShared, true},
 		{"", false},
 		{"bogus", false},
 	}
@@ -42,16 +44,16 @@ func TestShareKindIsValid(t *testing.T) {
 }
 
 func TestShareValidate(t *testing.T) {
-	valid := Share{ID: "id", Kind: ShareKindLocal, URL: "u", KeyB64Url: "k", EditToken: "t"}
+	valid := types.Share{ID: "id", Kind: types.ShareKindLocal, URL: "u", KeyB64Url: "k", EditToken: "t"}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("valid share: unexpected error: %v", err)
 	}
-	cases := map[string]Share{
-		"missing id":         {Kind: ShareKindLocal, URL: "u", KeyB64Url: "k", EditToken: "t"},
+	cases := map[string]types.Share{
+		"missing id":         {Kind: types.ShareKindLocal, URL: "u", KeyB64Url: "k", EditToken: "t"},
 		"invalid kind":       {ID: "id", Kind: "x", URL: "u", KeyB64Url: "k", EditToken: "t"},
-		"missing url":        {ID: "id", Kind: ShareKindLocal, KeyB64Url: "k", EditToken: "t"},
-		"missing key_b64url": {ID: "id", Kind: ShareKindLocal, URL: "u", EditToken: "t"},
-		"missing edit_token": {ID: "id", Kind: ShareKindLocal, URL: "u", KeyB64Url: "k"},
+		"missing url":        {ID: "id", Kind: types.ShareKindLocal, KeyB64Url: "k", EditToken: "t"},
+		"missing key_b64url": {ID: "id", Kind: types.ShareKindLocal, URL: "u", EditToken: "t"},
+		"missing edit_token": {ID: "id", Kind: types.ShareKindLocal, URL: "u", KeyB64Url: "k"},
 	}
 	for name, s := range cases {
 		if err := s.Validate(); err == nil {
@@ -61,15 +63,15 @@ func TestShareValidate(t *testing.T) {
 }
 
 func TestAllShareKinds(t *testing.T) {
-	kinds := AllShareKinds()
+	kinds := types.AllShareKinds()
 	if len(kinds) != 2 {
 		t.Fatalf("expected 2 kinds, got %d", len(kinds))
 	}
-	found := map[ShareKind]bool{}
+	found := map[types.ShareKind]bool{}
 	for _, k := range kinds {
 		found[k] = true
 	}
-	for _, want := range []ShareKind{ShareKindLocal, ShareKindShared} {
+	for _, want := range []types.ShareKind{types.ShareKindLocal, types.ShareKindShared} {
 		if !found[want] {
 			t.Errorf("AllShareKinds missing %q", want)
 		}

@@ -1,4 +1,4 @@
-package sharesconfig
+package sharesconfig_test
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/sharesconfig"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -47,18 +48,18 @@ func (f *fakeClient) DeleteShare(id string) error {
 func withFake(t *testing.T) *fakeClient {
 	t.Helper()
 	fake := newFakeClient()
-	SetClientFactory(func() (Client, error) { return fake, nil })
-	t.Cleanup(func() { SetClientFactory(nil) })
+	sharesconfig.SetClientFactory(func() (sharesconfig.Client, error) { return fake, nil })
+	t.Cleanup(func() { sharesconfig.SetClientFactory(nil) })
 	return fake
 }
 
 func TestAddAndFind(t *testing.T) {
 	withFake(t)
-	s := Share{ID: "x", Kind: "local", URL: "u", KeyB64Url: "k", EditToken: "t", CreatedAt: time.Now()}
-	if err := Add(s); err != nil {
+	s := sharesconfig.Share{ID: "x", Kind: "local", URL: "u", KeyB64Url: "k", EditToken: "t", CreatedAt: time.Now()}
+	if err := sharesconfig.Add(s); err != nil {
 		t.Fatalf("add: %v", err)
 	}
-	got, err := Find("x")
+	got, err := sharesconfig.Find("x")
 	if err != nil {
 		t.Fatalf("find: %v", err)
 	}
@@ -69,15 +70,15 @@ func TestAddAndFind(t *testing.T) {
 
 func TestFindNotFound(t *testing.T) {
 	withFake(t)
-	_, err := Find("missing")
-	if !errors.Is(err, ErrShareNotFound) {
+	_, err := sharesconfig.Find("missing")
+	if !errors.Is(err, sharesconfig.ErrShareNotFound) {
 		t.Errorf("expected ErrShareNotFound, got %v", err)
 	}
 }
 
 func TestLoadEmpty(t *testing.T) {
 	withFake(t)
-	f, err := Load()
+	f, err := sharesconfig.Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -89,7 +90,7 @@ func TestLoadEmpty(t *testing.T) {
 func TestRemove(t *testing.T) {
 	fake := withFake(t)
 	fake.store["x"] = &types.Share{ID: "x"}
-	if err := Remove("x"); err != nil {
+	if err := sharesconfig.Remove("x"); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
 	if _, ok := fake.store["x"]; ok {
@@ -98,7 +99,7 @@ func TestRemove(t *testing.T) {
 }
 
 func TestLegacyPath(t *testing.T) {
-	p, err := LegacyPath()
+	p, err := sharesconfig.LegacyPath()
 	if err != nil {
 		t.Fatalf("legacy path: %v", err)
 	}
@@ -108,8 +109,8 @@ func TestLegacyPath(t *testing.T) {
 }
 
 func TestNoFactorySet(t *testing.T) {
-	SetClientFactory(nil)
-	_, err := Load()
+	sharesconfig.SetClientFactory(nil)
+	_, err := sharesconfig.Load()
 	if err == nil {
 		t.Error("expected error when factory not set, got nil")
 	}

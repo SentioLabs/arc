@@ -18,7 +18,7 @@ import (
 // when callers omit it, so HTTP handlers and the legacy import path don't
 // each need their own default.
 func (s *Store) UpsertShare(ctx context.Context, share *types.Share) error {
-	return s.upsertShare(ctx, s.queries, share)
+	return s.upsertShareWith(ctx, s.queries, share)
 }
 
 // UpsertShares atomically upserts a batch of shares in a single transaction.
@@ -37,17 +37,17 @@ func (s *Store) UpsertShares(ctx context.Context, shares []*types.Share) error {
 
 	qtx := s.queries.WithTx(tx)
 	for _, share := range shares {
-		if err := s.upsertShare(ctx, qtx, share); err != nil {
+		if err := s.upsertShareWith(ctx, qtx, share); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
 }
 
-// upsertShare is the shared body of UpsertShare and UpsertShares. The qtx
+// upsertShareWith is the shared body of UpsertShare and UpsertShares. The qtx
 // argument lets the caller pick between the bare queries and a transactional
 // view (queries.WithTx).
-func (s *Store) upsertShare(ctx context.Context, qtx *db.Queries, share *types.Share) error {
+func (s *Store) upsertShareWith(ctx context.Context, qtx *db.Queries, share *types.Share) error {
 	if share.CreatedAt.IsZero() {
 		share.CreatedAt = time.Now().UTC()
 	}

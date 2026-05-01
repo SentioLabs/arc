@@ -2,7 +2,6 @@ package client_test
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -38,7 +37,9 @@ func TestUpsertShare(t *testing.T) {
 			responseShare := receivedBody
 			responseShare.CreatedAt = time.Now()
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(responseShare)
+			if err := json.NewEncoder(w).Encode(responseShare); err != nil {
+				t.Errorf("encode response: %v", err)
+			}
 			return
 		}
 		http.NotFound(w, r)
@@ -105,7 +106,7 @@ func TestGetShareNotFound(t *testing.T) {
 
 	_, err := c.GetShare("nonexistent-id")
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, client.ErrShareNotFound))
+	assert.ErrorIs(t, err, client.ErrShareNotFound)
 }
 
 func TestDeleteShare(t *testing.T) {
@@ -129,7 +130,7 @@ func TestDeleteShare(t *testing.T) {
 	// Verify it's deleted
 	_, err = c.GetShare("share-789")
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, client.ErrShareNotFound))
+	assert.ErrorIs(t, err, client.ErrShareNotFound)
 }
 
 func TestDeleteShareIdempotent(t *testing.T) {
