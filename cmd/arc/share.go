@@ -200,7 +200,10 @@ var (
 )
 
 func init() {
-	shareCreateCmd.Flags().BoolVar(&shareCreateRemote, "remote", false, "Use the configured remote share server (precedence: --server flag > share_server in cli-config.json > $ARC_SHARE_SERVER > built-in default). Without --remote, --server, or an explicit URL, the share is created on the local arc-server.")
+	shareCreateCmd.Flags().BoolVar(&shareCreateRemote, "remote", false,
+		"Use the configured remote share server (precedence: --server flag > share_server in "+
+			"cli-config.json > $ARC_SHARE_SERVER > built-in default). Without --remote, --server, "+
+			"or an explicit URL, the share is created on the local arc-server.")
 	shareCreateCmd.Flags().StringVar(&shareCreateServer, "server", "",
 		"Server URL override (precedence: flag > share_server in cli-config.json > "+
 			"$ARC_SHARE_SERVER > built-in default).")
@@ -285,7 +288,8 @@ func runShareCreate(cmd *cobra.Command, args []string) error {
 	if kind == shareKindLocal {
 		fmt.Printf("Preview URL (local-only — not reachable by others):\n  %s\n\n", authorURL)
 	} else {
-		fmt.Printf("Author URL (keep private — open it, then use the in-page Share link button to copy a reviewer URL):\n  %s\n\n", authorURL)
+		fmt.Printf("Author URL (keep private — open it, then use the in-page "+
+			"Share link button to copy a reviewer URL):\n  %s\n\n", authorURL)
 	}
 	fmt.Println("Edit token saved to the local arc keyring")
 	return nil

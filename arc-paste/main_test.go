@@ -21,7 +21,7 @@ func newTestRouter(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 	if err := pastesqlite.Apply(context.Background(), db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}

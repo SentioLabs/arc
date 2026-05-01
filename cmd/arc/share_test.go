@@ -860,9 +860,9 @@ func TestResolveServer(t *testing.T) {
 			// The override flag is intentionally global — it forces shared mode
 			// even without --remote, mirroring the previous behavior. Locked in
 			// here so it doesn't silently drift.
-			name:    "flag wins even without --remote",
-			config:  "https://from-config.example",
-			flag:    "https://from-flag.example", wantNoEnv: true,
+			name:   "flag wins even without --remote",
+			config: "https://from-config.example",
+			flag:   "https://from-flag.example", wantNoEnv: true,
 			wantURL: "https://from-flag.example", wantKind: shareKindShared,
 		},
 		{
