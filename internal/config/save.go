@@ -8,11 +8,16 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// configFilePerm is the permission for the written config file (owner read/write only).
+// Using 0600 ensures only the owner can read sensitive settings.
 const configFilePerm = 0o600
+
+// configDirPerm is the permission for the config directory.
 const configDirPerm = 0o700
 
 // Save atomically writes cfg to path as TOML with 0600 permissions.
-// Writes to path.tmp, fsyncs, then renames over path.
+// The write is atomic: it creates a temp file, fsyncs, then renames over path.
+// The config is validated before writing; invalid configs return an error.
 func Save(path string, cfg *Config) error {
 	if err := Validate(cfg); err != nil {
 		return err
@@ -27,6 +32,7 @@ func Save(path string, cfg *Config) error {
 	}
 	tmpName := tmp.Name()
 	success := false
+	// Clean up the temp file if we exit without renaming it into place.
 	defer func() {
 		if !success {
 			_ = os.Remove(tmpName)

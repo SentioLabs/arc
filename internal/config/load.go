@@ -81,7 +81,7 @@ func Load(path string) (*Config, error) {
 		if err := Save(path, cfg); err != nil {
 			return nil, err
 		}
-		fmt.Fprintf(os.Stderr, "migrated %s → %s (backup: %s)\n", legacy, path, filepath.Base(backup))
+		_, _ = fmt.Fprintf(os.Stderr, "migrated %s → %s (backup: %s)\n", legacy, path, filepath.Base(backup))
 		return cfg, nil
 	}
 

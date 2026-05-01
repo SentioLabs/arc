@@ -1,15 +1,19 @@
-package config
+package config_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/config"
 )
+
+const tildeDBPath = "~/.arc/data.db"
 
 func TestLoadCreatesDefaultWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
-	cfg, err := Load(path)
+	cfg, err := config.Load(path)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -24,26 +28,26 @@ func TestLoadCreatesDefaultWhenMissing(t *testing.T) {
 func TestLoadSavePreservesTildeInDBPath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
-	cfg := Default()
-	cfg.Server.DBPath = "~/.arc/data.db"
-	if err := Save(path, cfg); err != nil {
+	cfg := config.Default()
+	cfg.Server.DBPath = tildeDBPath
+	if err := config.Save(path, cfg); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
-	got, err := Load(path)
+	got, err := config.Load(path)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.Server.DBPath != "~/.arc/data.db" {
-		t.Errorf("db_path = %q, want %q (tilde corrupted by load)", got.Server.DBPath, "~/.arc/data.db")
+	if got.Server.DBPath != tildeDBPath {
+		t.Errorf("db_path = %q, want %q (tilde corrupted by load)", got.Server.DBPath, tildeDBPath)
 	}
-	if err := Save(path, got); err != nil {
+	if err := config.Save(path, got); err != nil {
 		t.Fatalf("Save (round 2): %v", err)
 	}
-	got2, err := Load(path)
+	got2, err := config.Load(path)
 	if err != nil {
 		t.Fatalf("Load (round 2): %v", err)
 	}
-	if got2.Server.DBPath != "~/.arc/data.db" {
+	if got2.Server.DBPath != tildeDBPath {
 		t.Errorf("db_path after round-trip = %q, want preserved tilde", got2.Server.DBPath)
 	}
 }

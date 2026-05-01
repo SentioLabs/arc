@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// setArgsCount is the exact number of arguments required by "config set".
+const setArgsCount = 2
+
+// dottedKeyParts is the number of parts produced by splitting a dotted config key.
+const dottedKeyParts = 2
+
 // legacyAliases maps pre-TOML key names to their current dotted equivalents.
 // These are checked before the Levenshtein fallback in normalizeKey so that
 // well-known old names always produce the correct "did you mean" hint.
@@ -25,6 +32,7 @@ var legacyAliases = map[string]string{
 	"channel":      "updates.channel",
 }
 
+// recognizedKeys is the canonical list of all valid config key names.
 var recognizedKeys = []string{
 	"cli.server",
 	"server.port",
@@ -34,18 +42,21 @@ var recognizedKeys = []string{
 	"updates.channel",
 }
 
+// configCmd is the parent command for all config sub-commands.
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage arc configuration",
 	Long:  `View and modify arc configuration. Stored at ~/.arc/config.toml.`,
 }
 
+// configListCmd prints all configuration key=value pairs.
 var configListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configuration values",
 	RunE:  runConfigList,
 }
 
+// configGetCmd retrieves and prints a single config value by key.
 var configGetCmd = &cobra.Command{
 	Use:   "get <key>",
 	Short: "Get a configuration value",
@@ -53,13 +64,15 @@ var configGetCmd = &cobra.Command{
 	RunE:  runConfigGet,
 }
 
+// configSetCmd writes a new value for a config key to disk.
 var configSetCmd = &cobra.Command{
 	Use:   "set <key> <value>",
 	Short: "Set a configuration value",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(setArgsCount),
 	RunE:  runConfigSet,
 }
 
+// configUnsetCmd resets a config key to its compiled-in default.
 var configUnsetCmd = &cobra.Command{
 	Use:   "unset <key>",
 	Short: "Clear a configuration value back to its default",
@@ -67,6 +80,7 @@ var configUnsetCmd = &cobra.Command{
 	RunE:  runConfigUnset,
 }
 
+// configPathCmd prints the filesystem path of the active config file.
 var configPathCmd = &cobra.Command{
 	Use:   "path",
 	Short: "Show the config file path",
@@ -80,17 +94,20 @@ var configPathCmd = &cobra.Command{
 	},
 }
 
+// configEditCmd opens the config file in $EDITOR for direct editing.
 var configEditCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Open the config file in $EDITOR",
 	RunE:  runConfigEdit,
 }
 
+// init registers all config sub-commands with the root command.
 func init() {
 	configCmd.AddCommand(configListCmd, configGetCmd, configSetCmd, configUnsetCmd, configPathCmd, configEditCmd)
 	rootCmd.AddCommand(configCmd)
 }
 
+// runConfigList prints all settings grouped by TOML section.
 func runConfigList(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -109,7 +126,7 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 		restartSet[k] = true
 	}
 	printRow := func(key, value string) {
-		label := strings.SplitN(key, ".", 2)[1]
+		label := strings.SplitN(key, ".", dottedKeyParts)[1]
 		tag := ""
 		if restartSet[key] {
 			tag = "   (requires restart)"
@@ -134,6 +151,7 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// runConfigGet prints the value of a single config key.
 func runConfigGet(cmd *cobra.Command, args []string) error {
 	key, err := normalizeKey(args[0])
 	if err != nil {
@@ -152,6 +170,7 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// runConfigSet validates and persists a new value for a config key.
 func runConfigSet(cmd *cobra.Command, args []string) error {
 	key, err := normalizeKey(args[0])
 	if err != nil {
@@ -171,6 +190,7 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// runConfigUnset resets a key to its default and persists the result.
 func runConfigUnset(cmd *cobra.Command, args []string) error {
 	key, err := normalizeKey(args[0])
 	if err != nil {
@@ -191,9 +211,12 @@ func runConfigUnset(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// runConfigEdit opens the config file in $EDITOR and re-validates on save.
+// Defaults to "vi" if $EDITOR is unset.
 func runConfigEdit(cmd *cobra.Command, args []string) error {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
+		// Fall back to vi if no EDITOR is configured.
 		editor = "vi"
 	}
 	p := configPath
@@ -204,12 +227,12 @@ func runConfigEdit(cmd *cobra.Command, args []string) error {
 	if _, err := loadConfig(); err != nil {
 		return err
 	}
-	c := exec.Command(editor, p)
+	c := exec.Command(editor, p) //nolint:gosec // $EDITOR is intentionally user-controlled
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("editor exited: %w", err)
 	}
-	// Re-validate after edit.
+	// Re-validate after edit to catch any syntax errors introduced by the user.
 	if _, err := loadConfig(); err != nil {
 		return fmt.Errorf("config invalid after edit: %w", err)
 	}
@@ -320,7 +343,7 @@ func setKey(cfg *cfgpkg.Config, key, value string) error {
 	case "server.port":
 		n, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("server.port: must be an integer")
+			return errors.New("server.port: must be an integer")
 		}
 		cfg.Server.Port = n
 	case "server.db_path":

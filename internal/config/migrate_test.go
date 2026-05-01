@@ -1,9 +1,11 @@
-package config
+package config_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/config"
 )
 
 func TestLoadMigratesLegacyJSON(t *testing.T) {
@@ -18,7 +20,7 @@ func TestLoadMigratesLegacyJSON(t *testing.T) {
 		t.Fatalf("seed legacy: %v", err)
 	}
 	path := filepath.Join(dir, "config.toml")
-	cfg, err := Load(path)
+	cfg, err := config.Load(path)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}

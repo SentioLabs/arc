@@ -704,7 +704,8 @@ func TestShareCreatePrintsPreviewURLForLocal(t *testing.T) {
 	t.Cleanup(func() { configPath = origConfigPath })
 	dir := t.TempDir()
 	configPath = filepath.Join(dir, "config.toml")
-	tomlBody := "[cli]\nserver = \"" + srv.URL + "\"\n[share]\n[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[updates]\nchannel = \"stable\"\n"
+	tomlBody := "[cli]\nserver = \"" + srv.URL + "\"\n" +
+		"[share]\n[server]\nport = 7432\ndb_path = \"~/.arc/data.db\"\n[updates]\nchannel = \"stable\"\n"
 	if err := os.WriteFile(configPath, []byte(tomlBody), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

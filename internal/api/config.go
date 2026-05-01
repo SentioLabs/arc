@@ -46,7 +46,7 @@ func (s *Server) putConfig(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 	if err := cfgpkg.Validate(&incoming); err != nil {
-		var ve cfgpkg.ValidationErrors
+		var ve cfgpkg.ValidationError
 		if errors.As(err, &ve) {
 			return c.JSON(http.StatusBadRequest, configValidationErrorBody{Errors: ve})
 		}

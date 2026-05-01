@@ -25,12 +25,6 @@ import (
 
 // CLI constants for default values and formatting.
 const (
-	// defaultDirPerm is the default permission for created directories.
-	defaultDirPerm = 0o755
-
-	// defaultFilePerm is the default permission for sensitive config files (owner read/write only).
-	defaultFilePerm = 0o600
-
 	// tabwriterPadding is the minimum padding between columns in tabwriter output.
 	tabwriterPadding = 2
 
@@ -75,7 +69,6 @@ func main() {
 	}
 }
 
-
 // ProjectSource indicates how the project was resolved
 type ProjectSource int
 
@@ -97,9 +90,6 @@ func (s ProjectSource) String() string {
 		return "unknown"
 	}
 }
-
-// defaultConfigPath returns the default config file path.
-func defaultConfigPath() string { return cfgpkg.DefaultPath() }
 
 // loadConfig reads CLI configuration from disk, creating defaults on first use.
 // It delegates to the internal/config package which handles TOML load, legacy

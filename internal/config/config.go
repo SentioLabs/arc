@@ -40,11 +40,14 @@ type UpdatesConfig struct {
 	Channel string `toml:"channel" json:"channel"`
 }
 
+// DefaultServerPort is the built-in default port for the arc server.
+const DefaultServerPort = 7432
+
 // Default returns a Config populated with built-in defaults.
 func Default() *Config {
 	return &Config{
 		CLI:     CLIConfig{Server: "http://localhost:7432"},
-		Server:  ServerConfig{Port: 7432, DBPath: "~/.arc/data.db"},
+		Server:  ServerConfig{Port: DefaultServerPort, DBPath: "~/.arc/data.db"},
 		Share:   ShareConfig{Server: "https://arcplanner.sentiolabs.io"},
 		Updates: UpdatesConfig{Channel: "stable"},
 	}

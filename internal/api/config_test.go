@@ -1,4 +1,4 @@
-package api
+package api //nolint:testpackage // tests use internal helpers that access unexported fields
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 	"github.com/labstack/echo/v4"
 	cfgpkg "github.com/sentiolabs/arc/internal/config"
 )
+
+const testAuthor = "Grace"
 
 func newTestServerWithTempHome(t *testing.T) *Server {
 	t.Helper()
@@ -67,7 +69,7 @@ func TestGetConfigReturnsDefaults(t *testing.T) {
 func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 	s := newTestServerWithTempHome(t)
 	in := cfgpkg.Default()
-	in.Share.Author = "Grace"
+	in.Share.Author = testAuthor
 	body, err := json.Marshal(in)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -92,8 +94,8 @@ func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 	if !ok {
 		t.Fatalf("share is not an object: %T", got["share"])
 	}
-	if share["author"] != "Grace" {
-		t.Errorf("response share.author = %q, want %q", share["author"], "Grace")
+	if share["author"] != testAuthor {
+		t.Errorf("response share.author = %q, want %q", share["author"], testAuthor)
 	}
 	if got["meta"] == nil {
 		t.Errorf("response missing meta field")
@@ -104,7 +106,7 @@ func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload: %v", err)
 	}
-	if reloaded.Share.Author != "Grace" {
+	if reloaded.Share.Author != testAuthor {
 		t.Errorf("disk share.author = %q", reloaded.Share.Author)
 	}
 }

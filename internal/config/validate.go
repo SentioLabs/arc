@@ -10,10 +10,11 @@ import (
 // ValidChannels lists the allowed values for updates.channel.
 var ValidChannels = []string{"stable", "rc", "nightly"}
 
-// ValidationErrors maps dotted-key to error message.
-type ValidationErrors map[string]string
+// ValidationError maps dotted-key to error message.
+type ValidationError map[string]string
 
-func (v ValidationErrors) Error() string {
+// Error returns a sorted, semicolon-separated list of all validation failures.
+func (v ValidationError) Error() string {
 	keys := make([]string, 0, len(v))
 	for k := range v {
 		keys = append(keys, k)
@@ -26,9 +27,10 @@ func (v ValidationErrors) Error() string {
 	return "config validation failed: " + strings.Join(parts, "; ")
 }
 
-// Validate returns a ValidationErrors if cfg has invalid values, or nil if OK.
+// Validate checks each field in cfg and returns a ValidationError describing all
+// invalid fields, or nil if the config is fully valid.
 func Validate(cfg *Config) error {
-	errs := ValidationErrors{}
+	errs := ValidationError{}
 	if u, err := url.Parse(cfg.CLI.Server); err != nil || u.Scheme == "" || u.Host == "" {
 		errs["cli.server"] = "must be a valid URL with scheme and host"
 	}
@@ -38,6 +40,7 @@ func Validate(cfg *Config) error {
 	if u, err := url.Parse(cfg.Share.Server); err != nil || u.Scheme == "" || u.Host == "" {
 		errs["share.server"] = "must be a valid URL with scheme and host"
 	}
+	// Check that updates.channel is one of the allowed values.
 	channelOK := false
 	for _, c := range ValidChannels {
 		if cfg.Updates.Channel == c {
@@ -46,7 +49,7 @@ func Validate(cfg *Config) error {
 		}
 	}
 	if !channelOK {
-		errs["updates.channel"] = fmt.Sprintf("must be one of: %s", strings.Join(ValidChannels, ", "))
+		errs["updates.channel"] = "must be one of: " + strings.Join(ValidChannels, ", ")
 	}
 	if len(errs) == 0 {
 		return nil
