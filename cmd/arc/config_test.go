@@ -44,6 +44,28 @@ func TestNormalizeKeyUnknownReturnsHint(t *testing.T) {
 	}
 }
 
+func TestNormalizeKeyLegacyAliases(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"server_url", "cli.server"},
+		{"share_author", "share.author"},
+		{"share_server", "share.server"},
+		{"channel", "updates.channel"},
+	}
+	for _, tc := range cases {
+		_, err := normalizeKey(tc.input)
+		if err == nil {
+			t.Errorf("normalizeKey(%q): expected error, got nil", tc.input)
+			continue
+		}
+		if !strings.Contains(err.Error(), "did you mean "+tc.want) {
+			t.Errorf("normalizeKey(%q): expected hint %q in error, got: %v", tc.input, tc.want, err)
+		}
+	}
+}
+
 func TestSetKeyRejectsBadPort(t *testing.T) {
 	cfg, _ := loadConfigForTest(t)
 	if err := setKey(cfg, "server.port", "abc"); err == nil {

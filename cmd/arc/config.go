@@ -15,6 +15,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// legacyAliases maps pre-TOML key names to their current dotted equivalents.
+// These are checked before the Levenshtein fallback in normalizeKey so that
+// well-known old names always produce the correct "did you mean" hint.
+var legacyAliases = map[string]string{
+	"server_url":   "cli.server",
+	"share_author": "share.author",
+	"share_server": "share.server",
+	"channel":      "updates.channel",
+}
+
 var recognizedKeys = []string{
 	"cli.server",
 	"server.port",
@@ -216,6 +226,9 @@ func normalizeKey(raw string) (string, error) {
 		if k == valid {
 			return valid, nil
 		}
+	}
+	if alias, ok := legacyAliases[k]; ok {
+		return "", fmt.Errorf("unknown key: %s (did you mean %s?)", raw, alias)
 	}
 	return "", fmt.Errorf("unknown key: %s%s", raw, didYouMean(k))
 }
