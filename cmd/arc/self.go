@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	cfgpkg "github.com/sentiolabs/arc/internal/config"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/version"
@@ -112,7 +113,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	channel := cfg.Channel
+	channel := cfg.Updates.Channel
 	if channel == "" {
 		channel = channelStable
 	}
@@ -280,7 +281,7 @@ func runSelfChannel(cmd *cobra.Command, args []string) error {
 
 	// Show current channel if no args
 	if len(args) == 0 {
-		channel := cfg.Channel
+		channel := cfg.Updates.Channel
 		if channel == "" {
 			channel = channelStable
 		}
@@ -322,7 +323,7 @@ func runSelfChannel(cmd *cobra.Command, args []string) error {
 }
 
 // setSelfChannel validates and persists the update channel.
-func setSelfChannel(cfg *Config, channel string) error {
+func setSelfChannel(cfg *cfgpkg.Config, channel string) error {
 	switch channel {
 	case channelStable, channelRC, channelNightly:
 		// valid
@@ -330,7 +331,7 @@ func setSelfChannel(cfg *Config, channel string) error {
 		return fmt.Errorf("invalid channel %q: must be stable, rc, or nightly", channel)
 	}
 
-	cfg.Channel = channel
+	cfg.Updates.Channel = channel
 	if err := saveConfig(cfg); err != nil {
 		return fmt.Errorf("save config: %w", err)
 	}

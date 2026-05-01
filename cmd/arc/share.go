@@ -475,7 +475,7 @@ func resolveAuthor(flag string) string {
 		return s
 	}
 	if cfg, err := loadConfig(); err == nil {
-		if s := strings.TrimSpace(cfg.ShareAuthor); s != "" {
+		if s := strings.TrimSpace(cfg.Share.Author); s != "" {
 			return s
 		}
 	}
@@ -514,7 +514,11 @@ func resolveServer(remote bool, override string) (server, kind string) {
 // level up in resolveServer.)
 func resolveShareServer() string {
 	if cfg, err := loadConfig(); err == nil {
-		if s := strings.TrimSpace(cfg.ShareServer); s != "" {
+		// Only treat config as an override when the user has explicitly set a
+		// non-default server URL. If it's still the built-in default, fall
+		// through to the env-var and built-in tiers so the precedence chain
+		// cli-config > $ARC_SHARE_SERVER > built-in is preserved.
+		if s := strings.TrimSpace(cfg.Share.Server); s != "" && s != defaultShareServer {
 			return s
 		}
 	}
@@ -528,10 +532,10 @@ func resolveShareServer() string {
 // to the default local URL.
 func cliConfigServerURL() string {
 	cfg, err := loadConfig()
-	if err != nil || cfg.ServerURL == "" {
+	if err != nil || cfg.CLI.Server == "" {
 		return "http://localhost:7432"
 	}
-	return cfg.ServerURL
+	return cfg.CLI.Server
 }
 
 // postCreate sends a CreatePasteRequest to the server and returns the response.
