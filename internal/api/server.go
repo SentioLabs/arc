@@ -159,6 +159,10 @@ func (s *Server) registerRoutes() {
 	v1.PUT("/labels/:name", s.updateLabel)
 	v1.DELETE("/labels/:name", s.deleteLabel)
 
+	// Config (singleton document)
+	v1.GET("/config", s.getConfig)
+	v1.PUT("/config", s.putConfig)
+
 	// Shares (author-side keyring of paste shares created on this machine)
 	s.RegisterShareRoutes(v1)
 
