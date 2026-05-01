@@ -54,6 +54,11 @@
 	let popoverMode = $state<PopoverMode | null>(null);
 	let showQuickLabel = $state(false);
 	let activeMarkId = $state<string | undefined>(undefined);
+	// When a quick-label without a preset body routes the user into the
+	// comment popover (e.g. Nit / Issue / Question), we hold their picked
+	// taxonomy here so the eventual save uses it instead of falling back
+	// to the generic 'comment' type.
+	let pendingCommentType = $state<CommentType | null>(null);
 
 	let client: PasteClient | undefined;
 
@@ -139,6 +144,7 @@
 		activeSelection = null;
 		popoverMode = null;
 		showQuickLabel = false;
+		pendingCommentType = null;
 		const sel = window.getSelection();
 		sel?.removeAllRanges();
 	}
@@ -258,7 +264,9 @@
 		if (!activeSelection) return;
 		await createComment({
 			body,
-			comment_type: suggestedText ? 'suggestion' : 'comment',
+			// pendingCommentType is an explicit user choice from QuickLabelPicker,
+			// so it wins over the suggestedText inference.
+			comment_type: pendingCommentType ?? (suggestedText ? 'suggestion' : 'comment'),
 			action: 'comment',
 			suggested_text: suggestedText,
 			anchor: buildAnchor(activeSelection)
@@ -279,7 +287,9 @@
 			});
 			clearSelection();
 		} else {
-			// No preset — open the comment popover so the user can write a body
+			// No preset — open the comment popover so the user can write a body.
+			// Remember the picked label so handlePopoverSave can preserve it.
+			pendingCommentType = label;
 			popoverMode = 'comment';
 		}
 	}

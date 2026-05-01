@@ -58,12 +58,9 @@ Validate the shared review feature.
 - Resolve / accept / reject
 EOF
 
-./bin/arc share create /tmp/test-plan.md --local
+./bin/arc share create /tmp/test-plan.md
 # Output:
-#   Share URL  (send to reviewers):
-#     http://localhost:7432/share/<id>#k=<key>
-#
-#   Author URL (keep private — gives you Accept/Resolve):
+#   Preview URL (local-only — not reachable by others):
 #     http://localhost:7432/share/<id>#k=<key>&t=<token>
 #
 #   Edit token saved to ~/.arc/shares.json
@@ -129,10 +126,10 @@ The author's resolution events still apply: their UI is gated on `authorToken` (
 
 Walk these in order to confirm the new auth UX end-to-end:
 
-1. **Create a share.** `arc share create <plan.md> --local` — confirm output prints both Share URL and Author URL, no raw `Edit token: <hex>` line, and a "saved to ~/.arc/shares.json" pointer.
+1. **Create a share.** `arc share create <plan.md>` — confirm output prints a single `Preview URL` line (containing `&t=`), no raw `Edit token: <hex>` line, and a "saved to ~/.arc/shares.json" pointer.
 2. **Reprint the author URL.** `arc share show <id> --author-url` — single line, contains `&t=`.
-3. **Author URL flow.** Open the Author URL in a fresh browser profile. Header chip shows `<author_name> · author` immediately, no modal. Accept / Resolve buttons visible on existing comments.
-4. **Reviewer URL flow.** Open the Share URL (without `&t=`) in a different fresh profile. No chip in the header, no "Sign in" button. Select text → click Comment in the toolbar → name modal opens → save a name → comment posts → chip now shows the name.
+3. **Author URL flow.** Open the Preview URL in a fresh browser profile. Header chip shows `<author_name> · author` immediately, no modal. Accept / Resolve buttons visible on existing comments.
+4. **Reviewer URL flow.** From the author's browser tab, click the **Share link** button in the page header — clipboard now holds the bare reviewer URL (`#k=…` only, no `&t=`). Open that copied URL in a different fresh profile. No chip in the header, no "Sign in" button. Select text → click Comment in the toolbar → name modal opens → save a name → comment posts → chip now shows the name.
 5. **Rename via chip.** Click the chip on the reviewer side. Modal opens prefilled with the saved name (text selected). Edit, save → chip updates.
 6. **Author opens the bare share URL.** Open the share URL (without `&t=`) on the author's browser. They are now in reviewer mode (no Accept buttons). Reopen via the Author URL → author mode restored.
 
@@ -166,14 +163,14 @@ Make sure DNS for `arcpaste.company.com` points to the host and ports 80/443 are
 
 ```bash
 # Terminal 2 (Docker/Caddy stack)
-./bin/arc share create /tmp/test-plan.md --share --server https://arcpaste.company.com
-# → Share URL:  https://arcpaste.company.com/share/<id>#k=<key>
+./bin/arc share create /tmp/test-plan.md --server https://arcpaste.company.com
+# → Author URL: https://arcpaste.company.com/share/<id>#k=<key>&t=<token>
 
 # If you launched the standalone binary directly instead, use:
-# ./bin/arc share create /tmp/test-plan.md --share --server http://localhost:7433
+# ./bin/arc share create /tmp/test-plan.md --server http://localhost:7433
 ```
 
-That URL is what you'd send to a real reviewer (Slack, email, etc.). It contains everything they need: the share id and the decryption key in the fragment.
+The CLI prints only the Author URL — keep it private. To send a reviewer link (Slack, email, etc.), open the Author URL in your browser and click the **Share link** button in the page header; that copies a `#k=…`-only URL with no `&t=` token.
 
 ### Pull the comments back
 
@@ -192,7 +189,7 @@ To exercise the actual "remote" code paths (cross-origin, no shared filesystem),
 ./bin/arc-paste
 
 # From your laptop:
-./bin/arc share create plan.md --share --server https://share.example.com
+./bin/arc share create plan.md --server https://share.example.com
 ```
 
 For a persistent default, set `share_server` in `~/.arc/cli-config.json`:
@@ -205,7 +202,7 @@ For a persistent default, set `share_server` in `~/.arc/cli-config.json`:
 }
 ```
 
-Then `arc share create plan.md --share` will pick it up without any flag or env var. The full precedence is `--server flag → share_server in cli-config.json → $ARC_SHARE_SERVER → https://arcplanner.sentiolabs.io`.
+Then `arc share create plan.md --remote` will pick it up without any flag or env var. The full precedence is `--server flag → share_server in cli-config.json → $ARC_SHARE_SERVER → https://arcplanner.sentiolabs.io`.
 
 ## 4. End-to-end via the brainstorm skill
 
@@ -217,8 +214,8 @@ In a new Claude Code session, the agent-nexus brainstorm skill update can be exe
 
 When the skill reaches step 6, it should now offer three options via `AskUserQuestion`:
 
-- **Local review** → invokes `arc share create --local`
-- **Shared review** → invokes `arc share create --share`
+- **Local review** → invokes `arc share create` (local is the default)
+- **Shared review** → invokes `arc share create --remote`
 - **Save for later** → no server registration
 
 Step 7 (review loop) uses `arc share approve` and `arc share pull` instead of the legacy `arc plan *` commands.
