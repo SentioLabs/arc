@@ -64,7 +64,16 @@ jobs:
         run: cd web && bun install
 
       - name: Install Playwright browsers
-        run: cd web && bunx playwright install --with-deps chromium
+        run: |
+          cd web
+          for i in 1 2 3; do
+            if bunx playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "playwright install attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - name: Run Playwright E2E tests
         run: make test-playwright
