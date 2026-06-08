@@ -1012,7 +1012,6 @@ export interface components {
         Config: {
             cli: components["schemas"]["CLIConfig"];
             server: components["schemas"]["ServerConfig"];
-            share: components["schemas"]["ShareConfig"];
             updates: components["schemas"]["UpdatesConfig"];
         };
         CLIConfig: {
@@ -1023,15 +1022,11 @@ export interface components {
             port?: number;
             db_path?: string;
         };
-        ShareConfig: {
-            author?: string;
-            server?: string;
-        };
         UpdatesConfig: {
             /** @enum {string} */
             channel?: "stable" | "rc" | "nightly";
         };
-        ConfigResponse: WithRequired<components["schemas"]["Config"], "cli" | "server" | "share" | "updates"> & {
+        ConfigResponse: WithRequired<components["schemas"]["Config"], "cli" | "server" | "updates"> & {
             meta: {
                 path: string;
                 requires_restart: string[];

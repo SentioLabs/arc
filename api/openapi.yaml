@@ -2138,14 +2138,12 @@ components:
     # ====================
     Config:
       type: object
-      required: [cli, server, share, updates]
+      required: [cli, server, updates]
       properties:
         cli:
           $ref: "#/components/schemas/CLIConfig"
         server:
           $ref: "#/components/schemas/ServerConfig"
-        share:
-          $ref: "#/components/schemas/ShareConfig"
         updates:
           $ref: "#/components/schemas/UpdatesConfig"
 
@@ -2166,14 +2164,6 @@ components:
         db_path:
           type: string
 
-    ShareConfig:
-      type: object
-      properties:
-        author:
-          type: string
-        server:
-          type: string
-
     UpdatesConfig:
       type: object
       properties:
@@ -2183,7 +2173,7 @@ components:
 
     ConfigResponse:
       type: object
-      required: [cli, server, share, updates, meta]
+      required: [cli, server, updates, meta]
       allOf:
         - $ref: "#/components/schemas/Config"
         - type: object
