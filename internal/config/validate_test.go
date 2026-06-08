@@ -77,3 +77,23 @@ func TestValidateRejectsEmptyShareServer(t *testing.T) {
 		t.Errorf("missing share.server in errors: %v", ve)
 	}
 }
+
+func TestValidatePlansDir(t *testing.T) {
+	base := config.Default()
+	base.Plans.Dir = ""
+	if config.Validate(base) == nil {
+		t.Fatal("empty dir should fail")
+	}
+	base.Plans.Dir = "../x"
+	if config.Validate(base) == nil {
+		t.Fatal(".. should fail")
+	}
+	base.Plans.Dir = "~/V/{nope}"
+	if config.Validate(base) == nil {
+		t.Fatal("unknown var should fail")
+	}
+	base.Plans.Dir = "~/V/{project}"
+	if err := config.Validate(base); err != nil {
+		t.Fatalf("valid dir should pass: %v", err)
+	}
+}

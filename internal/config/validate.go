@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -50,6 +51,17 @@ func Validate(cfg *Config) error {
 	}
 	if !channelOK {
 		errs["updates.channel"] = "must be one of: " + strings.Join(ValidChannels, ", ")
+	}
+	if cfg.Plans.Dir == "" {
+		errs["plans.dir"] = "must not be empty"
+	} else if strings.Contains(cfg.Plans.Dir, "..") {
+		errs["plans.dir"] = "must not contain '..'"
+	} else {
+		for _, m := range regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`).FindAllStringSubmatch(cfg.Plans.Dir, -1) {
+			if m[1] != "project" && m[1] != "prefix" {
+				errs["plans.dir"] = "unknown template variable {" + m[1] + "} (allowed: project, prefix)"
+			}
+		}
 	}
 	if len(errs) == 0 {
 		return nil

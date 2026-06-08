@@ -35,6 +35,7 @@ var legacyAliases = map[string]string{
 // recognizedKeys is the canonical list of all valid config key names.
 var recognizedKeys = []string{
 	"cli.server",
+	"plans.dir",
 	"server.port",
 	"server.db_path",
 	"share.author",
@@ -101,10 +102,14 @@ var configEditCmd = &cobra.Command{
 	RunE:  runConfigEdit,
 }
 
+// resolvedFlag enables path resolution for keys that support it (plans.dir).
+var resolvedFlag bool
+
 // init registers all config sub-commands with the root command.
 func init() {
 	configCmd.AddCommand(configListCmd, configGetCmd, configSetCmd, configUnsetCmd, configPathCmd, configEditCmd)
 	rootCmd.AddCommand(configCmd)
+	configGetCmd.Flags().BoolVar(&resolvedFlag, "resolved", false, "resolve {vars} and ~ to an absolute path (plans.dir only)")
 }
 
 // runConfigList prints all settings grouped by TOML section.
@@ -160,6 +165,34 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
+	}
+	if resolvedFlag && key == "plans.dir" {
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		wsID, _, _, err := resolveProject()
+		if err != nil {
+			return err
+		}
+		proj, err := c.GetProject(wsID)
+		if err != nil {
+			return err
+		}
+		cwd, _ := os.Getwd()
+		dir, err := cfgpkg.ExpandPlansDir(cfg.Plans.Dir, map[string]string{
+			"project": cfgpkg.SanitizeSlug(proj.Name),
+			"prefix":  proj.Prefix,
+		}, cwd)
+		if err != nil {
+			return err
+		}
+		if outputJSON {
+			outputResult(map[string]string{"plans.dir": dir})
+			return nil
+		}
+		fmt.Println(dir)
+		return nil
 	}
 	value := getKey(cfg, key)
 	if outputJSON {
@@ -320,6 +353,8 @@ func getKey(cfg *cfgpkg.Config, key string) string {
 	switch key {
 	case "cli.server":
 		return cfg.CLI.Server
+	case "plans.dir":
+		return cfg.Plans.Dir
 	case "server.port":
 		return strconv.Itoa(cfg.Server.Port)
 	case "server.db_path":
@@ -340,6 +375,8 @@ func setKey(cfg *cfgpkg.Config, key, value string) error {
 	switch key {
 	case "cli.server":
 		cfg.CLI.Server = value
+	case "plans.dir":
+		cfg.Plans.Dir = value
 	case "server.port":
 		n, err := strconv.Atoi(value)
 		if err != nil {
