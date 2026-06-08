@@ -9,8 +9,6 @@ import (
 	cfgpkg "github.com/sentiolabs/arc/internal/config"
 )
 
-const dbPathKey = "server.db_path"
-
 func TestConfigSetGetRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	configPath = filepath.Join(dir, "config.toml")
@@ -94,7 +92,7 @@ func TestNormalizeKeyValid(t *testing.T) {
 	validKeys := []string{
 		"cli.server",
 		"server.port",
-		dbPathKey,
+		serverDBPathKey,
 		"share.author",
 		"share.server",
 		"updates.channel",
@@ -116,8 +114,8 @@ func TestNormalizeKeyNormalizes(t *testing.T) {
 	if err != nil {
 		t.Errorf("normalizeKey(server.db-path): %v", err)
 	}
-	if got != dbPathKey {
-		t.Errorf("got %q, want %s", got, dbPathKey)
+	if got != serverDBPathKey {
+		t.Errorf("got %q, want %s", got, serverDBPathKey)
 	}
 }
 

@@ -141,6 +141,7 @@ linters:
       case:
         rules:
           json: snake # Enforce snake_case for JSON tags
+          yaml: snake # Enforce snake_case for YAML tags (e.g. Obsidian-queryable frontmatter)
 
   # Exclusion rules for linters
   # Controls which files/patterns are ignored by linters
@@ -170,6 +171,9 @@ linters:
       - linters:
           - dupl # Duplicate code detection
         path: _test\.go # Test files often have similar structures for readability
+      - linters:
+          - goconst # Repeated string literals in tests aid readability over shared constants
+        path: _test\.go
       - linters:
           - testifylint # Testify linter
         path: _test\.go

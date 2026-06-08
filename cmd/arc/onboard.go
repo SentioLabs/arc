@@ -168,7 +168,7 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 
 	// Get in-progress issues
 	inProgressIssues, err := c.ListIssues(wsID, client.ListIssuesOptions{
-		Status: "in_progress",
+		Status: string(types.StatusInProgress),
 		Limit:  onboardLimit,
 	})
 	if err != nil {

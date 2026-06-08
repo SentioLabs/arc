@@ -29,7 +29,7 @@ func init() {
 // labelListCmd lists all global labels.
 // Output is a table (NAME, COLOR, DESCRIPTION) or JSON when --json is set.
 var labelListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   cmdList,
 	Short: "List all labels",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()

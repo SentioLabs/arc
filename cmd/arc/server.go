@@ -46,6 +46,9 @@ const (
 
 	// healthCheckTimeout is how long to wait for the server to pass a health check after starting.
 	healthCheckTimeout = 10 * time.Second
+
+	// statusRunningKey is the JSON field name reporting whether the server is running.
+	statusRunningKey = "running"
 )
 
 var serverCmd = &cobra.Command{
@@ -65,7 +68,7 @@ func init() {
 // ============ Server Start ============
 
 var serverStartCmd = &cobra.Command{
-	Use:   "start",
+	Use:   cmdStart,
 	Short: "Start the arc server",
 	Long: `Start the arc server as a background daemon.
 
@@ -123,7 +126,7 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get executable path: %w", err)
 	}
 
-	cmdArgs := []string{"server", "start", "--foreground", "--port", strconv.Itoa(port)}
+	cmdArgs := []string{"server", cmdStart, "--foreground", "--port", strconv.Itoa(port)}
 	if dbPath != "" {
 		cmdArgs = append(cmdArgs, "--db", dbPath)
 	}
@@ -229,7 +232,7 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 	if !running {
 		if outputJSON {
 			outputResult(map[string]any{
-				"running": false,
+				statusRunningKey: false,
 			})
 		} else {
 			_, _ = fmt.Println("Server is not running")
@@ -243,9 +246,9 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if outputJSON {
 			outputResult(map[string]any{
-				"running":    true,
-				"pid":        pid,
-				"responding": false,
+				statusRunningKey: true,
+				"pid":            pid,
+				"responding":     false,
 			})
 		} else {
 			fmt.Printf("Server running (PID %d) but not responding\n", pid)
@@ -255,14 +258,14 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 
 	if outputJSON {
 		outputResult(map[string]any{
-			"running":    true,
-			"pid":        pid,
-			"responding": true,
-			"status":     health.Status,
-			"port":       health.Port,
-			"webui_url":  health.WebUIURL,
-			"version":    health.Version,
-			"uptime":     health.Uptime,
+			statusRunningKey: true,
+			"pid":            pid,
+			"responding":     true,
+			"status":         health.Status,
+			"port":           health.Port,
+			"webui_url":      health.WebUIURL,
+			"version":        health.Version,
+			"uptime":         health.Uptime,
 		})
 	} else {
 		fmt.Printf("Server running (PID %d)\n", pid)

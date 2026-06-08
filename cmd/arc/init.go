@@ -17,6 +17,9 @@ import (
 // readable by other tools (AGENTS.md, CLAUDE.md).
 const filePermissions = 0o644
 
+// agentsFileName is the name of the agent instructions file created by init.
+const agentsFileName = "AGENTS.md"
+
 var initCmd = &cobra.Command{
 	Use:   "init [name]",
 	Short: "Initialize arc in the current directory",
@@ -166,7 +169,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 // addLandingThePlaneInstructions adds "landing the plane" instructions to AGENTS.md
 func addLandingThePlaneInstructions(verbose bool) error {
-	filename := "AGENTS.md"
+	filename := agentsFileName
 
 	// Get the full AGENTS.md content from template
 	agentsMdContent, err := templates.RenderAgentsMd()
@@ -238,7 +241,7 @@ func updateClaudeMdReference(verbose bool) error {
 
 	// Generate the reference text from template
 	reference, err := templates.RenderClaudeMdReference(templates.ClaudeMdReferenceData{
-		AgentsFile: "AGENTS.md",
+		AgentsFile: agentsFileName,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to render template: %w", err)
@@ -262,7 +265,7 @@ func updateClaudeMdReference(verbose bool) error {
 	contentStr := string(content)
 
 	// Check if it already references AGENTS.md for session completion
-	if strings.Contains(contentStr, "AGENTS.md") && strings.Contains(contentStr, "Landing the Plane") {
+	if strings.Contains(contentStr, agentsFileName) && strings.Contains(contentStr, "Landing the Plane") {
 		if verbose {
 			fmt.Printf("  %s already references AGENTS.md for session completion\n", filename)
 		}

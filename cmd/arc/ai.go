@@ -76,7 +76,7 @@ var aiSessionCmd = &cobra.Command{
 var errSkipSession = errors.New("skip session")
 
 var aiSessionStartCmd = &cobra.Command{
-	Use:   "start",
+	Use:   cmdStart,
 	Short: "Start a new AI session",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		useStdin, _ := cmd.Flags().GetBool("stdin")
@@ -170,7 +170,7 @@ func runSessionStart(cmd *cobra.Command, useStdin bool) error {
 // aiSessionListCmd lists AI sessions sorted by start time (newest first).
 // Supports --json for machine-readable output.
 var aiSessionListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   cmdList,
 	Short: "List AI sessions",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projID, err := getProjectID()
@@ -215,7 +215,7 @@ var aiSessionListCmd = &cobra.Command{
 // aiSessionShowCmd displays details for a single AI session, including
 // its registered agents. Supports --json for machine-readable output.
 var aiSessionShowCmd = &cobra.Command{
-	Use:   "show <id>",
+	Use:   useShowID,
 	Short: "Show AI session details",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -344,7 +344,7 @@ var aiAgentRegisterCmd = &cobra.Command{
 // type, model, status, duration, tokens, and tool use count.
 // Requires --session to identify the parent session.
 var aiAgentShowCmd = &cobra.Command{
-	Use:   "show <id>",
+	Use:   useShowID,
 	Short: "Show AI agent details",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -23,6 +23,21 @@ import (
 	"github.com/sentiolabs/arc/internal/sharesconfig"
 )
 
+// Share review event kinds and action values, mirroring the schema in
+// web/src/lib/paste/types.ts.
+const (
+	// shareKindComment is the event kind for a reviewer comment.
+	shareKindComment = "comment"
+	// shareKindEdit is the event kind for an author edit of a comment.
+	shareKindEdit = "edit"
+	// shareKindRetraction is the event kind for retracting a comment.
+	shareKindRetraction = "retraction"
+	// shareActionDelete is the comment action requesting a strikethrough deletion.
+	shareActionDelete = "delete"
+	// shareStatusOpen is the unresolved status for a review comment.
+	shareStatusOpen = "open"
+)
+
 // --- plaintext schemas (mirror web/src/lib/paste/types.ts) ---
 
 type planPlaintext struct {
@@ -128,7 +143,7 @@ var shareCreateCmd = &cobra.Command{
 }
 
 var shareListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   cmdList,
 	Short: "List shares known to this machine",
 	RunE:  runShareList,
 }
@@ -712,13 +727,13 @@ func replayEvents(
 	retracted := map[string]bool{}
 	for _, d := range events {
 		switch d.kind {
-		case "comment":
+		case shareKindComment:
 			applyCommentEvent(d.raw, comments)
 		case "resolution":
 			applyResolutionEvent(d.raw, planAuthor, resolutions)
-		case "edit":
+		case shareKindEdit:
 			applyEditEvent(d.raw, planAuthor, comments)
-		case "retraction":
+		case shareKindRetraction:
 			applyRetractionEvent(d.raw, comments, retracted)
 		}
 	}
@@ -813,7 +828,7 @@ func buildCommentEntries(
 		if retracted[cid] {
 			continue
 		}
-		status := "open"
+		status := shareStatusOpen
 		reply := ""
 		if res, ok := resolutions[cid]; ok {
 			status = res.Status
@@ -834,7 +849,7 @@ func printCommentEntries(entries []commentEntry) {
 	for _, e := range entries {
 		// Mark deletes visually so they don't get mistaken for empty-body comments.
 		prefix := ""
-		if e.comment.Action == "delete" {
+		if e.comment.Action == shareActionDelete {
 			prefix = "[delete] "
 		}
 		fmt.Printf("[%s] %s%s (%s): %s\n",
