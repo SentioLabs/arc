@@ -16,6 +16,8 @@ const (
 	defaultPriority = 2
 	// queryTrue is the string value for boolean query parameters.
 	queryTrue = "true"
+	// codeOpenChildren is the error code returned when an issue has open children.
+	codeOpenChildren = "open_children"
 )
 
 // createIssueRequest is the request body for creating an issue.
@@ -286,9 +288,9 @@ func (s *Server) closeIssue(c echo.Context) error {
 		var openChildrenErr *types.OpenChildrenError
 		if errors.As(err, &openChildrenErr) {
 			return c.JSON(http.StatusConflict, map[string]any{
-				"error":         openChildrenErr.Error(),
-				"code":          "open_children",
-				"open_children": openChildrenErr.Children,
+				"error":          openChildrenErr.Error(),
+				"code":           codeOpenChildren,
+				codeOpenChildren: openChildrenErr.Children,
 			})
 		}
 		return errorJSON(c, http.StatusInternalServerError, err.Error())

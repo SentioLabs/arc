@@ -55,7 +55,7 @@ var pathsRemoveCmd = &cobra.Command{
 
 // pathsListCmd lists paths, optionally across all projects.
 var pathsListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   cmdList,
 	Short: "List paths (use --all for all projects)",
 	RunE:  runPathsListCmd,
 }

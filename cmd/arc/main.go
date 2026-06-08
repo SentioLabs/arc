@@ -52,6 +52,17 @@ const (
 	priorityNormal = 2
 	// priorityLow is the priority level for low-importance issues (P3).
 	priorityLow = 3
+
+	// cmdList is the cobra Use string shared by all "list" sub-commands.
+	cmdList = "list"
+	// cmdStart is the cobra Use string for "start" sub-commands.
+	cmdStart = "start"
+	// useShowID is the cobra Use string for "show <id>" sub-commands.
+	useShowID = "show <id>"
+	// cmdProject is the cobra Use string for the "project" command.
+	cmdProject = "project"
+	// flagProject is the name of the persistent --project flag.
+	flagProject = "project"
 )
 
 // Global CLI flags shared across all commands.
@@ -257,7 +268,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(
 		&serverURL, "server", "s", "",
 		"Server URL (env: ARC_SERVER, default: http://localhost:7432)")
-	rootCmd.PersistentFlags().StringVar(&projectID, "project", "", "Project ID")
+	rootCmd.PersistentFlags().StringVar(&projectID, flagProject, "", "Project ID")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "Output as JSON")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Config file path")
 
@@ -281,7 +292,7 @@ func init() {
 
 // projectCmd is the parent command for project management.
 var projectCmd = &cobra.Command{
-	Use:   "project",
+	Use:   cmdProject,
 	Short: "Manage projects",
 }
 
@@ -359,7 +370,7 @@ func init() {
 
 // projectListCmd lists all projects on the server.
 var projectListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   cmdList,
 	Short: "List all projects",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -469,7 +480,7 @@ var projectDeleteCmd = &cobra.Command{
 
 // listCmd lists issues in the active project with optional filters.
 var listCmd = &cobra.Command{
-	Use:   "list",
+	Use:   cmdList,
 	Short: "List issues",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
@@ -608,7 +619,7 @@ func init() {
 
 // showCmd displays full details for a single issue.
 var showCmd = &cobra.Command{
-	Use:   "show <id>",
+	Use:   useShowID,
 	Short: "Show issue details",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -724,7 +735,7 @@ var updateCmd = &cobra.Command{
 			updates["ai_session_id"] = sessionID
 			// Set status to in_progress unless user explicitly passed --status
 			if !cmd.Flags().Changed("status") {
-				updates["status"] = "in_progress"
+				updates["status"] = string(types.StatusInProgress)
 			}
 		}
 
@@ -1075,7 +1086,7 @@ func formatIssue(id, status, issueType string, priority int, title string, label
 	// Status icon
 	icon := statusIconOpen
 	switch status {
-	case "in_progress":
+	case string(types.StatusInProgress):
 		icon = "\u25d0" // ◐
 	case "blocked":
 		icon = "\u25cc" // ◌
