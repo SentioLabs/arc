@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -57,9 +56,10 @@ func Validate(cfg *Config) error {
 	} else if strings.Contains(cfg.Plans.Dir, "..") {
 		errs["plans.dir"] = "must not contain '..'"
 	} else {
-		for _, m := range regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`).FindAllStringSubmatch(cfg.Plans.Dir, -1) {
+		for _, m := range templateVarRe.FindAllStringSubmatch(cfg.Plans.Dir, -1) {
 			if m[1] != "project" && m[1] != "prefix" {
 				errs["plans.dir"] = "unknown template variable {" + m[1] + "} (allowed: project, prefix)"
+				break
 			}
 		}
 	}

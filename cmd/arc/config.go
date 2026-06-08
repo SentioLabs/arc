@@ -166,6 +166,9 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if resolvedFlag && key != "plans.dir" {
+		return fmt.Errorf("--resolved is only supported for plans.dir")
+	}
 	if resolvedFlag && key == "plans.dir" {
 		c, err := getClient()
 		if err != nil {
@@ -179,7 +182,10 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		cwd, _ := os.Getwd()
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get current directory: %w", err)
+		}
 		dir, err := cfgpkg.ExpandPlansDir(cfg.Plans.Dir, map[string]string{
 			"project": cfgpkg.SanitizeSlug(proj.Name),
 			"prefix":  proj.Prefix,
