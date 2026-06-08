@@ -171,6 +171,9 @@ linters:
           - dupl # Duplicate code detection
         path: _test\.go # Test files often have similar structures for readability
       - linters:
+          - goconst # Repeated string detection
+        path: _test\.go # Test fixtures repeat literals by design (DAMP > DRY)
+      - linters:
           - testifylint # Testify linter
         path: _test\.go
         text: "suite-dont-use-pkg" # Allow assert.X(s.T(),...) style in test suites
