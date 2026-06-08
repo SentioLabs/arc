@@ -8,6 +8,7 @@ type Config struct {
 	Server  ServerConfig  `toml:"server"  json:"server"`
 	Share   ShareConfig   `toml:"share"   json:"share"`
 	Updates UpdatesConfig `toml:"updates" json:"updates"`
+	Plans   PlansConfig   `toml:"plans"   json:"plans"`
 }
 
 // CLIConfig holds settings the arc CLI uses to reach the server.
@@ -40,6 +41,11 @@ type UpdatesConfig struct {
 	Channel string `toml:"channel" json:"channel"`
 }
 
+// PlansConfig holds settings for design-spec plan files.
+type PlansConfig struct {
+	Dir string `toml:"dir" json:"dir"`
+}
+
 // DefaultServerPort is the built-in default port for the arc server.
 const DefaultServerPort = 7432
 
@@ -50,6 +56,7 @@ func Default() *Config {
 		Server:  ServerConfig{Port: DefaultServerPort, DBPath: "~/.arc/data.db"},
 		Share:   ShareConfig{Server: "https://arcplanner.sentiolabs.io"},
 		Updates: UpdatesConfig{Channel: "stable"},
+		Plans:   PlansConfig{Dir: "docs/plans"},
 	}
 }
 
