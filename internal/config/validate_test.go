@@ -64,4 +64,3 @@ func TestValidateRejectsEmptyCLIServer(t *testing.T) {
 		t.Errorf("missing cli.server in errors: %v", ve)
 	}
 }
-
