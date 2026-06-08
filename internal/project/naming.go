@@ -22,6 +22,8 @@ const (
 	prefixSuffixLen = 4
 	// maxSanitizedNameLen is the maximum length for a sanitized project basename.
 	maxSanitizedNameLen = 20
+	// fallbackBasename is used when a sanitized name would otherwise be empty.
+	fallbackBasename = "project"
 )
 
 // MaxBasenameTruncation is the max number of alphanumeric chars kept from the basename.
@@ -271,7 +273,7 @@ func SanitizeBasename(name string) string {
 
 	// Fallback for empty result
 	if name == "" {
-		name = "project"
+		name = fallbackBasename
 	}
 
 	return name

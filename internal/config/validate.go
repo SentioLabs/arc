@@ -1,3 +1,6 @@
+// Package config provides configuration loading, validation, and template
+// expansion. Validate checks all fields and returns a ValidationError that
+// describes every invalid field so callers can surface them together.
 package config
 
 import (
@@ -5,6 +8,12 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+)
+
+// Allowed template variable names for plans.dir.
+const (
+	tmplVarProject = "project"
+	tmplVarPrefix  = "prefix"
 )
 
 // ValidChannels lists the allowed values for updates.channel.
@@ -51,14 +60,16 @@ func Validate(cfg *Config) error {
 	if !channelOK {
 		errs["updates.channel"] = "must be one of: " + strings.Join(ValidChannels, ", ")
 	}
-	if cfg.Plans.Dir == "" {
+	switch {
+	case cfg.Plans.Dir == "":
 		errs["plans.dir"] = "must not be empty"
-	} else if strings.Contains(cfg.Plans.Dir, "..") {
+	case strings.Contains(cfg.Plans.Dir, ".."):
 		errs["plans.dir"] = "must not contain '..'"
-	} else {
+	default:
 		for _, m := range templateVarRe.FindAllStringSubmatch(cfg.Plans.Dir, -1) {
-			if m[1] != "project" && m[1] != "prefix" {
-				errs["plans.dir"] = "unknown template variable {" + m[1] + "} (allowed: project, prefix)"
+			if m[1] != tmplVarProject && m[1] != tmplVarPrefix {
+				errs["plans.dir"] = "unknown template variable {" + m[1] +
+					"} (allowed: " + tmplVarProject + ", " + tmplVarPrefix + ")"
 				break
 			}
 		}

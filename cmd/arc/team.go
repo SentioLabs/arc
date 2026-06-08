@@ -174,7 +174,7 @@ func fetchEpicChildren(c *client.Client, wsID, epicID string, tc *TeamContext) (
 // fetchProjectIssues fetches all open and in_progress issues from the project.
 func fetchProjectIssues(c *client.Client, wsID string) ([]*types.Issue, error) {
 	allIssues, err := c.ListIssues(wsID, client.ListIssuesOptions{
-		Status: "open",
+		Status: string(types.StatusOpen),
 		Limit:  teamListLimit,
 	})
 	if err != nil {
@@ -182,7 +182,7 @@ func fetchProjectIssues(c *client.Client, wsID string) ([]*types.Issue, error) {
 	}
 
 	inProgress, err := c.ListIssues(wsID, client.ListIssuesOptions{
-		Status: "in_progress",
+		Status: string(types.StatusInProgress),
 		Limit:  teamListLimit,
 	})
 	if err != nil {

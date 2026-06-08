@@ -50,7 +50,7 @@ func findClosingDelim(b []byte) int {
 			return -1
 		}
 		// Position of the character immediately following "---".
-		after := idx + 4
+		after := idx + len(fmDelim)
 		if after == len(search) {
 			// "---" is at the very end of b with no following character — valid EOF closer.
 			return offset + idx
@@ -60,7 +60,7 @@ func findClosingDelim(b []byte) int {
 			return offset + idx
 		}
 		// Not an exact "---" line; skip past this match and keep searching.
-		advance := idx + 4
+		advance := idx + len(fmDelim)
 		offset += advance
 		search = search[advance:]
 	}
@@ -108,10 +108,10 @@ func EnsureFrontmatter(path string, meta Frontmatter) error {
 		return err
 	}
 	var buf bytes.Buffer
-	buf.Write(fmDelim)
-	buf.Write(y)
-	buf.WriteString("---\n")
-	buf.Write(body)
+	_, _ = buf.Write(fmDelim)
+	_, _ = buf.Write(y)
+	_, _ = buf.WriteString("---\n")
+	_, _ = buf.Write(body)
 	return atomicWrite(path, buf.Bytes())
 }
 
@@ -160,12 +160,12 @@ func atomicWrite(path string, data []byte) error {
 	}
 	name := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(name)
+		_ = tmp.Close()
+		_ = os.Remove(name)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(name)
+		_ = os.Remove(name)
 		return err
 	}
 	return os.Rename(name, path)

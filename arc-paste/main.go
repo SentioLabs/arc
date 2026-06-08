@@ -27,6 +27,9 @@ import (
 // SQLite controls) is what protects the data.
 const dbDirMode = 0o755
 
+// robotsPath is the well-known URL path for the robots.txt file.
+const robotsPath = "/robots.txt"
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -110,7 +113,7 @@ func newRouter(handlers *paste.Handlers) *echo.Echo {
 // Keep this function in sync with arc-paste/Caddyfile if either changes.
 func arcPasteAllowedPath(p string) bool {
 	switch p {
-	case "/api/paste", "/robots.txt":
+	case "/api/paste", robotsPath:
 		return true
 	}
 	if strings.HasPrefix(p, "/_app/") || strings.HasPrefix(p, "/api/paste/") {

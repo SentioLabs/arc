@@ -22,25 +22,43 @@ const setArgsCount = 2
 // dottedKeyParts is the number of parts produced by splitting a dotted config key.
 const dottedKeyParts = 2
 
+// Config key names, used as the canonical dotted identifiers throughout the
+// config commands.
+const (
+	cliServerKey      = "cli.server"
+	shareAuthorKey    = "share.author"
+	shareServerKey    = "share.server"
+	updatesChannelKey = "updates.channel"
+	plansDirKey       = "plans.dir"
+	serverPortKey     = "server.port"
+	serverDBPathKey   = "server.db_path"
+)
+
+// projectVar is the template variable name for a project's slug in plans.dir.
+const projectVar = "project"
+
+// cmdEdit is the cobra Use string for the "config edit" sub-command.
+const cmdEdit = "edit"
+
 // legacyAliases maps pre-TOML key names to their current dotted equivalents.
 // These are checked before the Levenshtein fallback in normalizeKey so that
 // well-known old names always produce the correct "did you mean" hint.
 var legacyAliases = map[string]string{
-	"server_url":   "cli.server",
-	"share_author": "share.author",
-	"share_server": "share.server",
-	"channel":      "updates.channel",
+	"server_url":   cliServerKey,
+	"share_author": shareAuthorKey,
+	"share_server": shareServerKey,
+	"channel":      updatesChannelKey,
 }
 
 // recognizedKeys is the canonical list of all valid config key names.
 var recognizedKeys = []string{
-	"cli.server",
-	"plans.dir",
-	"server.port",
-	"server.db_path",
-	"share.author",
-	"share.server",
-	"updates.channel",
+	cliServerKey,
+	plansDirKey,
+	serverPortKey,
+	serverDBPathKey,
+	shareAuthorKey,
+	shareServerKey,
+	updatesChannelKey,
 }
 
 // configCmd is the parent command for all config sub-commands.
@@ -52,7 +70,7 @@ var configCmd = &cobra.Command{
 
 // configListCmd prints all configuration key=value pairs.
 var configListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   cmdList,
 	Short: "List all configuration values",
 	RunE:  runConfigList,
 }
@@ -97,7 +115,7 @@ var configPathCmd = &cobra.Command{
 
 // configEditCmd opens the config file in $EDITOR for direct editing.
 var configEditCmd = &cobra.Command{
-	Use:   "edit",
+	Use:   cmdEdit,
 	Short: "Open the config file in $EDITOR",
 	RunE:  runConfigEdit,
 }
@@ -109,7 +127,8 @@ var resolvedFlag bool
 func init() {
 	configCmd.AddCommand(configListCmd, configGetCmd, configSetCmd, configUnsetCmd, configPathCmd, configEditCmd)
 	rootCmd.AddCommand(configCmd)
-	configGetCmd.Flags().BoolVar(&resolvedFlag, "resolved", false, "resolve {vars} and ~ to an absolute path (plans.dir only)")
+	configGetCmd.Flags().BoolVar(&resolvedFlag, "resolved", false,
+		"resolve {vars} and ~ to an absolute path (plans.dir only)")
 }
 
 // runConfigList prints all settings grouped by TOML section.
@@ -139,18 +158,18 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  %-10s = %s%s\n", label, value, tag)
 	}
 	fmt.Println("[cli]")
-	printRow("cli.server", cfg.CLI.Server)
+	printRow(cliServerKey, cfg.CLI.Server)
 	fmt.Println()
 	fmt.Println("[server]")
-	printRow("server.port", strconv.Itoa(cfg.Server.Port))
-	printRow("server.db_path", cfg.Server.DBPath)
+	printRow(serverPortKey, strconv.Itoa(cfg.Server.Port))
+	printRow(serverDBPathKey, cfg.Server.DBPath)
 	fmt.Println()
 	fmt.Println("[share]")
-	printRow("share.author", cfg.Share.Author)
-	printRow("share.server", cfg.Share.Server)
+	printRow(shareAuthorKey, cfg.Share.Author)
+	printRow(shareServerKey, cfg.Share.Server)
 	fmt.Println()
 	fmt.Println("[updates]")
-	printRow("updates.channel", cfg.Updates.Channel)
+	printRow(updatesChannelKey, cfg.Updates.Channel)
 	fmt.Println()
 	fmt.Printf("Config: %s\n", p)
 	return nil
@@ -166,39 +185,11 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if resolvedFlag && key != "plans.dir" {
-		return fmt.Errorf("--resolved is only supported for plans.dir")
+	if resolvedFlag && key != plansDirKey {
+		return errors.New("--resolved is only supported for plans.dir")
 	}
-	if resolvedFlag && key == "plans.dir" {
-		c, err := getClient()
-		if err != nil {
-			return err
-		}
-		wsID, _, _, err := resolveProject()
-		if err != nil {
-			return err
-		}
-		proj, err := c.GetProject(wsID)
-		if err != nil {
-			return err
-		}
-		cwd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("get current directory: %w", err)
-		}
-		dir, err := cfgpkg.ExpandPlansDir(cfg.Plans.Dir, map[string]string{
-			"project": cfgpkg.SanitizeSlug(proj.Name),
-			"prefix":  proj.Prefix,
-		}, cwd)
-		if err != nil {
-			return err
-		}
-		if outputJSON {
-			outputResult(map[string]string{"plans.dir": dir})
-			return nil
-		}
-		fmt.Println(dir)
-		return nil
+	if resolvedFlag && key == plansDirKey {
+		return runConfigGetResolved(cfg)
 	}
 	value := getKey(cfg, key)
 	if outputJSON {
@@ -206,6 +197,41 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	fmt.Println(value)
+	return nil
+}
+
+// runConfigGetResolved expands plans.dir against the active project's
+// template variables and current working directory, then prints the resulting
+// absolute path. It hard-errors when no project can be resolved.
+func runConfigGetResolved(cfg *cfgpkg.Config) error {
+	c, err := getClient()
+	if err != nil {
+		return err
+	}
+	wsID, _, _, err := resolveProject()
+	if err != nil {
+		return err
+	}
+	proj, err := c.GetProject(wsID)
+	if err != nil {
+		return err
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get current directory: %w", err)
+	}
+	dir, err := cfgpkg.ExpandPlansDir(cfg.Plans.Dir, map[string]string{
+		projectVar: cfgpkg.SanitizeSlug(proj.Name),
+		"prefix":   proj.Prefix,
+	}, cwd)
+	if err != nil {
+		return err
+	}
+	if outputJSON {
+		outputResult(map[string]string{plansDirKey: dir})
+		return nil
+	}
+	fmt.Println(dir)
 	return nil
 }
 
@@ -357,19 +383,19 @@ func levenshtein(a, b string) int {
 // getKey returns the string form of the config field for key.
 func getKey(cfg *cfgpkg.Config, key string) string {
 	switch key {
-	case "cli.server":
+	case cliServerKey:
 		return cfg.CLI.Server
-	case "plans.dir":
+	case plansDirKey:
 		return cfg.Plans.Dir
-	case "server.port":
+	case serverPortKey:
 		return strconv.Itoa(cfg.Server.Port)
-	case "server.db_path":
+	case serverDBPathKey:
 		return cfg.Server.DBPath
-	case "share.author":
+	case shareAuthorKey:
 		return cfg.Share.Author
-	case "share.server":
+	case shareServerKey:
 		return cfg.Share.Server
-	case "updates.channel":
+	case updatesChannelKey:
 		return cfg.Updates.Channel
 	}
 	return ""
@@ -379,23 +405,23 @@ func getKey(cfg *cfgpkg.Config, key string) string {
 // It then validates the whole config and returns any error.
 func setKey(cfg *cfgpkg.Config, key, value string) error {
 	switch key {
-	case "cli.server":
+	case cliServerKey:
 		cfg.CLI.Server = value
-	case "plans.dir":
+	case plansDirKey:
 		cfg.Plans.Dir = value
-	case "server.port":
+	case serverPortKey:
 		n, err := strconv.Atoi(value)
 		if err != nil {
 			return errors.New("server.port: must be an integer")
 		}
 		cfg.Server.Port = n
-	case "server.db_path":
+	case serverDBPathKey:
 		cfg.Server.DBPath = value
-	case "share.author":
+	case shareAuthorKey:
 		cfg.Share.Author = value
-	case "share.server":
+	case shareServerKey:
 		cfg.Share.Server = value
-	case "updates.channel":
+	case updatesChannelKey:
 		cfg.Updates.Channel = value
 	}
 	if err := cfgpkg.Validate(cfg); err != nil {

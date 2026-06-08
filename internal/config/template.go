@@ -1,3 +1,6 @@
+// Package config provides configuration loading, validation, and template
+// expansion for the arc CLI. Template variables use {name} syntax and are
+// expanded by ExpandPlansDir before any path is used at runtime.
 package config
 
 import (
@@ -7,7 +10,10 @@ import (
 	"strings"
 )
 
+// templateVarRe matches {identifier} placeholders in template strings.
 var templateVarRe = regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`)
+
+// slugStripRe matches any run of characters that are not lowercase alphanumeric.
 var slugStripRe = regexp.MustCompile(`[^a-z0-9]+`)
 
 // SanitizeSlug lowercases s, replaces runs of non [a-z0-9] with '-', trims '-'. "" if nothing survives.

@@ -10,6 +10,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,7 +81,8 @@ func init() {
 	planCmd.AddCommand(planCommentsCmd)
 
 	planCreateCmd.Flags().StringVar(&titleFlag, "title", "", "Override the plan title written to frontmatter")
-	planCreateCmd.Flags().BoolVar(&noFrontmatter, "no-frontmatter", false, "Skip writing frontmatter into the plan file")
+	planCreateCmd.Flags().BoolVar(&noFrontmatter, "no-frontmatter", false,
+		"Skip writing frontmatter into the plan file")
 }
 
 // planCreateCmd registers a new plan from a file path.
@@ -116,11 +118,11 @@ var planCreateCmd = &cobra.Command{
 				}
 			}
 			meta := plans.Frontmatter{
-				Title:   title,
-				Date:    time.Now().Format("2006-01-02"),
-				Project: projName,
-				Status:  "in_review",
-				Tags:    []string{"arc", "design-spec"},
+				Title:     title,
+				Date:      time.Now().Format("2006-01-02"),
+				Project:   projName,
+				Status:    "in_review",
+				Tags:      []string{"arc", "design-spec"},
 				ArcReview: plans.ArcReview{Kind: "legacy", ID: plan.ID},
 			}
 			if e := plans.EnsureFrontmatter(filePath, meta); e != nil {
@@ -190,7 +192,7 @@ var planApproveCmd = &cobra.Command{
 		}
 
 		if p, e := c.GetPlan(planID); e == nil && p.FilePath != "" {
-			if e2 := plans.SetStatus(p.FilePath, "approved"); e2 != nil && e2 != plans.ErrNoFrontmatter {
+			if e2 := plans.SetStatus(p.FilePath, "approved"); e2 != nil && !errors.Is(e2, plans.ErrNoFrontmatter) {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: could not sync status in %s: %v\n", p.FilePath, e2)
 			}
 		}
