@@ -26,8 +26,6 @@ const dottedKeyParts = 2
 // config commands.
 const (
 	cliServerKey      = "cli.server"
-	shareAuthorKey    = "share.author"
-	shareServerKey    = "share.server"
 	updatesChannelKey = "updates.channel"
 	plansDirKey       = "plans.dir"
 	serverPortKey     = "server.port"
@@ -44,10 +42,8 @@ const cmdEdit = "edit"
 // These are checked before the Levenshtein fallback in normalizeKey so that
 // well-known old names always produce the correct "did you mean" hint.
 var legacyAliases = map[string]string{
-	"server_url":   cliServerKey,
-	"share_author": shareAuthorKey,
-	"share_server": shareServerKey,
-	"channel":      updatesChannelKey,
+	"server_url": cliServerKey,
+	"channel":    updatesChannelKey,
 }
 
 // recognizedKeys is the canonical list of all valid config key names.
@@ -56,8 +52,6 @@ var recognizedKeys = []string{
 	plansDirKey,
 	serverPortKey,
 	serverDBPathKey,
-	shareAuthorKey,
-	shareServerKey,
 	updatesChannelKey,
 }
 
@@ -163,10 +157,6 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 	fmt.Println("[server]")
 	printRow(serverPortKey, strconv.Itoa(cfg.Server.Port))
 	printRow(serverDBPathKey, cfg.Server.DBPath)
-	fmt.Println()
-	fmt.Println("[share]")
-	printRow(shareAuthorKey, cfg.Share.Author)
-	printRow(shareServerKey, cfg.Share.Server)
 	fmt.Println()
 	fmt.Println("[updates]")
 	printRow(updatesChannelKey, cfg.Updates.Channel)
@@ -391,10 +381,6 @@ func getKey(cfg *cfgpkg.Config, key string) string {
 		return strconv.Itoa(cfg.Server.Port)
 	case serverDBPathKey:
 		return cfg.Server.DBPath
-	case shareAuthorKey:
-		return cfg.Share.Author
-	case shareServerKey:
-		return cfg.Share.Server
 	case updatesChannelKey:
 		return cfg.Updates.Channel
 	}
@@ -417,10 +403,6 @@ func setKey(cfg *cfgpkg.Config, key, value string) error {
 		cfg.Server.Port = n
 	case serverDBPathKey:
 		cfg.Server.DBPath = value
-	case shareAuthorKey:
-		cfg.Share.Author = value
-	case shareServerKey:
-		cfg.Share.Server = value
 	case updatesChannelKey:
 		cfg.Updates.Channel = value
 	}

@@ -13,8 +13,6 @@ import (
 	cfgpkg "github.com/sentiolabs/arc/internal/config"
 )
 
-const testAuthor = "Grace"
-
 func newTestServerWithTempHome(t *testing.T) *Server {
 	t.Helper()
 	home := t.TempDir()
@@ -44,7 +42,7 @@ func TestGetConfigReturnsDefaults(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	for _, key := range []string{"cli", "server", "share", "updates", "meta"} {
+	for _, key := range []string{"cli", "server", "updates", "meta"} {
 		if got[key] == nil {
 			t.Errorf("response missing key %q: %v", key, got)
 		}
@@ -69,7 +67,6 @@ func TestGetConfigReturnsDefaults(t *testing.T) {
 func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 	s := newTestServerWithTempHome(t)
 	in := cfgpkg.Default()
-	in.Share.Author = testAuthor
 	body, err := json.Marshal(in)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -85,17 +82,10 @@ func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body)
 	}
 
-	// Assert response body contains share.author and meta.
+	// Assert response body contains updates and meta.
 	var got map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("unmarshal response: %v", err)
-	}
-	share, ok := got["share"].(map[string]any)
-	if !ok {
-		t.Fatalf("share is not an object: %T", got["share"])
-	}
-	if share["author"] != testAuthor {
-		t.Errorf("response share.author = %q, want %q", share["author"], testAuthor)
 	}
 	if got["meta"] == nil {
 		t.Errorf("response missing meta field")
@@ -106,8 +96,8 @@ func TestPutConfigPersistsAndRevalidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload: %v", err)
 	}
-	if reloaded.Share.Author != testAuthor {
-		t.Errorf("disk share.author = %q", reloaded.Share.Author)
+	if reloaded.Updates.Channel != in.Updates.Channel {
+		t.Errorf("disk updates.channel = %q, want %q", reloaded.Updates.Channel, in.Updates.Channel)
 	}
 }
 

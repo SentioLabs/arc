@@ -81,15 +81,6 @@
 			</SettingsField>
 		</SettingsSection>
 
-		<SettingsSection title="Share">
-			<SettingsField label="Default author" error={errors['share.author']}>
-				<input class="input w-full" bind:value={working.share.author} />
-			</SettingsField>
-			<SettingsField label="Remote server" error={errors['share.server']}>
-				<input class="input w-full" bind:value={working.share.server} />
-			</SettingsField>
-		</SettingsSection>
-
 		<SettingsSection title="Updates">
 			<SettingsField label="Channel" error={errors['updates.channel']}>
 				<ChannelPicker
