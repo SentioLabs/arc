@@ -21,19 +21,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Package-level flags for planCreateCmd.
-var (
-	titleFlag    string // --title: override the derived plan title in frontmatter
-	noFrontmatter bool  // --no-frontmatter: skip writing frontmatter on create
-)
+// titleFlag is the --title flag for planCreateCmd, overriding the derived plan title.
+var titleFlag string
+
+// noFrontmatter is the --no-frontmatter flag for planCreateCmd, skipping frontmatter on create.
+var noFrontmatter bool
 
 // datePrefixRe matches a leading YYYY-MM-DD- date prefix on filenames.
 var datePrefixRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-`)
 
 // deriveTitle returns the title for a plan file. It reads the file and returns
-// the text of the first `# ` heading line. If no heading is found, it falls
-// back to the filename base with any leading YYYY-MM-DD- prefix and trailing
-// .md extension removed.
+// the text of the first line beginning with exactly `# ` (single `#` + space;
+// `##` lines are intentionally excluded). If no matching heading is found, it
+// falls back to the filename base with any leading YYYY-MM-DD- prefix and
+// trailing .md extension removed.
 func deriveTitle(path string) string {
 	f, err := os.Open(path)
 	if err == nil {
@@ -44,6 +45,9 @@ func deriveTitle(path string) string {
 			if strings.HasPrefix(line, "# ") {
 				return strings.TrimSpace(strings.TrimPrefix(line, "# "))
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: could not read %s for title: %v\n", path, err)
 		}
 	}
 	base := filepath.Base(path)
@@ -120,7 +124,7 @@ var planCreateCmd = &cobra.Command{
 				ArcReview: plans.ArcReview{Kind: "legacy", ID: plan.ID},
 			}
 			if e := plans.EnsureFrontmatter(filePath, meta); e != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not write frontmatter: %v\n", e)
+				_, _ = fmt.Fprintf(os.Stderr, "warning: could not write frontmatter: %v\n", e)
 			}
 		}
 
@@ -187,7 +191,7 @@ var planApproveCmd = &cobra.Command{
 
 		if p, e := c.GetPlan(planID); e == nil && p.FilePath != "" {
 			if e2 := plans.SetStatus(p.FilePath, "approved"); e2 != nil && e2 != plans.ErrNoFrontmatter {
-				fmt.Fprintf(os.Stderr, "warning: could not sync status in %s: %v\n", p.FilePath, e2)
+				_, _ = fmt.Fprintf(os.Stderr, "warning: could not sync status in %s: %v\n", p.FilePath, e2)
 			}
 		}
 
