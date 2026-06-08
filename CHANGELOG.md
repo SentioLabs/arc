@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.16.0](https://github.com/SentioLabs/arc/compare/v0.15.0...v0.16.0) (2026-06-08)
+
+
+### Features
+
+* configurable design-spec save location with arc-owned frontmatter ([a96b01f](https://github.com/SentioLabs/arc/commit/a96b01fac18dc794ec302b302cc101daaafd65e8))
+* **config:** validate plans.dir and add 'config get --resolved' ([c2a0301](https://github.com/SentioLabs/arc/commit/c2a030148d98b0bdc6496cd96839e7ab4c926ff0))
+* **plans:** add config, dir templating, and frontmatter foundation ([c2293a0](https://github.com/SentioLabs/arc/commit/c2293a0aebeadfc92851b77ad0e45fba902d35f2))
+* **plan:** write spec frontmatter on create, sync status on approve ([09c335a](https://github.com/SentioLabs/arc/commit/09c335ab524bc351c97fea3059bbdc01e9654dea))
+* **storage:** drop share/paste tables via migration 018 ([c7f8530](https://github.com/SentioLabs/arc/commit/c7f8530f1f3568f53228b2fea54bb88f2df99af1))
+
+
+### Bug Fixes
+
+* **plans:** harden frontmatter parsing for delimiters, EOF, and CRLF ([7ee2967](https://github.com/SentioLabs/arc/commit/7ee2967c3a8bad29e1b052971f6dcc9fa2317754))
+
+
+### Refactoring
+
+* **api,cli:** remove share/paste endpoints, CLI, wiring, and orphaned sharesconfig ([19691f4](https://github.com/SentioLabs/arc/commit/19691f41213853ec1373aa46ad0d257be6e919a1))
+* **api:** drop ShareConfig from OpenAPI config schema ([97423a5](https://github.com/SentioLabs/arc/commit/97423a5e542d12b87a96b8a124edba16038c26f1))
+* **config:** remove share config schema ([73b7739](https://github.com/SentioLabs/arc/commit/73b77394e9eaeb2a040eff3e70297c9ee2a39082))
+* **config:** reuse templateVarRe, harden getwd + --resolved guard ([fe5cbd8](https://github.com/SentioLabs/arc/commit/fe5cbd844a38b1d06b86eb73515aed66c42c5d13))
+* **plan:** warn on read errors, match stderr idiom, expand deriveTitle tests ([bb0d9ce](https://github.com/SentioLabs/arc/commit/bb0d9ce8f69079561a2591c0c7d8e319525254ee))
+* remove arc-paste standalone service ([ad45a57](https://github.com/SentioLabs/arc/commit/ad45a57df9835dce1f8a87e5edda57f38cd027ba))
+* **storage,types:** remove share/paste storage layer and paste engine ([6fbb323](https://github.com/SentioLabs/arc/commit/6fbb3230d6f18e0af35050d333a5ab18a04a6189))
+* **web:** remove share/paste UI stack ([be17c32](https://github.com/SentioLabs/arc/commit/be17c32fc8ab0df6e993a5cde65d2c9044cf036d))
+* **web:** remove vitest test infra (arc-paste artifact) ([e3378b9](https://github.com/SentioLabs/arc/commit/e3378b9c4a68fcbee62992604056bbd903278868))
+
 ## [0.15.0](https://github.com/SentioLabs/arc/compare/v0.14.0...v0.15.0) (2026-05-01)
 
 
