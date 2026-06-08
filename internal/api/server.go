@@ -5,7 +5,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -34,9 +33,6 @@ type Server struct {
 type ServerOptions struct {
 	Address string // e.g., ":7432" or "localhost:7432"
 	Store   storage.Storage
-	// DB is the underlying *sql.DB for the arc storage. When non-nil, paste
-	// routes are registered under /api/paste using this connection.
-	DB *sql.DB
 }
 
 // New creates a new API server.
@@ -69,11 +65,6 @@ func New(cfg ServerOptions) *Server {
 	// Register routes
 	s.registerRoutes()
 
-	// Register paste routes when a database connection is available.
-	if cfg.DB != nil {
-		registerPasteRoutes(e, cfg.DB)
-	}
-
 	// Serve embedded SPA for non-API routes
 	web.RegisterSPA(e)
 
@@ -93,17 +84,6 @@ func (s *Server) Echo() *echo.Echo {
 // Shutdown gracefully shuts down the server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
-}
-
-// RegisterShareRoutes mounts the /shares endpoints on the given group.
-// Exported so test fixtures outside the api package can wire the share
-// keyring routes onto an in-process Echo server without spinning up the
-// full registerRoutes() surface.
-func (s *Server) RegisterShareRoutes(g *echo.Group) {
-	g.GET("/shares", s.listShares)
-	g.POST("/shares", s.upsertShare)
-	g.GET("/shares/:id", s.getShare)
-	g.DELETE("/shares/:id", s.deleteShare)
 }
 
 // registerRoutes sets up all API routes.
@@ -162,9 +142,6 @@ func (s *Server) registerRoutes() {
 	// Config (singleton document)
 	v1.GET("/config", s.getConfig)
 	v1.PUT("/config", s.putConfig)
-
-	// Shares (author-side keyring of paste shares created on this machine)
-	s.RegisterShareRoutes(v1)
 
 	// Project-scoped routes (issues, AI sessions, etc.)
 	s.registerProjectRoutes(v1)
