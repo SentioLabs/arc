@@ -11,7 +11,6 @@ import (
 var (
 	_ config.CLIConfig     = config.Config{}.CLI
 	_ config.ServerConfig  = config.Config{}.Server
-	_ config.ShareConfig   = config.Config{}.Share
 	_ config.UpdatesConfig = config.Config{}.Updates
 )
 
@@ -27,9 +26,6 @@ func TestDefaultIsUsable(t *testing.T) {
 	}
 	if cfg.Updates.Channel != "stable" {
 		t.Fatalf("Default channel = %q, want stable", cfg.Updates.Channel)
-	}
-	if cfg.Share.Server == "" {
-		t.Fatal("Default share.server is empty")
 	}
 }
 

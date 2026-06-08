@@ -26,10 +26,8 @@ const dottedKeyParts = 2
 // These are checked before the Levenshtein fallback in normalizeKey so that
 // well-known old names always produce the correct "did you mean" hint.
 var legacyAliases = map[string]string{
-	"server_url":   "cli.server",
-	"share_author": "share.author",
-	"share_server": "share.server",
-	"channel":      "updates.channel",
+	"server_url": "cli.server",
+	"channel":    "updates.channel",
 }
 
 // recognizedKeys is the canonical list of all valid config key names.
@@ -37,8 +35,6 @@ var recognizedKeys = []string{
 	"cli.server",
 	"server.port",
 	"server.db_path",
-	"share.author",
-	"share.server",
 	"updates.channel",
 }
 
@@ -139,10 +135,6 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 	fmt.Println("[server]")
 	printRow("server.port", strconv.Itoa(cfg.Server.Port))
 	printRow("server.db_path", cfg.Server.DBPath)
-	fmt.Println()
-	fmt.Println("[share]")
-	printRow("share.author", cfg.Share.Author)
-	printRow("share.server", cfg.Share.Server)
 	fmt.Println()
 	fmt.Println("[updates]")
 	printRow("updates.channel", cfg.Updates.Channel)
@@ -324,10 +316,6 @@ func getKey(cfg *cfgpkg.Config, key string) string {
 		return strconv.Itoa(cfg.Server.Port)
 	case "server.db_path":
 		return cfg.Server.DBPath
-	case "share.author":
-		return cfg.Share.Author
-	case "share.server":
-		return cfg.Share.Server
 	case "updates.channel":
 		return cfg.Updates.Channel
 	}
@@ -348,10 +336,6 @@ func setKey(cfg *cfgpkg.Config, key, value string) error {
 		cfg.Server.Port = n
 	case "server.db_path":
 		cfg.Server.DBPath = value
-	case "share.author":
-		cfg.Share.Author = value
-	case "share.server":
-		cfg.Share.Server = value
 	case "updates.channel":
 		cfg.Updates.Channel = value
 	}

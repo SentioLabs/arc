@@ -37,9 +37,6 @@ func Validate(cfg *Config) error {
 	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
 		errs["server.port"] = "must be between 1 and 65535"
 	}
-	if u, err := url.Parse(cfg.Share.Server); err != nil || u.Scheme == "" || u.Host == "" {
-		errs["share.server"] = "must be a valid URL with scheme and host"
-	}
 	// Check that updates.channel is one of the allowed values.
 	channelOK := false
 	for _, c := range ValidChannels {

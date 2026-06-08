@@ -12,7 +12,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 	cfg := config.Default()
-	cfg.Share.Author = "Ada"
+	cfg.CLI.Server = "http://example.com:9000"
 	if err := config.Save(path, cfg); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -27,8 +27,8 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.Share.Author != "Ada" {
-		t.Errorf("share.author = %q, want Ada", got.Share.Author)
+	if got.CLI.Server != "http://example.com:9000" {
+		t.Errorf("cli.server = %q, want http://example.com:9000", got.CLI.Server)
 	}
 }
 

@@ -20,7 +20,7 @@ func TestConfigSetGetRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
-	if err := setKey(cfg, "share.author", "Ada"); err != nil {
+	if err := setKey(cfg, "cli.server", "http://example.com:9000"); err != nil {
 		t.Fatalf("setKey: %v", err)
 	}
 	if err := saveConfig(cfg); err != nil {
@@ -31,8 +31,8 @@ func TestConfigSetGetRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload: %v", err)
 	}
-	if got.Share.Author != "Ada" {
-		t.Errorf("share.author = %q", got.Share.Author)
+	if got.CLI.Server != "http://example.com:9000" {
+		t.Errorf("cli.server = %q", got.CLI.Server)
 	}
 }
 
@@ -52,8 +52,6 @@ func TestNormalizeKeyLegacyAliases(t *testing.T) {
 		want  string
 	}{
 		{"server_url", "cli.server"},
-		{"share_author", "share.author"},
-		{"share_server", "share.server"},
 		{"channel", "updates.channel"},
 	}
 	for _, tc := range cases {
@@ -95,8 +93,6 @@ func TestNormalizeKeyValid(t *testing.T) {
 		"cli.server",
 		"server.port",
 		dbPathKey,
-		"share.author",
-		"share.server",
 		"updates.channel",
 	}
 	for _, k := range validKeys {

@@ -13,9 +13,7 @@ func TestLoadMigratesLegacyJSON(t *testing.T) {
 	legacy := filepath.Join(dir, "cli-config.json")
 	if err := os.WriteFile(legacy, []byte(`{
 		"server_url": "http://example:1234",
-		"channel": "rc",
-		"share_author": "Grace",
-		"share_server": "https://share.example"
+		"channel": "rc"
 	}`), 0o600); err != nil {
 		t.Fatalf("seed legacy: %v", err)
 	}
@@ -29,9 +27,6 @@ func TestLoadMigratesLegacyJSON(t *testing.T) {
 	}
 	if cfg.Updates.Channel != "rc" {
 		t.Errorf("updates.channel = %q", cfg.Updates.Channel)
-	}
-	if cfg.Share.Author != "Grace" {
-		t.Errorf("share.author = %q", cfg.Share.Author)
 	}
 	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
 		t.Errorf("legacy file still present: %v", err)

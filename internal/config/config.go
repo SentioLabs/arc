@@ -6,7 +6,6 @@ package config
 type Config struct {
 	CLI     CLIConfig     `toml:"cli"     json:"cli"`
 	Server  ServerConfig  `toml:"server"  json:"server"`
-	Share   ShareConfig   `toml:"share"   json:"share"`
 	Updates UpdatesConfig `toml:"updates" json:"updates"`
 }
 
@@ -29,12 +28,6 @@ func (s ServerConfig) ResolvedDBPath() string {
 	return expandHome(s.DBPath)
 }
 
-// ShareConfig holds defaults for `arc share` and the web share UI.
-type ShareConfig struct {
-	Author string `toml:"author" json:"author"`
-	Server string `toml:"server" json:"server"`
-}
-
 // UpdatesConfig holds update-channel settings for `arc self`.
 type UpdatesConfig struct {
 	Channel string `toml:"channel" json:"channel"`
@@ -48,7 +41,6 @@ func Default() *Config {
 	return &Config{
 		CLI:     CLIConfig{Server: "http://localhost:7432"},
 		Server:  ServerConfig{Port: DefaultServerPort, DBPath: "~/.arc/data.db"},
-		Share:   ShareConfig{Server: "https://arcplanner.sentiolabs.io"},
 		Updates: UpdatesConfig{Channel: "stable"},
 	}
 }

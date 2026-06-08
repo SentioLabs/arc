@@ -65,15 +65,3 @@ func TestValidateRejectsEmptyCLIServer(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsEmptyShareServer(t *testing.T) {
-	cfg := config.Default()
-	cfg.Share.Server = ""
-	err := config.Validate(cfg)
-	var ve config.ValidationError
-	if !errors.As(err, &ve) {
-		t.Fatalf("err type = %T, want ValidationError", err)
-	}
-	if _, ok := ve["share.server"]; !ok {
-		t.Errorf("missing share.server in errors: %v", ve)
-	}
-}
