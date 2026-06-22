@@ -34,3 +34,6 @@ plan-*
 
 .pi/
 .serena/
+
+# jj workspaces
+.workspaces/
