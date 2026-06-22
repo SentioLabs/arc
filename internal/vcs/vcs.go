@@ -4,9 +4,52 @@
 // git repo, so no jj binary is required).
 package vcs
 
+import (
+	"os/exec"
+	"strings"
+
+	"github.com/sentiolabs/arc/internal/core"
+	"github.com/sentiolabs/arc/internal/gitfs"
+	"github.com/sentiolabs/arc/internal/jjfs"
+)
+
 // DetectMainRepo returns the canonical main-repo working directory if dir is
 // inside a linked git worktree or a secondary jj workspace; otherwise "".
-func DetectMainRepo(dir string) string { return "" }
+// git is tried first, jj is the fallback. The result is canonicalized via
+// core.NormalizePath so it matches registered (canonical) project paths.
+func DetectMainRepo(dir string) string {
+	if main := gitfs.DetectMainRepo(dir); main != "" {
+		return core.NormalizePath(main)
+	}
+	if main := jjfs.DetectMainRepo(dir); main != "" {
+		return core.NormalizePath(main)
+	}
+	return ""
+}
 
-// DetectRemote returns the origin remote URL for the repo containing dir, or "".
-func DetectRemote(dir string) string { return "" }
+// DetectRemote returns the origin remote URL for the repo containing dir, or
+// "". It tries `git -C dir remote get-url origin` first (covers plain git and
+// colocated jj). On failure it retries against the jj backing git directory
+// (covers native jj). No jj binary is invoked.
+func DetectRemote(dir string) string {
+	if url := gitRemoteURL(dir); url != "" {
+		return url
+	}
+	if backend := jjfs.DetectGitBackend(dir); backend != "" {
+		if url := gitRemoteURL(backend); url != "" {
+			return url
+		}
+	}
+	return ""
+}
+
+// gitRemoteURL runs `git -C dir remote get-url origin` and returns the trimmed
+// URL, or "" if git fails (not a repo, no origin, or git not installed).
+func gitRemoteURL(dir string) string {
+	cmd := exec.Command("git", "-C", dir, "remote", "get-url", "origin")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
