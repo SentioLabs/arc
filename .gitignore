@@ -37,3 +37,5 @@ plan-*
 
 # jj workspaces
 .workspaces/
+
+.claude/settings.local.json
