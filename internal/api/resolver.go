@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"github.com/sentiolabs/arc/internal/gitfs"
 	"github.com/sentiolabs/arc/internal/types"
+	"github.com/sentiolabs/arc/internal/vcs"
 )
 
 // resolveProjectForPath is the canonical server-side path-to-project resolver.
@@ -23,7 +23,7 @@ func (s *Server) resolveProjectForPath(ctx context.Context, path string) (*types
 		return ws, nil
 	}
 
-	mainRepo := gitfs.DetectMainRepo(path)
+	mainRepo := vcs.DetectMainRepo(path)
 	if mainRepo == "" {
 		return nil, err
 	}

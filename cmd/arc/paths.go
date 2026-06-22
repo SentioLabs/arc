@@ -6,13 +6,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/project"
+	"github.com/sentiolabs/arc/internal/vcs"
 	"github.com/spf13/cobra"
 )
 
@@ -305,13 +305,8 @@ func runPathsListCmd(cmd *cobra.Command, args []string) error {
 	return w.Flush()
 }
 
-// detectGitRemote attempts to get the git remote URL for a directory.
-// Returns an empty string if the directory is not a git repo or has no origin.
+// detectGitRemote returns the origin remote URL for a directory, supporting
+// both git and native jj repositories. Returns "" if none is found.
 func detectGitRemote(dir string) string {
-	cmd := exec.Command("git", "-C", dir, "remote", "get-url", "origin")
-	out, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
+	return vcs.DetectRemote(dir)
 }
