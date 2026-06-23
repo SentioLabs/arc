@@ -25,9 +25,17 @@ jobs:
         run: go mod download
 
       - name: Install jj
-        uses: taiki-e/install-action@v2
-        with:
-          tool: jj@0.42.0
+        run: |
+          JJ_VERSION="v0.42.0"
+          ARCHIVE="jj-${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          URL="https://github.com/jj-vcs/jj/releases/download/${JJ_VERSION}/${ARCHIVE}"
+          curl -sSfL "$URL" -o /tmp/jj.tar.gz
+          mkdir -p /tmp/jj-extract
+          tar -xzf /tmp/jj.tar.gz -C /tmp/jj-extract
+          JJ_BIN="$(find /tmp/jj-extract -type f -name jj | head -n1)"
+          test -n "$JJ_BIN" || { echo "jj binary not found in archive:"; tar -tzf /tmp/jj.tar.gz; exit 1; }
+          install -m 0755 "$JJ_BIN" /usr/local/bin/jj
+          jj --version
 
       - name: Run tests
         run: make test
