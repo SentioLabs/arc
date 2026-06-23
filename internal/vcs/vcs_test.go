@@ -36,6 +36,31 @@ func runGit(t *testing.T, dir string, args ...string) {
 	}
 }
 
+func TestDetectRemote_ColocatedPrefersGit(t *testing.T) {
+	// A colocated repo has both .git and .jj. DetectRemote must try git first
+	// and return the .git origin without consulting the jj backend. The jj
+	// backend is given a DIFFERENT origin so a wrong (jj-first) ordering would
+	// return that URL instead and fail this test.
+	dir := t.TempDir()
+	runGit(t, dir, "init")
+	runGit(t, dir, "remote", "add", "origin", "git@example.com:org/colocated.git")
+
+	store := filepath.Join(dir, ".jj", "repo", "store")
+	backend := filepath.Join(store, "git")
+	if err := os.MkdirAll(backend, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, backend, "init", "--bare")
+	runGit(t, backend, "remote", "add", "origin", "git@example.com:org/jjbackend.git")
+	if err := os.WriteFile(filepath.Join(store, "git_target"), []byte("git"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := vcs.DetectRemote(dir); got != "git@example.com:org/colocated.git" {
+		t.Fatalf("DetectRemote(colocated) = %q, want the .git origin (git-first)", got)
+	}
+}
+
 func TestDetectRemote_PlainGit(t *testing.T) {
 	dir := t.TempDir()
 	runGit(t, dir, "init")

@@ -12,8 +12,9 @@ import (
 // Stages:
 //  1. Match `path` exactly or against the longest registered ancestor via
 //     store.ResolveProjectByPath (prefix-aware).
-//  2. If (1) fails and `path` is inside a linked git worktree, retry (1)
-//     against the main repository's working directory.
+//  2. If (1) fails and `path` is inside a linked git worktree or a secondary
+//     jj workspace, retry (1) against the main repository's working directory
+//     (via vcs.DetectMainRepo, which canonicalizes the result).
 //
 // Returns the matched workspace, or the underlying not-found error from
 // the storage layer if no stage succeeds.

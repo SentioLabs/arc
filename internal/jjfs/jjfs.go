@@ -2,6 +2,12 @@
 // repositories. Like gitfs, it does NOT shell out to the jj binary. It handles
 // the narrow problems arc needs: locating .jj entries, mapping a secondary jj
 // workspace back to its main repo, and locating the backing git directory.
+//
+// The on-disk layout assumptions used below — ".jj/repo" as either a directory
+// (main workspace) or a file pointer (secondary workspace), and
+// ".jj/repo/store/git_target" naming the backing git dir — were validated
+// against jj's storage format as of jj 0.42. If a future jj release changes
+// this layout, these helpers degrade safely to "" rather than misbehaving.
 package jjfs
 
 import (
@@ -72,6 +78,9 @@ func DetectMainRepo(dir string) string {
 	if !secondary {
 		return ""
 	}
+	// Assumes the jj 0.42 layout where repo == <main>/.jj/repo, so the main
+	// working dir is two levels up. The os.Stat guard below only confirms the
+	// derived path exists, not that it is a valid jj root.
 	mainJJ := filepath.Dir(repo)     // <main>/.jj
 	mainWork := filepath.Dir(mainJJ) // <main>
 	if fi, err := os.Stat(mainWork); err != nil || !fi.IsDir() {
