@@ -10,6 +10,13 @@ import (
 	"testing"
 )
 
+const (
+	// dirPerm is the directory mode for test scaffolding (matches gittest).
+	dirPerm = 0o755
+	// cfgPerm is the mode for the isolated jj config file.
+	cfgPerm = 0o600
+)
+
 // RequireJJ skips the test if the jj binary is not on PATH.
 func RequireJJ(t *testing.T) {
 	t.Helper()
@@ -24,7 +31,7 @@ func isolatedConfig(t *testing.T, dir string) string {
 	t.Helper()
 	cfg := filepath.Join(dir, "jjconfig.toml")
 	content := "[user]\nname = \"arc-test\"\nemail = \"arc-test@example.com\"\n"
-	if err := os.WriteFile(cfg, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(cfg, []byte(content), cfgPerm); err != nil {
 		t.Fatal(err)
 	}
 	return cfg
@@ -44,7 +51,7 @@ func Run(t *testing.T, workdir string, args ...string) {
 // InitNative creates a native (non-colocated) jj repo in dir and returns dir.
 func InitNative(t *testing.T, dir string) string {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, dirPerm); err != nil {
 		t.Fatal(err)
 	}
 	Run(t, dir, "git", "init")

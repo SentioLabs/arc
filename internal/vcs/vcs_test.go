@@ -60,7 +60,7 @@ func TestDetectRemote_NativeJJBackend(t *testing.T) {
 	}
 	runGit(t, backend, "init", "--bare")
 	runGit(t, backend, "remote", "add", "origin", "git@example.com:org/native.git")
-	if err := os.WriteFile(filepath.Join(store, "git_target"), []byte("git"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(store, "git_target"), []byte("git"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	// No .git at root, so the git-first attempt fails and the jj backend wins.
