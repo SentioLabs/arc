@@ -18,6 +18,7 @@ import (
 	cfgpkg "github.com/sentiolabs/arc/internal/config"
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/types"
+	"github.com/sentiolabs/arc/internal/vcs"
 	"github.com/sentiolabs/arc/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -302,6 +303,15 @@ func init() {
 	projectCmd.AddCommand(projectDeleteCmd)
 }
 
+// whichResult is the JSON shape returned by the which command.
+type whichResult struct {
+	ProjectID   string   `json:"project_id"`
+	ProjectName string   `json:"project_name,omitempty"`
+	Source      string   `json:"source"`
+	VCS         []string `json:"vcs"` // always present; [] when none
+	Warning     string   `json:"warning,omitempty"`
+}
+
 // whichCmd shows the active project and how it was resolved.
 var whichCmd = &cobra.Command{
 	Use:   "which",
@@ -328,16 +338,16 @@ This helps debug project resolution issues by showing:
 			}
 		}
 
+		cwd, _ := os.Getwd()
+		systems := vcs.Detect(cwd)
+
 		if outputJSON {
-			result := map[string]string{
-				"project_id": wsID,
-				"source":     source.String(),
-			}
-			if wsName != "" {
-				result["project_name"] = wsName
-			}
-			if warning != "" {
-				result["warning"] = warning
+			result := whichResult{
+				ProjectID:   wsID,
+				ProjectName: wsName,
+				Source:      source.String(),
+				VCS:         systems,
+				Warning:     warning,
 			}
 			outputResult(result)
 			return nil
@@ -350,6 +360,10 @@ This helps debug project resolution issues by showing:
 			fmt.Printf("Project: %s\n", wsID)
 		}
 		fmt.Printf("Source: %s\n", source)
+
+		if len(systems) > 0 {
+			fmt.Printf("VCS: %s\n", strings.Join(systems, ", "))
+		}
 
 		if source == ProjectSourceProject {
 			fmt.Printf("Config: legacy ~/.arc/projects/ config\n")
