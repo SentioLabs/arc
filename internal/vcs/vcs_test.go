@@ -13,8 +13,9 @@ import (
 // These verify the design spec. Do NOT modify without updating the approved plan.
 
 var (
-	_ func(string) string = vcs.DetectMainRepo
-	_ func(string) string = vcs.DetectRemote
+	_ func(string) string   = vcs.DetectMainRepo
+	_ func(string) string   = vcs.DetectRemote
+	_ func(string) []string = vcs.Detect
 )
 
 func TestVCSContract(t *testing.T) {
@@ -103,5 +104,61 @@ func TestDetectRemote_None(t *testing.T) {
 func TestDetectMainRepo_NotInWorktree(t *testing.T) {
 	if got := vcs.DetectMainRepo(t.TempDir()); got != "" {
 		t.Fatalf("DetectMainRepo(plain dir) = %q, want \"\"", got)
+	}
+}
+
+// --- vcs.Detect tests ---
+
+func makeJJEntry(t *testing.T, dir string) {
+	t.Helper()
+	// Simulate a .jj directory with the minimal structure FindJJEntry looks for.
+	jjDir := filepath.Join(dir, ".jj")
+	if err := os.MkdirAll(jjDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDetect_PlainGit(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init")
+
+	got := vcs.Detect(dir)
+	if len(got) != 1 || got[0] != "git" {
+		t.Fatalf("Detect(plain git) = %v, want [git]", got)
+	}
+}
+
+func TestDetect_NativeJJ(t *testing.T) {
+	dir := t.TempDir()
+	makeJJEntry(t, dir)
+	// No .git directory — native jj only.
+
+	got := vcs.Detect(dir)
+	if len(got) != 1 || got[0] != "jj" {
+		t.Fatalf("Detect(native jj) = %v, want [jj]", got)
+	}
+}
+
+func TestDetect_Colocated(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init")
+	makeJJEntry(t, dir)
+
+	got := vcs.Detect(dir)
+	if len(got) != 2 || got[0] != "git" || got[1] != "jj" {
+		t.Fatalf("Detect(colocated) = %v, want [git jj]", got)
+	}
+}
+
+func TestDetect_Neither(t *testing.T) {
+	dir := t.TempDir()
+
+	got := vcs.Detect(dir)
+	// Must be non-nil and empty so JSON marshals to [] not null.
+	if got == nil {
+		t.Fatal("Detect(no repo) returned nil, want empty non-nil slice")
+	}
+	if len(got) != 0 {
+		t.Fatalf("Detect(no repo) = %v, want []", got)
 	}
 }

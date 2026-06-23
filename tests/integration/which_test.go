@@ -53,19 +53,29 @@ func TestWhichJsonOutput(t *testing.T) {
 
 	out := arcCmdInDirSuccess(t, home, dir, "which", "--json", "--server", serverURL)
 
-	var result map[string]string
+	var result struct {
+		ProjectID   string   `json:"project_id"`
+		ProjectName string   `json:"project_name"`
+		Source      string   `json:"source"`
+		VCS         []string `json:"vcs"`
+	}
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
 		t.Fatalf("expected valid JSON from which --json, got parse error: %v\noutput: %s", err, out)
 	}
 
-	if result["project_id"] == "" {
+	if result.ProjectID == "" {
 		t.Error("expected non-empty project_id in JSON output")
 	}
-	if result["source"] == "" {
+	if result.Source == "" {
 		t.Error("expected non-empty source in JSON output")
 	}
-	if result["project_name"] != "which-json-proj" {
-		t.Errorf("expected project_name 'which-json-proj', got %q", result["project_name"])
+	if result.ProjectName != "which-json-proj" {
+		t.Errorf("expected project_name 'which-json-proj', got %q", result.ProjectName)
+	}
+	// The vcs field is always present (an array, never null). This temp dir is
+	// not a git/jj repo, so it is empty — but it must decode to a non-nil slice.
+	if result.VCS == nil {
+		t.Errorf("expected vcs field to be present (non-null array) in JSON output, got: %s", out)
 	}
 }
 

@@ -122,24 +122,31 @@ func TestWhichFromSymlinkAndRealPath(t *testing.T) {
 
 	arcCmdInDirSuccess(t, home, symlinkDir, "init", "symlink-which-proj", "--server", serverURL)
 
+	// whichResult captures the fields this test asserts on. Decoding into a
+	// struct (rather than map[string]string) tolerates non-string fields such
+	// as the vcs array in `which --json` output.
+	type whichResult struct {
+		ProjectID string `json:"project_id"`
+	}
+
 	// `arc which` from symlink.
 	whichSymlink := arcCmdInDirSuccess(t, home, symlinkDir, "which", "--json", "--server", serverURL)
-	var resultSymlink map[string]string
+	var resultSymlink whichResult
 	if err := json.Unmarshal([]byte(whichSymlink), &resultSymlink); err != nil {
 		t.Fatalf("parse which JSON from symlink: %v\noutput: %s", err, whichSymlink)
 	}
 
 	// `arc which` from real path.
 	whichReal := arcCmdInDirSuccess(t, home, realDir, "which", "--json", "--server", serverURL)
-	var resultReal map[string]string
+	var resultReal whichResult
 	if err := json.Unmarshal([]byte(whichReal), &resultReal); err != nil {
 		t.Fatalf("parse which JSON from real: %v\noutput: %s", err, whichReal)
 	}
 
 	// Both should resolve to the same project.
-	if resultSymlink["project_id"] != resultReal["project_id"] {
+	if resultSymlink.ProjectID != resultReal.ProjectID {
 		t.Errorf("project IDs differ: symlink=%q, real=%q",
-			resultSymlink["project_id"], resultReal["project_id"])
+			resultSymlink.ProjectID, resultReal.ProjectID)
 	}
 }
 

@@ -13,6 +13,22 @@ import (
 	"github.com/sentiolabs/arc/internal/jjfs"
 )
 
+// Detect reports which version-control systems are present at or above dir,
+// in stable order ("git" before "jj"). A colocated jj/git repo returns both;
+// native jj returns only "jj"; a plain git repo returns only "git". Returns
+// an empty (non-nil) slice when neither is found. Pure filesystem walk — no
+// git or jj binary is invoked.
+func Detect(dir string) []string {
+	systems := []string{}
+	if gitfs.FindGitEntry(dir) != "" {
+		systems = append(systems, "git")
+	}
+	if jjfs.FindJJEntry(dir) != "" {
+		systems = append(systems, "jj")
+	}
+	return systems
+}
+
 // DetectMainRepo returns the canonical main-repo working directory if dir is
 // inside a linked git worktree or a secondary jj workspace; otherwise "".
 // git is tried first, jj is the fallback. The result is canonicalized via
