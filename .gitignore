@@ -34,3 +34,8 @@ plan-*
 
 .pi/
 .serena/
+
+# jj workspaces
+.workspaces/
+
+.claude/settings.local.json
