@@ -182,6 +182,65 @@ func TestReadFrontmatterNoTrailingNewlineAfterClose(t *testing.T) {
 	}
 }
 
+func TestEnsureFrontmatterPreservesUnknownKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	seed := "---\naliases:\n  - My Plan\ncssclasses:\n  - wide\ntags:\n  - project/foo\n---\n# Body\n"
+	if err := os.WriteFile(path, []byte(seed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Title: "T", Date: "2026-08-14", Project: "p", Status: "in_review",
+		Tags: []string{"arc", "design-spec"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"}}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	for _, want := range []string{"My Plan", "cssclasses", "project/foo", "arc", "design-spec", "plan.x", "# Body"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("output missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestEnsureFrontmatterIdempotentAndRepeatable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(path, []byte("---\naliases: [keep]\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Title: "T", Status: "in_review", Tags: []string{"arc"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.1"}}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	// Re-registration with a new ID (refinement loop) must keep user keys and not duplicate tags.
+	meta.ArcReview.ID = "plan.2"
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	if !strings.Contains(got, "keep") || !strings.Contains(got, "plan.2") {
+		t.Fatalf("lost user key or stale id:\n%s", got)
+	}
+	if strings.Count(got, "- arc\n") != 1 {
+		t.Fatalf("tags duplicated:\n%s", got)
+	}
+}
+
+func TestEnsureFrontmatterNoExistingFrontmatter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(path, []byte("# Just a body\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Title: "T", Status: "in_review", ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.9"}}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	if !strings.HasPrefix(string(raw), "---\n") || !strings.Contains(string(raw), "# Just a body") {
+		t.Fatalf("frontmatter not created cleanly:\n%s", raw)
+	}
+}
+
 // TestSetStatusCRLF verifies that SetStatus works correctly on a CRLF-encoded file:
 // it must locate the closing "---" delimiter (which appears as "---\r\n"), rewrite
 // the status line preserving CRLF, and NOT return ErrNoFrontmatter.
