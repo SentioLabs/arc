@@ -241,6 +241,30 @@ func TestEnsureFrontmatterNoExistingFrontmatter(t *testing.T) {
 	}
 }
 
+// TestEnsureFrontmatterUnionsScalarTags verifies that a bare scalar `tags:`
+// value (valid YAML, seen in hand-edited vaults) is folded into the union
+// instead of being silently dropped when arc's tags overwrite it.
+func TestEnsureFrontmatterUnionsScalarTags(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(path, []byte("---\ntags: solo-tag\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Title: "T", Status: "in_review", Tags: []string{"arc", "design-spec"}}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	for _, want := range []string{"solo-tag", "arc", "design-spec"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("output missing %q:\n%s", want, got)
+		}
+	}
+	if !strings.Contains(got, "tags:\n") {
+		t.Fatalf("tags not emitted as a list:\n%s", got)
+	}
+}
+
 // TestSetStatusCRLF verifies that SetStatus works correctly on a CRLF-encoded file:
 // it must locate the closing "---" delimiter (which appears as "---\r\n"), rewrite
 // the status line preserving CRLF, and NOT return ErrNoFrontmatter.

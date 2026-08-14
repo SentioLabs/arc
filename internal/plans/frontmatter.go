@@ -159,12 +159,16 @@ func unionTags(existing any, arcTags []string) []string {
 			out = append(out, s)
 		}
 	}
-	if list, ok := existing.([]any); ok {
-		for _, v := range list {
-			if s, ok := v.(string); ok {
+	switch v := existing.(type) {
+	case []any:
+		for _, item := range v {
+			if s, ok := item.(string); ok {
 				add(s)
 			}
 		}
+	case string:
+		// Bare scalar (e.g. `tags: solo-tag`) — valid YAML, seen in hand-edited vaults.
+		add(v)
 	}
 	for _, s := range arcTags {
 		add(s)
