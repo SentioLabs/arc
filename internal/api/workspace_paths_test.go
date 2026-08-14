@@ -146,6 +146,18 @@ func (m *mockWPStore) MergeProjects(_ context.Context, _ string, _ []string, _ s
 	panic("not implemented")
 }
 
+func (m *mockWPStore) GetProjectConfig(_ context.Context, _ string) (map[string]string, error) {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) SetProjectConfig(_ context.Context, _, _, _ string) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) DeleteProjectConfig(_ context.Context, _, _ string) error {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) CreateIssue(_ context.Context, _ *types.Issue, _ string) error {
 	panic("not implemented")
 }

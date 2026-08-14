@@ -64,6 +64,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** Get all per-project config key/value pairs */
+        get: operations["getProjectConfig"];
+        /** Upsert one per-project config key */
+        put: operations["setProjectConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/config/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Config key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete one per-project config key */
+        delete: operations["deleteProjectConfig"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/issues": {
         parameters: {
             query?: never;
@@ -749,6 +792,18 @@ export interface components {
             /** @description New description */
             description?: string;
         };
+        ProjectConfig: {
+            /** @description Per-project config key/value pairs */
+            config: {
+                [key: string]: string;
+            };
+        };
+        SetProjectConfigRequest: {
+            /** @description Config key */
+            key: string;
+            /** @description Config value */
+            value: string;
+        };
         Statistics: {
             project_id: string;
             total_issues: number;
@@ -1264,6 +1319,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Statistics"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getProjectConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectConfig"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    setProjectConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProjectConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description Config key set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetProjectConfigRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteProjectConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Config key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Config key deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The deleted config key */
+                        deleted?: string;
+                    };
                 };
             };
             404: components["responses"]["NotFound"];
