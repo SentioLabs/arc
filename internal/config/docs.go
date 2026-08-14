@@ -29,10 +29,13 @@ func ValidDocsType(t string) bool {
 
 // ResolveDocs returns the effective docs directory (absolute), doc type, and
 // which layer supplied the directory. projectVals are the project's
-// config-table rows (nil-safe); cfg is the loaded ~/.arc/config.toml (nil-safe);
-// vars are the ExpandPlansDir template variables ({project}, {prefix}); cwd
-// anchors relative paths. Order: docs.* project rows → [plans] config → defaults.
-func ResolveDocs(projectVals map[string]string, cfg *Config, vars map[string]string, cwd string) (path, docType, source string, err error) {
+// config-table rows (nil-safe); cfg is the loaded ~/.arc/config.toml
+// (nil-safe); vars are the ExpandPlansDir template variables ({project},
+// {prefix}); cwd anchors relative paths. Order: docs.* project rows →
+// [plans] config → defaults.
+func ResolveDocs(projectVals map[string]string, cfg *Config, vars map[string]string, cwd string) (
+	path, docType, source string, err error,
+) {
 	def := Default()
 
 	docType = def.Plans.Type
@@ -43,7 +46,8 @@ func ResolveDocs(projectVals map[string]string, cfg *Config, vars map[string]str
 		docType = t
 	}
 	if !ValidDocsType(docType) {
-		return "", "", "", fmt.Errorf("invalid docs type %q (want %q or %q)", docType, DocsTypeMarkdown, DocsTypeObsidian)
+		return "", "", "", fmt.Errorf("invalid docs type %q (want %q or %q)",
+			docType, DocsTypeMarkdown, DocsTypeObsidian)
 	}
 
 	tmpl, source := def.Plans.Dir, DocsSourceDefault

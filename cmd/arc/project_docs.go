@@ -35,7 +35,8 @@ var projectDocsSetCmd = &cobra.Command{
 			return errors.New("provide --path and/or --type")
 		}
 		if docsSetType != "" && !cfgpkg.ValidDocsType(docsSetType) {
-			return fmt.Errorf("invalid --type %q (want %q or %q)", docsSetType, cfgpkg.DocsTypeMarkdown, cfgpkg.DocsTypeObsidian)
+			return fmt.Errorf("invalid --type %q (want %q or %q)",
+				docsSetType, cfgpkg.DocsTypeMarkdown, cfgpkg.DocsTypeObsidian)
 		}
 		if docsSetPath != "" && strings.Contains(docsSetPath, "..") {
 			return errors.New("--path: must not contain '..'")
@@ -134,8 +135,11 @@ func runProjectDocsGet(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// init wires the docs subcommand's flags and registers it under `arc project`.
 func init() {
-	projectDocsSetCmd.Flags().StringVar(&docsSetPath, "path", "", "docs directory (absolute, ~, or repo-relative; {project}/{prefix} templates allowed)")
+	projectDocsSetCmd.Flags().StringVar(&docsSetPath, "path", "",
+		"docs directory (absolute, ~, or repo-relative; {project}/{prefix} templates allowed)")
+	// --type is validated against cfgpkg.ValidDocsType before being persisted.
 	projectDocsSetCmd.Flags().StringVar(&docsSetType, "type", "", "docs type: markdown or obsidian")
 	projectDocsCmd.AddCommand(projectDocsSetCmd, projectDocsGetCmd, projectDocsUnsetCmd)
 	projectCmd.AddCommand(projectDocsCmd)

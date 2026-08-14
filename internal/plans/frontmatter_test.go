@@ -185,11 +185,13 @@ func TestReadFrontmatterNoTrailingNewlineAfterClose(t *testing.T) {
 func TestEnsureFrontmatterPreservesUnknownKeys(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plan.md")
 	seed := "---\naliases:\n  - My Plan\ncssclasses:\n  - wide\ntags:\n  - project/foo\n---\n# Body\n"
-	if err := os.WriteFile(path, []byte(seed), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	meta := plans.Frontmatter{Title: "T", Date: "2026-08-14", Project: "p", Status: "in_review",
-		Tags: []string{"arc", "design-spec"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"}}
+	meta := plans.Frontmatter{
+		Title: "T", Date: "2026-08-14", Project: "p", Status: "in_review",
+		Tags: []string{"arc", "design-spec"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"},
+	}
 	if err := plans.EnsureFrontmatter(path, meta); err != nil {
 		t.Fatal(err)
 	}
@@ -204,10 +206,13 @@ func TestEnsureFrontmatterPreservesUnknownKeys(t *testing.T) {
 
 func TestEnsureFrontmatterIdempotentAndRepeatable(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plan.md")
-	if err := os.WriteFile(path, []byte("---\naliases: [keep]\n---\nbody\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("---\naliases: [keep]\n---\nbody\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	meta := plans.Frontmatter{Title: "T", Status: "in_review", Tags: []string{"arc"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.1"}}
+	meta := plans.Frontmatter{
+		Title: "T", Status: "in_review", Tags: []string{"arc"},
+		ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.1"},
+	}
 	if err := plans.EnsureFrontmatter(path, meta); err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +233,7 @@ func TestEnsureFrontmatterIdempotentAndRepeatable(t *testing.T) {
 
 func TestEnsureFrontmatterNoExistingFrontmatter(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plan.md")
-	if err := os.WriteFile(path, []byte("# Just a body\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("# Just a body\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	meta := plans.Frontmatter{Title: "T", Status: "in_review", ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.9"}}
@@ -246,7 +251,7 @@ func TestEnsureFrontmatterNoExistingFrontmatter(t *testing.T) {
 // instead of being silently dropped when arc's tags overwrite it.
 func TestEnsureFrontmatterUnionsScalarTags(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plan.md")
-	if err := os.WriteFile(path, []byte("---\ntags: solo-tag\n---\nbody\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("---\ntags: solo-tag\n---\nbody\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	meta := plans.Frontmatter{Title: "T", Status: "in_review", Tags: []string{"arc", "design-spec"}}
