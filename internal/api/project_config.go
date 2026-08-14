@@ -11,7 +11,7 @@ import (
 
 // Per-project config endpoints expose a generic key/value store scoped to a
 // project. The API stores keys verbatim; semantic validation (for example of
-// docs.* keys) belongs to the callers that own those namespaces.
+// plans.* keys) belongs to the callers that own those namespaces.
 
 // setProjectConfigRequest is the request body for upserting a config key.
 type setProjectConfigRequest struct {
@@ -48,15 +48,15 @@ func (s *Server) putProjectConfig(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "key is required")
 	}
 
-	// Validate docs.* namespace values server-side; other keys are stored verbatim.
+	// Validate plans.* namespace values server-side; other keys are stored verbatim.
 	switch req.Key {
-	case config.ProjectDocsTypeKey:
-		if !config.ValidDocsType(req.Value) {
-			return errorJSON(c, http.StatusBadRequest, "invalid docs type (want markdown or obsidian)")
+	case config.ProjectPlansTypeKey:
+		if !config.ValidPlansType(req.Value) {
+			return errorJSON(c, http.StatusBadRequest, "invalid plans type (want markdown or obsidian)")
 		}
-	case config.ProjectDocsPathKey:
+	case config.ProjectPlansDirKey:
 		if strings.Contains(req.Value, "..") {
-			return errorJSON(c, http.StatusBadRequest, "docs path must not contain '..'")
+			return errorJSON(c, http.StatusBadRequest, "plans dir must not contain '..'")
 		}
 	}
 

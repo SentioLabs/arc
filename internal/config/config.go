@@ -49,7 +49,7 @@ func Default() *Config {
 		CLI:     CLIConfig{Server: "http://localhost:7432"},
 		Server:  ServerConfig{Port: DefaultServerPort, DBPath: "~/.arc/data.db"},
 		Updates: UpdatesConfig{Channel: "stable"},
-		Plans:   PlansConfig{Dir: "docs/plans", Type: DocsTypeMarkdown},
+		Plans:   PlansConfig{Dir: "docs/plans", Type: PlansTypeMarkdown},
 	}
 }
 

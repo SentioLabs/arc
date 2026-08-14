@@ -14,10 +14,10 @@ func TestProjectConfigRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	proj := setupTestProject(t, store)
 
-	if err := store.SetProjectConfig(ctx, proj.ID, "docs.path", "~/vault/plans"); err != nil {
+	if err := store.SetProjectConfig(ctx, proj.ID, "plans.dir", "~/vault/plans"); err != nil {
 		t.Fatalf("set config: %v", err)
 	}
-	if err := store.SetProjectConfig(ctx, proj.ID, "docs.type", "obsidian"); err != nil {
+	if err := store.SetProjectConfig(ctx, proj.ID, "plans.type", "obsidian"); err != nil {
 		t.Fatalf("set second key: %v", err)
 	}
 
@@ -25,37 +25,37 @@ func TestProjectConfigRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get config: %v", err)
 	}
-	if got["docs.path"] != "~/vault/plans" {
-		t.Errorf("docs.path = %q, want %q", got["docs.path"], "~/vault/plans")
+	if got["plans.dir"] != "~/vault/plans" {
+		t.Errorf("plans.dir = %q, want %q", got["plans.dir"], "~/vault/plans")
 	}
-	if got["docs.type"] != "obsidian" {
-		t.Errorf("docs.type = %q, want %q", got["docs.type"], "obsidian")
+	if got["plans.type"] != "obsidian" {
+		t.Errorf("plans.type = %q, want %q", got["plans.type"], "obsidian")
 	}
 
 	// Setting an existing key overwrites it rather than inserting a duplicate.
-	if err := store.SetProjectConfig(ctx, proj.ID, "docs.path", "/elsewhere"); err != nil {
+	if err := store.SetProjectConfig(ctx, proj.ID, "plans.dir", "/elsewhere"); err != nil {
 		t.Fatalf("overwrite config: %v", err)
 	}
 	got, err = store.GetProjectConfig(ctx, proj.ID)
 	if err != nil {
 		t.Fatalf("get config after overwrite: %v", err)
 	}
-	if got["docs.path"] != "/elsewhere" {
-		t.Errorf("docs.path = %q, want %q", got["docs.path"], "/elsewhere")
+	if got["plans.dir"] != "/elsewhere" {
+		t.Errorf("plans.dir = %q, want %q", got["plans.dir"], "/elsewhere")
 	}
 
-	if err := store.DeleteProjectConfig(ctx, proj.ID, "docs.path"); err != nil {
+	if err := store.DeleteProjectConfig(ctx, proj.ID, "plans.dir"); err != nil {
 		t.Fatalf("delete config: %v", err)
 	}
 	got, err = store.GetProjectConfig(ctx, proj.ID)
 	if err != nil {
 		t.Fatalf("get config after delete: %v", err)
 	}
-	if _, ok := got["docs.path"]; ok {
-		t.Error("docs.path still present after delete")
+	if _, ok := got["plans.dir"]; ok {
+		t.Error("plans.dir still present after delete")
 	}
-	if got["docs.type"] != "obsidian" {
-		t.Errorf("delete removed unrelated key: docs.type = %q", got["docs.type"])
+	if got["plans.type"] != "obsidian" {
+		t.Errorf("delete removed unrelated key: plans.type = %q", got["plans.type"])
 	}
 }
 
@@ -87,7 +87,7 @@ func TestProjectConfigIsolatedPerProject(t *testing.T) {
 		t.Fatalf("create second project: %v", err)
 	}
 
-	if err := store.SetProjectConfig(ctx, projA.ID, "docs.path", "/a"); err != nil {
+	if err := store.SetProjectConfig(ctx, projA.ID, "plans.dir", "/a"); err != nil {
 		t.Fatalf("set config on project A: %v", err)
 	}
 

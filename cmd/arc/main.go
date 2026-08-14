@@ -309,9 +309,9 @@ type whichResult struct {
 	ProjectName string   `json:"project_name,omitempty"`
 	Source      string   `json:"source"`
 	VCS         []string `json:"vcs"` // always present; [] when none
-	DocsPath    string   `json:"docs_path,omitempty"`
-	DocsType    string   `json:"docs_type,omitempty"`
-	DocsSource  string   `json:"docs_source,omitempty"`
+	PlansDir    string   `json:"plans_dir,omitempty"`
+	PlansType   string   `json:"plans_type,omitempty"`
+	PlansSource string   `json:"plans_source,omitempty"`
 	Warning     string   `json:"warning,omitempty"`
 }
 
@@ -345,14 +345,14 @@ This helps debug project resolution issues by showing:
 		cwd, _ := os.Getwd()
 		systems := vcs.Detect(cwd)
 
-		// Docs resolution is non-fatal: a failure leaves which's other
-		// output intact, just without docs_path/docs_type/docs_source. Record
+		// Plans resolution is non-fatal: a failure leaves which's other
+		// output intact, just without plans_dir/plans_type/plans_source. Record
 		// the reason in warning so a misconfigured new CLI is distinguishable
 		// from an old CLI that never emitted these fields.
-		docsPath, docsType, docsSource, docsErr := resolveDocsForProject(wsID, wsName, wsPrefix)
-		if docsErr != nil {
-			docsPath, docsType, docsSource = "", "", ""
-			note := fmt.Sprintf("docs resolution failed: %v", docsErr)
+		plansDir, plansType, plansSource, plansErr := resolvePlansForProject(wsID, wsName, wsPrefix)
+		if plansErr != nil {
+			plansDir, plansType, plansSource = "", "", ""
+			note := fmt.Sprintf("plans resolution failed: %v", plansErr)
 			if warning == "" {
 				warning = note
 			} else {
@@ -366,9 +366,9 @@ This helps debug project resolution issues by showing:
 				ProjectName: wsName,
 				Source:      source.String(),
 				VCS:         systems,
-				DocsPath:    docsPath,
-				DocsType:    docsType,
-				DocsSource:  docsSource,
+				PlansDir:    plansDir,
+				PlansType:   plansType,
+				PlansSource: plansSource,
 				Warning:     warning,
 			}
 			outputResult(result)
@@ -387,8 +387,8 @@ This helps debug project resolution issues by showing:
 			fmt.Printf("VCS: %s\n", strings.Join(systems, ", "))
 		}
 
-		if docsPath != "" {
-			fmt.Printf("Docs: %s (%s, from %s)\n", docsPath, docsType, docsSource)
+		if plansDir != "" {
+			fmt.Printf("Plans: %s (%s, from %s)\n", plansDir, plansType, plansSource)
 		}
 
 		if source == ProjectSourceProject {
