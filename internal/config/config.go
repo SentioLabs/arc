@@ -36,7 +36,8 @@ type UpdatesConfig struct {
 
 // PlansConfig holds settings for design-spec plan files.
 type PlansConfig struct {
-	Dir string `toml:"dir" json:"dir"`
+	Dir  string `toml:"dir"  json:"dir"`
+	Type string `toml:"type" json:"type"`
 }
 
 // DefaultServerPort is the built-in default port for the arc server.
@@ -48,7 +49,7 @@ func Default() *Config {
 		CLI:     CLIConfig{Server: "http://localhost:7432"},
 		Server:  ServerConfig{Port: DefaultServerPort, DBPath: "~/.arc/data.db"},
 		Updates: UpdatesConfig{Channel: "stable"},
-		Plans:   PlansConfig{Dir: "docs/plans"},
+		Plans:   PlansConfig{Dir: "docs/plans", Type: DocsTypeMarkdown},
 	}
 }
 
