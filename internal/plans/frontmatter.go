@@ -4,6 +4,7 @@ package plans
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,10 @@ type Frontmatter struct {
 	ArcReview ArcReview `yaml:"arc_review"`
 }
 
-var fmDelim = []byte("---\n")
+var (
+	fmDelim     = []byte("---\n")
+	fmDelimCRLF = []byte("---\r\n")
+)
 
 // ErrNoFrontmatter is returned when a file has no frontmatter or no status line.
 var ErrNoFrontmatter = errors.New("no frontmatter status line")
@@ -66,19 +70,26 @@ func findClosingDelim(b []byte) int {
 	}
 }
 
-// ReadFrontmatter parses a leading --- block. ok=false if absent (legacy doc).
-func ReadFrontmatter(b []byte) (fm Frontmatter, body []byte, ok bool, err error) {
-	if !bytes.HasPrefix(b, fmDelim) {
-		return Frontmatter{}, b, false, nil
+// readRawFrontmatter splits b into the raw (unparsed) YAML frontmatter bytes
+// and the body that follows, without unmarshaling. ok=false if no leading
+// --- block is present (legacy doc). The opening delimiter is recognized in
+// both LF ("---\n") and CRLF ("---\r\n") forms.
+func readRawFrontmatter(b []byte) (fm []byte, body []byte, ok bool) {
+	var openLen int
+	switch {
+	case bytes.HasPrefix(b, fmDelim):
+		openLen = len(fmDelim)
+	case bytes.HasPrefix(b, fmDelimCRLF):
+		openLen = len(fmDelimCRLF)
+	default:
+		return nil, b, false
 	}
-	rest := b[len(fmDelim):]
+	rest := b[openLen:]
 	end := findClosingDelim(rest)
 	if end < 0 {
-		return Frontmatter{}, b, false, nil
+		return nil, b, false
 	}
-	if err := yaml.Unmarshal(rest[:end], &fm); err != nil {
-		return Frontmatter{}, b, false, err
-	}
+	fm = rest[:end]
 	// Skip past the closing "---" line (including its trailing newline, if present).
 	after := rest[end+1:] // skip the leading '\n', now points at "---..."
 	if i := bytes.IndexByte(after, '\n'); i >= 0 {
@@ -87,23 +98,42 @@ func ReadFrontmatter(b []byte) (fm Frontmatter, body []byte, ok bool, err error)
 		// "---" at EOF with no trailing newline — body is empty (not nil).
 		body = []byte{}
 	}
+	return fm, body, true
+}
+
+// ReadFrontmatter parses a leading --- block. ok=false if absent (legacy doc).
+func ReadFrontmatter(b []byte) (fm Frontmatter, body []byte, ok bool, err error) {
+	raw, body, ok := readRawFrontmatter(b)
+	if !ok {
+		return Frontmatter{}, body, false, nil
+	}
+	if err := yaml.Unmarshal(raw, &fm); err != nil {
+		return Frontmatter{}, b, false, err
+	}
 	return fm, body, true, nil
 }
 
-// EnsureFrontmatter idempotently writes the arc-owned frontmatter block, preserving body. Atomic.
+// EnsureFrontmatter idempotently merges the arc-owned frontmatter keys into the
+// file's existing frontmatter (creating it if absent), preserving all other
+// keys and unioning tags. Atomic.
 func EnsureFrontmatter(path string, meta Frontmatter) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	_, body, ok, err := ReadFrontmatter(raw)
-	if err != nil {
-		return err
+
+	existing := map[string]any{}
+	body := raw
+	if fm, rest, ok := readRawFrontmatter(raw); ok {
+		if uerr := yaml.Unmarshal(fm, &existing); uerr != nil {
+			return uerr
+		}
+		body = rest
 	}
-	if !ok {
-		body = raw
-	}
-	y, err := yaml.Marshal(meta)
+
+	merged := mergeFrontmatter(existing, meta)
+
+	y, err := yaml.Marshal(merged)
 	if err != nil {
 		return err
 	}
@@ -113,6 +143,68 @@ func EnsureFrontmatter(path string, meta Frontmatter) error {
 	_, _ = buf.WriteString("---\n")
 	_, _ = buf.Write(body)
 	return atomicWrite(path, buf.Bytes())
+}
+
+// mergeFrontmatter overlays the arc-owned keys onto existing, unioning tags.
+func mergeFrontmatter(existing map[string]any, meta Frontmatter) map[string]any {
+	if existing == nil {
+		existing = map[string]any{}
+	}
+	// Only overlay each arc-owned key when the incoming value is non-empty, so a
+	// re-registration with a partially-populated meta (for example project="" when
+	// registering from outside a known workspace) does not clobber good values.
+	if meta.Title != "" {
+		existing["title"] = meta.Title
+	}
+	if meta.Date != "" {
+		existing["date"] = meta.Date
+	}
+	if meta.Project != "" {
+		existing["project"] = meta.Project
+	}
+	if meta.Status != "" {
+		existing["status"] = meta.Status
+	}
+	if meta.ArcReview.Kind != "" || meta.ArcReview.ID != "" {
+		existing["arc_review"] = map[string]any{"kind": meta.ArcReview.Kind, "id": meta.ArcReview.ID}
+	}
+	existing["tags"] = unionTags(existing["tags"], meta.Tags)
+	return existing
+}
+
+// unionTags merges existing frontmatter tags (any YAML shape) with arc's tags,
+// preserving existing order first, deduplicated.
+func unionTags(existing any, arcTags []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	add := func(s string) {
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	switch v := existing.(type) {
+	case []any:
+		for _, item := range v {
+			if item == nil {
+				continue
+			}
+			if s, ok := item.(string); ok {
+				add(s)
+			} else {
+				// Non-string list items (e.g. `tags: [2024]` parses 2024 as int)
+				// are coerced to their string form so they are not silently dropped.
+				add(fmt.Sprint(item))
+			}
+		}
+	case string:
+		// Bare scalar (e.g. `tags: solo-tag`) — valid YAML, seen in hand-edited vaults.
+		add(v)
+	}
+	for _, s := range arcTags {
+		add(s)
+	}
+	return out
 }
 
 // SetStatus surgically replaces only the `status:` line in the leading frontmatter. Atomic.

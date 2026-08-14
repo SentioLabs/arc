@@ -18,6 +18,11 @@ type Storage interface {
 	DeleteProject(ctx context.Context, id string) error
 	MergeProjects(ctx context.Context, targetID string, sourceIDs []string, actor string) (*types.MergeResult, error)
 
+	// Project config (per-project key/value settings)
+	GetProjectConfig(ctx context.Context, projectID string) (map[string]string, error)
+	SetProjectConfig(ctx context.Context, projectID, key, value string) error
+	DeleteProjectConfig(ctx context.Context, projectID, key string) error
+
 	// Workspaces
 	CreateWorkspace(ctx context.Context, ws *types.Workspace) error
 	GetWorkspace(ctx context.Context, id string) (*types.Workspace, error)

@@ -155,6 +155,80 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /projects/{projectId}/config:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+
+    get:
+      operationId: getProjectConfig
+      tags: [projects]
+      summary: Get all per-project config key/value pairs
+      responses:
+        "200":
+          description: Project config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      operationId: setProjectConfig
+      tags: [projects]
+      summary: Upsert one per-project config key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetProjectConfigRequest"
+      responses:
+        "200":
+          description: Config key set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetProjectConfigRequest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/config/{key}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - name: key
+        in: path
+        required: true
+        description: Config key
+        schema:
+          type: string
+
+    delete:
+      operationId: deleteProjectConfig
+      tags: [projects]
+      summary: Delete one per-project config key
+      responses:
+        "200":
+          description: Config key deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: string
+                    description: The deleted config key
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   # ====================
   # Issues
   # ====================
@@ -1527,6 +1601,30 @@ components:
         description:
           type: string
           description: New description
+
+    ProjectConfig:
+      type: object
+      required:
+        - config
+      properties:
+        config:
+          type: object
+          description: Per-project config key/value pairs
+          additionalProperties:
+            type: string
+
+    SetProjectConfigRequest:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+          description: Config key
+        value:
+          type: string
+          description: Config value
 
     Statistics:
       type: object

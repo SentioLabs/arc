@@ -71,6 +71,9 @@ func Validate(cfg *Config) error {
 			}
 		}
 	}
+	if cfg.Plans.Type != "" && !ValidPlansType(cfg.Plans.Type) {
+		errs["plans.type"] = fmt.Sprintf("must be %q or %q", PlansTypeMarkdown, PlansTypeObsidian)
+	}
 	if len(errs) == 0 {
 		return nil
 	}

@@ -144,6 +144,46 @@ func (c *Client) DeleteProject(id string) error {
 	return nil
 }
 
+// GetProjectConfig returns a project's per-project config key/value pairs.
+// Keys are opaque to the client; callers own their semantics.
+func (c *Client) GetProjectConfig(id string) (map[string]string, error) {
+	resp, err := c.get("/api/v1/projects/" + id + "/config")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Config map[string]string `json:"config"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return body.Config, nil
+}
+
+// SetProjectConfig upserts one per-project config key.
+// An existing key is overwritten with the new value.
+func (c *Client) SetProjectConfig(id, key, value string) error {
+	resp, err := c.put("/api/v1/projects/"+id+"/config", map[string]string{"key": key, "value": value})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// DeleteProjectConfig removes one per-project config key.
+// Removing a key that is not set is not an error.
+func (c *Client) DeleteProjectConfig(id, key string) error {
+	resp, err := c.delete("/api/v1/projects/" + id + "/config/" + url.PathEscape(key))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
 // MergeProjects merges one or more source projects into a target project.
 func (c *Client) MergeProjects(targetID string, sourceIDs []string) (*types.MergeResult, error) {
 	body := map[string]any{

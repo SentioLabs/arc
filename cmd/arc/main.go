@@ -309,6 +309,9 @@ type whichResult struct {
 	ProjectName string   `json:"project_name,omitempty"`
 	Source      string   `json:"source"`
 	VCS         []string `json:"vcs"` // always present; [] when none
+	PlansDir    string   `json:"plans_dir,omitempty"`
+	PlansType   string   `json:"plans_type,omitempty"`
+	PlansSource string   `json:"plans_source,omitempty"`
 	Warning     string   `json:"warning,omitempty"`
 }
 
@@ -331,15 +334,31 @@ This helps debug project resolution issues by showing:
 
 		// Try to get project details
 		c, clientErr := getClient()
-		var wsName string
+		var wsName, wsPrefix string
 		if clientErr == nil {
 			if proj, wsErr := c.GetProject(wsID); wsErr == nil {
 				wsName = proj.Name
+				wsPrefix = proj.Prefix
 			}
 		}
 
 		cwd, _ := os.Getwd()
 		systems := vcs.Detect(cwd)
+
+		// Plans resolution is non-fatal: a failure leaves which's other
+		// output intact, just without plans_dir/plans_type/plans_source. Record
+		// the reason in warning so a misconfigured new CLI is distinguishable
+		// from an old CLI that never emitted these fields.
+		plansDir, plansType, plansSource, plansErr := resolvePlansForProject(wsID, wsName, wsPrefix)
+		if plansErr != nil {
+			plansDir, plansType, plansSource = "", "", ""
+			note := fmt.Sprintf("plans resolution failed: %v", plansErr)
+			if warning == "" {
+				warning = note
+			} else {
+				warning += "\n" + note
+			}
+		}
 
 		if outputJSON {
 			result := whichResult{
@@ -347,6 +366,9 @@ This helps debug project resolution issues by showing:
 				ProjectName: wsName,
 				Source:      source.String(),
 				VCS:         systems,
+				PlansDir:    plansDir,
+				PlansType:   plansType,
+				PlansSource: plansSource,
 				Warning:     warning,
 			}
 			outputResult(result)
@@ -363,6 +385,10 @@ This helps debug project resolution issues by showing:
 
 		if len(systems) > 0 {
 			fmt.Printf("VCS: %s\n", strings.Join(systems, ", "))
+		}
+
+		if plansDir != "" {
+			fmt.Printf("Plans: %s (%s, from %s)\n", plansDir, plansType, plansSource)
 		}
 
 		if source == ProjectSourceProject {

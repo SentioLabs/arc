@@ -182,6 +182,94 @@ func TestReadFrontmatterNoTrailingNewlineAfterClose(t *testing.T) {
 	}
 }
 
+func TestEnsureFrontmatterPreservesUnknownKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	seed := "---\naliases:\n  - My Plan\ncssclasses:\n  - wide\ntags:\n  - project/foo\n---\n# Body\n"
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{
+		Title: "T", Date: "2026-08-14", Project: "p", Status: "in_review",
+		Tags: []string{"arc", "design-spec"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"},
+	}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	for _, want := range []string{"My Plan", "cssclasses", "project/foo", "arc", "design-spec", "plan.x", "# Body"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("output missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestEnsureFrontmatterIdempotentAndRepeatable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(path, []byte("---\naliases: [keep]\n---\nbody\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{
+		Title: "T", Status: "in_review", Tags: []string{"arc"},
+		ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.1"},
+	}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	// Re-registration with a new ID (refinement loop) must keep user keys and not duplicate tags.
+	meta.ArcReview.ID = "plan.2"
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	if !strings.Contains(got, "keep") || !strings.Contains(got, "plan.2") {
+		t.Fatalf("lost user key or stale id:\n%s", got)
+	}
+	if strings.Count(got, "- arc\n") != 1 {
+		t.Fatalf("tags duplicated:\n%s", got)
+	}
+}
+
+func TestEnsureFrontmatterNoExistingFrontmatter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(path, []byte("# Just a body\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Title: "T", Status: "in_review", ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.9"}}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	if !strings.HasPrefix(string(raw), "---\n") || !strings.Contains(string(raw), "# Just a body") {
+		t.Fatalf("frontmatter not created cleanly:\n%s", raw)
+	}
+}
+
+// TestEnsureFrontmatterUnionsScalarTags verifies that a bare scalar `tags:`
+// value (valid YAML, seen in hand-edited vaults) is folded into the union
+// instead of being silently dropped when arc's tags overwrite it.
+func TestEnsureFrontmatterUnionsScalarTags(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(path, []byte("---\ntags: solo-tag\n---\nbody\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Title: "T", Status: "in_review", Tags: []string{"arc", "design-spec"}}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	for _, want := range []string{"solo-tag", "arc", "design-spec"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("output missing %q:\n%s", want, got)
+		}
+	}
+	if !strings.Contains(got, "tags:\n") {
+		t.Fatalf("tags not emitted as a list:\n%s", got)
+	}
+}
+
 // TestSetStatusCRLF verifies that SetStatus works correctly on a CRLF-encoded file:
 // it must locate the closing "---" delimiter (which appears as "---\r\n"), rewrite
 // the status line preserving CRLF, and NOT return ErrNoFrontmatter.
@@ -212,5 +300,109 @@ func TestSetStatusCRLF(t *testing.T) {
 	// The rewritten status line must preserve CRLF.
 	if !strings.Contains(outStr, "status: approved\r\n") {
 		t.Errorf("CRLF not preserved on status line; got: %q", outStr)
+	}
+}
+
+// TestEnsureFrontmatterPreservesExistingOnEmptyMeta verifies that arc-owned keys
+// with empty incoming values do not clobber good existing values, and that no
+// empty keys are injected (F1).
+func TestEnsureFrontmatterPreservesExistingOnEmptyMeta(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "spec.md")
+	seed := "---\nproject: RealProj\n---\n# Body\n"
+	if err := os.WriteFile(p, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Project is empty (e.g. re-registering from outside a known workspace);
+	// other arc keys are set.
+	meta := plans.Frontmatter{
+		Title:     "T",
+		Status:    "in_review",
+		Tags:      []string{"arc"},
+		ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"},
+	}
+	if err := plans.EnsureFrontmatter(p, meta); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(p)
+	outStr := string(out)
+	if !strings.Contains(outStr, "project: RealProj") {
+		t.Errorf("existing project clobbered; got: %q", outStr)
+	}
+	if strings.Contains(outStr, "project: \"\"") || strings.Contains(outStr, "project: ''") {
+		t.Errorf("empty project injected; got: %q", outStr)
+	}
+	// Date was empty in meta and absent in seed — must not be injected.
+	if strings.Contains(outStr, "date:") {
+		t.Errorf("empty date injected; got: %q", outStr)
+	}
+	if !strings.Contains(outStr, "status: in_review") {
+		t.Errorf("non-empty status not applied; got: %q", outStr)
+	}
+	if !strings.Contains(outStr, "# Body") {
+		t.Errorf("body lost; got: %q", outStr)
+	}
+}
+
+// TestEnsureFrontmatterCRLFNoDuplicateBlock verifies that a doc opening with a
+// CRLF delimiter gets its frontmatter merged in place rather than a second block
+// prepended (F2).
+func TestEnsureFrontmatterCRLFNoDuplicateBlock(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "spec.md")
+	seed := "---\r\ntitle: CRLF\r\nstatus: draft\r\n---\r\n# Body\r\n"
+	if err := os.WriteFile(p, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{
+		Title: "T", Date: "2026-06-07", Project: "arc", Status: "in_review",
+		Tags:      []string{"arc"},
+		ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"},
+	}
+	if err := plans.EnsureFrontmatter(p, meta); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(p)
+	outStr := string(out)
+	// A single frontmatter block has exactly two "---" delimiter lines.
+	if c := strings.Count(outStr, "---"); c != 2 {
+		t.Errorf("want exactly 2 --- delimiters (single block), got %d; out: %q", c, outStr)
+	}
+	if !strings.Contains(outStr, "project: arc") {
+		t.Errorf("arc keys not merged; got: %q", outStr)
+	}
+	if !strings.Contains(outStr, "# Body") {
+		t.Errorf("body lost; got: %q", outStr)
+	}
+}
+
+// TestEnsureFrontmatterUnionsNonStringTags verifies that non-string list items
+// (e.g. bare YAML numbers) are coerced and unioned rather than dropped (F4).
+func TestEnsureFrontmatterUnionsNonStringTags(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "spec.md")
+	seed := "---\ntags: [2024, release]\n---\n# Body\n"
+	if err := os.WriteFile(p, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Tags: []string{"arc"}}
+	if err := plans.EnsureFrontmatter(p, meta); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(p)
+	fm, _, ok, err := plans.ReadFrontmatter(out)
+	if err != nil || !ok {
+		t.Fatalf("re-read frontmatter: ok=%v err=%v", ok, err)
+	}
+	want := map[string]bool{"2024": false, "release": false, "arc": false}
+	for _, tag := range fm.Tags {
+		if _, tracked := want[tag]; tracked {
+			want[tag] = true
+		}
+	}
+	for tag, seen := range want {
+		if !seen {
+			t.Errorf("tag %q missing from union; got tags: %v", tag, fm.Tags)
+		}
 	}
 }

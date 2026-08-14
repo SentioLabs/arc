@@ -105,6 +105,11 @@ func (s *Server) registerRoutes() {
 	v1.DELETE("/projects/:id", s.deleteProject)
 	v1.GET("/projects/:id/stats", s.getProjectStats)
 
+	// Per-project config (generic key/value settings)
+	v1.GET("/projects/:id/config", s.getProjectConfig)
+	v1.PUT("/projects/:id/config", s.putProjectConfig)
+	v1.DELETE("/projects/:id/config/:key", s.deleteProjectConfig)
+
 	// Filesystem browser
 	v1.GET("/filesystem/browse", s.browseFilesystem)
 
