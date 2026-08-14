@@ -1,4 +1,4 @@
-// Package config — docs-destination constants and resolution.
+// docs-destination constants and resolution.
 package config
 
 import "fmt"

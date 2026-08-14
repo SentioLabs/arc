@@ -118,6 +118,42 @@ func TestProjectConfigUnknownProject(t *testing.T) {
 	}
 }
 
+func TestPutProjectConfigDocsValidation(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projectID := createTestProject(t, e)
+
+	// docs.type must be a known enum value.
+	code := putProjectConfigKey(t, e, projectID, `{"key":"docs.type","value":"notion"}`)
+	if code != http.StatusBadRequest {
+		t.Errorf("PUT docs.type=notion returned %d, want 400", code)
+	}
+	// docs.path must not contain traversal.
+	code = putProjectConfigKey(t, e, projectID, `{"key":"docs.path","value":"../etc"}`)
+	if code != http.StatusBadRequest {
+		t.Errorf("PUT docs.path=../etc returned %d, want 400", code)
+	}
+
+	// Valid values are still stored.
+	code = putProjectConfigKey(t, e, projectID, `{"key":"docs.path","value":"/abs/ok"}`)
+	if code != http.StatusOK {
+		t.Errorf("PUT docs.path=/abs/ok returned %d, want 200", code)
+	}
+	code = putProjectConfigKey(t, e, projectID, `{"key":"docs.type","value":"obsidian"}`)
+	if code != http.StatusOK {
+		t.Errorf("PUT docs.type=obsidian returned %d, want 200", code)
+	}
+	cfg := getProjectConfigMap(t, e, projectID)
+	if cfg["docs.path"] != "/abs/ok" {
+		t.Errorf("docs.path = %q, want %q", cfg["docs.path"], "/abs/ok")
+	}
+	if cfg["docs.type"] != "obsidian" {
+		t.Errorf("docs.type = %q, want %q", cfg["docs.type"], "obsidian")
+	}
+}
+
 func TestPutProjectConfigRejectsEmptyKey(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()

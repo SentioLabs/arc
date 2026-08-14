@@ -105,7 +105,7 @@ func resolveDocsForProject(projID, projName, prefix string) (path, dtype, source
 		rows, _ = c.GetProjectConfig(projID)
 	}
 	cwd, _ := os.Getwd()
-	vars := map[string]string{"project": cfgpkg.SanitizeSlug(projName), "prefix": prefix}
+	vars := map[string]string{"project": cfgpkg.SanitizeSlug(projName), "prefix": cfgpkg.SanitizeSlug(prefix)}
 	return cfgpkg.ResolveDocs(rows, cfg, vars, cwd)
 }
 
