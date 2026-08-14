@@ -346,10 +346,18 @@ This helps debug project resolution issues by showing:
 		systems := vcs.Detect(cwd)
 
 		// Docs resolution is non-fatal: a failure leaves which's other
-		// output intact, just without docs_path/docs_type/docs_source.
+		// output intact, just without docs_path/docs_type/docs_source. Record
+		// the reason in warning so a misconfigured new CLI is distinguishable
+		// from an old CLI that never emitted these fields.
 		docsPath, docsType, docsSource, docsErr := resolveDocsForProject(wsID, wsName, wsPrefix)
 		if docsErr != nil {
 			docsPath, docsType, docsSource = "", "", ""
+			note := fmt.Sprintf("docs resolution failed: %v", docsErr)
+			if warning == "" {
+				warning = note
+			} else {
+				warning += "\n" + note
+			}
 		}
 
 		if outputJSON {
