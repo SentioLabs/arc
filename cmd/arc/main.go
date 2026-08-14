@@ -309,6 +309,9 @@ type whichResult struct {
 	ProjectName string   `json:"project_name,omitempty"`
 	Source      string   `json:"source"`
 	VCS         []string `json:"vcs"` // always present; [] when none
+	DocsPath    string   `json:"docs_path,omitempty"`
+	DocsType    string   `json:"docs_type,omitempty"`
+	DocsSource  string   `json:"docs_source,omitempty"`
 	Warning     string   `json:"warning,omitempty"`
 }
 
@@ -331,15 +334,23 @@ This helps debug project resolution issues by showing:
 
 		// Try to get project details
 		c, clientErr := getClient()
-		var wsName string
+		var wsName, wsPrefix string
 		if clientErr == nil {
 			if proj, wsErr := c.GetProject(wsID); wsErr == nil {
 				wsName = proj.Name
+				wsPrefix = proj.Prefix
 			}
 		}
 
 		cwd, _ := os.Getwd()
 		systems := vcs.Detect(cwd)
+
+		// Docs resolution is non-fatal: a failure leaves which's other
+		// output intact, just without docs_path/docs_type/docs_source.
+		docsPath, docsType, docsSource, docsErr := resolveDocsForProject(wsID, wsName, wsPrefix)
+		if docsErr != nil {
+			docsPath, docsType, docsSource = "", "", ""
+		}
 
 		if outputJSON {
 			result := whichResult{
@@ -347,6 +358,9 @@ This helps debug project resolution issues by showing:
 				ProjectName: wsName,
 				Source:      source.String(),
 				VCS:         systems,
+				DocsPath:    docsPath,
+				DocsType:    docsType,
+				DocsSource:  docsSource,
 				Warning:     warning,
 			}
 			outputResult(result)
@@ -363,6 +377,10 @@ This helps debug project resolution issues by showing:
 
 		if len(systems) > 0 {
 			fmt.Printf("VCS: %s\n", strings.Join(systems, ", "))
+		}
+
+		if docsPath != "" {
+			fmt.Printf("Docs: %s (%s, from %s)\n", docsPath, docsType, docsSource)
 		}
 
 		if source == ProjectSourceProject {

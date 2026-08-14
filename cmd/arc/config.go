@@ -28,6 +28,7 @@ const (
 	cliServerKey      = "cli.server"
 	updatesChannelKey = "updates.channel"
 	plansDirKey       = "plans.dir"
+	plansTypeKey      = "plans.type"
 	serverPortKey     = "server.port"
 	serverDBPathKey   = "server.db_path"
 )
@@ -50,6 +51,7 @@ var legacyAliases = map[string]string{
 var recognizedKeys = []string{
 	cliServerKey,
 	plansDirKey,
+	plansTypeKey,
 	serverPortKey,
 	serverDBPathKey,
 	updatesChannelKey,
@@ -160,6 +162,10 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("[updates]")
 	printRow(updatesChannelKey, cfg.Updates.Channel)
+	fmt.Println()
+	fmt.Println("[plans]")
+	printRow(plansDirKey, cfg.Plans.Dir)
+	printRow(plansTypeKey, cfg.Plans.Type)
 	fmt.Println()
 	fmt.Printf("Config: %s\n", p)
 	return nil
@@ -377,6 +383,8 @@ func getKey(cfg *cfgpkg.Config, key string) string {
 		return cfg.CLI.Server
 	case plansDirKey:
 		return cfg.Plans.Dir
+	case plansTypeKey:
+		return cfg.Plans.Type
 	case serverPortKey:
 		return strconv.Itoa(cfg.Server.Port)
 	case serverDBPathKey:
@@ -395,6 +403,8 @@ func setKey(cfg *cfgpkg.Config, key, value string) error {
 		cfg.CLI.Server = value
 	case plansDirKey:
 		cfg.Plans.Dir = value
+	case plansTypeKey:
+		cfg.Plans.Type = value
 	case serverPortKey:
 		n, err := strconv.Atoi(value)
 		if err != nil {
