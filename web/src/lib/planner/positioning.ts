@@ -33,6 +33,21 @@ export function clampedAnchorLeft(
 }
 
 /**
+ * Whether two measured `{commentId: top}` maps describe the same layout.
+ *
+ * Measurement is driven by a ResizeObserver, so it runs on every layout change
+ * in the document column or the rail — and most of those move no highlight at
+ * all. Storing an equal-but-freshly-allocated map would still invalidate the
+ * rail's derived state and re-render every card, so the measuring code compares
+ * first and only writes on a real change.
+ */
+export function railTopsEqual(a: Record<string, number>, b: Record<string, number>): boolean {
+	const keys = Object.keys(a);
+	if (keys.length !== Object.keys(b).length) return false;
+	return keys.every((k) => Object.hasOwn(b, k) && a[k] === b[k]);
+}
+
+/**
  * Compute margin-card vertical positions (Google-Docs style).
  *
  * Baseline pass: each card wants its anchor's top; a forward sweep pushes

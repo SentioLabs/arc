@@ -16,7 +16,9 @@
 	import CommentPopover from '$lib/planner/CommentPopover.svelte';
 	import CommentRail, { type RailEntry } from '$lib/planner/CommentRail.svelte';
 	import { resolveAnchor } from '$lib/planner/anchor';
+	import { railTopsEqual } from '$lib/planner/positioning';
 	import type {
+		AnchorResolution,
 		InlineMark,
 		PlanComment,
 		PlanCommentAnchor,
@@ -46,6 +48,7 @@
 	let reanchoringId = $state<string | null>(null); // comment awaiting a new selection
 	let anchorTops = $state<Record<string, number>>({});
 	let docWrap = $state<HTMLElement | undefined>(); // wraps PlanRenderer; position: relative
+	let railWrap = $state<HTMLElement | undefined>(); // right-hand column: composer + rail
 	let overallFeedback = $state('');
 	let pendingOrphanBefore = $state<number | null>(null);
 	let statusBusy = $state(false);
@@ -78,19 +81,29 @@
 		})
 	);
 
+	// An anchor cannot be judged until PlanRenderer has published a block index:
+	// `resolveAnchor` against an empty document reports every anchor as orphaned.
+	// A genuinely empty plan is the one case where that verdict is already true,
+	// so it is the plan's own content — not the block count alone — that tells us
+	// whether parsing is still outstanding.
+	const docParsed = $derived(blocks.length > 0 || !(plan?.content ?? '').trim());
+
 	const railEntries = $derived.by<RailEntry[]>(() => {
-		const entries = comments.map((c) => {
+		const entries: RailEntry[] = [];
+		for (const c of comments) {
+			// Hold anchored comments out of the rail until the document has been
+			// parsed, instead of letting them render as orphaned and then jump
+			// sections a tick later. The wait is bounded by the first render.
+			if (c.anchor && !docParsed) continue;
 			const r = c.anchor ? resolutions.get(c.id) : undefined;
 			const orphaned = r?.status === 'orphaned';
-			return {
+			entries.push({
 				comment: c,
 				drifted: r?.status === 'drifted',
 				orphaned,
-				anchorTop: orphaned
-					? null
-					: (anchorTops[c.id] ?? (c.anchor || c.line_number != null ? legacyTop(c) : null))
-			};
-		});
+				anchorTop: orphaned ? null : (anchorTops[c.id] ?? unmeasuredTop(c, r))
+			});
+		}
 		// pinned (anchorTop null) first by created_at, then positioned by anchorTop
 		return entries.sort((a, b) => {
 			if ((a.anchorTop === null) !== (b.anchorTop === null)) return a.anchorTop === null ? -1 : 1;
@@ -106,18 +119,47 @@
 	});
 
 	$effect(() => {
-		// Marks are applied by PlanRenderer one microtask after they change, so
-		// measuring on the next animation frame guarantees the new <mark>
-		// elements are in the DOM and laid out before we read their rects.
-		void marks;
-		void tick().then(() => requestAnimationFrame(measureAnchorTops));
-	});
+		// Marks are not the only thing that moves a highlight, and a mark change
+		// is not the only thing that invalidates a measurement:
+		//   - the document column reflows on its own (web fonts swapping in,
+		//     shiki replacing a plain <pre> with a highlighted one, images),
+		//   - the rail stack ABOVE `.rail-positioned` — the composer, the header,
+		//     the pinned cards — grows and shrinks, moving the origin every card
+		//     top is measured against (see `railOriginOffset`).
+		// Neither fires `resize` and neither changes `marks`, so a one-shot pass
+		// keyed on marks alone leaves stale tops until the window is resized.
+		// Observing both columns makes the measurement self-healing instead.
+		//
+		// This cannot feed back on itself. Everything a pass writes ends up on
+		// `.rail-slot`'s `top`, and those slots are absolutely positioned, so they
+		// contribute nothing to the size of either observed element. (Below
+		// 1100px they are `position: static` and ignore `top` outright.) A
+		// measurement therefore can never resize what triggered it.
+		if (!docWrap || !railWrap) return;
+		const ro = new ResizeObserver(scheduleMeasure);
+		ro.observe(docWrap);
+		ro.observe(railWrap);
+		window.addEventListener('resize', scheduleMeasure);
 
-	$effect(() => {
-		// A viewport resize reflows the document column, moving every highlight.
-		const onResize = () => measureAnchorTops();
-		window.addEventListener('resize', onResize);
-		return () => window.removeEventListener('resize', onResize);
+		// The one reflow an observer structurally CANNOT see. app.css pulls
+		// Newsreader and Instrument Sans from Google Fonts with `display=swap`, so
+		// the document first paints in the fallback face and re-flows when the real
+		// one arrives — after the marks were measured. That reflow re-cuts every
+		// line box and moves every highlight while the column's measured height
+		// rounds to the same value, so no element resizes and neither the observer
+		// nor `resize` fires. `loadingdone` is the signal for it; `fonts.ready`
+		// covers the case where the faces were already cached and no event fires.
+		const onFontsSettled = () => scheduleMeasure();
+		document.fonts.addEventListener('loadingdone', onFontsSettled);
+		void document.fonts.ready.then(onFontsSettled);
+
+		return () => {
+			ro.disconnect();
+			window.removeEventListener('resize', scheduleMeasure);
+			document.fonts.removeEventListener('loadingdone', onFontsSettled);
+			if (measureFrame !== null) cancelAnimationFrame(measureFrame);
+			measureFrame = null;
+		};
 	});
 
 	async function loadData() {
@@ -150,6 +192,29 @@
 		return railPositioned ? railPositioned.getBoundingClientRect().top - docTop : 0;
 	}
 
+	let measureFrame: number | null = null;
+
+	// The observers can fire several times for one layout change (doc column and
+	// rail settle independently, a card grows, fonts swap). Collapse the burst
+	// into a single pass per frame so we neither thrash layout nor re-render the
+	// rail more than once for the same settle.
+	function scheduleMeasure() {
+		if (measureFrame !== null) return;
+		measureFrame = requestAnimationFrame(() => {
+			measureFrame = null;
+			measureAnchorTops();
+		});
+	}
+
+	/**
+	 * Read every highlight's position. Safe to call on any layout change: one
+	 * forced layout plus a walk of the marks, and it writes nothing when the
+	 * layout hasn't actually moved.
+	 *
+	 * PlanRenderer's `onMarksApplied` calls this synchronously — that callback is
+	 * the only moment the current marks are guaranteed to be in the DOM, which is
+	 * why the measurement hangs off it rather than off a frame delay.
+	 */
 	function measureAnchorTops() {
 		if (!docWrap) return;
 		const base = docWrap.getBoundingClientRect().top;
@@ -159,16 +224,32 @@
 			const id = m.dataset.annoId!;
 			if (!(id in tops)) tops[id] = Math.max(0, m.getBoundingClientRect().top - base - offset);
 		}
-		anchorTops = tops;
+		if (!railTopsEqual(anchorTops, tops)) anchorTops = tops;
 	}
 
-	// Legacy line_number-only comments: position at the nearest tagged block.
-	function legacyTop(c: PlanComment): number | null {
-		if (!docWrap || c.line_number == null) return null;
-		const tagged = Array.from(docWrap.querySelectorAll<HTMLElement>('[data-source-line]'));
+	/**
+	 * Where a card sits when its own highlight has not been measured: at the top
+	 * of the block its anchor resolved into. The <mark> lives inside that block,
+	 * so this lands within a line of the final value.
+	 *
+	 * That it is a NUMBER matters more than its precision. `null` routes a card
+	 * into the rail's PINNED section, so an anchored comment would mount there
+	 * and be re-mounted into the positioned section one measurement later — and
+	 * that unmount/mount is the DOM churn measurement used to race against.
+	 * Legacy line_number-only comments (no anchor, so never a mark) reach the
+	 * same path and stay on it.
+	 */
+	function unmeasuredTop(c: PlanComment, r: AnchorResolution | undefined): number | null {
+		const line = r ? r.lineStart : c.line_number;
+		return line == null ? null : blockTop(line);
+	}
+
+	/** Top of the last tagged block starting at or before `line`, doc-relative. */
+	function blockTop(line: number): number | null {
+		if (!docWrap) return null;
 		let el: HTMLElement | null = null;
-		for (const b of tagged) {
-			if (Number(b.dataset.sourceLine) <= c.line_number) el = b;
+		for (const b of docWrap.querySelectorAll<HTMLElement>('[data-source-line]')) {
+			if (Number(b.dataset.sourceLine) <= line) el = b;
 			else break;
 		}
 		if (!el) return null;
@@ -493,11 +574,12 @@
 							scrollCardIntoView(id);
 						}}
 						onBlocks={handleBlocks}
+						onMarksApplied={measureAnchorTops}
 					/>
 				</div>
 
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div onpointerover={handleRailHover}>
+				<div bind:this={railWrap} onpointerover={handleRailHover}>
 					<div class="mb-6 space-y-2">
 						<label
 							for="overall-feedback"

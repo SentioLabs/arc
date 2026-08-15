@@ -11,7 +11,8 @@
 		activeMarkId,
 		onSelection,
 		onMarkClick,
-		onBlocks
+		onBlocks,
+		onMarksApplied
 	}: {
 		markdown: string;
 		marks?: InlineMark[];
@@ -19,6 +20,8 @@
 		onSelection?: (sel: SelectionPayload | null) => void;
 		onMarkClick?: (id: string) => void;
 		onBlocks?: (blocks: RenderedBlock[]) => void;
+		/** Fired once the current `marks` are wrapped in the DOM — see the marks effect. */
+		onMarksApplied?: () => void;
 	} = $props();
 
 	let container: HTMLElement | undefined = $state();
@@ -162,7 +165,14 @@
 		void activeMarkId;
 		if (!container) return;
 		void tick().then(() => {
-			if (container) applyInlineAnnotations(container, marks, activeMarkId);
+			if (!container) return;
+			applyInlineAnnotations(container, marks, activeMarkId);
+			// The <mark> elements exist as of this line and nowhere earlier —
+			// the marks are re-created from scratch on every apply, and the
+			// apply itself is a microtask behind the prop change. Anything that
+			// needs to measure them (the review page's rail) hangs off this
+			// callback rather than guessing at a frame delay.
+			onMarksApplied?.();
 		});
 	});
 

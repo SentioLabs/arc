@@ -85,6 +85,13 @@ describe('PlanRenderer component', () => {
 		expect(componentSource).toMatch(/onBlocks/);
 		expect(componentSource).toMatch(/onBlocks\?:\s*\(blocks: RenderedBlock\[\]\) => void/);
 		expect(componentSource).toMatch(/onSelection\?:\s*\(sel: SelectionPayload \| null\) => void/);
+		expect(componentSource).toMatch(/onMarksApplied\?:\s*\(\) => void/);
+	});
+
+	test('signals onMarksApplied after the marks are wrapped, not before', () => {
+		expect(componentSource).toMatch(
+			/applyInlineAnnotations\(container, marks, activeMarkId\);\s*(\/\/[^\n]*\n\s*)*onMarksApplied\?\.\(\);/
+		);
 	});
 
 	test('imports the shared planner modules without .ts extensions', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { clampedAnchorLeft, computeCardTops } from './positioning';
+import { clampedAnchorLeft, computeCardTops, railTopsEqual } from './positioning';
 
 describe('clampedAnchorLeft', () => {
 	it('returns the raw center when the overlay fits without clipping', () => {
@@ -100,5 +100,37 @@ describe('computeCardTops', () => {
 	});
 	it('empty input returns empty output', () => {
 		expect(computeCardTops([], null)).toEqual([]);
+	});
+});
+
+describe('railTopsEqual', () => {
+	it('treats a re-measured but unmoved layout as equal', () => {
+		expect(railTopsEqual({ a: 12, b: 340.5 }, { a: 12, b: 340.5 })).toBe(true);
+	});
+
+	it('two empty maps are equal', () => {
+		expect(railTopsEqual({}, {})).toBe(true);
+	});
+
+	it('detects a moved highlight', () => {
+		expect(railTopsEqual({ a: 12 }, { a: 13 })).toBe(false);
+	});
+
+	it('detects an added highlight', () => {
+		expect(railTopsEqual({ a: 12 }, { a: 12, b: 40 })).toBe(false);
+	});
+
+	it('detects a removed highlight', () => {
+		expect(railTopsEqual({ a: 12, b: 40 }, { a: 12 })).toBe(false);
+	});
+
+	it('detects a renamed key even when the count and values match', () => {
+		expect(railTopsEqual({ a: 12 }, { b: 12 })).toBe(false);
+	});
+
+	it('does not mistake an inherited property for a measured one', () => {
+		// `{}.toString` exists on the prototype chain; a naive `k in b` check
+		// would call a map missing "toString" equal to one that has it.
+		expect(railTopsEqual({ toString: 1 }, {})).toBe(false);
 	});
 });
