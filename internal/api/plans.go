@@ -41,8 +41,38 @@ type updatePlanStatusRequest struct {
 // createPlanCommentRequest is the body for POST /plans/:planId/comments.
 // LineNumber is nil for overall feedback, or a specific line for anchored comments.
 type createPlanCommentRequest struct {
-	LineNumber *int   `json:"line_number,omitempty"`
-	Content    string `json:"content" validate:"required"`
+	LineNumber *int                     `json:"line_number,omitempty"`
+	Content    string                   `json:"content" validate:"required"`
+	Anchor     *types.PlanCommentAnchor `json:"anchor,omitempty"`
+}
+
+// updatePlanCommentRequest is the body for PATCH /plans/:planId/comments/:commentId.
+// Pointer fields distinguish "omitted" (nil = unchanged) from provided values.
+// Anchor semantics: omitted/null = unchanged; object = full replace.
+type updatePlanCommentRequest struct {
+	Content  *string                  `json:"content,omitempty"`
+	Anchor   *types.PlanCommentAnchor `json:"anchor,omitempty"`
+	Resolved *bool                    `json:"resolved,omitempty"`
+}
+
+// validateAnchor checks anchor invariants; a nil anchor is valid.
+func validateAnchor(a *types.PlanCommentAnchor) error {
+	if a == nil {
+		return nil
+	}
+	if a.LineStart < 1 {
+		return errors.New("anchor.line_start must be >= 1")
+	}
+	if a.LineEnd < a.LineStart {
+		return errors.New("anchor.line_end must be >= anchor.line_start")
+	}
+	if strings.TrimSpace(a.QuotedText) == "" {
+		return errors.New("anchor.quoted_text must not be empty")
+	}
+	if a.Occurrence < 0 {
+		return errors.New("anchor.occurrence must be >= 0")
+	}
+	return nil
 }
 
 // --- Plan Handlers ---
@@ -157,10 +187,12 @@ func (s *Server) updatePlanStatus(c echo.Context) error {
 
 	// Validate status
 	switch req.Status {
-	case types.PlanStatusDraft, types.PlanStatusInReview, types.PlanStatusApproved, types.PlanStatusRejected:
+	case types.PlanStatusDraft, types.PlanStatusInReview, types.PlanStatusApproved,
+		types.PlanStatusRejected, types.PlanStatusChangesRequested:
 		// valid
 	default:
-		return errorJSON(c, http.StatusBadRequest, "status must be one of: draft, in_review, approved, rejected")
+		return errorJSON(c, http.StatusBadRequest,
+			"status must be one of: draft, in_review, approved, rejected, changes_requested")
 	}
 
 	if err := s.store.UpdatePlanStatus(ctx, planID, req.Status); err != nil {
@@ -223,11 +255,22 @@ func (s *Server) createPlanComment(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "content is required")
 	}
 
+	if err := validateAnchor(req.Anchor); err != nil {
+		return errorJSON(c, http.StatusBadRequest, err.Error())
+	}
+
+	lineNumber := req.LineNumber
+	if req.Anchor != nil {
+		ls := req.Anchor.LineStart
+		lineNumber = &ls // mirror anchor.line_start into line_number for CLI compat
+	}
+
 	comment := &types.PlanComment{
 		ID:         "pc." + project.GeneratePlanID("comment"),
 		PlanID:     planID,
-		LineNumber: req.LineNumber,
+		LineNumber: lineNumber,
 		Content:    req.Content,
+		Anchor:     req.Anchor,
 		CreatedAt:  time.Now(),
 	}
 
@@ -236,6 +279,80 @@ func (s *Server) createPlanComment(c echo.Context) error {
 	}
 
 	return createdJSON(c, comment)
+}
+
+// updatePlanComment applies a partial update to a plan review comment.
+func (s *Server) updatePlanComment(c echo.Context) error {
+	planID := c.Param("planId")
+	commentID := c.Param("commentId")
+	ctx := c.Request().Context()
+
+	// Verify plan exists.
+	if _, err := s.store.GetPlan(ctx, planID); err != nil {
+		return errorJSON(c, http.StatusNotFound, err.Error())
+	}
+
+	// Read-merge-write: fetch the full comment so a partial PATCH can't wipe
+	// fields it doesn't mention (e.g. anchor, resolved_at).
+	comment, err := s.store.GetPlanComment(ctx, commentID)
+	if err != nil || comment.PlanID != planID {
+		return errorJSON(c, http.StatusNotFound, "comment not found")
+	}
+
+	var req updatePlanCommentRequest
+	if err := c.Bind(&req); err != nil {
+		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	}
+
+	// Content: omitted = unchanged; empty string is rejected as invalid.
+	if req.Content != nil {
+		if strings.TrimSpace(*req.Content) == "" {
+			return errorJSON(c, http.StatusBadRequest, "content must not be empty")
+		}
+		comment.Content = *req.Content
+	}
+	// Anchor: omitted/null = unchanged; object = full replace + re-mirror line_number.
+	if req.Anchor != nil {
+		if err := validateAnchor(req.Anchor); err != nil {
+			return errorJSON(c, http.StatusBadRequest, err.Error())
+		}
+		comment.Anchor = req.Anchor
+		ls := req.Anchor.LineStart
+		comment.LineNumber = &ls
+	}
+	// Resolved: true sets resolved_at, false clears it.
+	if req.Resolved != nil {
+		if *req.Resolved {
+			now := time.Now()
+			comment.ResolvedAt = &now
+		} else {
+			comment.ResolvedAt = nil
+		}
+	}
+	now := time.Now()
+	comment.UpdatedAt = &now
+
+	if err := s.store.UpdatePlanComment(ctx, comment); err != nil {
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+	return successJSON(c, comment)
+}
+
+// deletePlanComment removes a plan review comment.
+func (s *Server) deletePlanComment(c echo.Context) error {
+	planID := c.Param("planId")
+	commentID := c.Param("commentId")
+	ctx := c.Request().Context()
+
+	comment, err := s.store.GetPlanComment(ctx, commentID)
+	if err != nil || comment.PlanID != planID {
+		return errorJSON(c, http.StatusNotFound, "comment not found")
+	}
+
+	if err := s.store.DeletePlanComment(ctx, commentID); err != nil {
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 // validateFilePath checks that a file path is within the current working directory.
