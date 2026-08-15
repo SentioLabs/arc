@@ -138,13 +138,26 @@
 		}
 	}
 
+	// `.rail-slot` cards are positioned (via `top: Npx`) relative to
+	// `.rail-positioned`'s own top edge, which sits below the overall-feedback
+	// composer, rail header, and any pinned cards in the right-hand column.
+	// `anchorTop` is measured relative to the doc wrapper's top, so every card
+	// renders offset by that stack's height unless we reconcile the two
+	// coordinate origins here. Clamped at 0 so an anchor above the fold (were
+	// the stack ever taller than the anchor itself) doesn't go negative.
+	function railOriginOffset(docTop: number): number {
+		const railPositioned = document.querySelector<HTMLElement>('.rail-positioned');
+		return railPositioned ? railPositioned.getBoundingClientRect().top - docTop : 0;
+	}
+
 	function measureAnchorTops() {
 		if (!docWrap) return;
 		const base = docWrap.getBoundingClientRect().top;
+		const offset = railOriginOffset(base);
 		const tops: Record<string, number> = {};
 		for (const m of docWrap.querySelectorAll<HTMLElement>('mark[data-anno-id]')) {
 			const id = m.dataset.annoId!;
-			if (!(id in tops)) tops[id] = m.getBoundingClientRect().top - base;
+			if (!(id in tops)) tops[id] = Math.max(0, m.getBoundingClientRect().top - base - offset);
 		}
 		anchorTops = tops;
 	}
@@ -159,7 +172,8 @@
 			else break;
 		}
 		if (!el) return null;
-		return el.getBoundingClientRect().top - docWrap.getBoundingClientRect().top;
+		const base = docWrap.getBoundingClientRect().top;
+		return Math.max(0, el.getBoundingClientRect().top - base - railOriginOffset(base));
 	}
 
 	async function handleBlocks(b: RenderedBlock[]) {
