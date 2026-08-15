@@ -1,0 +1,20 @@
+# Live-reload configuration for `task dev`.
+# Builds the single entry point (./cmd/arc) and runs the server in the foreground.
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/arc ./cmd/arc"
+  full_bin = "./tmp/arc server start --foreground"
+  include_ext = ["go", "tmpl", "html"]
+  exclude_dir = ["bin", "dist", "tmp", "web/build", "web/.svelte-kit", "web/node_modules"]
+  exclude_regex = ["_test\\.go"]
+  delay = 1000
+  stop_on_error = true
+
+[log]
+  time = true
+
+[misc]
+  clean_on_exit = true
