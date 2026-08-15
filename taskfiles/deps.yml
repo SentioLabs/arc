@@ -1,3 +1,18 @@
 version: '3'
 
-tasks: {}
+tasks:
+  default:
+    desc: Download Go module dependencies
+    cmds:
+      - '{{.GO}} mod download'
+
+  tidy:
+    desc: Tidy the Go module files
+    cmds:
+      - '{{.GO}} mod tidy'
+
+  update:
+    desc: Update all Go dependencies and tidy
+    cmds:
+      - '{{.GO}} get -u ./...'
+      - '{{.GO}} mod tidy'
