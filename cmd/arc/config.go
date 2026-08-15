@@ -33,9 +33,6 @@ const (
 	serverDBPathKey   = "server.db_path"
 )
 
-// projectVar is the template variable name for a project's slug in plans.dir.
-const projectVar = "project"
-
 // cmdEdit is the cobra Use string for the "config edit" sub-command.
 const cmdEdit = "edit"
 
@@ -124,7 +121,7 @@ func init() {
 	configCmd.AddCommand(configListCmd, configGetCmd, configSetCmd, configUnsetCmd, configPathCmd, configEditCmd)
 	rootCmd.AddCommand(configCmd)
 	configGetCmd.Flags().BoolVar(&resolvedFlag, "resolved", false,
-		"resolve {vars} and ~ to an absolute path (plans.dir only)")
+		"resolve the effective plans dir (including any per-project override) to an absolute path (plans.dir only)")
 }
 
 // runConfigList prints all settings grouped by TOML section.
@@ -185,7 +182,7 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 		return errors.New("--resolved is only supported for plans.dir")
 	}
 	if resolvedFlag && key == plansDirKey {
-		return runConfigGetResolved(cfg)
+		return runConfigGetResolved()
 	}
 	value := getKey(cfg, key)
 	if outputJSON {
@@ -196,10 +193,12 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// runConfigGetResolved expands plans.dir against the active project's
-// template variables and current working directory, then prints the resulting
-// absolute path. It hard-errors when no project can be resolved.
-func runConfigGetResolved(cfg *cfgpkg.Config) error {
+// runConfigGetResolved resolves the effective plans directory for the active
+// project — including any per-project override — via the same resolver used
+// by "arc which" and "arc project plans get" (resolvePlansForProject), then
+// prints the resulting absolute path. It hard-errors when no project can be
+// resolved.
+func runConfigGetResolved() error {
 	c, err := getClient()
 	if err != nil {
 		return err
@@ -212,14 +211,7 @@ func runConfigGetResolved(cfg *cfgpkg.Config) error {
 	if err != nil {
 		return err
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("get current directory: %w", err)
-	}
-	dir, err := cfgpkg.ExpandPlansDir(cfg.Plans.Dir, map[string]string{
-		projectVar: cfgpkg.SanitizeSlug(proj.Name),
-		"prefix":   proj.Prefix,
-	}, cwd)
+	dir, _, _, err := resolvePlansForProject(wsID, proj.Name, proj.Prefix)
 	if err != nil {
 		return err
 	}
