@@ -177,7 +177,10 @@ func nullTime(t *time.Time) sql.NullTime {
 }
 
 // planCommentAnchorParams maps the anchor fields of a PlanComment to sqlc nullable params.
-func planCommentAnchorParams(a *types.PlanCommentAnchor) (lineStart, lineEnd, occurrence sql.NullInt64, quoted, slug, before, after sql.NullString) {
+func planCommentAnchorParams(a *types.PlanCommentAnchor) (
+	lineStart, lineEnd, occurrence sql.NullInt64,
+	quoted, slug, before, after sql.NullString,
+) {
 	if a == nil {
 		return
 	}

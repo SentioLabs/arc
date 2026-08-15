@@ -451,7 +451,8 @@ func TestPlanWaitAbortsAfterConsecutiveErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
-	if want := fmt.Sprintf("aborted after %d consecutive errors", planWaitMaxConsecutiveErrors); !strings.Contains(err.Error(), want) {
+	want := fmt.Sprintf("aborted after %d consecutive errors", planWaitMaxConsecutiveErrors)
+	if !strings.Contains(err.Error(), want) {
 		t.Errorf("expected error to contain %q, got %q", want, err.Error())
 	}
 	if getPlanCalls != planWaitMaxConsecutiveErrors {
