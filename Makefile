@@ -1,288 +1,36 @@
-# Arc Issue Tracker - Makefile
+# Arc Issue Tracker — Makefile
 # ============================================================================
-# Self-documenting Makefile for development tasks
-# Run `make` or `make help` to see available targets
+# THIN WRAPPER — all targets live in Taskfile.yml. Nothing is declared here.
+# `make <target> ...` forwards verbatim to `task <target> ...`.
+# Run `task --list` (or plain `make`) to see available tasks.
+#
+# Do not add targets to this file. Add tasks to Taskfile.yml or taskfiles/*.yml.
 # ============================================================================
 
-# Default target
-.DEFAULT_GOAL := help
+# Resolve the task binary: PATH first, then mise, else fail with a hint.
+TASK ?=
+ifeq ($(strip $(TASK)),)
+  TASK := $(shell command -v task 2>/dev/null)
+  ifeq ($(strip $(TASK)),)
+    ifneq ($(shell command -v mise 2>/dev/null),)
+      TASK := mise exec -- task
+    endif
+  endif
+endif
+ifeq ($(strip $(TASK)),)
+$(error go-task not found. Run `mise install`, or see https://taskfile.dev/installation/)
+endif
 
-# Binary output
-BIN_DIR := ./bin
-CLI_BIN := $(BIN_DIR)/arc
+.DEFAULT_GOAL := _arc_forward
 
-# Build settings
-GO := go
+_arc_forward: FORCE
+	@$(TASK)
 
-# Build scripts
-BUILD_SCRIPT := ./scripts/build.sh
+# One `task` invocation carrying every goal, so go-task can dedupe shared
+# prerequisites. Only the first goal fires; the rest are satisfied silently.
+%: FORCE
+	@[ "$@" != "$(firstword $(MAKECMDGOALS))" ] || $(TASK) $(MAKECMDGOALS)
 
-# Frontend settings
-WEB_DIR := web
-NODE_PACKAGE_MANAGER := bun
-
-# Docker settings
-DOCKER_IMAGE := arc-server
-DOCKER_TAG := latest
-COMPOSE_FILE := docker-compose.yml
-
-# ===========================================================================
-# Help
-# ===========================================================================
-
-.PHONY: help
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
-
-# ===========================================================================
-# Code Generation
-# ===========================================================================
-
-.PHONY: gen
-gen: gen-api gen-sqlc gen-types ## Run all code generation
-
-.PHONY: gen-api
-gen-api: ## Generate OpenAPI server code (oapi-codegen)
-	@echo "==> Generating OpenAPI server code..."
-	$(GO) generate ./internal/api
-
-.PHONY: gen-sqlc
-gen-sqlc: ## Generate sqlc database code
-	@echo "==> Generating sqlc code..."
-	sqlc generate
-
-.PHONY: gen-types
-gen-types: ## Generate TypeScript types from OpenAPI spec
-	@echo "==> Generating TypeScript types..."
-	cd $(WEB_DIR) && $(NODE_PACKAGE_MANAGER) run generate
-
-# ===========================================================================
-# Frontend
-# ===========================================================================
-
-.PHONY: web-install
-web-install: ## Install frontend dependencies
-	@echo "==> Installing frontend dependencies..."
-	cd $(WEB_DIR) && $(NODE_PACKAGE_MANAGER) install
-
-.PHONY: web-build
-web-build: web-install ## Build frontend for production
-	@echo "==> Building frontend..."
-	cd $(WEB_DIR) && $(NODE_PACKAGE_MANAGER) run build
-
-.PHONY: web-dev
-web-dev: ## Run frontend dev server
-	@echo "==> Starting frontend dev server..."
-	cd $(WEB_DIR) && $(NODE_PACKAGE_MANAGER) run dev
-
-.PHONY: web-check
-web-check: ## Run frontend type checking
-	@echo "==> Checking frontend types..."
-	cd $(WEB_DIR) && $(NODE_PACKAGE_MANAGER) run check
-
-.PHONY: web-clean
-web-clean: ## Clean frontend build artifacts
-	@echo "==> Cleaning frontend build..."
-	rm -rf $(WEB_DIR)/build $(WEB_DIR)/.svelte-kit
-
-# ===========================================================================
-# Build
-# ===========================================================================
-
-.PHONY: build
-build: web-build build-bin ## Build frontend and unified binary
-
-.PHONY: build-bin
-build-bin: ## Build arc binary with embedded web UI (requires frontend built first)
-	$(BUILD_SCRIPT) --webui
-
-.PHONY: build-quick
-build-quick: ## Build CLI-only binary (no embedded web UI)
-	$(BUILD_SCRIPT)
-
-.PHONY: release
-release: ## Build release with goreleaser (requires git tag)
-	goreleaser release --clean
-
-.PHONY: release-snapshot
-release-snapshot: ## Build release snapshot locally (no tag required)
-	goreleaser release --snapshot --clean
-
-.PHONY: install
-install: build ## Install arc binary to ~/.local/bin (restarts server)
-	@echo "==> Stopping arc server..."
-	-$(CLI_BIN) server stop 2>/dev/null
-	@echo "==> Installing arc binary to ~/.local/bin..."
-	@mkdir -p $(HOME)/.local/bin
-	cp $(CLI_BIN) $(HOME)/.local/bin/arc
-	@echo "==> Starting arc server..."
-	$(HOME)/.local/bin/arc server start
-	@echo "==> Installed: $$($(HOME)/.local/bin/arc --version)"
-
-# ===========================================================================
-# Testing & Quality
-# ===========================================================================
-
-.PHONY: test
-test: ## Run all tests
-	@echo "==> Running tests..."
-	$(GO) test -race -cover ./...
-
-.PHONY: test-verbose
-test-verbose: ## Run tests with verbose output
-	@echo "==> Running tests (verbose)..."
-	$(GO) test -race -cover -v ./...
-
-.PHONY: test-coverage
-test-coverage: ## Run tests and generate coverage report
-	@echo "==> Running tests with coverage..."
-	$(GO) test -race -coverprofile=coverage.out ./...
-	$(GO) tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report: coverage.html"
-
-.PHONY: lint
-lint: ## Run golangci-lint, frontend linter, and svelte-check
-	@echo "==> Running Go linter..."
-	golangci-lint run
-	@echo "==> Running frontend linter..."
-	cd web && bun lint
-	@echo "==> Running Svelte type/a11y checks..."
-	cd web && bun run check
-
-.PHONY: lint-fix
-lint-fix: ## Run linter and fix issues
-	@echo "==> Running linter with auto-fix..."
-	golangci-lint run --fix
-
-.PHONY: vet
-vet: ## Run go vet
-	@echo "==> Running go vet..."
-	$(GO) vet ./...
-
-.PHONY: check
-check: lint test web-check ## Run all checks (lint, test, frontend)
-
-.PHONY: ci
-ci: deps test lint ## Run CI pipeline locally (unit tests + lint)
-
-.PHONY: ci-all
-ci-all: ci test-integration test-playwright ## Run full CI pipeline (unit tests + lint + integration + playwright)
-
-# ===========================================================================
-# E2E Testing (requires Docker)
-# ===========================================================================
-
-.PHONY: test-integration
-test-integration: ## Run CLI integration tests (requires Docker)
-	scripts/test-e2e.sh integration
-
-.PHONY: test-playwright
-test-playwright: ## Run Playwright E2E tests (requires Docker)
-	scripts/test-e2e.sh playwright
-
-.PHONY: test-e2e
-test-e2e: ## Run all E2E tests (integration + playwright, requires Docker)
-	scripts/test-e2e.sh all
-
-# ===========================================================================
-# Dependencies
-# ===========================================================================
-
-.PHONY: tidy
-tidy: ## Run go mod tidy
-	@echo "==> Tidying modules..."
-	$(GO) mod tidy
-
-.PHONY: deps
-deps: ## Download dependencies
-	@echo "==> Downloading dependencies..."
-	$(GO) mod download
-
-.PHONY: deps-update
-deps-update: ## Update all dependencies
-	@echo "==> Updating dependencies..."
-	$(GO) get -u ./...
-	$(GO) mod tidy
-
-# ===========================================================================
-# Docker
-# ===========================================================================
-
-.PHONY: docker-build
-docker-build: ## Build Docker image
-	@echo "==> Building Docker image $(DOCKER_IMAGE):$(DOCKER_TAG)..."
-	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
-
-.PHONY: docker-up
-docker-up: ## Start services with docker-compose
-	@echo "==> Starting services..."
-	docker compose -f $(COMPOSE_FILE) up -d
-
-.PHONY: docker-down
-docker-down: ## Stop services with docker-compose
-	@echo "==> Stopping services..."
-	docker compose -f $(COMPOSE_FILE) down
-
-.PHONY: docker-logs
-docker-logs: ## Show docker-compose logs
-	docker compose -f $(COMPOSE_FILE) logs -f
-
-.PHONY: docker-restart
-docker-restart: docker-down docker-up ## Restart docker-compose services
-
-.PHONY: docker-clean
-docker-clean: ## Remove Docker image and volumes
-	@echo "==> Cleaning Docker resources..."
-	docker compose -f $(COMPOSE_FILE) down -v
-	docker rmi $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null || true
-
-# ===========================================================================
-# Development
-# ===========================================================================
-
-.PHONY: run
-run: build ## Build and run the server locally (foreground)
-	@echo "==> Starting server..."
-	$(CLI_BIN) server start --foreground
-
-.PHONY: dev
-dev: ## Run server with live reload (requires air)
-	@echo "==> Starting development server..."
-	@command -v air >/dev/null 2>&1 || { echo "air not found. Install with: go install github.com/air-verse/air@latest"; exit 1; }
-	air
-
-.PHONY: mocks
-mocks: ## Generate mocks (requires mockery)
-	@echo "==> Generating mocks..."
-	mockery
-
-# ===========================================================================
-# Cleanup
-# ===========================================================================
-
-.PHONY: clean
-clean: ## Remove build artifacts
-	@echo "==> Cleaning build artifacts..."
-	rm -rf $(BIN_DIR) dist
-	rm -f coverage.out coverage.html
-	rm -f *.test
-
-.PHONY: clean-all
-clean-all: clean web-clean docker-clean ## Remove all artifacts including frontend and Docker
-
-# ===========================================================================
-# Shortcuts
-# ===========================================================================
-
-.PHONY: all
-all: tidy gen lint test build ## Full build pipeline: tidy, generate, lint, test, build
-
-.PHONY: fmt
-fmt: ## Format Go code
-	@echo "==> Formatting code..."
-	$(GO) fmt ./...
-	gofumpt -l -w .
+FORCE: ;
+Makefile: ;      # stop make from trying to remake this file via the % rule
+.PHONY: FORCE
