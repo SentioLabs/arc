@@ -24,24 +24,28 @@ Human reporting, cross-session planning, and team visibility are served by dedic
 
 ```bash
 # Build everything (frontend + binaries)
-make build
+task build
 
 # Build binaries only (faster, skips frontend)
-make build-quick
+task build:quick
 
 # Run server
-./bin/arc-server
+./bin/arc server start
 
 # Run tests
-make test
+task test
 
 # Generate code (OpenAPI, sqlc, TypeScript types)
-make gen
+task gen
 
 # Docker
-make docker-build
-make docker-up
+task docker:build
+task docker:up
 ```
+
+> Commands run via [go-task](https://taskfile.dev). Run `task --list` to see every
+> available task. `make <target>` still works — the Makefile is a thin wrapper that
+> forwards to `task`.
 
 ## Architecture
 
