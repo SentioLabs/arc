@@ -10,10 +10,16 @@ permissions:
   contents: read
 
 jobs:
-  # Lint runs as its own job rather than a step inside unit-tests. As a step it
-  # gated integration-tests and playwright-e2e (both `needs: unit-tests`), so a
-  # style-only finding skipped every downstream suite and real failures could
-  # sit unnoticed on main behind a red linter.
+  # Lint is the cheap gate (~30s): it runs first and alone, and the three test
+  # suites below all wait on it, so a style-only finding costs one short job
+  # instead of the full matrix. Previously lint was the *last* step of
+  # unit-tests, which meant tests had already run by the time it failed — it
+  # burned the cycles it was meant to save and delayed lint feedback.
+  #
+  # This gate is only safe because `lint` is a required status check on main
+  # (see the repository ruleset). A red lint therefore cannot merge, so it can
+  # never skip the test suites on a main push — which is exactly how a symlink
+  # regression went undetected across three merges before that rule existed.
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +40,7 @@ jobs:
           version: v2.12.2
 
   unit-tests:
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -69,7 +76,7 @@ jobs:
         run: make test
 
   integration-tests:
-    needs: unit-tests
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -79,7 +86,7 @@ jobs:
         run: make test-integration
 
   playwright-e2e:
-    needs: unit-tests
+    needs: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
