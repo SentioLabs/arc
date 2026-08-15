@@ -6,6 +6,8 @@
 //   - plan show: display plan metadata and content
 //   - plan approve: mark a plan as approved
 //   - plan reject: mark a plan as rejected
+//   - plan comments: list review comments for a plan
+//   - plan wait: block until a review decision is made in the web UI
 package main
 
 import (
@@ -19,6 +21,7 @@ import (
 	"time"
 
 	"github.com/sentiolabs/arc/internal/plans"
+	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -70,6 +73,18 @@ Commands:
   reject <plan-id>         Reject a plan`,
 }
 
+// planWaitTimeout is the --timeout flag for planWaitCmd.
+var planWaitTimeout time.Duration
+
+const (
+	// planWaitDefaultTimeout is the default value for planWaitCmd's --timeout flag.
+	planWaitDefaultTimeout = 30 * time.Minute
+	// planWaitPollInterval is how often planWaitCmd polls the plan status.
+	planWaitPollInterval = 2 * time.Second
+	// quotedTextMaxRunes is the max length of a quoted anchor excerpt before truncation.
+	quotedTextMaxRunes = 60
+)
+
 // init registers all plan subcommands under the root planCmd.
 func init() {
 	rootCmd.AddCommand(planCmd)
@@ -79,10 +94,13 @@ func init() {
 	planCmd.AddCommand(planApproveCmd)
 	planCmd.AddCommand(planRejectCmd)
 	planCmd.AddCommand(planCommentsCmd)
+	planCmd.AddCommand(planWaitCmd)
 
 	planCreateCmd.Flags().StringVar(&titleFlag, "title", "", "Override the plan title written to frontmatter")
 	planCreateCmd.Flags().BoolVar(&noFrontmatter, "no-frontmatter", false,
 		"Skip writing frontmatter into the plan file")
+	planWaitCmd.Flags().DurationVar(&planWaitTimeout, "timeout", planWaitDefaultTimeout,
+		"maximum time to wait for a decision")
 }
 
 // planCreateCmd registers a new plan from a file path.
@@ -245,18 +263,99 @@ var planCommentsCmd = &cobra.Command{
 			return nil
 		}
 
-		if len(comments) == 0 {
-			fmt.Println("No comments")
-			return nil
-		}
-
-		for _, comment := range comments {
-			if comment.LineNumber != nil {
-				fmt.Printf("[L%d] %s\n", *comment.LineNumber, comment.Content)
-			} else {
-				fmt.Printf("[overall] %s\n", comment.Content)
-			}
-		}
+		printPlanComments(comments)
 		return nil
+	},
+}
+
+// printPlanComments prints a plan's review comments in the CLI's human-readable
+// format. The legacy `[L<n>] content` and `[overall] content` shapes MUST
+// remain byte-identical for backward compatibility. Anchored comments use the
+// `[L<n>-L<n>] "quote…" content` shape, and resolved comments (of any shape)
+// get a `✓ ` prefix.
+func printPlanComments(comments []*types.PlanComment) {
+	if len(comments) == 0 {
+		fmt.Println("No comments")
+		return
+	}
+
+	for _, comment := range comments {
+		prefix := ""
+		if comment.ResolvedAt != nil {
+			prefix = "✓ "
+		}
+		switch {
+		case comment.Anchor != nil:
+			a := comment.Anchor
+			loc := fmt.Sprintf("L%d", a.LineStart)
+			if a.LineEnd > a.LineStart {
+				loc = fmt.Sprintf("L%d-L%d", a.LineStart, a.LineEnd)
+			}
+			fmt.Printf("%s[%s] %q %s\n", prefix, loc, truncateQuote(a.QuotedText, quotedTextMaxRunes), comment.Content)
+		case comment.LineNumber != nil:
+			fmt.Printf("%s[L%d] %s\n", prefix, *comment.LineNumber, comment.Content)
+		default:
+			fmt.Printf("%s[overall] %s\n", prefix, comment.Content)
+		}
+	}
+}
+
+// truncateQuote collapses whitespace/newlines and truncates to maxRunes with an ellipsis.
+func truncateQuote(s string, maxRunes int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	return string(r[:maxRunes]) + "…"
+}
+
+// planWaitResult is the --json shape returned by planWaitCmd once a decision is made.
+type planWaitResult struct {
+	Status   string               `json:"status"`
+	Comments []*types.PlanComment `json:"comments"`
+}
+
+// planWaitCmd blocks until a review decision is made in the planner web UI.
+// It polls the plan status every 2s until it leaves draft/in_review, then
+// prints the decision and the full comment thread (the same formats used by
+// `arc plan comments`). Exits non-zero on timeout so callers can distinguish
+// "no decision yet" from a decision.
+var planWaitCmd = &cobra.Command{
+	Use:   "wait <plan-id>",
+	Short: "Block until the plan is approved/rejected/changes-requested in the web UI",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		c, err := getClient()
+		if err != nil {
+			return err
+		}
+		planID := args[0]
+
+		deadline := time.Now().Add(planWaitTimeout)
+		for {
+			plan, err := c.GetPlan(planID)
+			if err != nil {
+				return err
+			}
+			if plan.Status != types.PlanStatusDraft && plan.Status != types.PlanStatusInReview {
+				comments, err := c.ListPlanComments(planID)
+				if err != nil {
+					return err
+				}
+				if outputJSON {
+					outputResult(planWaitResult{Status: plan.Status, Comments: comments})
+					return nil
+				}
+				fmt.Printf("Decision: %s\n", plan.Status)
+				printPlanComments(comments)
+				return nil
+			}
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timed out after %s waiting for a decision on %s (status: %s)",
+					planWaitTimeout, planID, plan.Status)
+			}
+			time.Sleep(planWaitPollInterval)
+		}
 	},
 }
