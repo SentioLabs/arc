@@ -1,9 +1,11 @@
-// @ts-nocheck
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
-const componentSource = readFileSync(resolve(import.meta.dir, 'FloatingToolbar.svelte'), 'utf-8');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const componentSource = readFileSync(resolve(__dirname, 'FloatingToolbar.svelte'), 'utf-8');
 
 describe('FloatingToolbar component', () => {
 	test('accepts anchorRect, onComment, onDismiss props', () => {
