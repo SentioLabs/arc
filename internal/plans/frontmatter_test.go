@@ -270,6 +270,115 @@ func TestEnsureFrontmatterUnionsScalarTags(t *testing.T) {
 	}
 }
 
+// TestEnsureFrontmatterPreservesBareDate verifies that an unquoted, date-like
+// scalar (e.g. `created: 2026-01-01`) keeps its literal text and is NOT
+// reformatted to RFC3339 (`2026-01-01T00:00:00Z`) by the merge. This is the
+// core benefit of merging at the yaml.Node level: a map[string]any decode
+// resolves such values to time.Time and re-marshals them in RFC3339.
+func TestEnsureFrontmatterPreservesBareDate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	seed := "---\ncreated: 2026-01-01\ndue: 2026-02-15\n---\n# Body\n"
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{
+		Title: "T", Date: "2026-08-14", Project: "p", Status: "in_review",
+		Tags: []string{"arc"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"},
+	}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	if !strings.Contains(got, "created: 2026-01-01") {
+		t.Errorf("bare date 'created: 2026-01-01' not preserved; got:\n%s", got)
+	}
+	if !strings.Contains(got, "due: 2026-02-15") {
+		t.Errorf("bare date 'due: 2026-02-15' not preserved; got:\n%s", got)
+	}
+	if strings.Contains(got, "2026-01-01T00:00:00Z") || strings.Contains(got, "T00:00:00Z") {
+		t.Errorf("bare date was reformatted to RFC3339; got:\n%s", got)
+	}
+}
+
+// TestEnsureFrontmatterPreservesComments verifies that YAML comments in the
+// user's frontmatter survive the merge (a map[string]any decode drops them).
+func TestEnsureFrontmatterPreservesComments(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	seed := "---\n# note: keep me\nauthor: alice\n---\n# Body\n"
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Title: "T", Status: "in_review", Tags: []string{"arc"}}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	if !strings.Contains(got, "# note: keep me") {
+		t.Errorf("comment not preserved; got:\n%s", got)
+	}
+	if !strings.Contains(got, "author: alice") {
+		t.Errorf("user key not preserved; got:\n%s", got)
+	}
+}
+
+// TestEnsureFrontmatterPreservesKeyOrder verifies that user key order is kept
+// as authored, rather than alphabetized (a map[string]any decode iterates in a
+// randomized order and yaml.Marshal of a map sorts keys).
+func TestEnsureFrontmatterPreservesKeyOrder(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	seed := "---\nzz: last\naa: first\n---\n# Body\n"
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Status: "in_review"}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	zzIdx := strings.Index(got, "zz:")
+	aaIdx := strings.Index(got, "aa:")
+	if zzIdx < 0 || aaIdx < 0 {
+		t.Fatalf("keys missing; got:\n%s", got)
+	}
+	if zzIdx > aaIdx {
+		t.Errorf("key order not preserved (zz should precede aa); got:\n%s", got)
+	}
+}
+
+// TestEnsureFrontmatterPreservesAnchors documents and verifies yaml.v3's actual
+// behavior for anchors/aliases: an untouched `a: &x hi` / `b: *x` pair is
+// re-emitted in alias form (`b: *x`) rather than expanded to a second literal
+// `hi`. Merging at the map[string]any level would expand the alias.
+func TestEnsureFrontmatterPreservesAnchors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.md")
+	seed := "---\na: &x hi\nb: *x\n---\n# Body\n"
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	meta := plans.Frontmatter{Status: "in_review"}
+	if err := plans.EnsureFrontmatter(path, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	got := string(raw)
+	// yaml.v3 round-trips the anchor definition and the alias reference in their
+	// original forms: the anchor `&x` and the alias `*x` both survive, so the
+	// value "hi" appears exactly once (on the anchor) rather than being expanded
+	// into two literals.
+	if !strings.Contains(got, "&x") {
+		t.Errorf("anchor definition '&x' not preserved; got:\n%s", got)
+	}
+	if !strings.Contains(got, "*x") {
+		t.Errorf("alias reference '*x' expanded instead of preserved; got:\n%s", got)
+	}
+	if strings.Count(got, "hi") != 1 {
+		t.Errorf("anchor value should appear once (not expanded); got:\n%s", got)
+	}
+}
+
 // TestSetStatusCRLF verifies that SetStatus works correctly on a CRLF-encoded file:
 // it must locate the closing "---" delimiter (which appears as "---\r\n"), rewrite
 // the status line preserving CRLF, and NOT return ErrNoFrontmatter.

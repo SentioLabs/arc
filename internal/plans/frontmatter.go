@@ -4,7 +4,6 @@ package plans
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,24 +115,31 @@ func ReadFrontmatter(b []byte) (fm Frontmatter, body []byte, ok bool, err error)
 // EnsureFrontmatter idempotently merges the arc-owned frontmatter keys into the
 // file's existing frontmatter (creating it if absent), preserving all other
 // keys and unioning tags. Atomic.
+//
+// The merge operates on the parsed *yaml.Node tree rather than a map[string]any,
+// so untouched user keys keep their original scalar text (bare dates such as
+// `created: 2026-01-01` are not reformatted to RFC3339), their comments, their
+// key order, and any anchors/aliases — none of which survive a decode into a
+// Go map.
 func EnsureFrontmatter(path string, meta Frontmatter) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 
-	existing := map[string]any{}
 	body := raw
+	var doc yaml.Node
 	if fm, rest, ok := readRawFrontmatter(raw); ok {
-		if uerr := yaml.Unmarshal(fm, &existing); uerr != nil {
+		if uerr := yaml.Unmarshal(fm, &doc); uerr != nil {
 			return uerr
 		}
 		body = rest
 	}
 
-	merged := mergeFrontmatter(existing, meta)
+	root := rootMappingNode(&doc)
+	mergeFrontmatterNode(root, meta)
 
-	y, err := yaml.Marshal(merged)
+	y, err := yaml.Marshal(&doc)
 	if err != nil {
 		return err
 	}
@@ -145,66 +151,113 @@ func EnsureFrontmatter(path string, meta Frontmatter) error {
 	return atomicWrite(path, buf.Bytes())
 }
 
-// mergeFrontmatter overlays the arc-owned keys onto existing, unioning tags.
-func mergeFrontmatter(existing map[string]any, meta Frontmatter) map[string]any {
-	if existing == nil {
-		existing = map[string]any{}
+// rootMappingNode returns the mapping node holding the frontmatter key/value
+// pairs, initializing doc into a well-formed DocumentNode wrapping an empty
+// mapping when the frontmatter was absent, empty, or not a mapping.
+func rootMappingNode(doc *yaml.Node) *yaml.Node {
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 && doc.Content[0].Kind == yaml.MappingNode {
+		return doc.Content[0]
 	}
+	root := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	doc.Kind = yaml.DocumentNode
+	doc.Tag = ""
+	doc.Content = []*yaml.Node{root}
+	return root
+}
+
+// scalarNode builds a plain string scalar node.
+func scalarNode(v string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v}
+}
+
+// findMapValue returns the value node paired with key in a MappingNode's flat
+// [key, val, key, val, ...] Content slice, or nil if the key is absent.
+func findMapValue(root *yaml.Node, key string) *yaml.Node {
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value == key {
+			return root.Content[i+1]
+		}
+	}
+	return nil
+}
+
+// setMapEntry sets or replaces the value node for key, appending a new key/value
+// pair when the key is absent. On replace the existing key position is kept, so
+// user key order is preserved.
+func setMapEntry(root *yaml.Node, key string, val *yaml.Node) {
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value == key {
+			root.Content[i+1] = val
+			return
+		}
+	}
+	root.Content = append(root.Content, scalarNode(key), val)
+}
+
+// mergeFrontmatterNode overlays the arc-owned keys onto the frontmatter mapping
+// node, unioning tags. Untouched nodes are left exactly as parsed.
+func mergeFrontmatterNode(root *yaml.Node, meta Frontmatter) {
 	// Only overlay each arc-owned key when the incoming value is non-empty, so a
 	// re-registration with a partially-populated meta (for example project="" when
 	// registering from outside a known workspace) does not clobber good values.
 	if meta.Title != "" {
-		existing["title"] = meta.Title
+		setMapEntry(root, "title", scalarNode(meta.Title))
 	}
 	if meta.Date != "" {
-		existing["date"] = meta.Date
+		setMapEntry(root, "date", scalarNode(meta.Date))
 	}
 	if meta.Project != "" {
-		existing["project"] = meta.Project
+		setMapEntry(root, "project", scalarNode(meta.Project))
 	}
 	if meta.Status != "" {
-		existing["status"] = meta.Status
+		setMapEntry(root, "status", scalarNode(meta.Status))
 	}
 	if meta.ArcReview.Kind != "" || meta.ArcReview.ID != "" {
-		existing["arc_review"] = map[string]any{"kind": meta.ArcReview.Kind, "id": meta.ArcReview.ID}
+		nested := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
+			scalarNode("kind"), scalarNode(meta.ArcReview.Kind),
+			scalarNode("id"), scalarNode(meta.ArcReview.ID),
+		}}
+		setMapEntry(root, "arc_review", nested)
 	}
-	existing["tags"] = unionTags(existing["tags"], meta.Tags)
-	return existing
+	setMapEntry(root, "tags", unionTagsNode(findMapValue(root, "tags"), meta.Tags))
 }
 
-// unionTags merges existing frontmatter tags (any YAML shape) with arc's tags,
-// preserving existing order first, deduplicated.
-func unionTags(existing any, arcTags []string) []string {
+// unionTagsNode merges the existing `tags` node (any YAML shape) with arc's tags
+// into a fresh string sequence node, preserving existing order first and
+// deduplicating. A nil existing node (key absent) contributes nothing.
+func unionTagsNode(existing *yaml.Node, arcTags []string) *yaml.Node {
 	seen := map[string]bool{}
-	out := []string{}
+	seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
 	add := func(s string) {
 		if s != "" && !seen[s] {
 			seen[s] = true
-			out = append(out, s)
+			seq.Content = append(seq.Content, scalarNode(s))
 		}
 	}
-	switch v := existing.(type) {
-	case []any:
-		for _, item := range v {
-			if item == nil {
-				continue
+	if existing != nil {
+		switch existing.Kind {
+		case yaml.SequenceNode:
+			for _, item := range existing.Content {
+				// item.Value is the literal scalar text, so non-string list
+				// items (e.g. `tags: [2024]`) are coerced rather than dropped.
+				// Skip explicit nulls (`tags: [~]`).
+				if item.Tag == "!!null" {
+					continue
+				}
+				add(item.Value)
 			}
-			if s, ok := item.(string); ok {
-				add(s)
-			} else {
-				// Non-string list items (e.g. `tags: [2024]` parses 2024 as int)
-				// are coerced to their string form so they are not silently dropped.
-				add(fmt.Sprint(item))
+		case yaml.ScalarNode:
+			// Bare scalar (e.g. `tags: solo-tag`) — valid YAML, seen in
+			// hand-edited vaults.
+			if existing.Tag != "!!null" {
+				add(existing.Value)
 			}
 		}
-	case string:
-		// Bare scalar (e.g. `tags: solo-tag`) — valid YAML, seen in hand-edited vaults.
-		add(v)
 	}
 	for _, s := range arcTags {
 		add(s)
 	}
-	return out
+	return seq
 }
 
 // SetStatus surgically replaces only the `status:` line in the leading frontmatter. Atomic.

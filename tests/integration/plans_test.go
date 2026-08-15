@@ -64,6 +64,18 @@ func TestProjectPlansLifecycle(t *testing.T) {
 		t.Errorf("override: expected plans_dir=%q, got %q", vault, got.PlansDir)
 	}
 
+	// 2b. `config get plans.dir --resolved` must agree with `which` -- this is
+	// the regression check for arc-0ek8.00g6ap, where it used to report the
+	// global-layer default even with a per-project override in effect.
+	var resolvedCfg map[string]string
+	resolvedOut := arcCmdInDirSuccess(t, home, dir, "config", "get", "plans.dir", "--resolved", "--json", "--server", serverURL)
+	if err := json.Unmarshal([]byte(resolvedOut), &resolvedCfg); err != nil {
+		t.Fatalf("parse config get --resolved JSON: %v\noutput: %s", err, resolvedOut)
+	}
+	if resolvedCfg["plans.dir"] != vault {
+		t.Errorf("config get plans.dir --resolved: expected %q (matching which's plans_dir), got %q", vault, resolvedCfg["plans.dir"])
+	}
+
 	// 3. `project plans get --json` reports the same resolved values.
 	getGot := decodePlansResult(t, arcCmdInDirSuccess(t, home, dir, "project", "plans", "get", "--json", "--server", serverURL))
 	if getGot.PlansSource != "project" || getGot.PlansType != "obsidian" || getGot.PlansDir != vault {
