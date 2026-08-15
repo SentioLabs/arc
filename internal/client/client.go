@@ -747,6 +747,43 @@ func (c *Client) CreatePlanComment(planID string, lineNumber *int, content strin
 	return &comment, nil
 }
 
+// UpdatePlanCommentRequest is a partial update for a plan comment.
+// Nil fields are omitted from the request body (unchanged server-side).
+type UpdatePlanCommentRequest struct {
+	Content  *string                  `json:"content,omitempty"`
+	Anchor   *types.PlanCommentAnchor `json:"anchor,omitempty"`
+	Resolved *bool                    `json:"resolved,omitempty"`
+}
+
+// UpdatePlanComment applies a partial update to a plan review comment.
+func (c *Client) UpdatePlanComment(planID, commentID string, req UpdatePlanCommentRequest) (*types.PlanComment, error) {
+	path := "/api/v1/plans/" + planID + "/comments/" + commentID
+
+	resp, err := c.patch(path, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var comment types.PlanComment
+	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &comment, nil
+}
+
+// DeletePlanComment removes a plan review comment.
+func (c *Client) DeletePlanComment(planID, commentID string) error {
+	path := "/api/v1/plans/" + planID + "/comments/" + commentID
+
+	resp, err := c.delete(path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
 // Workspace types and methods manage directory paths associated with projects.
 
 // CreateWorkspaceRequest is the request for registering a workspace (directory path).
