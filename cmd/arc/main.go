@@ -201,8 +201,21 @@ func resolveFromServer(cwd string) (string, error) {
 		return "", err
 	}
 
+	// Try the path exactly as the shell reported it. This is the form `arc init`
+	// registers when cwd was reached through a symlink, and is the common case.
 	if res, resolveErr := c.ResolveProjectByPath(cwd); resolveErr == nil && res.ProjectID != "" {
 		return res.ProjectID, nil
+	}
+
+	// Retry with symlinks resolved, to cover the inbound direction: a project
+	// initialized from its canonical path cannot know which symlinks point at it,
+	// so that pairing can only be closed here. Resolution must happen client-side
+	// — the server may be remote and cannot inspect this filesystem. Costs one
+	// extra request, and only on a miss where the resolved form actually differs.
+	if resolved := project.NormalizePath(cwd); resolved != cwd {
+		if res, resolveErr := c.ResolveProjectByPath(resolved); resolveErr == nil && res.ProjectID != "" {
+			return res.ProjectID, nil
+		}
 	}
 
 	return "", errors.New(

@@ -40,22 +40,31 @@ func TestInitFromSymlinkRegistersBothPaths(t *testing.T) {
 		t.Fatalf("parse paths: %v", err)
 	}
 
-	// On systems with symlinks (macOS /var -> /private/var), the resolved path
-	// may differ. We should have at least one path registered.
 	if len(paths) == 0 {
 		t.Fatal("expected at least one path registered after init")
 	}
 
-	// If symlink and real paths are truly different, we expect 2 paths.
-	// (On some systems, both may resolve to the same canonical path.)
-	resolvedReal, _ := filepath.EvalSymlinks(realDir)
-	resolvedLink, _ := filepath.EvalSymlinks(symlinkDir)
-	if resolvedReal == resolvedLink {
-		// Both resolve to the same thing, so symlink and real differ.
-		// We expect 2 registrations (the symlink path + resolved path).
-		if len(paths) < 2 {
-			t.Logf("Note: expected 2 paths (symlink + resolved), got %d. Paths: %v", len(paths), paths)
-		}
+	resolvedLink, err := filepath.EvalSymlinks(symlinkDir)
+	if err != nil {
+		t.Fatalf("resolve symlink %q: %v", symlinkDir, err)
+	}
+	if resolvedLink == symlinkDir {
+		t.Skipf("symlink path %q did not differ from its resolution", symlinkDir)
+	}
+
+	// Both forms must be registered. resolveProject() matches against the raw
+	// os.Getwd() result, which is the symlink form when the shell entered the
+	// directory that way — registering only the canonical path would leave
+	// every subsequent command unable to resolve the project.
+	registered := make(map[string]bool, len(paths))
+	for _, p := range paths {
+		registered[p.Path] = true
+	}
+	if !registered[symlinkDir] {
+		t.Errorf("symlink path %q not registered; got %v", symlinkDir, paths)
+	}
+	if !registered[resolvedLink] {
+		t.Errorf("resolved path %q not registered; got %v", resolvedLink, paths)
 	}
 }
 
