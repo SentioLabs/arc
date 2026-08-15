@@ -1,9 +1,28 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getPlan, updatePlanContent, listPlanComments, createPlanComment } from '$lib/api';
-	import type { PlanWithContent, PlanComment } from '$lib/api';
-	import Markdown from '$lib/components/Markdown.svelte';
-	import { formatRelativeTime } from '$lib/utils';
+	import { tick } from 'svelte';
+	import {
+		getPlan,
+		updatePlanContent,
+		updatePlanStatus,
+		listPlanComments,
+		createPlanComment,
+		updatePlanComment,
+		deletePlanComment
+	} from '$lib/api';
+	import type { PlanWithContent } from '$lib/api';
+	import PlanRenderer from '$lib/planner/PlanRenderer.svelte';
+	import FloatingToolbar from '$lib/planner/FloatingToolbar.svelte';
+	import CommentPopover from '$lib/planner/CommentPopover.svelte';
+	import CommentRail, { type RailEntry } from '$lib/planner/CommentRail.svelte';
+	import { resolveAnchor } from '$lib/planner/anchor';
+	import type {
+		InlineMark,
+		PlanComment,
+		PlanCommentAnchor,
+		RenderedBlock,
+		SelectionPayload
+	} from '$lib/planner/types';
 
 	let planId = $derived($page.params.planId);
 
@@ -11,42 +30,91 @@
 	let comments = $state<PlanComment[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let toast = $state<string | null>(null);
 
-	// View modes: 'read' (rendered markdown), 'review' (line numbers + comments), 'edit' (raw editor)
-	type ViewMode = 'read' | 'review' | 'edit';
+	// View modes: 'review' (rendered doc + highlights + rail), 'edit' (raw editor)
+	type ViewMode = 'review' | 'edit';
 	let viewMode = $state<ViewMode>('review');
 	let editContent = $state('');
 
-	// Comment state
-	let activeCommentLine = $state<number | null>(null);
-	let commentText = $state('');
+	let blocks = $state<RenderedBlock[]>([]);
+	let selection = $state<SelectionPayload | null>(null);
+	let composing = $state(false); // popover open for a NEW comment
+	let activeId = $state<string | null>(null);
+	let showResolved = $state(false);
+	let reanchoringId = $state<string | null>(null); // comment awaiting a new selection
+	let anchorTops = $state<Record<string, number>>({});
+	let docWrap = $state<HTMLElement | undefined>(); // wraps PlanRenderer; position: relative
 	let overallFeedback = $state('');
 
-	// Split content into lines for the review/edit views
-	let contentLines = $derived((plan?.content ?? '').split('\n'));
-
-	// Group comments by line number for indicators
-	let commentsByLine = $derived.by(() => {
-		const map = new Map<number | null, PlanComment[]>();
+	// Per-comment resolution against current blocks.
+	const resolutions = $derived.by(() => {
+		const map = new Map<string, ReturnType<typeof resolveAnchor>>();
 		for (const c of comments) {
-			const key = c.line_number ?? null;
-			if (!map.has(key)) map.set(key, []);
-			map.get(key)!.push(c);
+			if (c.anchor) map.set(c.id, resolveAnchor(blocks, c.anchor));
 		}
 		return map;
 	});
 
-	// Count of lines that have comments (for the review tab badge)
-	let lineCommentCount = $derived(
-		[...commentsByLine.entries()]
-			.filter(([k]) => k !== null)
-			.reduce((sum, [, v]) => sum + v.length, 0)
+	const marks = $derived.by<InlineMark[]>(() =>
+		comments.flatMap((c) => {
+			if (!c.anchor) return [];
+			const r = resolutions.get(c.id)!;
+			if (r.status === 'orphaned') return [];
+			return [
+				{
+					id: c.id,
+					quotedText: c.anchor.quoted_text,
+					occurrence: r.occurrence,
+					lineStart: r.lineStart,
+					lineEnd: r.lineEnd,
+					resolved: !!c.resolved_at,
+					drifted: r.status === 'drifted'
+				}
+			];
+		})
 	);
 
-	let overallComments = $derived(commentsByLine.get(null) ?? []);
+	const railEntries = $derived.by<RailEntry[]>(() => {
+		const entries = comments.map((c) => {
+			const r = c.anchor ? resolutions.get(c.id) : undefined;
+			const orphaned = r?.status === 'orphaned';
+			return {
+				comment: c,
+				drifted: r?.status === 'drifted',
+				orphaned,
+				anchorTop: orphaned
+					? null
+					: (anchorTops[c.id] ?? (c.anchor || c.line_number != null ? legacyTop(c) : null))
+			};
+		});
+		// pinned (anchorTop null) first by created_at, then positioned by anchorTop
+		return entries.sort((a, b) => {
+			if ((a.anchorTop === null) !== (b.anchorTop === null)) return a.anchorTop === null ? -1 : 1;
+			if (a.anchorTop === null) return a.comment.created_at.localeCompare(b.comment.created_at);
+			return (a.anchorTop as number) - (b.anchorTop as number);
+		});
+	});
+
+	const unresolvedCount = $derived(comments.filter((c) => !c.resolved_at).length);
 
 	$effect(() => {
 		if (planId) loadData();
+	});
+
+	$effect(() => {
+		// Marks are applied by PlanRenderer one microtask after they change, so
+		// measuring on the next animation frame guarantees the new <mark>
+		// elements are in the DOM and laid out before we read their rects.
+		void marks;
+		void tick().then(() => requestAnimationFrame(measureAnchorTops));
+	});
+
+	$effect(() => {
+		// A viewport resize reflows the document column, moving every highlight.
+		const onResize = () => measureAnchorTops();
+		window.addEventListener('resize', onResize);
+		return () => window.removeEventListener('resize', onResize);
 	});
 
 	async function loadData() {
@@ -67,30 +135,206 @@
 		}
 	}
 
-	async function handleSaveEdit() {
-		if (!plan || !planId) return;
-		try {
-			const updated = await updatePlanContent(planId, editContent);
-			plan = updated;
-			viewMode = 'read';
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save';
+	function measureAnchorTops() {
+		if (!docWrap) return;
+		const base = docWrap.getBoundingClientRect().top;
+		const tops: Record<string, number> = {};
+		for (const m of docWrap.querySelectorAll<HTMLElement>('mark[data-anno-id]')) {
+			const id = m.dataset.annoId!;
+			if (!(id in tops)) tops[id] = m.getBoundingClientRect().top - base;
 		}
+		anchorTops = tops;
 	}
 
-	async function handleAddComment(lineNumber: number | null) {
-		if (!planId) return;
-		const text = lineNumber === null ? overallFeedback : commentText;
-		if (!text.trim()) return;
+	// Legacy line_number-only comments: position at the nearest tagged block.
+	function legacyTop(c: PlanComment): number | null {
+		if (!docWrap || c.line_number == null) return null;
+		const tagged = Array.from(docWrap.querySelectorAll<HTMLElement>('[data-source-line]'));
+		let el: HTMLElement | null = null;
+		for (const b of tagged) {
+			if (Number(b.dataset.sourceLine) <= c.line_number) el = b;
+			else break;
+		}
+		if (!el) return null;
+		return el.getBoundingClientRect().top - docWrap.getBoundingClientRect().top;
+	}
+
+	async function handleBlocks(b: RenderedBlock[]) {
+		blocks = b;
+		await tick();
+		measureAnchorTops();
+	}
+
+	function showToast(message: string, ms: number) {
+		toast = message;
+		setTimeout(() => (toast = null), ms);
+	}
+
+	function selectionToAnchor(sel: SelectionPayload): PlanCommentAnchor {
+		return {
+			line_start: sel.lineStart,
+			line_end: sel.lineEnd,
+			quoted_text: sel.quotedText,
+			occurrence: sel.occurrence,
+			heading_slug: sel.headingSlug,
+			context_before: sel.contextBefore,
+			context_after: sel.contextAfter
+		};
+	}
+
+	async function submitNewComment(body: string) {
+		if (!planId || !selection) return;
 		try {
-			const comment = await createPlanComment(planId, text, lineNumber ?? undefined);
-			comments = [...comments, comment];
-			commentText = '';
-			if (lineNumber === null) overallFeedback = '';
-			activeCommentLine = null;
+			const created = await createPlanComment(
+				planId,
+				body,
+				undefined,
+				selectionToAnchor(selection)
+			);
+			comments = [...comments, created];
+			composing = false;
+			selection = null;
+			window.getSelection()?.removeAllRanges();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to add comment';
 		}
+	}
+
+	async function submitOverall(body: string) {
+		if (!planId || !body.trim()) return;
+		try {
+			const created = await createPlanComment(planId, body.trim());
+			comments = [...comments, created];
+			overallFeedback = '';
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to add comment';
+		}
+	}
+
+	async function saveContent(id: string, content: string) {
+		if (!planId) return;
+		try {
+			const updated = await updatePlanComment(planId, id, { content });
+			comments = comments.map((c) => (c.id === id ? updated : c));
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save comment';
+		}
+	}
+
+	async function toggleResolve(id: string) {
+		if (!planId) return;
+		const c = comments.find((x) => x.id === id);
+		if (!c) return;
+		try {
+			const updated = await updatePlanComment(planId, id, { resolved: !c.resolved_at });
+			comments = comments.map((x) => (x.id === id ? updated : x));
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to update comment';
+		}
+	}
+
+	async function removeComment(id: string) {
+		if (!planId) return;
+		try {
+			await deletePlanComment(planId, id);
+			comments = comments.filter((c) => c.id !== id);
+			if (activeId === id) activeId = null;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to delete comment';
+		}
+	}
+
+	// Re-anchor flow: card button arms it; the NEXT selection becomes the new anchor.
+	async function handleSelection(sel: SelectionPayload | null) {
+		// While the composer is open its textarea holds focus, which collapses the
+		// document selection — PlanRenderer then reports `null` and would pull the
+		// draft's anchor (and the popover with it) out from under the user. The
+		// composer owns the selection until it closes.
+		if (composing) return;
+		selection = sel;
+		if (!sel) return;
+		if (reanchoringId) {
+			const id = reanchoringId;
+			try {
+				const updated = await updatePlanComment(planId!, id, { anchor: selectionToAnchor(sel) });
+				comments = comments.map((c) => (c.id === id ? updated : c));
+				reanchoringId = null;
+				selection = null;
+				window.getSelection()?.removeAllRanges();
+				showToast('Highlight updated', 3000);
+			} catch (err) {
+				error = err instanceof Error ? err.message : 'Failed to change highlight';
+			}
+		}
+	}
+
+	async function handleSaveEdit() {
+		if (!plan || !planId) return;
+		const before = comments.filter(
+			(c) => c.anchor && resolutions.get(c.id)?.status !== 'orphaned'
+		).length;
+		try {
+			const updated = await updatePlanContent(planId, editContent);
+			plan = updated;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save';
+			return;
+		}
+		viewMode = 'review';
+		await tick(); // PlanRenderer re-renders; onBlocks refreshes `blocks` → resolutions recompute
+		// Defer the orphan check one frame so resolutions see the new blocks:
+		setTimeout(() => {
+			const after = comments.filter(
+				(c) => c.anchor && resolutions.get(c.id)?.status !== 'orphaned'
+			).length;
+			if (after < before) {
+				const lost = before - after;
+				showToast(`${lost} comment${lost === 1 ? '' : 's'} lost their anchor`, 5000);
+			}
+		}, 300);
+	}
+
+	async function setStatus(status: string) {
+		if (!planId) return;
+		try {
+			const updated = await updatePlanStatus(planId, status);
+			if (plan) plan = { ...plan, status: updated.status };
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to update status';
+		}
+	}
+
+	function scrollMarkIntoView(id: string) {
+		docWrap
+			?.querySelector<HTMLElement>(`mark[data-anno-id="${CSS.escape(id)}"]`)
+			?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
+
+	function scrollCardIntoView(id: string) {
+		document
+			.querySelector<HTMLElement>(`[data-comment-id="${CSS.escape(id)}"]`)
+			?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	}
+
+	// Hover cross-linking is delegated and DOM-class based: marks are re-created
+	// on every apply, so hover state must not live on them.
+	function handleDocHover(e: PointerEvent) {
+		const mark = (e.target as Element).closest?.('mark[data-anno-id]') as HTMLElement | null;
+		setHovered(mark?.dataset.annoId ?? null);
+	}
+
+	function handleRailHover(e: PointerEvent) {
+		const card = (e.target as Element).closest?.('[data-comment-id]') as HTMLElement | null;
+		setHovered(card?.dataset.commentId ?? null);
+	}
+
+	function setHovered(id: string | null) {
+		document.querySelectorAll('.is-hovered').forEach((el) => el.classList.remove('is-hovered'));
+		if (!id) return;
+		docWrap
+			?.querySelectorAll(`mark[data-anno-id="${CSS.escape(id)}"]`)
+			.forEach((el) => el.classList.add('is-hovered'));
+		document.querySelector(`[data-comment-id="${CSS.escape(id)}"]`)?.classList.add('is-hovered');
 	}
 
 	function switchToEdit() {
@@ -106,6 +350,8 @@
 				return 'bg-yellow-900/30 text-yellow-400 border border-yellow-800';
 			case 'approved':
 				return 'bg-green-900/30 text-green-400 border border-green-800';
+			case 'changes_requested':
+				return 'bg-amber-900/30 text-amber-400 border border-amber-800';
 			case 'rejected':
 				return 'bg-red-900/30 text-red-400 border border-red-800';
 			default:
@@ -125,16 +371,32 @@
 {:else if plan}
 	<div class="max-w-5xl mx-auto p-6 space-y-6">
 		<!-- Header -->
-		<div class="flex items-center justify-between">
+		<div class="flex items-center justify-between gap-4">
 			<div class="min-w-0">
 				<h1 class="text-xl font-semibold text-text-primary truncate">
 					{plan.file_path.split('/').pop()}
 				</h1>
 				<p class="text-sm text-text-muted mt-1 truncate">{plan.file_path}</p>
 			</div>
-			<span class="px-3 py-1 rounded-full text-xs font-medium shrink-0 {statusColor(plan.status)}">
-				{plan.status}
-			</span>
+			<div class="flex items-center gap-2 shrink-0">
+				<span class="px-3 py-1 rounded-full text-xs font-medium {statusColor(plan.status)}">
+					{plan.status}
+				</span>
+				<button
+					class="btn-approve"
+					onclick={() => setStatus('approved')}
+					disabled={plan.status === 'approved'}>Approve</button
+				>
+				<button
+					class="btn-request"
+					onclick={() => setStatus('changes_requested')}
+					disabled={unresolvedCount === 0}
+					title={unresolvedCount === 0 ? 'Add at least one comment first' : undefined}
+				>
+					Request changes
+				</button>
+				<button class="btn-reject" onclick={() => setStatus('rejected')}>Reject</button>
+			</div>
 		</div>
 
 		<!-- View Mode Tabs -->
@@ -146,19 +408,11 @@
 					: 'text-text-muted hover:text-text-secondary'}"
 			>
 				Review
-				{#if lineCommentCount > 0}
+				{#if unresolvedCount > 0}
 					<span class="px-1.5 py-0.5 text-xs rounded-full bg-yellow-900/30 text-yellow-400"
-						>{lineCommentCount}</span
+						>{unresolvedCount}</span
 					>
 				{/if}
-			</button>
-			<button
-				onclick={() => (viewMode = 'read')}
-				class="px-4 py-2 text-sm transition-colors {viewMode === 'read'
-					? 'text-text-primary border-b-2 border-primary-500 -mb-px'
-					: 'text-text-muted hover:text-text-secondary'}"
-			>
-				Preview
 			</button>
 			<button
 				onclick={switchToEdit}
@@ -170,80 +424,109 @@
 			</button>
 		</div>
 
-		<!-- Review Mode: Line numbers with commenting -->
+		<!-- Review Mode: rendered document + margin rail -->
 		{#if viewMode === 'review'}
-			<div class="card">
-				<div class="px-4 py-2 border-b border-surface-600 text-xs text-text-muted">
-					Click a line number to add a comment
+			{#if reanchoringId}
+				<div class="reanchor-banner">
+					Select the new text for this comment — or
+					<button type="button" class="underline" onclick={() => (reanchoringId = null)}>
+						cancel
+					</button>
 				</div>
-				<div class="font-mono text-sm overflow-x-auto">
-					{#each contentLines as line, i}
-						{@const lineNum = i + 1}
-						{@const lineComments = commentsByLine.get(lineNum) ?? []}
-						<div class="group">
-							<div class="flex hover:bg-surface-700/50">
-								<button
-									onclick={() =>
-										(activeCommentLine = activeCommentLine === lineNum ? null : lineNum)}
-									class="w-12 text-right pr-3 py-0.5 text-text-muted hover:text-primary-400 select-none shrink-0 cursor-pointer"
-								>
-									{lineNum}
-								</button>
-								<div class="flex-1 py-0.5 pr-4 text-text-primary whitespace-pre-wrap break-all">
-									{line || '\u00A0'}
-								</div>
-								{#if lineComments.length > 0}
-									<span class="pr-3 py-0.5 text-xs text-yellow-400 shrink-0">
-										{lineComments.length}
-									</span>
-								{/if}
-							</div>
+			{/if}
 
-							{#if lineComments.length > 0}
-								<div
-									class="ml-12 pl-3 border-l-2 border-yellow-800 bg-yellow-900/10 py-2 space-y-1"
-								>
-									{#each lineComments as comment}
-										<div class="text-sm text-text-secondary">
-											{comment.content}
-											<span class="text-xs text-text-muted ml-2">
-												{formatRelativeTime(comment.created_at)}
-											</span>
-										</div>
-									{/each}
-								</div>
-							{/if}
+			<div class="planner-review">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="planner-doc markdown"
+					bind:this={docWrap}
+					style="position: relative"
+					onpointerover={handleDocHover}
+				>
+					<PlanRenderer
+						markdown={plan.content ?? ''}
+						{marks}
+						activeMarkId={activeId ?? undefined}
+						onSelection={handleSelection}
+						onMarkClick={(id) => {
+							activeId = id;
+							scrollCardIntoView(id);
+						}}
+						onBlocks={handleBlocks}
+					/>
+				</div>
 
-							{#if activeCommentLine === lineNum}
-								<div class="ml-12 pl-3 py-2 flex gap-2">
-									<input
-										type="text"
-										bind:value={commentText}
-										placeholder="Add a comment on line {lineNum}..."
-										class="flex-1 bg-surface-700 text-text-primary text-sm px-3 py-1.5 rounded border border-surface-500 focus:border-primary-500 focus:outline-none"
-										onkeydown={(e) => {
-											if (e.key === 'Enter') handleAddComment(lineNum);
-										}}
-									/>
-									<button
-										onclick={() => handleAddComment(lineNum)}
-										class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500"
-									>
-										Comment
-									</button>
-								</div>
-							{/if}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div onpointerover={handleRailHover}>
+					<div class="mb-6 space-y-2">
+						<label
+							for="overall-feedback"
+							class="block text-[10px] uppercase tracking-[0.08em] text-[var(--ink-text-faint)]"
+						>
+							Overall feedback
+						</label>
+						<textarea
+							id="overall-feedback"
+							bind:value={overallFeedback}
+							rows="2"
+							placeholder="Overall feedback on this plan…"
+							class="w-full rounded-md border border-[var(--ink-rule)] bg-[var(--ink-paper)] p-2 text-[13px] text-[var(--ink-text)] focus:border-[var(--ink-comment-edge)] focus:outline-none"
+							onkeydown={(e) => {
+								if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitOverall(overallFeedback);
+							}}
+						></textarea>
+						<div class="flex items-center justify-between gap-2">
+							<span class="text-[10px] text-[var(--ink-text-faint)]"
+								>Press Ctrl+Enter to submit</span
+							>
+							<button
+								type="button"
+								disabled={!overallFeedback.trim()}
+								class="rounded-md border border-[var(--ink-comment-edge)] bg-[var(--ink-comment-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--ink-comment)] disabled:cursor-not-allowed disabled:opacity-50"
+								onclick={() => submitOverall(overallFeedback)}
+							>
+								Add
+							</button>
 						</div>
-					{/each}
+					</div>
+
+					<CommentRail
+						entries={railEntries}
+						{activeId}
+						{showResolved}
+						onToggleShowResolved={() => (showResolved = !showResolved)}
+						onActivate={(id) => {
+							activeId = id;
+							scrollMarkIntoView(id);
+						}}
+						onSaveContent={saveContent}
+						onReanchor={(id) => (reanchoringId = id)}
+						onToggleResolve={toggleResolve}
+						onDelete={removeComment}
+					/>
 				</div>
 			</div>
-		{/if}
 
-		<!-- Preview Mode: Rendered Markdown -->
-		{#if viewMode === 'read'}
-			<div class="card p-6 markdown">
-				<Markdown content={plan.content ?? ''} />
-			</div>
+			{#if selection && !composing && !reanchoringId}
+				<FloatingToolbar
+					anchorRect={selection.rect}
+					onComment={() => (composing = true)}
+					onDismiss={() => {
+						selection = null;
+					}}
+				/>
+			{/if}
+			{#if selection && composing}
+				<CommentPopover
+					anchorRect={selection.rect}
+					quotedText={selection.quotedText}
+					onSave={submitNewComment}
+					onCancel={() => {
+						composing = false;
+						selection = null;
+					}}
+				/>
+			{/if}
 		{/if}
 
 		<!-- Edit Mode: Raw markdown editor -->
@@ -256,7 +539,7 @@
 				></textarea>
 				<div class="flex gap-2 justify-end">
 					<button
-						onclick={() => (viewMode = 'read')}
+						onclick={() => (viewMode = 'review')}
 						class="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
 					>
 						Cancel
@@ -270,52 +553,7 @@
 				</div>
 			</div>
 		{/if}
-
-		<!-- Overall Feedback (visible in read and review modes) -->
-		{#if viewMode !== 'edit'}
-			<div class="card p-4 space-y-3">
-				<label for="overall-feedback" class="text-xs text-text-muted uppercase tracking-wide">
-					Overall Feedback
-					{#if overallComments.length > 0}
-						<span
-							class="ml-1.5 px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400 normal-case"
-							>{overallComments.length}</span
-						>
-					{/if}
-				</label>
-				{#if overallComments.length > 0}
-					<div class="space-y-2 mb-3">
-						{#each overallComments as comment}
-							<div class="text-sm text-text-secondary bg-surface-700 rounded p-3">
-								{comment.content}
-								<span class="text-xs text-text-muted ml-2">
-									{formatRelativeTime(comment.created_at)}
-								</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
-				<div class="flex gap-2">
-					<textarea
-						id="overall-feedback"
-						bind:value={overallFeedback}
-						placeholder="Overall feedback on this plan..."
-						rows="2"
-						class="flex-1 bg-surface-700 text-text-primary text-sm p-3 rounded border border-surface-500 focus:border-primary-500 focus:outline-none resize-y"
-						onkeydown={(e) => {
-							if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddComment(null);
-						}}
-					></textarea>
-					<button
-						onclick={() => handleAddComment(null)}
-						disabled={!overallFeedback.trim()}
-						class="self-end px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed"
-					>
-						Add
-					</button>
-				</div>
-				<p class="text-xs text-text-muted">Press Ctrl+Enter to submit</p>
-			</div>
-		{/if}
 	</div>
+
+	{#if toast}<div class="toast">{toast}</div>{/if}
 {/if}
