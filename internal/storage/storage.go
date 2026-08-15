@@ -80,6 +80,9 @@ type Storage interface {
 	// Plan Comments
 	CreatePlanComment(ctx context.Context, comment *types.PlanComment) error
 	ListPlanComments(ctx context.Context, planID string) ([]*types.PlanComment, error)
+	GetPlanComment(ctx context.Context, id string) (*types.PlanComment, error)
+	UpdatePlanComment(ctx context.Context, comment *types.PlanComment) error
+	DeletePlanComment(ctx context.Context, id string) error
 
 	// AI Sessions
 	CreateAISession(ctx context.Context, session *types.AISession) error
