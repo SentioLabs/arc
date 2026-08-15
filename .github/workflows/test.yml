@@ -10,6 +10,29 @@ permissions:
   contents: read
 
 jobs:
+  # Lint runs as its own job rather than a step inside unit-tests. As a step it
+  # gated integration-tests and playwright-e2e (both `needs: unit-tests`), so a
+  # style-only finding skipped every downstream suite and real failures could
+  # sit unnoticed on main behind a red linter.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+
   unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -44,11 +67,6 @@ jobs:
 
       - name: Run tests
         run: make test
-
-      - name: Run linter
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.12.2
 
   integration-tests:
     needs: unit-tests
