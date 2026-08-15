@@ -106,22 +106,32 @@ func (s *Server) createAISession(c echo.Context) error {
 	return createdJSON(c, session)
 }
 
-// validateSessionProject fetches a session and verifies it belongs to the given project.
-// Returns the session if valid, or writes an error response and returns nil.
-func (s *Server) validateSessionProject(c echo.Context, sessionID, projectID string) (*types.AISession, error) {
+// validateSessionProject fetches a session and verifies it belongs to the given
+// project. On success it returns the (non-nil) session and handled=false. On any
+// failure (not found, store error, or cross-project mismatch) it writes an error
+// response to c and returns (nil, true); callers MUST return nil immediately when
+// handled is true and must not dereference the returned session.
+//
+// The bool signal is deliberate: errorJSON returns nil on a successful write, so a
+// (*types.AISession, error) signature would hand every error path a nil error,
+// causing callers to skip their guard and dereference a nil session.
+func (s *Server) validateSessionProject(c echo.Context, sessionID, projectID string) (session *types.AISession, handled bool) {
 	ctx := c.Request().Context()
 	session, err := s.store.GetAISession(ctx, sessionID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return nil, errorJSON(c, http.StatusNotFound, err.Error())
+			_ = errorJSON(c, http.StatusNotFound, err.Error())
+		} else {
+			_ = errorJSON(c, http.StatusInternalServerError, err.Error())
 		}
-		return nil, errorJSON(c, http.StatusInternalServerError, err.Error())
+		return nil, true
 	}
 	if session.ProjectID != projectID {
 		msg := fmt.Sprintf("session %q not found in project %q", sessionID, projectID)
-		return nil, errorJSON(c, http.StatusNotFound, msg)
+		_ = errorJSON(c, http.StatusNotFound, msg)
+		return nil, true
 	}
-	return session, nil
+	return session, false
 }
 
 // getAISession retrieves an AI session by ID, including its agents.
@@ -130,9 +140,9 @@ func (s *Server) getAISession(c echo.Context) error {
 	projectID := c.Param("projectId")
 	ctx := c.Request().Context()
 
-	session, err := s.validateSessionProject(c, id, projectID)
-	if err != nil {
-		return err
+	session, handled := s.validateSessionProject(c, id, projectID)
+	if handled {
+		return nil
 	}
 
 	agents, err := s.store.ListAIAgents(ctx, id)
@@ -191,8 +201,8 @@ func (s *Server) deleteAISession(c echo.Context) error {
 	id := c.Param("id")
 	projectID := c.Param("projectId")
 
-	if _, err := s.validateSessionProject(c, id, projectID); err != nil {
-		return err
+	if _, handled := s.validateSessionProject(c, id, projectID); handled {
+		return nil
 	}
 
 	if err := s.store.DeleteAISession(c.Request().Context(), id); err != nil {
@@ -299,8 +309,8 @@ func (s *Server) listAIAgents(c echo.Context) error {
 	sessionID := c.Param("id")
 	projectID := c.Param("projectId")
 
-	if _, err := s.validateSessionProject(c, sessionID, projectID); err != nil {
-		return err
+	if _, handled := s.validateSessionProject(c, sessionID, projectID); handled {
+		return nil
 	}
 
 	agents, err := s.store.ListAIAgents(c.Request().Context(), sessionID)
@@ -318,8 +328,8 @@ func (s *Server) getAIAgent(c echo.Context) error {
 	agentID := c.Param("aid")
 	ctx := c.Request().Context()
 
-	if _, err := s.validateSessionProject(c, sessionID, projectID); err != nil {
-		return err
+	if _, handled := s.validateSessionProject(c, sessionID, projectID); handled {
+		return nil
 	}
 
 	agent, err := s.store.GetAIAgent(ctx, agentID)
@@ -339,9 +349,9 @@ func (s *Server) getSessionTranscript(c echo.Context) error {
 	id := c.Param("id")
 	projectID := c.Param("projectId")
 
-	session, err := s.validateSessionProject(c, id, projectID)
-	if err != nil {
-		return err
+	session, handled := s.validateSessionProject(c, id, projectID)
+	if handled {
+		return nil
 	}
 
 	entries, readErr := readJSONLFile(session.TranscriptPath)
@@ -363,9 +373,9 @@ func (s *Server) getAgentTranscript(c echo.Context) error {
 	projectID := c.Param("projectId")
 	agentID := c.Param("aid")
 
-	session, err := s.validateSessionProject(c, sessionID, projectID)
-	if err != nil {
-		return err
+	session, handled := s.validateSessionProject(c, sessionID, projectID)
+	if handled {
+		return nil
 	}
 
 	// Derive agent transcript path: <dir>/<session-id>/subagents/agent-<agent-id>.jsonl
