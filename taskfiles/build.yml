@@ -1,3 +1,27 @@
 version: '3'
 
-tasks: {}
+tasks:
+  default:
+    desc: Build the frontend and the binary with embedded web UI
+    cmds:
+      - task: ':web:build'
+      - task: bin
+
+  bin:
+    desc: Build the arc binary with embedded web UI (frontend must be built first)
+    sources:
+      - 'cmd/**/*.go'
+      - 'internal/**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '{{.BUILD_SCRIPT}}'
+      - 'web/build/**/*'
+    generates:
+      - '{{.CLI_BIN}}'
+    cmds:
+      - '{{.BUILD_SCRIPT}} --webui'
+
+  quick:
+    desc: Build a CLI-only binary (no embedded web UI)
+    cmds:
+      - '{{.BUILD_SCRIPT}}'
