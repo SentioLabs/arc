@@ -45,6 +45,7 @@ tasks:
             'test:integration', 'test:playwright', 'test:e2e', 'lint', 'lint:go',
             'lint:fix', 'docker:build', 'docker:up', 'docker:down', 'docker:logs',
             'docker:restart', 'docker:clean', 'deps', 'deps:tidy', 'deps:update',
-            'clean', 'clean:web', 'clean:docker', 'clean:all',
+            'clean', 'clean:web', 'clean:docker', 'clean:all', 'check:versions',
+            'fmt', 'run', 'dev', 'install', 'ci', 'ci:all', 'review',
           ]
         cmd: task --summary {{.ITEM}} > /dev/null
