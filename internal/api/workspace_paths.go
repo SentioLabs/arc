@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/core"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -58,9 +59,15 @@ func (s *Server) createWorkspace(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "path is required")
 	}
 
+	// Canonicalize the path (resolve symlinks) so it is stored in the same form
+	// that resolveProjectForPath queries with — otherwise a registration made
+	// through a symlinked ancestor (e.g. macOS's /var -> /private/var) never
+	// matches a resolve that arrives via the canonical path or via
+	// vcs.DetectMainRepo. Falls back to the absolute path when the directory
+	// does not exist yet (see core.NormalizePath).
 	ws := &types.Workspace{
 		ProjectID: projectID,
-		Path:      req.Path,
+		Path:      core.NormalizePath(req.Path),
 		Label:     req.Label,
 		Hostname:  req.Hostname,
 		GitRemote: req.GitRemote,

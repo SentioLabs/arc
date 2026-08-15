@@ -17,6 +17,20 @@ var (
 	_ func(string) string = gitfs.DetectMainRepo
 )
 
+// wantMainRepo canonicalizes p (resolving symlinks) so expectations match
+// gitfs.DetectMainRepo's output. `git worktree add` writes a symlink-resolved
+// gitdir pointer into the worktree's .git file (e.g. macOS's /var ->
+// /private/var), so DetectMainRepo returns the canonical main-repo path while
+// t.TempDir() yields the un-resolved /var form.
+func wantMainRepo(t *testing.T, p string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q): %v", p, err)
+	}
+	return resolved
+}
+
 // --- Behavior tests ---
 
 func TestFindGitEntry_MainWorktree(t *testing.T) {
@@ -73,8 +87,8 @@ func TestDetectMainRepo_LinkedWorktreeRoot(t *testing.T) {
 	gittest.AddWorktree(t, main, wt, "feature-x")
 
 	got := gitfs.DetectMainRepo(wt)
-	if got != main {
-		t.Fatalf("DetectMainRepo(%q) = %q, want %q", wt, got, main)
+	if want := wantMainRepo(t, main); got != want {
+		t.Fatalf("DetectMainRepo(%q) = %q, want %q", wt, got, want)
 	}
 }
 
@@ -91,8 +105,8 @@ func TestDetectMainRepo_LinkedWorktreeSubdir(t *testing.T) {
 	}
 
 	got := gitfs.DetectMainRepo(sub)
-	if got != main {
-		t.Fatalf("DetectMainRepo(%q) = %q, want %q", sub, got, main)
+	if want := wantMainRepo(t, main); got != want {
+		t.Fatalf("DetectMainRepo(%q) = %q, want %q", sub, got, want)
 	}
 }
 
@@ -145,8 +159,8 @@ func TestDetectMainRepo_BareRepoWorktree(t *testing.T) {
 	})
 
 	got := gitfs.DetectMainRepo(wt)
-	if got != bare {
-		t.Fatalf("DetectMainRepo(bare-repo-worktree) = %q, want %q", got, bare)
+	if want := wantMainRepo(t, bare); got != want {
+		t.Fatalf("DetectMainRepo(bare-repo-worktree) = %q, want %q", got, want)
 	}
 }
 
