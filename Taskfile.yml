@@ -1,0 +1,30 @@
+version: '3'
+
+vars:
+  BIN_DIR: ./bin
+  CLI_BIN: '{{.BIN_DIR}}/arc'
+  GO: go
+  BUILD_SCRIPT: ./scripts/build.sh
+  WEB_DIR: web
+  PM: bun
+  DOCKER_IMAGE: arc-server
+  DOCKER_TAG: latest
+  COMPOSE_FILE: docker-compose.yml
+
+includes:
+  gen: ./taskfiles/gen.yml
+  web: ./taskfiles/web.yml
+  build: ./taskfiles/build.yml
+  release: ./taskfiles/release.yml
+  test: ./taskfiles/test.yml
+  lint: ./taskfiles/lint.yml
+  docker: ./taskfiles/docker.yml
+  deps: ./taskfiles/deps.yml
+  clean: ./taskfiles/clean.yml
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+    silent: true
