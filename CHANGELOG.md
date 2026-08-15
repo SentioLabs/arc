@@ -1,5 +1,68 @@
 # Changelog
 
+## [0.16.0](https://github.com/SentioLabs/arc/compare/v0.15.0...v0.16.0) (2026-08-15)
+
+
+### Features
+
+* **api:** expose per-project config table via storage, REST, and client ([e8b162f](https://github.com/SentioLabs/arc/commit/e8b162fa96cacd39b611c77746ef26c2481d6865))
+* **cli:** arc project docs set/get/unset + docs fields in arc which ([bf1117e](https://github.com/SentioLabs/arc/commit/bf1117e7a51fc817b0fa71a43d008100e2d4e7e7))
+* **config:** add plans.type and docs-destination resolution (ResolveDocs) ([9077035](https://github.com/SentioLabs/arc/commit/9077035db4c9664918459b1f4aecc8799fa4df1f))
+* configurable design-spec save location with arc-owned frontmatter ([a96b01f](https://github.com/SentioLabs/arc/commit/a96b01fac18dc794ec302b302cc101daaafd65e8))
+* configurable plan destinations (plans.dir/plans.type per project, ResolvePlans, frontmatter merge) ([ac60c0e](https://github.com/SentioLabs/arc/commit/ac60c0e1b5c745d6ba8f525a20d6639488de212a))
+* **config:** validate plans.dir and add 'config get --resolved' ([c2a0301](https://github.com/SentioLabs/arc/commit/c2a030148d98b0bdc6496cd96839e7ab4c926ff0))
+* **jjfs:** implement .jj detection, workspace mapping, and git backend lookup ([35e8099](https://github.com/SentioLabs/arc/commit/35e809906dc314cb1b2e11a46da809bda2242c41))
+* **planner:** unified review — select-to-comment on rendered markdown + single-approval flow ([#71](https://github.com/SentioLabs/arc/issues/71)) ([a1c9ba8](https://github.com/SentioLabs/arc/commit/a1c9ba86e8d568646e02b3ab63bbd48f50281abe))
+* **plans:** add config, dir templating, and frontmatter foundation ([c2293a0](https://github.com/SentioLabs/arc/commit/c2293a0aebeadfc92851b77ad0e45fba902d35f2))
+* **plan:** write spec frontmatter on create, sync status on approve ([09c335a](https://github.com/SentioLabs/arc/commit/09c335ab524bc351c97fea3059bbdc01e9654dea))
+* **storage:** drop share/paste tables via migration 018 ([c7f8530](https://github.com/SentioLabs/arc/commit/c7f8530f1f3568f53228b2fea54bb88f2df99af1))
+* **vcs:** add jjfs + vcs foundation skeletons and contract tests ([271e1a6](https://github.com/SentioLabs/arc/commit/271e1a61e352fb79e8df852c82a35951b69aa5b5))
+* **vcs:** implement git/jj dispatcher for main-repo and remote detection ([72b6cef](https://github.com/SentioLabs/arc/commit/72b6cef8b202b740d96b3c14ac17accd2c90c412))
+* **vcs:** native jj (Jujutsu) support for .jj-only repos ([4c2222b](https://github.com/SentioLabs/arc/commit/4c2222b3b3c7b25b46a73bc4206348f7f71c2aba))
+* **vcs:** native jj support — design + impl ([d302f43](https://github.com/SentioLabs/arc/commit/d302f436e8edeb4f08c8285765405d71d8e5e21b))
+* **vcs:** native jj support — design + impl ([e3cc36f](https://github.com/SentioLabs/arc/commit/e3cc36f353d15b628a61c06ebef543265d6bb5cf))
+* **vcs:** route resolver and remote detection through the vcs dispatcher ([ffd8e0f](https://github.com/SentioLabs/arc/commit/ffd8e0f4e757928bcfaf6629fff3bfd88349f59a))
+* **vcs:** surface detected VCS in arc which --json ([d54b1c7](https://github.com/SentioLabs/arc/commit/d54b1c7de59c99c492f58df3fcdbd8b6141f8c76))
+* **vcs:** surface detected VCS in arc which --json ([c396a8a](https://github.com/SentioLabs/arc/commit/c396a8a331f450b750ac092504aaf5cc47111c2d))
+
+
+### Bug Fixes
+
+* **api:** validate docs.* config values server-side; sanitize prefix template var ([6fee567](https://github.com/SentioLabs/arc/commit/6fee5677a92d4dce1924fd70483db608c71a5ca8))
+* **api:** validateSessionProject reliably signals failure — fixes nil-panic and cross-project delete bypass (arc-0ek8.01uii3) ([84d984b](https://github.com/SentioLabs/arc/commit/84d984b0f0823c29cf42de8ff1a71a7367ef4d51))
+* **api:** validateSessionProject reliably signals failure (nil-panic + cross-project delete bypass) ([da178f1](https://github.com/SentioLabs/arc/commit/da178f1c14a88f4d34f6c0e8139447f2e3582e4f))
+* **cli:** config get plans.dir --resolved reflects per-project overrides (arc-0ek8.00g6ap) ([a349e15](https://github.com/SentioLabs/arc/commit/a349e15655ac1c69339da19e4494d6e132d1647f))
+* **cli:** keep the symlinked cwd when init registers workspace paths ([38aeccc](https://github.com/SentioLabs/arc/commit/38aecccb25f483a21330381f1b99668256b7ab32))
+* **cli:** keep the symlinked cwd when init registers workspace paths ([1fc9c7f](https://github.com/SentioLabs/arc/commit/1fc9c7fd5df22c34072a11cc0ed627d69a83dcc4))
+* **cli:** surface docs-resolution errors via which's Warning field ([1a2bfdf](https://github.com/SentioLabs/arc/commit/1a2bfdfcb97a9746627f4ba1a4be766a0fa6a8a1))
+* **e2e:** workspace-crud clicks the checkbox, not the card (invisible delete-button overlap) ([#72](https://github.com/SentioLabs/arc/issues/72)) ([c6de386](https://github.com/SentioLabs/arc/commit/c6de386d60114bf03b953e4bebbebfaa9a0a9af9))
+* **lint:** satisfy revive line-length and argument-limit in ai_sessions ([a55a2d5](https://github.com/SentioLabs/arc/commit/a55a2d5ce4bc4cdd065ccc26ab3a049bd194c89f))
+* **lint:** unblock main's unit-tests, and reconcile [#62](https://github.com/SentioLabs/arc/issues/62)/[#64](https://github.com/SentioLabs/arc/issues/64) symlink collision ([e854d20](https://github.com/SentioLabs/arc/commit/e854d20966827ab73f85aa5358a00427c03236a1))
+* **plans:** EnsureFrontmatter merges instead of clobbering user frontmatter ([6558a0a](https://github.com/SentioLabs/arc/commit/6558a0ae1680fe10b7ad705d004c817b3863161b))
+* **plans:** follow-ups — unified --resolved + yaml.Node frontmatter fidelity ([b6ab36a](https://github.com/SentioLabs/arc/commit/b6ab36a0fbb78d48d122c5ba26d4fc18a01974a0))
+* **plans:** guard empty arc keys, handle CRLF frontmatter, union non-string tags, drop dead error return ([3e2984f](https://github.com/SentioLabs/arc/commit/3e2984fbccb0699ad11d81d8aa0186ed1f5a3f0f))
+* **plans:** harden frontmatter parsing for delimiters, EOF, and CRLF ([7ee2967](https://github.com/SentioLabs/arc/commit/7ee2967c3a8bad29e1b052971f6dcc9fa2317754))
+* **plans:** merge frontmatter at yaml.Node level to preserve dates, comments, order, anchors (arc-0ek8.00asjp) ([daf80ed](https://github.com/SentioLabs/arc/commit/daf80ed54530728760028f6ac4489f1c87942161))
+* **plans:** union scalar tags values instead of dropping them ([560c404](https://github.com/SentioLabs/arc/commit/560c4043663a8c75b66cbc52a039bc1709ada6ba))
+* **resolve:** canonicalize workspace paths so git-worktree resolution works under symlinked roots ([00d97a5](https://github.com/SentioLabs/arc/commit/00d97a52376094c363d16d2d95b6e4ba7485861a))
+* **resolve:** canonicalize workspace paths so git-worktree resolution works under symlinked roots (arc-0ek8.000ddx) ([4e009f9](https://github.com/SentioLabs/arc/commit/4e009f97d656fd47cf641e39c2d9de93799d4233))
+* **test:** handle unused buffer write in project_plans_test ([4982958](https://github.com/SentioLabs/arc/commit/49829584c02c5e4a0f0dec8296ec21c65338ce91))
+
+
+### Refactoring
+
+* **api,cli:** remove share/paste endpoints, CLI, wiring, and orphaned sharesconfig ([19691f4](https://github.com/SentioLabs/arc/commit/19691f41213853ec1373aa46ad0d257be6e919a1))
+* **api:** drop ShareConfig from OpenAPI config schema ([97423a5](https://github.com/SentioLabs/arc/commit/97423a5e542d12b87a96b8a124edba16038c26f1))
+* **config:** remove share config schema ([73b7739](https://github.com/SentioLabs/arc/commit/73b77394e9eaeb2a040eff3e70297c9ee2a39082))
+* **config:** reuse templateVarRe, harden getwd + --resolved guard ([fe5cbd8](https://github.com/SentioLabs/arc/commit/fe5cbd844a38b1d06b86eb73515aed66c42c5d13))
+* **plan:** warn on read errors, match stderr idiom, expand deriveTitle tests ([bb0d9ce](https://github.com/SentioLabs/arc/commit/bb0d9ce8f69079561a2591c0c7d8e319525254ee))
+* remove arc-paste standalone service ([ad45a57](https://github.com/SentioLabs/arc/commit/ad45a57df9835dce1f8a87e5edda57f38cd027ba))
+* rename docs.* surface to plans.* (config, CLI, API) ([3546971](https://github.com/SentioLabs/arc/commit/354697158f798255499e0266c76ecdaa034f890f))
+* **storage,types:** remove share/paste storage layer and paste engine ([6fbb323](https://github.com/SentioLabs/arc/commit/6fbb3230d6f18e0af35050d333a5ab18a04a6189))
+* **vcs:** address slop-review findings ([2d87cd7](https://github.com/SentioLabs/arc/commit/2d87cd730de3ebd14db23c672bebe492c232f772))
+* **web:** remove share/paste UI stack ([be17c32](https://github.com/SentioLabs/arc/commit/be17c32fc8ab0df6e993a5cde65d2c9044cf036d))
+* **web:** remove vitest test infra (arc-paste artifact) ([e3378b9](https://github.com/SentioLabs/arc/commit/e3378b9c4a68fcbee62992604056bbd903278868))
+
 ## [0.15.0](https://github.com/SentioLabs/arc/compare/v0.14.0...v0.15.0) (2026-05-01)
 
 
