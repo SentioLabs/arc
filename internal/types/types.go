@@ -401,10 +401,11 @@ type IssueDetails struct {
 
 // Plan status constants.
 const (
-	PlanStatusDraft    = "draft"
-	PlanStatusInReview = "in_review"
-	PlanStatusApproved = "approved"
-	PlanStatusRejected = "rejected"
+	PlanStatusDraft            = "draft"
+	PlanStatusInReview         = "in_review"
+	PlanStatusApproved         = "approved"
+	PlanStatusRejected         = "rejected"
+	PlanStatusChangesRequested = "changes_requested"
 )
 
 // Plan represents an ephemeral review artifact backed by a filesystem markdown file.
@@ -416,13 +417,32 @@ type Plan struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// PlanComment is a review comment on a plan, optionally anchored to a line number.
+// PlanCommentAnchor pins a comment to a quoted text range in the rendered document.
+// quoted_text is captured from the rendered DOM (selection.toString()), not raw
+// markdown source. occurrence is the 0-based index of this quote among identical
+// matches in the rendered document.
+type PlanCommentAnchor struct {
+	LineStart     int    `json:"line_start"`
+	LineEnd       int    `json:"line_end"`
+	QuotedText    string `json:"quoted_text"`
+	Occurrence    int    `json:"occurrence"`
+	HeadingSlug   string `json:"heading_slug,omitempty"`
+	ContextBefore string `json:"context_before,omitempty"`
+	ContextAfter  string `json:"context_after,omitempty"`
+}
+
+// PlanComment is a review comment on a plan, optionally anchored to a line
+// number (legacy) or a quoted text range. LineNumber mirrors Anchor.LineStart
+// when Anchor is set.
 type PlanComment struct {
-	ID         string    `json:"id"`
-	PlanID     string    `json:"plan_id"`
-	LineNumber *int      `json:"line_number,omitempty"`
-	Content    string    `json:"content"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         string             `json:"id"`
+	PlanID     string             `json:"plan_id"`
+	LineNumber *int               `json:"line_number,omitempty"`
+	Content    string             `json:"content"`
+	Anchor     *PlanCommentAnchor `json:"anchor,omitempty"`
+	CreatedAt  time.Time          `json:"created_at"`
+	UpdatedAt  *time.Time         `json:"updated_at,omitempty"`
+	ResolvedAt *time.Time         `json:"resolved_at,omitempty"`
 }
 
 // PlanWithContent combines plan metadata with the file content read from disk.

@@ -1431,6 +1431,53 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /plans/{planId}/comments/{commentId}:
+    parameters:
+      - name: planId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: commentId
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      operationId: updatePlanComment
+      tags: [plans]
+      summary: Update a plan review comment (content, anchor, resolved state)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanCommentRequest"
+      responses:
+        "200":
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanComment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deletePlanComment
+      tags: [plans]
+      summary: Delete a plan review comment
+      responses:
+        "204":
+          description: Comment deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   parameters:
     ProjectId:
@@ -2301,7 +2348,7 @@ components:
     # ====================
     PlanStatus:
       type: string
-      enum: [draft, in_review, approved, rejected]
+      enum: [draft, in_review, approved, rejected, changes_requested]
 
     Plan:
       type: object
@@ -2331,6 +2378,33 @@ components:
               type: string
               description: Markdown content read from the plan file
 
+    PlanCommentAnchor:
+      type: object
+      description: Pins a comment to a quoted text range in the rendered document.
+      required: [line_start, line_end, quoted_text, occurrence]
+      properties:
+        line_start:
+          type: integer
+          description: First source line of the selection's enclosing block span
+        line_end:
+          type: integer
+          description: Last source line of the selection's enclosing block span
+        quoted_text:
+          type: string
+          description: Exact rendered text selected (from selection.toString())
+        occurrence:
+          type: integer
+          description: 0-based index among identical quotes in the rendered document
+        heading_slug:
+          type: string
+          description: Slug of the nearest heading at or above the selection
+        context_before:
+          type: string
+          description: Up to 64 rendered chars immediately before the selection
+        context_after:
+          type: string
+          description: Up to 64 rendered chars immediately after the selection
+
     PlanComment:
       type: object
       required: [id, plan_id, content, created_at]
@@ -2342,10 +2416,18 @@ components:
         line_number:
           type: integer
           nullable: true
-          description: Line number anchor (null for overall feedback)
+          description: Line number anchor (null for overall feedback; mirrors anchor.line_start when anchored)
         content:
           type: string
+        anchor:
+          $ref: "#/components/schemas/PlanCommentAnchor"
         created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
           type: string
           format: date-time
 
@@ -2379,3 +2461,19 @@ components:
           nullable: true
         content:
           type: string
+        anchor:
+          $ref: "#/components/schemas/PlanCommentAnchor"
+
+    UpdatePlanCommentRequest:
+      type: object
+      description: >
+        Partial update. anchor omitted/null = unchanged; anchor object = full
+        replace (line_number is re-mirrored from anchor.line_start).
+        resolved true/false sets/clears resolved_at.
+      properties:
+        content:
+          type: string
+        anchor:
+          $ref: "#/components/schemas/PlanCommentAnchor"
+        resolved:
+          type: boolean

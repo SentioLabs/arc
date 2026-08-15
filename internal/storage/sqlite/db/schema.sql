@@ -158,13 +158,22 @@ CREATE TABLE plans (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Plan review comments (line-level and overall feedback)
+-- Plan review comments (overall, legacy line-level, or quoted-range anchored)
 CREATE TABLE plan_comments (
     id TEXT PRIMARY KEY,
     plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
     line_number INTEGER,
     content TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    line_start INTEGER,
+    line_end INTEGER,
+    quoted_text TEXT,
+    occurrence INTEGER,
+    heading_slug TEXT,
+    context_before TEXT,
+    context_after TEXT,
+    updated_at TIMESTAMP,
+    resolved_at TIMESTAMP
 );
 
 CREATE INDEX idx_plan_comments_plan ON plan_comments(plan_id);

@@ -742,6 +742,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plans/{planId}/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                planId: string;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a plan review comment */
+        delete: operations["deletePlanComment"];
+        options?: never;
+        head?: never;
+        /** Update a plan review comment (content, anchor, resolved state) */
+        patch: operations["updatePlanComment"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1093,7 +1114,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        PlanStatus: "draft" | "in_review" | "approved" | "rejected";
+        PlanStatus: "draft" | "in_review" | "approved" | "rejected" | "changes_requested";
         Plan: {
             /** @description Unique plan ID (plan.xxxxx format) */
             id: string;
@@ -1109,14 +1130,36 @@ export interface components {
             /** @description Markdown content read from the plan file */
             content?: string;
         };
+        /** @description Pins a comment to a quoted text range in the rendered document. */
+        PlanCommentAnchor: {
+            /** @description First source line of the selection's enclosing block span */
+            line_start: number;
+            /** @description Last source line of the selection's enclosing block span */
+            line_end: number;
+            /** @description Exact rendered text selected (from selection.toString()) */
+            quoted_text: string;
+            /** @description 0-based index among identical quotes in the rendered document */
+            occurrence: number;
+            /** @description Slug of the nearest heading at or above the selection */
+            heading_slug?: string;
+            /** @description Up to 64 rendered chars immediately before the selection */
+            context_before?: string;
+            /** @description Up to 64 rendered chars immediately after the selection */
+            context_after?: string;
+        };
         PlanComment: {
             id: string;
             plan_id: string;
-            /** @description Line number anchor (null for overall feedback) */
+            /** @description Line number anchor (null for overall feedback; mirrors anchor.line_start when anchored) */
             line_number?: number | null;
             content: string;
+            anchor?: components["schemas"]["PlanCommentAnchor"];
             /** Format: date-time */
             created_at: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /** Format: date-time */
+            resolved_at?: string;
         };
         CreatePlanRequest: {
             file_path: string;
@@ -1130,6 +1173,13 @@ export interface components {
         CreatePlanCommentRequest: {
             line_number?: number | null;
             content: string;
+            anchor?: components["schemas"]["PlanCommentAnchor"];
+        };
+        /** @description Partial update. anchor omitted/null = unchanged; anchor object = full replace (line_number is re-mirrored from anchor.line_start). resolved true/false sets/clears resolved_at. */
+        UpdatePlanCommentRequest: {
+            content?: string;
+            anchor?: components["schemas"]["PlanCommentAnchor"];
+            resolved?: boolean;
         };
     };
     responses: {
@@ -2683,6 +2733,59 @@ export interface operations {
         responses: {
             /** @description Comment created */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanComment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deletePlanComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                planId: string;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comment deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updatePlanComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                planId: string;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlanCommentRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated comment */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
