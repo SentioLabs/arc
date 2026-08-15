@@ -1156,11 +1156,22 @@ func TestCreateAISession_RejectCrossProject(t *testing.T) {
 // committed, so the response still reads as a clean 404 and the bug is invisible.
 // Calling the handler directly lets a nil-pointer panic surface as a test
 // failure, so these tests actually prove the guard short-circuits.
+// Path params are passed as a map rather than two parallel slices so call sites
+// can't drift out of alignment. Echo resolves Param(name) by matching the name's
+// index into the values, so the map's iteration order does not matter — only that
+// each name is appended alongside its own value.
 func callHandlerDirect(
 	t *testing.T, e *echo.Echo, h echo.HandlerFunc,
-	target string, paramNames, paramValues []string,
+	target string, params map[string]string,
 ) *httptest.ResponseRecorder {
 	t.Helper()
+
+	paramNames := make([]string, 0, len(params))
+	paramValues := make([]string, 0, len(params))
+	for name, value := range params {
+		paramNames = append(paramNames, name)
+		paramValues = append(paramValues, value)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	rec := httptest.NewRecorder()
@@ -1202,7 +1213,7 @@ func TestGetAISession_NotFound_NoPanic(t *testing.T) {
 	projectID := createNamedProject(t, e, "gas-nf", "gasnf")
 
 	rec := callHandlerDirect(t, e, server.getAISession,
-		"/", []string{"projectId", "id"}, []string{projectID, "nope"})
+		"/", map[string]string{"projectId": projectID, "id": "nope"})
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d. body=%s",
@@ -1220,7 +1231,7 @@ func TestGetAISession_CrossProject_NoPanic(t *testing.T) {
 	_, projB := crossProjectSession(t, e, "gas-xp", "/tmp/t/gas-xp.jsonl")
 
 	rec := callHandlerDirect(t, e, server.getAISession,
-		"/", []string{"projectId", "id"}, []string{projB, "gas-xp"})
+		"/", map[string]string{"projectId": projB, "id": "gas-xp"})
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d. body=%s",
@@ -1238,7 +1249,7 @@ func TestGetSessionTranscript_NotFound_NoPanic(t *testing.T) {
 	projectID := createNamedProject(t, e, "gst-nf", "gstnf")
 
 	rec := callHandlerDirect(t, e, server.getSessionTranscript,
-		"/", []string{"projectId", "id"}, []string{projectID, "nope"})
+		"/", map[string]string{"projectId": projectID, "id": "nope"})
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d. body=%s",
@@ -1256,7 +1267,7 @@ func TestGetSessionTranscript_CrossProject_NoPanic(t *testing.T) {
 	_, projB := crossProjectSession(t, e, "gst-xp", "/tmp/t/gst-xp.jsonl")
 
 	rec := callHandlerDirect(t, e, server.getSessionTranscript,
-		"/", []string{"projectId", "id"}, []string{projB, "gst-xp"})
+		"/", map[string]string{"projectId": projB, "id": "gst-xp"})
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d. body=%s",
@@ -1274,8 +1285,7 @@ func TestGetAgentTranscript_NotFound_NoPanic(t *testing.T) {
 	projectID := createNamedProject(t, e, "gat-nf", "gatnf")
 
 	rec := callHandlerDirect(t, e, server.getAgentTranscript,
-		"/", []string{"projectId", "id", "aid"},
-		[]string{projectID, "nope", "agent-x"})
+		"/", map[string]string{"projectId": projectID, "id": "nope", "aid": "agent-x"})
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d. body=%s",
@@ -1293,8 +1303,7 @@ func TestGetAgentTranscript_CrossProject_NoPanic(t *testing.T) {
 	_, projB := crossProjectSession(t, e, "gat-xp", "/tmp/t/gat-xp.jsonl")
 
 	rec := callHandlerDirect(t, e, server.getAgentTranscript,
-		"/", []string{"projectId", "id", "aid"},
-		[]string{projB, "gat-xp", "agent-x"})
+		"/", map[string]string{"projectId": projB, "id": "gat-xp", "aid": "agent-x"})
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d. body=%s",

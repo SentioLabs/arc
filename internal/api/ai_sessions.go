@@ -115,7 +115,9 @@ func (s *Server) createAISession(c echo.Context) error {
 // The bool signal is deliberate: errorJSON returns nil on a successful write, so a
 // (*types.AISession, error) signature would hand every error path a nil error,
 // causing callers to skip their guard and dereference a nil session.
-func (s *Server) validateSessionProject(c echo.Context, sessionID, projectID string) (session *types.AISession, handled bool) {
+func (s *Server) validateSessionProject(
+	c echo.Context, sessionID, projectID string,
+) (session *types.AISession, handled bool) {
 	ctx := c.Request().Context()
 	session, err := s.store.GetAISession(ctx, sessionID)
 	if err != nil {
