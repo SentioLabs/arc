@@ -132,8 +132,9 @@ export function resolveAnchor(
  * still checks out. Every repair path below it is a *tier* — context-qualified,
  * heading-qualified, then everything — and within whichever tier first yields
  * candidates the winner is the one whose block starts nearest to the stored
- * line_start (ties go to the earlier match). Picking blindly in document order
- * resolves to the wrong copy whenever a document repeats content.
+ * line_start (ties go to the stored occurrence, else to the earlier match).
+ * Picking blindly in document order resolves to the wrong copy whenever a
+ * document repeats content.
  *
  * On the normalized tier the stored occurrence index is not comparable (the
  * collapsed text can merge or split matches), so it gets no fast path.
@@ -150,7 +151,9 @@ function selectMatch(
 		? normalizeWs(anchor.context_before ?? '')
 		: (anchor.context_before ?? '');
 	const after = normalized ? normalizeWs(anchor.context_after ?? '') : (anchor.context_after ?? '');
-	const hasContext = Boolean(before || after);
+	// Whitespace-only context carries no signal once normalized, so it counts as
+	// no context at all rather than as a qualifier nothing can satisfy.
+	const hasContext = Boolean(normalizeWs(before) || normalizeWs(after));
 
 	if (!normalized && anchor.occurrence < matches.length) {
 		if (
@@ -182,8 +185,11 @@ function selectMatch(
 
 /**
  * Of `candidates` (indices into `matches`), the one whose block begins closest
- * to the anchor's stored line_start. Ties resolve to the earlier match because
- * the scan runs in document order and only strictly-closer wins.
+ * to the anchor's stored line_start. Line distance cannot separate occurrences
+ * that share a block (a repeated phrase inside one list or paragraph ties at
+ * distance 0), so an exact tie goes to the stored occurrence when it is one of
+ * the tied candidates; failing that it goes to the earlier match, because the
+ * scan runs in document order and only strictly-closer wins.
  */
 function nearestToStoredLine(
 	blocks: RenderedBlock[],
@@ -197,7 +203,7 @@ function nearestToStoredLine(
 	for (const c of candidates) {
 		const lineStart = blocks[blockIndexAt(index, matches[c])].lineStart;
 		const distance = Math.abs(lineStart - anchor.line_start);
-		if (distance < bestDistance) {
+		if (distance < bestDistance || (distance === bestDistance && c === anchor.occurrence)) {
 			bestDistance = distance;
 			best = c;
 		}
@@ -205,7 +211,23 @@ function nearestToStoredLine(
 	return best;
 }
 
-/** True when both stored context strings (if present) surround the match. */
+/**
+ * True when both stored context strings (if present) surround the match.
+ *
+ * The comparison is whitespace-normalized on BOTH sides. Contexts are captured
+ * from `Range.toString()` ("…checkout\nThen, ") while the document index is
+ * built from `blockSearchText`, which emits a synthetic '\n' per block boundary
+ * AND keeps the whitespace text nodes between them ("…checkout\n\n\nThen, ").
+ * An exact compare therefore never succeeds once a stored context crosses a
+ * block boundary, which is the common case for a phrase near the edge of a
+ * list item or paragraph.
+ *
+ * The neighborhood window is sized at twice the raw stored context. Collapsing
+ * whitespace only ever shrinks text, so a window as long as the raw context
+ * already covers every character the context can normalize onto; the doubling
+ * is belt-and-braces for the extra boundary newlines the index inserts but the
+ * capture space never emitted.
+ */
 function contextMatches(
 	text: string,
 	matchIdx: number,
@@ -213,11 +235,18 @@ function contextMatches(
 	before: string,
 	after: string
 ): boolean {
-	if (!before && !after) return false; // no context stored → cannot confirm
+	const wantBefore = normalizeWs(before);
+	const wantAfter = normalizeWs(after);
+	if (!wantBefore && !wantAfter) return false; // no context stored → cannot confirm
 	const beforeOk =
-		!before || text.slice(Math.max(0, matchIdx - before.length), matchIdx) === before;
+		!wantBefore ||
+		normalizeWs(text.slice(Math.max(0, matchIdx - before.length * 2), matchIdx)).endsWith(
+			wantBefore
+		);
 	const afterEnd = matchIdx + needle.length;
-	const afterOk = !after || text.slice(afterEnd, afterEnd + after.length) === after;
+	const afterOk =
+		!wantAfter ||
+		normalizeWs(text.slice(afterEnd, afterEnd + after.length * 2)).startsWith(wantAfter);
 	return beforeOk && afterOk;
 }
 

@@ -124,6 +124,83 @@ describe('resolveAnchor', () => {
 		expect(result).toEqual({ lineStart: 1, lineEnd: 1, occurrence: 0, status: 'drifted' });
 	});
 
+	// A <ul> is ONE rendered block: the whitespace text nodes between <li>s each
+	// contribute their own '\n' on top of the block-boundary '\n', so the search
+	// text carries '\n\n\n' where selection.toString() captured a single '\n'.
+	const listBlocks: RenderedBlock[] = [
+		{ lineStart: 5, lineEnd: 5, text: 'Build steps', headingSlug: 'build-steps' },
+		{
+			lineStart: 7,
+			lineEnd: 9,
+			text:
+				'First, run task build in a clean checkout\n\n\n' +
+				'Then, run task build again after codegen\n\n\n' +
+				'Finally, publish the release artifacts'
+		}
+	];
+
+	it('resolves the second occurrence inside one block when the stored context spans list items', () => {
+		// The captured context ("…checkout\nThen, ") has a single '\n' where the
+		// block search text has '\n\n\n'. Exact comparison could never confirm it,
+		// which dropped the stored-occurrence fast path and let the two same-block
+		// matches tie at line distance 0 — resolving to the FIRST list item.
+		const result = resolveAnchor(
+			listBlocks,
+			anchor({
+				line_start: 7,
+				line_end: 9,
+				occurrence: 1,
+				context_before: 'in a clean checkout\nThen, ',
+				context_after: ' again after codegen'
+			})
+		);
+		expect(result).toEqual({ lineStart: 7, lineEnd: 9, occurrence: 1, status: 'ok' });
+	});
+
+	it('breaks a same-block tie toward the stored occurrence (1) rather than the first match', () => {
+		// Context that matches nothing kills the fast path and empties the
+		// context tier; both matches then tie at distance 0 inside the same block.
+		const result = resolveAnchor(
+			listBlocks,
+			anchor({
+				line_start: 7,
+				line_end: 9,
+				occurrence: 1,
+				context_before: 'no such preceding text'
+			})
+		);
+		expect(result).toEqual({ lineStart: 7, lineEnd: 9, occurrence: 1, status: 'ok' });
+	});
+
+	it('breaks a same-block tie toward the stored occurrence (0), not the later match', () => {
+		const result = resolveAnchor(
+			listBlocks,
+			anchor({
+				line_start: 7,
+				line_end: 9,
+				occurrence: 0,
+				context_before: 'no such preceding text'
+			})
+		);
+		expect(result).toEqual({ lineStart: 7, lineEnd: 9, occurrence: 0, status: 'ok' });
+	});
+
+	it('normalized context still rejects the wrong same-block occurrence', () => {
+		// Stored occurrence 1, but the stored context only fits occurrence 0 —
+		// normalization must not make the check permissive enough to confirm 1.
+		const result = resolveAnchor(
+			listBlocks,
+			anchor({
+				line_start: 7,
+				line_end: 9,
+				occurrence: 1,
+				context_before: 'First, ',
+				context_after: ' in a clean checkout'
+			})
+		);
+		expect(result).toEqual({ lineStart: 7, lineEnd: 9, occurrence: 0, status: 'drifted' });
+	});
+
 	it('resolves a cross-paragraph quote whose \\n\\n does not match the single-\\n index', () => {
 		// selection.toString() emits a blank line between paragraphs; the doc
 		// index joins blocks with one \n, so the exact search finds nothing and

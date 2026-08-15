@@ -211,7 +211,7 @@ test.describe('Plan review — unified review flow', () => {
 		await expect(page.locator(CARD)).toContainText('Confirm the cohort size with SRE.');
 	});
 
-	test('commenting on the second occurrence persists exactly one highlight', async ({ page }) => {
+	test('commenting on the second occurrence anchors to the second list item', async ({ page }) => {
 		const planId = await seedPlan(PLAN_MD);
 		await openPlan(page, planId);
 
@@ -225,31 +225,19 @@ test.describe('Plan review — unified review flow', () => {
 		const mark = page.locator(MARK);
 		await expect(mark).toHaveCount(1);
 		await expect(mark).toHaveText(REPEATED);
-	});
 
-	// KNOWN BUG (expected failure): the highlight lands on the FIRST list item.
-	// Capture stores occurrence 1 correctly, but resolveAnchor discards it —
-	// context_before/context_after are captured in Range.toString() space
-	// ("…checkout\nThen, ") while the resolver matches them against
-	// blockSearchText space ("…checkout\n\n\nThen, "), so contextMatches can
-	// never succeed once the context crosses a block boundary. The repair tiers
-	// then tie on line distance (both occurrences share the <ul> block) and the
-	// first match wins. Remove test.fail() once the anchor spaces agree.
-	test('commenting on the second occurrence anchors to the second list item', async ({ page }) => {
-		test.fail();
-		const planId = await seedPlan(PLAN_MD);
-		await openPlan(page, planId);
-
-		await commentOnSelection(page, REPEATED, 'Only the post-codegen build.', 1);
-
-		await page.reload();
-		await expect(page.locator(MARK)).toHaveCount(1);
-
+		// Both list items share one <ul> block, so line distance cannot separate
+		// them — landing on the second item proves the stored occurrence survived
+		// the round trip rather than being repaired to the first match.
 		const markedItem = await page.evaluate(() => {
 			const items = Array.from(document.querySelectorAll('article.doc li'));
 			return items.findIndex((li) => li.querySelector('mark[data-anno-id]'));
 		});
 		expect(markedItem).toBe(1);
+
+		// Resolving to the occurrence that was captured is not drift.
+		await expect(mark).not.toHaveClass(/is-drifted/);
+		await expect(page.locator(CARD).locator('.badge-drifted')).toHaveCount(0);
 	});
 
 	test('editing a comment updates the card and flags it as edited', async ({ page }) => {
