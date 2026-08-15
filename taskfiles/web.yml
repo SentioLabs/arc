@@ -1,3 +1,57 @@
 version: '3'
 
-tasks: {}
+tasks:
+  install:
+    desc: Install frontend dependencies
+    dir: '{{.WEB_DIR}}'
+    sources:
+      - 'package.json'
+      - 'bun.lock'
+    cmds:
+      - '{{.PM}} install'
+
+  build:
+    desc: Build frontend for production
+    dir: '{{.WEB_DIR}}'
+    sources:
+      - 'package.json'
+      - 'bun.lock'
+      - 'src/**/*'
+      - 'static/**/*'
+      - 'vite.config.*'
+      - 'svelte.config.*'
+      - 'tsconfig.json'
+    generates:
+      - 'build/**/*'
+    cmds:
+      - task: install
+      - '{{.PM}} run build'
+
+  dev:
+    desc: Run the frontend dev server
+    dir: '{{.WEB_DIR}}'
+    cmds:
+      - '{{.PM}} run dev'
+
+  check:
+    desc: Run frontend type and a11y checks (svelte-check)
+    dir: '{{.WEB_DIR}}'
+    cmds:
+      - '{{.PM}} run check'
+
+  lint:
+    desc: Lint frontend sources (biome + eslint)
+    dir: '{{.WEB_DIR}}'
+    cmds:
+      - '{{.PM}} run lint'
+
+  format:
+    desc: Format frontend sources (biome + prettier)
+    dir: '{{.WEB_DIR}}'
+    cmds:
+      - '{{.PM}} run format'
+
+  clean:
+    desc: Remove frontend build artifacts
+    cmds:
+      - rm -rf {{.WEB_DIR}}/build {{.WEB_DIR}}/.svelte-kit
