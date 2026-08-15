@@ -1,0 +1,17 @@
+# Toolchain pins for arc. Single source of truth for tool versions.
+# `mise install` provisions everything the Taskfile invokes, except docker.
+#
+# NOTE: `go` must match the `go` directive in go.mod. The `check:versions`
+# task asserts this and is wired into `task ci`.
+
+[tools]
+go            = "1.26.0"
+task          = "3"
+golangci-lint = "2.12.2"
+jj            = "0.42.0"
+bun           = "1.3.14"
+sqlc          = "1.31.1"
+mockery       = "3.7.3"
+gofumpt       = "0.11.0"
+goreleaser    = "2.17.1"
+air           = "1.67.4"

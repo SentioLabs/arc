@@ -26,18 +26,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v2
         with:
-          go-version-file: go.mod
           cache: true
 
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
       - name: Download dependencies
-        run: go mod download
+        run: task deps
 
       - name: Run linter
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.12.2
+        run: task lint:go
 
   unit-tests:
     needs: lint
@@ -46,34 +51,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v2
         with:
-          go-version-file: go.mod
           cache: true
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Install jj
-        run: |
-          JJ_VERSION="v0.42.0"
-          ARCHIVE="jj-${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-          URL="https://github.com/jj-vcs/jj/releases/download/${JJ_VERSION}/${ARCHIVE}"
-          for i in 1 2 3; do
-            curl -sSfL "$URL" -o /tmp/jj.tar.gz && break
-            echo "jj download attempt $i failed, retrying in 5s..."
-            sleep 5
-            [ "$i" = 3 ] && { echo "jj download failed after 3 attempts"; exit 1; }
-          done
-          mkdir -p /tmp/jj-extract
-          tar -xzf /tmp/jj.tar.gz -C /tmp/jj-extract
-          JJ_BIN="$(find /tmp/jj-extract -type f -name jj | head -n1)"
-          test -n "$JJ_BIN" || { echo "jj binary not found in archive:"; tar -tzf /tmp/jj.tar.gz; exit 1; }
-          install -m 0755 "$JJ_BIN" /usr/local/bin/jj
-          jj --version
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
 
       - name: Run tests
-        run: make test
+        run: task test
 
   integration-tests:
     needs: lint
@@ -82,8 +73,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+
       - name: Run integration tests
-        run: make test-integration
+        run: task test:integration
 
   playwright-e2e:
     needs: lint
@@ -92,16 +87,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v2
         with:
-          go-version-file: go.mod
           cache: true
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Setup bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
 
       - name: Install frontend dependencies
         run: cd web && bun install
@@ -119,4 +115,4 @@ jobs:
           exit 1
 
       - name: Run Playwright E2E tests
-        run: make test-playwright
+        run: task test:playwright

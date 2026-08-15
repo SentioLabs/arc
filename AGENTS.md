@@ -38,24 +38,28 @@ arc is a central issue tracking server for AI-assisted coding workflows. It prov
 
 ```bash
 # Build everything
-make build
+task build
 
 # Build binaries only (faster)
-make build-quick
+task build:quick
 
 # Run server
-./bin/arc-server                # Default port 7432
-./bin/arc-server -addr :8080    # Custom port
+./bin/arc server start          # Default port 7432
+./bin/arc server start --port 8080    # Custom port
 
 # Run tests
-make test
+task test
 
 # Format code
-make fmt
+task fmt
 
 # Docker
-make docker-up
+task docker:up
 ```
+
+> Commands run via [go-task](https://taskfile.dev). Run `task --list` to see every
+> available task. `make <target>` still works — the Makefile is a thin wrapper that
+> forwards to `task`.
 
 ## Code Organization
 

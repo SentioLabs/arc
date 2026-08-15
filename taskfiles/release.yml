@@ -1,0 +1,12 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Build a release with goreleaser (requires a git tag)
+    cmds:
+      - goreleaser release --clean
+
+  snapshot:
+    desc: Build a release snapshot locally (no tag required)
+    cmds:
+      - goreleaser release --snapshot --clean

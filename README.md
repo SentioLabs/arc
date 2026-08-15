@@ -45,12 +45,27 @@ sudo rpm -i arc_*_linux_amd64.rpm
 sudo pacman -U arc_*_linux_amd64.pkg.tar.zst
 ```
 
+### Prerequisites
+
+- [mise](https://mise.jdx.dev) — provisions the toolchain (Go, bun, task, linters)
+- Docker — required only for integration and Playwright E2E tests
+
+Install the toolchain and make sure mise is activated in your shell:
+
+```bash
+mise install
+```
+
+If `mise` is not activated in your shell (see the mise docs for your shell), tools
+pinned in `mise.toml` will not be on your `PATH` and commands like `task build` and
+`task release` will fail.
+
 ### From Source
 
 ```bash
 git clone https://github.com/sentiolabs/arc
 cd arc
-make build
+task build
 # Binary at ./bin/arc
 ```
 
@@ -375,21 +390,25 @@ Resolution priority: CLI flag > project config > CLI config defaults.
 
 ```bash
 # Build everything (frontend + binaries)
-make build
+task build
 
 # Build binaries only (faster)
-make build-quick
+task build:quick
 
 # Run tests
-make test
+task test
 
 # Generate code (sqlc, OpenAPI, TypeScript)
-make gen
+task gen
 
 # Docker
-make docker-build
-make docker-up
+task docker:build
+task docker:up
 ```
+
+> Commands run via [go-task](https://taskfile.dev). Run `task --list` to see every
+> available task. `make <target>` still works — the Makefile is a thin wrapper that
+> forwards to `task`.
 
 ## API Reference
 

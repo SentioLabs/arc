@@ -1,0 +1,25 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Remove build artifacts and coverage reports
+    cmds:
+      - 'rm -rf {{.BIN_DIR}} dist'
+      - 'rm -f coverage.out coverage.html'
+
+  web:
+    desc: Remove frontend build artifacts
+    cmds:
+      - task: ':web:clean'
+
+  docker:
+    desc: Remove docker compose volumes and the built image
+    cmds:
+      - task: ':docker:clean'
+
+  all:
+    desc: Remove all artifacts including frontend and Docker
+    cmds:
+      - task: default
+      - task: ':web:clean'
+      - task: ':docker:clean'

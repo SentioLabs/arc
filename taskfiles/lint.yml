@@ -1,0 +1,18 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Lint Go and frontend sources (linting only — see `task review` for type checks)
+    cmds:
+      - task: go
+      - task: ':web:lint'
+
+  go:
+    desc: Run golangci-lint over the Go sources
+    cmds:
+      - golangci-lint run
+
+  fix:
+    desc: Run golangci-lint with auto-fix
+    cmds:
+      - golangci-lint run --fix

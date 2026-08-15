@@ -1,0 +1,101 @@
+version: '3'
+
+vars:
+  BIN_DIR: ./bin
+  CLI_BIN: '{{.BIN_DIR}}/arc'
+  GO: go
+  BUILD_SCRIPT: ./scripts/build.sh
+  WEB_DIR: web
+  PM: bun
+  DOCKER_IMAGE: arc-server
+  DOCKER_TAG: latest
+  COMPOSE_FILE: docker-compose.yml
+
+includes:
+  gen: ./taskfiles/gen.yml
+  web: ./taskfiles/web.yml
+  build: ./taskfiles/build.yml
+  release: ./taskfiles/release.yml
+  test: ./taskfiles/test.yml
+  lint: ./taskfiles/lint.yml
+  docker: ./taskfiles/docker.yml
+  deps: ./taskfiles/deps.yml
+  clean: ./taskfiles/clean.yml
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  check:versions:
+    desc: Assert mise.toml and go.mod agree on the Go version
+    cmds:
+      - cmd: |
+          mise_go="$(grep -E '^go[[:space:]]*=' mise.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+          mod_go="$(grep -E '^go ' go.mod | head -1 | awk '{print $2}')"
+          if [ -z "$mise_go" ] || [ -z "$mod_go" ]; then
+            echo "ERROR: could not read Go version (mise.toml='$mise_go' go.mod='$mod_go')" >&2
+            exit 1
+          fi
+          if [ "$mise_go" != "$mod_go" ]; then
+            echo "ERROR: Go version mismatch — mise.toml=$mise_go, go.mod=$mod_go" >&2
+            echo "Update mise.toml to match go.mod." >&2
+            exit 1
+          fi
+          echo "Go version aligned: $mod_go"
+
+  fmt:
+    desc: Format Go and frontend sources
+    cmds:
+      - '{{.GO}} fmt ./...'
+      - gofumpt -l -w .
+      - task: 'web:format'
+
+  run:
+    desc: Build and run the server in the foreground
+    cmds:
+      - task: build
+      - '{{.CLI_BIN}} server start --foreground'
+
+  dev:
+    desc: Run the server with live reload (air)
+    cmds:
+      - air
+
+  install:
+    desc: Build and install arc to ~/.local/bin, restarting the server
+    cmds:
+      - task: build
+      - '{{.CLI_BIN}} server stop 2>/dev/null || true'
+      - 'mkdir -p "$HOME/.local/bin"'
+      - 'cp {{.CLI_BIN}} "$HOME/.local/bin/arc"'
+      - '"$HOME/.local/bin/arc" server start'
+      - 'echo "Installed: $("$HOME/.local/bin/arc" --version)"'
+
+  ci:
+    desc: Run the local CI pipeline (guards, deps, unit tests, lint)
+    cmds:
+      - task: 'check:versions'
+      - task: 'test:taskfile'
+      - task: 'deps'
+      - task: 'test'
+      - task: 'lint'
+
+  ci:all:
+    desc: Run the full CI pipeline including Docker-backed E2E tests
+    cmds:
+      - task: 'ci'
+      - task: 'test:integration'
+      - task: 'test:playwright'
+
+  review:
+    desc: Full pre-PR gate — guards, codegen drift, lint, type check, and tests
+    cmds:
+      - task: 'check:versions'
+      - task: 'test:taskfile'
+      - task: 'gen:drift'
+      - task: 'lint'
+      - task: 'web:check'
+      - task: 'test'

@@ -1,0 +1,47 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Run all code generation (sequential — gen:types reads gen:api output)
+    cmds:
+      - task: api
+      - task: sqlc
+      - task: types
+
+  api:
+    desc: Generate OpenAPI server code (oapi-codegen)
+    cmds:
+      - '{{.GO}} generate ./internal/api'
+
+  sqlc:
+    desc: Generate sqlc database code
+    cmds:
+      - sqlc generate
+
+  types:
+    desc: Generate TypeScript types from the OpenAPI spec
+    dir: '{{.WEB_DIR}}'
+    sources:
+      - '../api/openapi.yaml'
+    generates:
+      - 'src/lib/api/types.ts'
+    cmds:
+      - '{{.PM}} run generate'
+
+  mocks:
+    desc: Generate mocks (mockery)
+    cmds:
+      - mockery
+
+  drift:
+    desc: Regenerate all code and fail if the working tree changes
+    cmds:
+      - task: default
+      - task: mocks
+      - cmd: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "ERROR: generated code is stale. Run 'task gen' and 'task gen:mocks', then commit:" >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+          echo "generated code is up to date"
