@@ -1,3 +1,49 @@
 version: '3'
 
-tasks: {}
+tasks:
+  build:
+    desc: Build the Docker image
+    preconditions:
+      - sh: command -v docker
+        msg: "docker is required but not installed — mise does not provision it"
+    cmds:
+      - 'docker build -t {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}} .'
+
+  up:
+    desc: Start services with docker compose
+    preconditions:
+      - sh: command -v docker
+        msg: "docker is required but not installed — mise does not provision it"
+    cmds:
+      - 'docker compose -f {{.COMPOSE_FILE}} up -d'
+
+  down:
+    desc: Stop services with docker compose
+    preconditions:
+      - sh: command -v docker
+        msg: "docker is required but not installed — mise does not provision it"
+    cmds:
+      - 'docker compose -f {{.COMPOSE_FILE}} down'
+
+  logs:
+    desc: Follow docker compose logs
+    preconditions:
+      - sh: command -v docker
+        msg: "docker is required but not installed — mise does not provision it"
+    cmds:
+      - 'docker compose -f {{.COMPOSE_FILE}} logs -f'
+
+  restart:
+    desc: Restart docker compose services
+    cmds:
+      - task: down
+      - task: up
+
+  clean:
+    desc: Remove docker compose volumes and the built image
+    preconditions:
+      - sh: command -v docker
+        msg: "docker is required but not installed — mise does not provision it"
+    cmds:
+      - 'docker compose -f {{.COMPOSE_FILE}} down -v'
+      - 'docker rmi {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}} 2>/dev/null || true'
