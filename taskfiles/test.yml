@@ -1,3 +1,50 @@
 version: '3'
 
-tasks: {}
+tasks:
+  default:
+    desc: Run unit tests with race detection and coverage
+    cmds:
+      - '{{.GO}} test -race -cover ./...'
+
+  verbose:
+    desc: Run unit tests with verbose output
+    cmds:
+      - '{{.GO}} test -race -cover -v ./...'
+
+  coverage:
+    desc: Run unit tests and write an HTML coverage report
+    cmds:
+      - '{{.GO}} test -race -coverprofile=coverage.out ./...'
+      - '{{.GO}} tool cover -html=coverage.out -o coverage.html'
+      - 'echo "Coverage report: coverage.html"'
+
+  integration:
+    desc: Run CLI integration tests (requires Docker)
+    cmds:
+      - scripts/test-e2e.sh integration
+
+  playwright:
+    desc: Run Playwright E2E tests (requires Docker)
+    cmds:
+      - scripts/test-e2e.sh playwright
+
+  e2e:
+    desc: Run all E2E tests — integration and Playwright (requires Docker)
+    cmds:
+      - scripts/test-e2e.sh all
+
+  taskfile:
+    desc: Verify every expected task name still resolves
+    cmds:
+      - for:
+          [
+            'gen', 'gen:api', 'gen:sqlc', 'gen:types', 'gen:mocks', 'gen:drift',
+            'web:install', 'web:build', 'web:check', 'web:lint', 'web:format',
+            'web:clean', 'build', 'build:bin', 'build:quick', 'release',
+            'release:snapshot', 'test', 'test:verbose', 'test:coverage',
+            'test:integration', 'test:playwright', 'test:e2e', 'lint', 'lint:go',
+            'lint:fix', 'docker:build', 'docker:up', 'docker:down', 'docker:logs',
+            'docker:restart', 'docker:clean', 'deps', 'deps:tidy', 'deps:update',
+            'clean', 'clean:web', 'clean:docker', 'clean:all',
+          ]
+        cmd: task --summary {{.ITEM}} > /dev/null
