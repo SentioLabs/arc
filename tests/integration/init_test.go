@@ -11,6 +11,13 @@ import (
 
 // arcCmdInDir runs the arc binary with the given arguments, setting both
 // the HOME directory (for config isolation) and the working directory.
+//
+// PWD is exported alongside cmd.Dir to match how an interactive shell invokes
+// arc. cmd.Dir alone only chdir()s, so os.Getwd() in the child falls back to the
+// raw syscall and always reports the canonical path — meaning a workDir reached
+// through a symlink would be indistinguishable from the real directory, and
+// symlink-resolution bugs could not reproduce here. Shells export the logical
+// PWD, which os.Getwd() prefers when it stats to the same directory.
 func arcCmdInDir(t *testing.T, homeDir, workDir string, args ...string) (string, error) {
 	t.Helper()
 	cmd := exec.Command(arcBinary, args...)
@@ -18,6 +25,7 @@ func arcCmdInDir(t *testing.T, homeDir, workDir string, args ...string) (string,
 	cmd.Env = append(os.Environ(),
 		"HOME="+homeDir,
 		"ARC_SERVER="+serverURL,
+		"PWD="+workDir,
 	)
 	out, err := cmd.CombinedOutput()
 	return string(out), err

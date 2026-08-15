@@ -27,7 +27,7 @@ var initCmd = &cobra.Command{
 
 This command:
 1. Creates a project on the server (or connects to existing)
-2. Saves project config to ~/.arc/projects/
+2. Registers this directory as a workspace path on the server
 3. Creates AGENTS.md with session completion instructions
 
 For Claude Code users: Install the arc plugin for full integration
@@ -54,12 +54,20 @@ func runInit(cmd *cobra.Command, args []string) error {
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	description, _ := cmd.Flags().GetString("description")
 
-	// Get current working directory, resolving symlinks for consistent path storage
+	// Get current working directory. Keep the raw form: when the shell reached this
+	// directory through a symlink, NormalizePathPair splits it into the symlink path
+	// and the canonical one, and both must be registered below. Resolving cwd here
+	// would collapse the pair and lose the symlink form that resolveProject() —
+	// which matches against the raw os.Getwd() result — needs to find a match.
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
 	}
-	cwd = project.NormalizePath(cwd)
+	absPath, resolvedPath := project.NormalizePathPair(cwd)
+
+	// Name and prefix derive from the canonical path so a project's identity stays
+	// stable regardless of which symlinked route was used to enter the directory.
+	cwd = resolvedPath
 
 	// Determine project name
 	var name string
@@ -131,9 +139,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Register the current directory as a workspace path
+	// Register the current directory as a workspace path. When cwd was reached via a
+	// symlink, registerPathPair stores both variants so either form resolves later.
 	hostname, _ := os.Hostname()
-	absPath, resolvedPath := project.NormalizePathPair(cwd)
 	if regErr := registerPathPair(c, proj.ID, absPath, resolvedPath, hostname); regErr != nil {
 		if !quiet {
 			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to register workspace path: %v\n", regErr)
