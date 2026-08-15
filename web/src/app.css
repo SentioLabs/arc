@@ -687,10 +687,23 @@
    serif document column, Instrument Sans UI chrome, amber ink-comment marks.
    ========================================================================== */
 
-/* Amber annotation-ink tokens live on :root (not .planner-review) because the
-   review action bar, re-anchor banner, and toast may render outside the
-   .planner-review subtree and must keep their ink styling there. */
+/* The whole `--ink-*` token system lives on :root (not .planner-review) because
+   viewport-fixed overlay chrome — the floating toolbar, comment popover, review
+   action bar, re-anchor banner, and toast — may mount outside the
+   .planner-review subtree and must keep its ink styling there. The surface and
+   text names are pure aliases of arc's standard `--color-*` tokens, so defining
+   them globally changes nothing outside the review surface. */
 :root {
+	/* Surfaces & text — alias to arc's Refined Terminal palette. */
+	--ink-paper: var(--color-surface-900);
+	--ink-paper-raised: var(--color-surface-800);
+	--ink-paper-edge: var(--color-surface-700);
+	--ink-text: var(--color-text-primary);
+	--ink-text-muted: var(--color-text-secondary);
+	--ink-text-faint: var(--color-text-muted);
+	--ink-rule: var(--color-border);
+
+	/* Comment ink — warm amber, the sole review-domain accent. */
 	--ink-comment: oklch(0.78 0.16 75); /* warm amber highlight */
 	--ink-comment-bg: oklch(0.78 0.16 75 / 0.16);
 	--ink-comment-edge: oklch(0.78 0.16 75 / 0.55);
@@ -719,23 +732,10 @@
 }
 
 /*
- * Token system — `--ink-*` names alias arc's standard `--color-*` tokens so
- * the review surface reads the same as the rest of the app. The amber
- * comment ink is the ONLY annotation accent — the taxonomy is comment-only,
- * so the delete/praise inks are gone.
+ * Review surface paint — the `--ink-*` tokens themselves are defined on :root
+ * (see above) so overlay chrome rendered outside this subtree resolves them.
  */
 .planner-review {
-	/* Surfaces & text — alias to arc's Refined Terminal palette. */
-	--ink-paper: var(--color-surface-900);
-	--ink-paper-raised: var(--color-surface-800);
-	--ink-paper-edge: var(--color-surface-700);
-	--ink-text: var(--color-text-primary);
-	--ink-text-muted: var(--color-text-secondary);
-	--ink-text-faint: var(--color-text-muted);
-	--ink-rule: var(--color-border);
-
-	/* Comment ink — warm amber, the sole review-domain accent. */
-
 	background: var(--ink-paper);
 	color: var(--ink-text);
 	min-height: 100vh;

@@ -18,13 +18,25 @@ type DocIndex = {
 	starts: number[];
 };
 
-function buildIndex(blocks: RenderedBlock[]): DocIndex {
+/** Collapse every run of whitespace to a single space. */
+function normalizeWs(text: string): string {
+	return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Concatenate block texts into one searchable string, remembering where each
+ * block begins. `normalize` builds the whitespace-collapsed variant: blocks are
+ * normalized individually and joined with a single space, so block boundaries
+ * (and therefore line spans) stay resolvable in the collapsed space too.
+ */
+function buildIndex(blocks: RenderedBlock[], normalize = false): DocIndex {
+	const sep = normalize ? ' ' : '\n';
 	const starts: number[] = [];
 	let text = '';
 	for (const b of blocks) {
-		if (text.length > 0) text += '\n';
+		if (text.length > 0) text += sep;
 		starts.push(text.length);
-		text += b.text;
+		text += normalize ? normalizeWs(b.text) : b.text;
 	}
 	return { text, starts };
 }
@@ -55,10 +67,15 @@ function findAll(haystack: string, needle: string): number[] {
  * Strategy (all matching against rendered text — the same space quoted_text
  * was captured from):
  *   1. Find every occurrence of quoted_text in the concatenated block text.
- *   2. No matches → orphaned (return stored lines unchanged).
- *   3. Pick the match: stored occurrence if still valid; otherwise
- *      context_before/after disambiguation; otherwise the heading_slug
- *      section; otherwise clamp to the last match.
+ *      If there are none, retry in a whitespace-normalized copy of the document
+ *      (browsers emit `\n\n` at paragraph boundaries in selection.toString()
+ *      while the index joins blocks with a single `\n`, so a legitimate
+ *      cross-paragraph quote can miss exactly). Normalized hits are never 'ok'.
+ *   2. Still no matches → orphaned (return stored lines unchanged).
+ *   3. Pick the match: the stored occurrence when it still exists and its
+ *      stored context (if any) still surrounds it; otherwise the candidate
+ *      nearest to the stored line_start among those qualified by
+ *      context_before/after, else by heading_slug, else among all matches.
  *   4. status is 'ok' only when the chosen match IS the stored occurrence
  *      AND its block lines equal the stored lines; anything else 'drifted'.
  */
@@ -74,36 +91,23 @@ export function resolveAnchor(
 	};
 	if (!anchor.quoted_text) return orphaned;
 
-	const index = buildIndex(blocks);
-	const matches = findAll(index.text, anchor.quoted_text);
+	let normalized = false;
+	let index = buildIndex(blocks);
+	let needle = anchor.quoted_text;
+	let matches = findAll(index.text, needle);
+
+	if (matches.length === 0) {
+		normalized = true;
+		index = buildIndex(blocks, true);
+		needle = normalizeWs(anchor.quoted_text);
+		matches = findAll(index.text, needle);
+	}
 	if (matches.length === 0) return orphaned;
 
-	let chosen = -1;
-
-	// Stored occurrence still valid?
-	if (anchor.occurrence < matches.length) {
-		chosen = anchor.occurrence;
-		// If context disagrees, fall through to context-based repair.
-		if (!contextMatches(index.text, matches[chosen], anchor)) {
-			const byContext = matches.findIndex((m) => contextMatches(index.text, m, anchor));
-			if (byContext !== -1) chosen = byContext;
-		}
-	} else {
-		const byContext = matches.findIndex((m) => contextMatches(index.text, m, anchor));
-		if (byContext !== -1) {
-			chosen = byContext;
-		} else if (anchor.heading_slug) {
-			const byHeading = matches.findIndex(
-				(m) => nearestHeadingSlug(blocks, index, m) === anchor.heading_slug
-			);
-			chosen = byHeading !== -1 ? byHeading : matches.length - 1;
-		} else {
-			chosen = matches.length - 1;
-		}
-	}
+	const chosen = selectMatch(blocks, index, matches, anchor, needle, normalized);
 
 	const startBlock = blocks[blockIndexAt(index, matches[chosen])];
-	const endBlock = blocks[blockIndexAt(index, matches[chosen] + anchor.quoted_text.length - 1)];
+	const endBlock = blocks[blockIndexAt(index, matches[chosen] + needle.length - 1)];
 	const resolution: AnchorResolution = {
 		lineStart: startBlock.lineStart,
 		lineEnd: endBlock.lineEnd,
@@ -111,6 +115,7 @@ export function resolveAnchor(
 		status: 'drifted'
 	};
 	if (
+		!normalized &&
 		chosen === anchor.occurrence &&
 		resolution.lineStart === anchor.line_start &&
 		resolution.lineEnd === anchor.line_end
@@ -120,14 +125,98 @@ export function resolveAnchor(
 	return resolution;
 }
 
+/**
+ * Choose which occurrence the anchor refers to, as an index into `matches`.
+ *
+ * The stored occurrence wins outright when it still exists and its context
+ * still checks out. Every repair path below it is a *tier* — context-qualified,
+ * heading-qualified, then everything — and within whichever tier first yields
+ * candidates the winner is the one whose block starts nearest to the stored
+ * line_start (ties go to the earlier match). Picking blindly in document order
+ * resolves to the wrong copy whenever a document repeats content.
+ *
+ * On the normalized tier the stored occurrence index is not comparable (the
+ * collapsed text can merge or split matches), so it gets no fast path.
+ */
+function selectMatch(
+	blocks: RenderedBlock[],
+	index: DocIndex,
+	matches: number[],
+	anchor: PlanCommentAnchor,
+	needle: string,
+	normalized: boolean
+): number {
+	const before = normalized
+		? normalizeWs(anchor.context_before ?? '')
+		: (anchor.context_before ?? '');
+	const after = normalized ? normalizeWs(anchor.context_after ?? '') : (anchor.context_after ?? '');
+	const hasContext = Boolean(before || after);
+
+	if (!normalized && anchor.occurrence < matches.length) {
+		if (
+			!hasContext ||
+			contextMatches(index.text, matches[anchor.occurrence], needle, before, after)
+		) {
+			return anchor.occurrence;
+		}
+	}
+
+	const all = matches.map((_, i) => i);
+
+	if (hasContext) {
+		const byContext = all.filter((i) =>
+			contextMatches(index.text, matches[i], needle, before, after)
+		);
+		if (byContext.length > 0) return nearestToStoredLine(blocks, index, matches, byContext, anchor);
+	}
+
+	if (anchor.heading_slug) {
+		const byHeading = all.filter(
+			(i) => nearestHeadingSlug(blocks, index, matches[i]) === anchor.heading_slug
+		);
+		if (byHeading.length > 0) return nearestToStoredLine(blocks, index, matches, byHeading, anchor);
+	}
+
+	return nearestToStoredLine(blocks, index, matches, all, anchor);
+}
+
+/**
+ * Of `candidates` (indices into `matches`), the one whose block begins closest
+ * to the anchor's stored line_start. Ties resolve to the earlier match because
+ * the scan runs in document order and only strictly-closer wins.
+ */
+function nearestToStoredLine(
+	blocks: RenderedBlock[],
+	index: DocIndex,
+	matches: number[],
+	candidates: number[],
+	anchor: PlanCommentAnchor
+): number {
+	let best = candidates[0];
+	let bestDistance = Infinity;
+	for (const c of candidates) {
+		const lineStart = blocks[blockIndexAt(index, matches[c])].lineStart;
+		const distance = Math.abs(lineStart - anchor.line_start);
+		if (distance < bestDistance) {
+			bestDistance = distance;
+			best = c;
+		}
+	}
+	return best;
+}
+
 /** True when both stored context strings (if present) surround the match. */
-function contextMatches(text: string, matchIdx: number, anchor: PlanCommentAnchor): boolean {
-	const before = anchor.context_before ?? '';
-	const after = anchor.context_after ?? '';
+function contextMatches(
+	text: string,
+	matchIdx: number,
+	needle: string,
+	before: string,
+	after: string
+): boolean {
 	if (!before && !after) return false; // no context stored → cannot confirm
 	const beforeOk =
 		!before || text.slice(Math.max(0, matchIdx - before.length), matchIdx) === before;
-	const afterEnd = matchIdx + anchor.quoted_text.length;
+	const afterEnd = matchIdx + needle.length;
 	const afterOk = !after || text.slice(afterEnd, afterEnd + after.length) === after;
 	return beforeOk && afterOk;
 }

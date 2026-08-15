@@ -34,8 +34,16 @@ describe('resolveAnchor', () => {
 		expect(result).toEqual({ lineStart: 3, lineEnd: 5, occurrence: 0, status: 'drifted' });
 	});
 
-	it('clamps a stale occurrence (occurrence 5, 2 matches) to the last match with status drifted', () => {
+	it('repairs a stale occurrence (occurrence 5, 2 matches) to the match nearest the stored line', () => {
+		// Stored line_start 3 sits on the first match's block (lines 3-5), so the
+		// nearest-to-stored rule keeps the comment where it was rather than
+		// clamping to the last match.
 		const result = resolveAnchor(blocks, anchor({ occurrence: 5 }));
+		expect(result).toEqual({ lineStart: 3, lineEnd: 5, occurrence: 0, status: 'drifted' });
+	});
+
+	it('repairs a stale occurrence toward the later match when the stored line is nearer to it', () => {
+		const result = resolveAnchor(blocks, anchor({ line_start: 10, line_end: 12, occurrence: 5 }));
 		expect(result).toEqual({ lineStart: 9, lineEnd: 12, occurrence: 1, status: 'drifted' });
 	});
 
@@ -77,6 +85,63 @@ describe('resolveAnchor', () => {
 			})
 		);
 		expect(result).toEqual({ lineStart: 7, lineEnd: 12, occurrence: 0, status: 'ok' });
+	});
+
+	it('picks the context-qualified duplicate nearest the stored line, not the first one', () => {
+		// Templated content: both paragraphs carry the same quote AND the same
+		// context_before, so context alone cannot disambiguate. The stored line
+		// (3) points at the second copy — document order would return the first.
+		const duplicated: RenderedBlock[] = [
+			{ lineStart: 1, lineEnd: 1, text: 'AAAA run task build XX' },
+			{ lineStart: 3, lineEnd: 3, text: 'AAAA run task build' }
+		];
+		const result = resolveAnchor(
+			duplicated,
+			anchor({ line_start: 3, line_end: 3, occurrence: 9, context_before: 'AAAA ' })
+		);
+		expect(result).toEqual({ lineStart: 3, lineEnd: 3, occurrence: 1, status: 'drifted' });
+	});
+
+	it('picks the match nearest the stored line in the no-signal fallback', () => {
+		const repeated: RenderedBlock[] = [
+			{ lineStart: 1, lineEnd: 1, text: 'run task build' },
+			{ lineStart: 11, lineEnd: 11, text: 'run task build' },
+			{ lineStart: 21, lineEnd: 21, text: 'run task build' }
+		];
+		const result = resolveAnchor(repeated, anchor({ line_start: 11, line_end: 11, occurrence: 9 }));
+		expect(result).toEqual({ lineStart: 11, lineEnd: 11, occurrence: 1, status: 'drifted' });
+	});
+
+	it('breaks a nearest-distance tie toward the earlier match', () => {
+		const equidistant: RenderedBlock[] = [
+			{ lineStart: 1, lineEnd: 1, text: 'run task build' },
+			{ lineStart: 5, lineEnd: 5, text: 'run task build' }
+		];
+		const result = resolveAnchor(
+			equidistant,
+			anchor({ line_start: 3, line_end: 3, occurrence: 9 })
+		);
+		expect(result).toEqual({ lineStart: 1, lineEnd: 1, occurrence: 0, status: 'drifted' });
+	});
+
+	it('resolves a cross-paragraph quote whose \\n\\n does not match the single-\\n index', () => {
+		// selection.toString() emits a blank line between paragraphs; the doc
+		// index joins blocks with one \n, so the exact search finds nothing and
+		// the whitespace-normalized tier has to recover it (never as ok).
+		const paragraphs: RenderedBlock[] = [
+			{ lineStart: 1, lineEnd: 1, text: 'First paragraph.' },
+			{ lineStart: 3, lineEnd: 3, text: 'Second one.' }
+		];
+		const result = resolveAnchor(
+			paragraphs,
+			anchor({
+				line_start: 1,
+				line_end: 3,
+				quoted_text: 'First paragraph.\n\nSecond one.',
+				occurrence: 0
+			})
+		);
+		expect(result).toEqual({ lineStart: 1, lineEnd: 3, occurrence: 0, status: 'drifted' });
 	});
 
 	it('slugify matches marked heading ids ("Data Model!" → "data-model")', () => {
