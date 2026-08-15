@@ -130,9 +130,7 @@
 		</div>
 	{:else}
 		<p class="anno-body mt-2 text-[13px]">{comment.content}</p>
-		<footer
-			class="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--ink-text-faint)]"
-		>
+		<footer class="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--ink-text-faint)]">
 			<time>{formatRelativeTime(comment.created_at)}</time>
 			{#if comment.updated_at}
 				<span title={comment.updated_at}>edited</span>

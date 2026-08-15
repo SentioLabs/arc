@@ -186,7 +186,9 @@ describe('applyInlineAnnotations', () => {
 		ul.appendChild(el('li', { text: 'two oranges' }));
 		container.appendChild(ul);
 
-		applyInlineAnnotations(container, [mark({ quotedText: 'two oranges', lineStart: 1, lineEnd: 1 })]);
+		applyInlineAnnotations(container, [
+			mark({ quotedText: 'two oranges', lineStart: 1, lineEnd: 1 })
+		]);
 
 		const marks = Array.from(container.querySelectorAll('mark.anno-comment'));
 		expect(marks.length).toBe(1);

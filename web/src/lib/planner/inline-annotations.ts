@@ -89,9 +89,7 @@ export function applyInlineAnnotations(
 		const endLine = Math.max(mark.lineEnd, startLine);
 		const startIdx = tagged.findIndex((b) => b.line >= startLine && b.line <= endLine);
 		if (startIdx === -1) continue;
-		const blocks = tagged
-			.filter((b) => b.line >= startLine && b.line <= endLine)
-			.map((b) => b.el);
+		const blocks = tagged.filter((b) => b.line >= startLine && b.line <= endLine).map((b) => b.el);
 		if (blocks.length === 0) continue;
 		// Doc-wide occurrence → range-local occurrence: drop every match that
 		// STARTS before the narrowed range begins. Counted by filtering the
@@ -162,10 +160,7 @@ function buildSearchIndex(blocks: HTMLElement[]): SearchIndex {
 	const filter: NodeFilter = {
 		acceptNode(node) {
 			if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
-			if (
-				node.nodeType === Node.ELEMENT_NODE &&
-				LINE_BREAK_TAGS.has((node as Element).tagName)
-			) {
+			if (node.nodeType === Node.ELEMENT_NODE && LINE_BREAK_TAGS.has((node as Element).tagName)) {
 				return NodeFilter.FILTER_ACCEPT;
 			}
 			return NodeFilter.FILTER_SKIP;

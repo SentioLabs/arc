@@ -404,10 +404,8 @@
 				>
 					Request changes
 				</button>
-				<button
-					class="btn-reject"
-					onclick={() => setStatus('rejected')}
-					disabled={statusBusy}>Reject</button
+				<button class="btn-reject" onclick={() => setStatus('rejected')} disabled={statusBusy}
+					>Reject</button
 				>
 			</div>
 		</div>
