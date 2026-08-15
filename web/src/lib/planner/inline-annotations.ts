@@ -44,7 +44,9 @@
  * space, which is what capture and anchor resolution both count against), but
  * the wrap search runs over the narrowed block range — so the doc-wide index is
  * recomputed into a local one by subtracting the matches that start before the
- * range.
+ * range. This "before" count is computed once in raw space and once in
+ * normalized space, since the two tiers search different haystacks and
+ * whitespace differences between occurrences make the two counts diverge.
  *
  * The implementation rebuilds the marks every render rather than diffing.
  */
@@ -65,6 +67,10 @@ export function applyInlineAnnotations(
 
 	// One doc-wide index per apply — the space `occurrence` was counted against.
 	const full = buildSearchIndex(tagged.map((b) => b.el));
+	// Normalized once per apply too, so the whitespace-normalized tier can
+	// recompute its own doc-wide "before" count in normalized space instead
+	// of reusing the raw-space one (see wrapNeedleAcrossBlocks).
+	const fullNorm = normalizeWithMap(full.searchSpace);
 
 	for (const mark of marks) {
 		const isActive = mark.id === activeId;
@@ -93,7 +99,23 @@ export function applyInlineAnnotations(
 		// match that straddles the range boundary still counts as "before".
 		const rangeStart = full.blockStarts[startIdx];
 		const before = findAll(full.searchSpace, mark.quotedText).filter((i) => i < rangeStart).length;
-		wrapNeedleAcrossBlocks(blocks, mark.quotedText, mark, isActive, mark.occurrence - before);
+		// Same "before" count, but in normalized space — for the normalized
+		// fallback tier, which searches a normalized haystack and must not be
+		// indexed with a raw-space count (they diverge whenever whitespace
+		// differs across occurrences).
+		const needleNorm = normalizeWS(mark.quotedText);
+		const normRangeStart = countBefore(fullNorm.rawPositions, rangeStart);
+		const normBefore = needleNorm
+			? findAll(fullNorm.normalized, needleNorm).filter((i) => i < normRangeStart).length
+			: 0;
+		wrapNeedleAcrossBlocks(
+			blocks,
+			mark.quotedText,
+			mark,
+			isActive,
+			mark.occurrence - before,
+			mark.occurrence - normBefore
+		);
 	}
 }
 
@@ -205,12 +227,30 @@ function findAll(haystack: string, needle: string): number[] {
 	return out;
 }
 
+/**
+ * The normalized index corresponding to raw offset `r`: the count of
+ * `rawPositions` entries strictly less than `r`. `rawPositions` is the
+ * monotonically increasing normalized-index → raw-index map produced by
+ * normalizeWithMap, so this is where `r` would fall if inserted into it.
+ */
+function countBefore(rawPositions: number[], r: number): number {
+	let lo = 0;
+	let hi = rawPositions.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >>> 1;
+		if (rawPositions[mid] < r) lo = mid + 1;
+		else hi = mid;
+	}
+	return lo;
+}
+
 function wrapNeedleAcrossBlocks(
 	blocks: HTMLElement[],
 	needle: string,
 	mark: InlineMark,
 	isActive: boolean,
-	localOccurrence: number
+	localOccurrence: number,
+	normalizedLocalOccurrence: number
 ): void {
 	if (!needle) return;
 
@@ -238,7 +278,7 @@ function wrapNeedleAcrossBlocks(
 		const normMatches = findAll(norm.normalized, needleNorm);
 		if (normMatches.length === 0) return;
 		const normOffset =
-			normMatches[Math.min(Math.max(localOccurrence, 0), normMatches.length - 1)];
+			normMatches[Math.min(Math.max(normalizedLocalOccurrence, 0), normMatches.length - 1)];
 		searchStart = norm.rawPositions[normOffset];
 		const lastNormIdx = normOffset + needleNorm.length - 1;
 		if (lastNormIdx >= norm.rawPositions.length) return;

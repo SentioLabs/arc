@@ -253,6 +253,43 @@ describe('applyInlineAnnotations', () => {
 		expect(p2.querySelector('mark')?.textContent).toBe('the same text here');
 	});
 
+	it('recomputes the normalized-tier occurrence in normalized space, not raw space', () => {
+		// Three blocks, all normalizing to "run task build" but each with
+		// different raw whitespace so the exact tier can never match:
+		//   - line 1 (outside the mark's range): triple space — an earlier
+		//     occurrence that DOES count toward the normalized "before" total
+		//     (it normalizes to the needle) but does NOT count toward the raw
+		//     "before" total (its raw text never equals the needle exactly).
+		//     That's exactly the gap the fix has to account for.
+		//   - line 3 and line 9 (the mark's narrowed range): double space and
+		//     single space, respectively.
+		// The mark's quotedText uses a tab, which is whitespace-equivalent to
+		// a single space after normalization but byte-for-byte different from
+		// all three blocks' raw text — so the exact tier misses everywhere,
+		// forcing every block into the whitespace-normalized fallback tier.
+		const decoy = el('p', { dataSourceLine: 1, text: 'run   task build' });
+		const p1 = el('p', { dataSourceLine: 3, text: 'run  task build' });
+		const p2 = el('p', { dataSourceLine: 9, text: 'run task build' });
+		container.appendChild(decoy);
+		container.appendChild(p1);
+		container.appendChild(p2);
+
+		applyInlineAnnotations(container, [
+			mark({ quotedText: 'run\ttask build', lineStart: 3, lineEnd: 9, occurrence: 1 })
+		]);
+
+		const marks = Array.from(container.querySelectorAll('mark.anno-comment'));
+		expect(marks.length).toBe(1);
+		// The doc-wide occurrence (1) minus the one earlier normalized-only
+		// match (the decoy) lands on occurrence 0 within the narrowed range:
+		// the block at line 3, not line 9. Indexing normMatches with the raw
+		// "before" count (which doesn't discount the decoy at all, since it
+		// never raw-matches) would instead wrap line 9.
+		expect(decoy.querySelector('mark')).toBeNull();
+		expect(p1.querySelector('mark')?.textContent).toBe('run  task build');
+		expect(p2.querySelector('mark')).toBeNull();
+	});
+
 	it('clamps a stale occurrence to the last match', () => {
 		const p = el('p', { dataSourceLine: 1, text: 'x foo y foo z' });
 		container.appendChild(p);

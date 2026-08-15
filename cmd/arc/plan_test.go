@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -316,5 +318,143 @@ func TestPlanWaitReturnsDecisionAndComments(t *testing.T) {
 	want := "Decision: approved\n[overall] looks good overall\n"
 	if out != want {
 		t.Errorf("planWaitCmd output: got %q, want %q", out, want)
+	}
+}
+
+// interceptGetPlan wraps server's Echo handler with one that fails GET
+// requests to the given plan's GetPlan endpoint according to shouldFail,
+// passing every other request through unmodified. getPlanPath starts empty
+// so requests made before the caller learns the plan ID (e.g. plan create)
+// are never intercepted.
+func interceptGetPlan(server *api.Server, getPlanPath *string, shouldFail func() bool) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if *getPlanPath != "" && r.Method == http.MethodGet && r.URL.Path == *getPlanPath && shouldFail() {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		server.Echo().ServeHTTP(w, r)
+	}))
+}
+
+func TestPlanWaitToleratesTransientGetPlanErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := sqlite.New(dbPath)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer store.Close()
+
+	server := api.New(api.ServerOptions{Address: ":0", Store: store})
+
+	var getPlanPath string
+	const failuresBeforeSuccess = 3
+	var failedCalls int
+	ts := interceptGetPlan(server, &getPlanPath, func() bool {
+		if failedCalls >= failuresBeforeSuccess {
+			return false
+		}
+		failedCalls++
+		return true
+	})
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetActor("test-user")
+
+	filePath := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(filePath, []byte("# Plan\n"), 0o600); err != nil {
+		t.Fatalf("write plan file: %v", err)
+	}
+	plan, err := c.CreatePlan(filePath)
+	if err != nil {
+		t.Fatalf("create plan: %v", err)
+	}
+	getPlanPath = "/api/v1/plans/" + plan.ID
+
+	if _, err := c.CreatePlanComment(plan.ID, nil, "looks good overall"); err != nil {
+		t.Fatalf("create plan comment: %v", err)
+	}
+	if err := c.UpdatePlanStatus(plan.ID, "approved"); err != nil {
+		t.Fatalf("update plan status: %v", err)
+	}
+
+	origServerURL := serverURL
+	origTimeout := planWaitTimeout
+	origOutputJSON := outputJSON
+	serverURL = ts.URL
+	planWaitTimeout = time.Minute
+	outputJSON = false
+	defer func() {
+		serverURL = origServerURL
+		planWaitTimeout = origTimeout
+		outputJSON = origOutputJSON
+	}()
+
+	out := captureStdout(t, func() {
+		if err := planWaitCmd.RunE(planWaitCmd, []string{plan.ID}); err != nil {
+			t.Fatalf("planWaitCmd.RunE: %v", err)
+		}
+	})
+
+	if failedCalls != failuresBeforeSuccess {
+		t.Fatalf("expected %d failed GetPlan calls before success, got %d", failuresBeforeSuccess, failedCalls)
+	}
+	want := "Decision: approved\n[overall] looks good overall\n"
+	if out != want {
+		t.Errorf("planWaitCmd output: got %q, want %q", out, want)
+	}
+}
+
+func TestPlanWaitAbortsAfterConsecutiveErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := sqlite.New(dbPath)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer store.Close()
+
+	server := api.New(api.ServerOptions{Address: ":0", Store: store})
+
+	var getPlanPath string
+	var getPlanCalls int
+	ts := interceptGetPlan(server, &getPlanPath, func() bool {
+		getPlanCalls++
+		return true
+	})
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetActor("test-user")
+
+	filePath := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(filePath, []byte("# Plan\n"), 0o600); err != nil {
+		t.Fatalf("write plan file: %v", err)
+	}
+	plan, err := c.CreatePlan(filePath)
+	if err != nil {
+		t.Fatalf("create plan: %v", err)
+	}
+	getPlanPath = "/api/v1/plans/" + plan.ID
+
+	origServerURL := serverURL
+	origTimeout := planWaitTimeout
+	serverURL = ts.URL
+	planWaitTimeout = time.Minute
+	defer func() {
+		serverURL = origServerURL
+		planWaitTimeout = origTimeout
+	}()
+
+	err = planWaitCmd.RunE(planWaitCmd, []string{plan.ID})
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if want := fmt.Sprintf("aborted after %d consecutive errors", planWaitMaxConsecutiveErrors); !strings.Contains(err.Error(), want) {
+		t.Errorf("expected error to contain %q, got %q", want, err.Error())
+	}
+	if getPlanCalls != planWaitMaxConsecutiveErrors {
+		t.Errorf("expected %d GetPlan calls, got %d", planWaitMaxConsecutiveErrors, getPlanCalls)
 	}
 }

@@ -81,6 +81,10 @@ const (
 	planWaitDefaultTimeout = 30 * time.Minute
 	// planWaitPollInterval is how often planWaitCmd polls the plan status.
 	planWaitPollInterval = 2 * time.Second
+	// planWaitMaxConsecutiveErrors is how many consecutive GetPlan failures
+	// planWaitCmd tolerates before giving up. A single transient error (e.g. a
+	// blip in server connectivity) should not abort a long-lived poll.
+	planWaitMaxConsecutiveErrors = 5
 	// quotedTextMaxRunes is the max length of a quoted anchor excerpt before truncation.
 	quotedTextMaxRunes = 60
 )
@@ -333,11 +337,23 @@ var planWaitCmd = &cobra.Command{
 		planID := args[0]
 
 		deadline := time.Now().Add(planWaitTimeout)
+		var consecutiveErrors int
 		for {
 			plan, err := c.GetPlan(planID)
 			if err != nil {
-				return err
+				consecutiveErrors++
+				if consecutiveErrors >= planWaitMaxConsecutiveErrors {
+					return fmt.Errorf("plan wait aborted after %d consecutive errors: %w",
+						planWaitMaxConsecutiveErrors, err)
+				}
+				if time.Now().After(deadline) {
+					return fmt.Errorf("timed out after %s waiting for a decision on %s: %w",
+						planWaitTimeout, planID, err)
+				}
+				time.Sleep(planWaitPollInterval)
+				continue
 			}
+			consecutiveErrors = 0
 			if plan.Status != types.PlanStatusDraft && plan.Status != types.PlanStatusInReview {
 				comments, err := c.ListPlanComments(planID)
 				if err != nil {
