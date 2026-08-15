@@ -821,8 +821,10 @@
 	color: var(--ink-text);
 }
 
-/* Floating toolbar */
-.planner-review .floating-toolbar {
+/* Floating toolbar & comment popover — these are viewport-fixed overlays and
+   may mount outside .planner-review, so their chrome is intentionally NOT
+   scoped to that subtree (unlike the rest of this file). */
+.floating-toolbar {
 	background: var(--ink-paper-raised);
 	border: 1px solid var(--ink-rule);
 	border-radius: 8px;
@@ -832,7 +834,7 @@
 		0 2px 8px oklch(0 0 0 / 0.35);
 	backdrop-filter: blur(8px);
 }
-.planner-review .floating-toolbar button {
+.floating-toolbar button {
 	transition:
 		background 120ms ease-out,
 		color 120ms ease-out;
@@ -848,8 +850,24 @@
 		transform: translate(-50%, 0);
 	}
 }
-.planner-review .floating-toolbar {
+.floating-toolbar {
 	animation: toolbar-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toolbar-action {
+	font-family: var(--font-sans);
+	font-size: 0.8125rem;
+	font-weight: 500;
+	padding: 0.375rem 0.75rem;
+	border-radius: 0.5rem;
+	color: var(--ink-comment);
+	background: transparent;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	transition: background 150ms ease;
+}
+.toolbar-action:hover {
+	background: var(--ink-comment-bg);
 }
 
 /* Annotation cards */
@@ -867,7 +885,8 @@
 .planner-review .anno-card.is-active {
 	border-color: var(--ink-comment-edge);
 }
-.planner-review .anno-card .quote {
+.planner-review .anno-card .quote,
+.floating-toolbar .quote {
 	/* Italic kept as a typographic marker for "this is a quoted span" —
 	   the rest of the card is Instrument Sans like the planner. */
 	font-style: italic;

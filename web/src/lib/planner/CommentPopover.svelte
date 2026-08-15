@@ -66,11 +66,19 @@
 		requestCancel();
 	}
 
+	// Scroll dismissal is incidental — the page moved, the user didn't ask to
+	// close anything. If the draft is dirty, do nothing: the composer is
+	// viewport-fixed, so it stays put and the user keeps typing. If the draft
+	// is clean, dismiss silently (no confirm — there's nothing to lose).
+	// Escape, outside click, and Cancel are deliberate dismissals and still
+	// route through requestCancel() for the dirty-draft confirm.
 	function handleScroll() {
-		requestCancel();
+		if (dirty) return;
+		onCancel();
 	}
 
 	async function save() {
+		if (saving) return;
 		const trimmedBody = body.trim();
 		if (!trimmedBody) return;
 		saving = true;

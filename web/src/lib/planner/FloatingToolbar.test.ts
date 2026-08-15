@@ -48,6 +48,11 @@ describe('FloatingToolbar component', () => {
 		expect(componentSource).toMatch(/>\s*Comment\s*</);
 	});
 
+	test('toolbar container carries the Selection actions aria-label', () => {
+		expect(componentSource).toMatch(/role="toolbar"[\s\S]{0,40}aria-label="Selection actions"/);
+		expect(componentSource).not.toMatch(/aria-label="Annotation actions"/);
+	});
+
 	test('computePosition uses pure viewport coordinates (no window.scrollX/scrollY)', () => {
 		expect(componentSource).toMatch(/function computePosition/);
 		expect(componentSource).not.toMatch(/window\.scrollX/);

@@ -49,10 +49,19 @@ describe('CommentPopover component', () => {
 		expect(componentSource).toMatch(/window\.confirm\(/);
 	});
 
-	test('routes escape, outside click, and scroll dismiss through requestCancel', () => {
+	test('routes escape and outside click dismiss through requestCancel', () => {
 		expect(componentSource).toMatch(/e\.key === ['"]Escape['"][\s\S]{0,80}requestCancel\(\)/);
 		expect(componentSource).toMatch(/handleDocumentClick/);
-		expect(componentSource).toMatch(/function handleScroll\(\)\s*\{\s*requestCancel\(\);?\s*\}/);
+	});
+
+	test('scroll never opens a confirm: dirty drafts are left alone, clean drafts cancel silently', () => {
+		const match = componentSource.match(/function handleScroll\(\)\s*\{([\s\S]*?)\n\t\}/);
+		expect(match).not.toBeNull();
+		const body = match?.[1] ?? '';
+		expect(body).not.toMatch(/requestCancel\(/);
+		expect(body).not.toMatch(/confirm\(/);
+		expect(body).toMatch(/dirty/);
+		expect(body).toMatch(/onCancel\(\)/);
 	});
 
 	test('dismisses on window scroll with a capture+passive listener', () => {
@@ -70,6 +79,10 @@ describe('CommentPopover component', () => {
 		expect(componentSource).toMatch(/async function save/);
 		expect(componentSource).toMatch(/await onSave\(/);
 		expect(componentSource).toMatch(/disabled=\{[^}]*saving[^}]*\}/);
+	});
+
+	test('save() guards against re-entrant calls while already saving', () => {
+		expect(componentSource).toMatch(/async function save\(\)\s*\{\s*if \(saving\) return;/);
 	});
 
 	test('keeps quote preview truncated at 80 chars', () => {

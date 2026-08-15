@@ -72,7 +72,7 @@
 	class="floating-toolbar fixed z-[100] flex flex-row items-center gap-0.5 p-1 ui-sans"
 	style="top: {position.top}px; left: {position.left}px; transform: translateX(-50%);"
 	role="toolbar"
-	aria-label="Annotation actions"
+	aria-label="Selection actions"
 >
 	<button
 		type="button"
