@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -554,5 +555,56 @@ func TestResolveProject_GitWorktree(t *testing.T) {
 	}
 	if got.ProjectID != projID {
 		t.Errorf("ProjectID = %q, want %q", got.ProjectID, projID)
+	}
+}
+
+// TestResolveProject_SymlinkedRoot verifies that a workspace registered through
+// a symlinked ancestor resolves both for the exact registered directory and for
+// a git worktree of it, when the resolve request also arrives via the symlinked
+// path. This guards the macOS /var -> /private/var case; an explicit symlink
+// makes the test meaningful on Linux too.
+func TestResolveProject_SymlinkedRoot(t *testing.T) {
+	realRoot := t.TempDir()
+	linkRoot := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(realRoot, linkRoot); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	mainDir := filepath.Join(linkRoot, "main")
+	wtDir := filepath.Join(linkRoot, "feature-x")
+	gittest.InitRepo(t, mainDir)
+	gittest.AddWorktree(t, mainDir, wtDir, "feature-x")
+
+	srv, cleanup := testServer(t)
+	defer cleanup()
+
+	projID := createNamedProject(t, srv.echo, "symlink-proj", "slp")
+	// Register through the symlinked path; the server canonicalizes on write.
+	addWorkspaceToProject(t, srv.echo, projID, mainDir)
+
+	cases := []struct {
+		name string
+		path string
+	}{
+		{"exact-dir", mainDir},  // stage 1: exact match after canonicalization
+		{"git-worktree", wtDir}, // stage 2: via vcs.DetectMainRepo
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/resolve?path="+url.QueryEscape(tc.path), nil)
+			rec := httptest.NewRecorder()
+			srv.echo.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d. body=%s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+			var got types.ProjectResolution
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got.ProjectID != projID {
+				t.Errorf("ProjectID = %q, want %q", got.ProjectID, projID)
+			}
+		})
 	}
 }
