@@ -187,14 +187,19 @@ test.describe('Workspace CRUD', () => {
 	});
 
 	test('empty state shows when no workspaces', async ({ page }) => {
-		// First, clean up all projects
-		const res = await fetch('http://localhost:7433/api/v1/projects');
-		const allWs = (await res.json()) as { id: string }[];
-		for (const ws of allWs) {
-			await deleteTestWorkspace(ws.id).catch(() => {});
-		}
+		// This test's premise is a genuinely empty project list, but the DB is shared
+		// across specs/workers, so we can't isolate it by deleting real data (that would
+		// wipe other tests'/specs' live fixtures under parallel or --repeat-each runs).
+		// Instead, intercept the projects-list request the SPA makes on load and fulfill
+		// it with an empty array, leaving the shared DB untouched.
+		await page.route('**/api/v1/projects', (route) => {
+			if (route.request().method() === 'GET') {
+				return route.fulfill({ contentType: 'application/json', body: '[]' });
+			}
+			return route.continue();
+		});
 
-		// Navigate fresh so the SPA fetches the empty list
+		// Navigate fresh so the SPA fetches the (faked) empty list
 		await page.goto('/');
 		const main = page.locator('main');
 		await expect(main.getByRole('heading', { name: 'No projects yet' })).toBeVisible({
