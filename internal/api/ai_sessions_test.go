@@ -1148,3 +1148,211 @@ func TestCreateAISession_RejectCrossProject(t *testing.T) {
 			rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
 	}
 }
+
+// callHandlerDirect invokes an echo handler with the given path params while
+// bypassing the router's Recover middleware. This is deliberate: the session
+// validation bug caused handlers to dereference a nil *AISession. Under the full
+// middleware stack that panic is recovered *after* the 404 body is already
+// committed, so the response still reads as a clean 404 and the bug is invisible.
+// Calling the handler directly lets a nil-pointer panic surface as a test
+// failure, so these tests actually prove the guard short-circuits.
+func callHandlerDirect(
+	t *testing.T, e *echo.Echo, h echo.HandlerFunc,
+	target string, paramNames, paramValues []string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames(paramNames...)
+	c.SetParamValues(paramValues...)
+
+	if err := h(c); err != nil {
+		t.Fatalf("handler returned non-nil error: %v", err)
+	}
+	return rec
+}
+
+// crossProjectSession creates project A with a session, and a separate project B,
+// returning both project IDs. The session belongs to A and does not resolve under
+// B — the cross-project authorization case.
+func crossProjectSession(
+	t *testing.T, e *echo.Echo, sessionID, transcriptPath string,
+) (projA, projB string) {
+	t.Helper()
+
+	projA = createNamedProject(t, e, "cross-a-"+sessionID, "cxa")
+	projB = createNamedProject(t, e, "cross-b-"+sessionID, "cxb")
+	createTestAISession(t, e, aiSessionOpts{
+		ProjectID:      projA,
+		ID:             sessionID,
+		TranscriptPath: transcriptPath,
+	})
+	return projA, projB
+}
+
+// TestGetAISession_NotFound_NoPanic verifies getAISession returns 404 without
+// dereferencing a nil session when the session does not exist.
+func TestGetAISession_NotFound_NoPanic(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projectID := createNamedProject(t, e, "gas-nf", "gasnf")
+
+	rec := callHandlerDirect(t, e, server.getAISession,
+		"/", []string{"projectId", "id"}, []string{projectID, "nope"})
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+// TestGetAISession_CrossProject_NoPanic verifies getAISession returns 404 without
+// panicking when the session exists but belongs to a different project.
+func TestGetAISession_CrossProject_NoPanic(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	_, projB := crossProjectSession(t, e, "gas-xp", "/tmp/t/gas-xp.jsonl")
+
+	rec := callHandlerDirect(t, e, server.getAISession,
+		"/", []string{"projectId", "id"}, []string{projB, "gas-xp"})
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+// TestGetSessionTranscript_NotFound_NoPanic verifies getSessionTranscript returns
+// 404 without dereferencing session.TranscriptPath on a missing session.
+func TestGetSessionTranscript_NotFound_NoPanic(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projectID := createNamedProject(t, e, "gst-nf", "gstnf")
+
+	rec := callHandlerDirect(t, e, server.getSessionTranscript,
+		"/", []string{"projectId", "id"}, []string{projectID, "nope"})
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+// TestGetSessionTranscript_CrossProject_NoPanic verifies getSessionTranscript
+// returns 404 without panicking for a cross-project session.
+func TestGetSessionTranscript_CrossProject_NoPanic(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	_, projB := crossProjectSession(t, e, "gst-xp", "/tmp/t/gst-xp.jsonl")
+
+	rec := callHandlerDirect(t, e, server.getSessionTranscript,
+		"/", []string{"projectId", "id"}, []string{projB, "gst-xp"})
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+// TestGetAgentTranscript_NotFound_NoPanic verifies getAgentTranscript returns 404
+// without dereferencing session.TranscriptPath on a missing session.
+func TestGetAgentTranscript_NotFound_NoPanic(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projectID := createNamedProject(t, e, "gat-nf", "gatnf")
+
+	rec := callHandlerDirect(t, e, server.getAgentTranscript,
+		"/", []string{"projectId", "id", "aid"},
+		[]string{projectID, "nope", "agent-x"})
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+// TestGetAgentTranscript_CrossProject_NoPanic verifies getAgentTranscript returns
+// 404 without panicking for a cross-project session.
+func TestGetAgentTranscript_CrossProject_NoPanic(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	_, projB := crossProjectSession(t, e, "gat-xp", "/tmp/t/gat-xp.jsonl")
+
+	rec := callHandlerDirect(t, e, server.getAgentTranscript,
+		"/", []string{"projectId", "id", "aid"},
+		[]string{projB, "gat-xp", "agent-x"})
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+// TestDeleteAISession_CrossProjectDoesNotDelete is the security regression test.
+// Before the fix, deleteAISession's guard did not short-circuit (validateSessionProject
+// returned a nil error on the cross-project path), so DeleteAISession ran and a
+// session belonging to another project was deleted despite the 404 response. This
+// asserts the session STILL EXISTS in its real project after the rejected delete.
+func TestDeleteAISession_CrossProjectDoesNotDelete(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projA, projB := crossProjectSession(t, e, "del-xp", "/tmp/t/del-xp.jsonl")
+
+	// Attempt to delete session S (in project A) via project B's path.
+	req := httptest.NewRequest(
+		http.MethodDelete, sessionURL(projB, "/del-xp"), nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("cross-project delete status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+
+	// The session must still exist under project A: the delete must not have run.
+	req = httptest.NewRequest(http.MethodGet, sessionURL(projA, "/del-xp"), nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("session was deleted by cross-project request: "+
+			"GET in project A returned %d, want %d. body=%s",
+			rec.Code, http.StatusOK, rec.Body.String())
+	}
+}
+
+// TestDeleteAISession_NotFound verifies deleting a non-existent session returns
+// 404 without panicking.
+func TestDeleteAISession_NotFound(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	projectID := createNamedProject(t, e, "del-nf", "delnf")
+
+	req := httptest.NewRequest(
+		http.MethodDelete, sessionURL(projectID, "/nope"), nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d. body=%s",
+			rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
