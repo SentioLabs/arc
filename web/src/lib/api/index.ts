@@ -397,6 +397,8 @@ export async function browseFilesystem(dir: string): Promise<BrowseEntry[]> {
 export type Plan = components['schemas']['Plan'];
 export type PlanWithContent = components['schemas']['PlanWithContent'];
 export type PlanComment = components['schemas']['PlanComment'];
+export type PlanCommentAnchor = components['schemas']['PlanCommentAnchor'];
+export type UpdatePlanCommentRequest = components['schemas']['UpdatePlanCommentRequest'];
 
 export async function createPlan(filePath: string): Promise<Plan> {
 	const { data, error } = await api.POST('/plans', {
@@ -454,15 +456,37 @@ export async function listPlanComments(planId: string): Promise<PlanComment[]> {
 export async function createPlanComment(
 	planId: string,
 	content: string,
-	lineNumber?: number
+	lineNumber?: number,
+	anchor?: PlanCommentAnchor
 ): Promise<PlanComment> {
 	const { data, error } = await api.POST('/plans/{planId}/comments', {
 		params: { path: { planId } },
-		body: { content, line_number: lineNumber ?? null }
+		body: { content, line_number: lineNumber ?? null, anchor }
 	});
 	if (error) handleError(error);
 	if (!data) throw new Error('Failed to create comment');
 	return data;
+}
+
+export async function updatePlanComment(
+	planId: string,
+	commentId: string,
+	patch: UpdatePlanCommentRequest
+): Promise<PlanComment> {
+	const { data, error } = await api.PATCH('/plans/{planId}/comments/{commentId}', {
+		params: { path: { planId, commentId } },
+		body: patch
+	});
+	if (error) handleError(error);
+	if (!data) throw new Error('Failed to update comment');
+	return data;
+}
+
+export async function deletePlanComment(planId: string, commentId: string): Promise<void> {
+	const { error } = await api.DELETE('/plans/{planId}/comments/{commentId}', {
+		params: { path: { planId, commentId } }
+	});
+	if (error) handleError(error);
 }
 
 // Config APIs

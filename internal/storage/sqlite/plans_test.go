@@ -3,7 +3,9 @@ package sqlite_test
 import (
 	"context"
 	"path/filepath"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
@@ -345,5 +347,233 @@ func TestDeletePlan_CascadesComments(t *testing.T) {
 	}
 	if len(comments) != 0 {
 		t.Errorf("expected 0 comments after plan deletion (cascade), got %d", len(comments))
+	}
+}
+
+func TestPlanCommentAnchorRoundTrip(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	plan := &types.Plan{
+		ID:       "plan.anchor1",
+		FilePath: "/tmp/plans/anchor.md",
+		Status:   types.PlanStatusDraft,
+	}
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
+	}
+
+	anchor := &types.PlanCommentAnchor{
+		LineStart:     12,
+		LineEnd:       15,
+		QuotedText:    "the quick fox",
+		Occurrence:    1,
+		HeadingSlug:   "data-model",
+		ContextBefore: "before ",
+		ContextAfter:  " after",
+	}
+	comment := &types.PlanComment{
+		ID:      "pc.anchor1",
+		PlanID:  plan.ID,
+		Content: "Consider rewording this",
+		Anchor:  anchor,
+	}
+	if err := store.CreatePlanComment(ctx, comment); err != nil {
+		t.Fatalf("CreatePlanComment (anchored) failed: %v", err)
+	}
+
+	comments, err := store.ListPlanComments(ctx, plan.ID)
+	if err != nil {
+		t.Fatalf("ListPlanComments failed: %v", err)
+	}
+	if len(comments) != 1 {
+		t.Fatalf("expected 1 comment, got %d", len(comments))
+	}
+
+	got := comments[0]
+	if got.Anchor == nil {
+		t.Fatal("expected Anchor to be non-nil")
+	}
+	if !reflect.DeepEqual(got.Anchor, anchor) {
+		t.Errorf("Anchor = %+v, want %+v", got.Anchor, anchor)
+	}
+}
+
+func TestPlanCommentAnchorNil(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	plan := &types.Plan{
+		ID:       "plan.noanchor1",
+		FilePath: "/tmp/plans/no-anchor.md",
+		Status:   types.PlanStatusDraft,
+	}
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
+	}
+
+	comment := &types.PlanComment{
+		ID:      "pc.noanchor1",
+		PlanID:  plan.ID,
+		Content: "Overall comment, no anchor",
+	}
+	if err := store.CreatePlanComment(ctx, comment); err != nil {
+		t.Fatalf("CreatePlanComment (no anchor) failed: %v", err)
+	}
+
+	comments, err := store.ListPlanComments(ctx, plan.ID)
+	if err != nil {
+		t.Fatalf("ListPlanComments failed: %v", err)
+	}
+	if len(comments) != 1 {
+		t.Fatalf("expected 1 comment, got %d", len(comments))
+	}
+
+	got := comments[0]
+	if got.Anchor != nil {
+		t.Errorf("Anchor = %+v, want nil", got.Anchor)
+	}
+	if got.UpdatedAt != nil {
+		t.Errorf("UpdatedAt = %v, want nil", got.UpdatedAt)
+	}
+	if got.ResolvedAt != nil {
+		t.Errorf("ResolvedAt = %v, want nil", got.ResolvedAt)
+	}
+}
+
+func TestUpdatePlanComment(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	plan := &types.Plan{
+		ID:       "plan.update1",
+		FilePath: "/tmp/plans/update.md",
+		Status:   types.PlanStatusDraft,
+	}
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
+	}
+
+	anchor := &types.PlanCommentAnchor{
+		LineStart:  1,
+		LineEnd:    2,
+		QuotedText: "original text",
+		Occurrence: 0,
+	}
+	comment := &types.PlanComment{
+		ID:      "pc.update1",
+		PlanID:  plan.ID,
+		Content: "original content",
+		Anchor:  anchor,
+	}
+	if err := store.CreatePlanComment(ctx, comment); err != nil {
+		t.Fatalf("CreatePlanComment failed: %v", err)
+	}
+
+	updatedAt := time.Now().UTC().Truncate(time.Second)
+	resolvedAt := updatedAt.Add(time.Minute)
+
+	comment.Content = "updated content"
+	comment.Anchor.QuotedText = "updated quoted text"
+	comment.UpdatedAt = &updatedAt
+	comment.ResolvedAt = &resolvedAt
+
+	if err := store.UpdatePlanComment(ctx, comment); err != nil {
+		t.Fatalf("UpdatePlanComment failed: %v", err)
+	}
+
+	got, err := store.GetPlanComment(ctx, comment.ID)
+	if err != nil {
+		t.Fatalf("GetPlanComment failed: %v", err)
+	}
+	if got.Content != "updated content" {
+		t.Errorf("Content = %q, want %q", got.Content, "updated content")
+	}
+	if got.Anchor == nil || got.Anchor.QuotedText != "updated quoted text" {
+		t.Errorf("Anchor.QuotedText = %+v, want %q", got.Anchor, "updated quoted text")
+	}
+	if got.Anchor.LineStart != 1 || got.Anchor.LineEnd != 2 {
+		t.Errorf("Anchor line range = %d-%d, want 1-2", got.Anchor.LineStart, got.Anchor.LineEnd)
+	}
+	if got.UpdatedAt == nil || !got.UpdatedAt.Equal(updatedAt) {
+		t.Errorf("UpdatedAt = %v, want %v", got.UpdatedAt, updatedAt)
+	}
+	if got.ResolvedAt == nil || !got.ResolvedAt.Equal(resolvedAt) {
+		t.Errorf("ResolvedAt = %v, want %v", got.ResolvedAt, resolvedAt)
+	}
+
+	// Clear ResolvedAt back to nil on a second update.
+	comment.ResolvedAt = nil
+	if err := store.UpdatePlanComment(ctx, comment); err != nil {
+		t.Fatalf("UpdatePlanComment (clear ResolvedAt) failed: %v", err)
+	}
+
+	got, err = store.GetPlanComment(ctx, comment.ID)
+	if err != nil {
+		t.Fatalf("GetPlanComment failed: %v", err)
+	}
+	if got.ResolvedAt != nil {
+		t.Errorf("ResolvedAt = %v, want nil after clearing", got.ResolvedAt)
+	}
+	if got.UpdatedAt == nil || !got.UpdatedAt.Equal(updatedAt) {
+		t.Errorf("UpdatedAt = %v, want %v (unchanged)", got.UpdatedAt, updatedAt)
+	}
+}
+
+func TestDeletePlanComment(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	plan := &types.Plan{
+		ID:       "plan.deletecomment1",
+		FilePath: "/tmp/plans/delete-comment.md",
+		Status:   types.PlanStatusDraft,
+	}
+	if err := store.CreatePlan(ctx, plan); err != nil {
+		t.Fatalf("CreatePlan failed: %v", err)
+	}
+
+	comment1 := &types.PlanComment{
+		ID:      "pc.keep1",
+		PlanID:  plan.ID,
+		Content: "keep me",
+	}
+	comment2 := &types.PlanComment{
+		ID:      "pc.delete1",
+		PlanID:  plan.ID,
+		Content: "delete me",
+	}
+	if err := store.CreatePlanComment(ctx, comment1); err != nil {
+		t.Fatalf("CreatePlanComment 1 failed: %v", err)
+	}
+	if err := store.CreatePlanComment(ctx, comment2); err != nil {
+		t.Fatalf("CreatePlanComment 2 failed: %v", err)
+	}
+
+	if err := store.DeletePlanComment(ctx, comment2.ID); err != nil {
+		t.Fatalf("DeletePlanComment failed: %v", err)
+	}
+
+	comments, err := store.ListPlanComments(ctx, plan.ID)
+	if err != nil {
+		t.Fatalf("ListPlanComments failed: %v", err)
+	}
+	if len(comments) != 1 {
+		t.Fatalf("expected 1 comment after delete, got %d", len(comments))
+	}
+	if comments[0].ID != comment1.ID {
+		t.Errorf("remaining comment ID = %q, want %q", comments[0].ID, comment1.ID)
+	}
+
+	if _, err := store.GetPlanComment(ctx, comment2.ID); err == nil {
+		t.Error("GetPlanComment should return error for deleted comment")
 	}
 }

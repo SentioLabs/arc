@@ -127,6 +127,8 @@ func (s *Server) registerRoutes() {
 	v1.DELETE("/plans/:planId", s.deletePlan)
 	v1.GET("/plans/:planId/comments", s.listPlanComments)
 	v1.POST("/plans/:planId/comments", s.createPlanComment)
+	v1.PATCH("/plans/:planId/comments/:commentId", s.updatePlanComment)
+	v1.DELETE("/plans/:planId/comments/:commentId", s.deletePlanComment)
 
 	// Issues (global lookup by unique ID — no project context required)
 	issues := v1.Group("/issues")

@@ -29,8 +29,8 @@ coverage.html
 # Worktrees
 .worktrees/
 
-# eval workspaces
-plan-*
+# eval workspaces (root only — a bare plan-* also swallows web/tests/e2e/plan-*.ts)
+/plan-*
 
 .pi/
 .serena/

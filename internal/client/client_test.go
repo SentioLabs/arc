@@ -12,6 +12,18 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+// createTestPlanClient creates a plan for testing via client and returns its ID.
+func createTestPlanClient(t *testing.T, c *client.Client) string {
+	t.Helper()
+
+	filePath := filepath.Join(t.TempDir(), "plan.md")
+	plan, err := c.CreatePlan(filePath)
+	if err != nil {
+		t.Fatalf("failed to create plan: %v", err)
+	}
+	return plan.ID
+}
+
 // testClientServer creates a test server and client for testing.
 func testClientServer(t *testing.T) (*client.Client, func()) {
 	t.Helper()
@@ -293,5 +305,58 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	}
 	if len(allIssues) < 2 {
 		t.Errorf("expected at least 2 issues without parent filter, got %d", len(allIssues))
+	}
+}
+
+func TestClientUpdatePlanComment(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	planID := createTestPlanClient(t, c)
+	comment, err := c.CreatePlanComment(planID, nil, "original content")
+	if err != nil {
+		t.Fatalf("CreatePlanComment failed: %v", err)
+	}
+
+	newContent := "updated content"
+	resolved := true
+	updated, err := c.UpdatePlanComment(planID, comment.ID, client.UpdatePlanCommentRequest{
+		Content:  &newContent,
+		Resolved: &resolved,
+	})
+	if err != nil {
+		t.Fatalf("UpdatePlanComment failed: %v", err)
+	}
+
+	if updated.Content != newContent {
+		t.Errorf("Content = %q, want %q", updated.Content, newContent)
+	}
+	if updated.ResolvedAt == nil {
+		t.Error("expected ResolvedAt to be set")
+	}
+}
+
+func TestClientDeletePlanComment(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	planID := createTestPlanClient(t, c)
+	comment, err := c.CreatePlanComment(planID, nil, "to be deleted")
+	if err != nil {
+		t.Fatalf("CreatePlanComment failed: %v", err)
+	}
+
+	if err := c.DeletePlanComment(planID, comment.ID); err != nil {
+		t.Fatalf("DeletePlanComment failed: %v", err)
+	}
+
+	comments, err := c.ListPlanComments(planID)
+	if err != nil {
+		t.Fatalf("ListPlanComments failed: %v", err)
+	}
+	for _, cm := range comments {
+		if cm.ID == comment.ID {
+			t.Errorf("expected comment %q to be deleted, but it is still present", comment.ID)
+		}
 	}
 }

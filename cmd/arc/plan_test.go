@@ -1,9 +1,19 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/sentiolabs/arc/internal/api"
+	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/storage/sqlite"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 func TestDeriveTitle_H1Heading(t *testing.T) {
@@ -77,5 +87,375 @@ func TestDeriveTitle_H2OnlyHeading(t *testing.T) {
 	want := "h2-only"
 	if got != want {
 		t.Errorf("deriveTitle H2-only heading: got %q, want %q", got, want)
+	}
+}
+
+func TestTruncateQuoteShort(t *testing.T) {
+	got := truncateQuote("short quote", 60)
+	want := "short quote"
+	if got != want {
+		t.Errorf("truncateQuote short: got %q, want %q", got, want)
+	}
+}
+
+func TestTruncateQuoteCollapsesWhitespace(t *testing.T) {
+	got := truncateQuote("line one\n  line   two", 60)
+	want := "line one line two"
+	if got != want {
+		t.Errorf("truncateQuote whitespace: got %q, want %q", got, want)
+	}
+}
+
+func TestTruncateQuoteTruncatesWithEllipsis(t *testing.T) {
+	got := truncateQuote("this is a very long quoted string that exceeds the max", 10)
+	want := "this is a …"
+	if got != want {
+		t.Errorf("truncateQuote long: got %q, want %q", got, want)
+	}
+}
+
+func TestPrintPlanCommentsEmpty(t *testing.T) {
+	out := captureStdout(t, func() {
+		printPlanComments(nil)
+	})
+	if out != "No comments\n" {
+		t.Errorf("printPlanComments empty: got %q, want %q", out, "No comments\n")
+	}
+}
+
+func TestPrintPlanCommentsLegacyLineShape(t *testing.T) {
+	line := 12
+	comments := []*types.PlanComment{
+		{ID: "c1", LineNumber: &line, Content: "fix this"},
+	}
+	out := captureStdout(t, func() {
+		printPlanComments(comments)
+	})
+	want := "[L12] fix this\n"
+	if out != want {
+		t.Errorf("printPlanComments legacy line: got %q, want %q", out, want)
+	}
+}
+
+func TestPrintPlanCommentsOverallShape(t *testing.T) {
+	comments := []*types.PlanComment{
+		{ID: "c1", Content: "overall note"},
+	}
+	out := captureStdout(t, func() {
+		printPlanComments(comments)
+	})
+	want := "[overall] overall note\n"
+	if out != want {
+		t.Errorf("printPlanComments overall: got %q, want %q", out, want)
+	}
+}
+
+func TestPrintPlanCommentsAnchoredSingleLine(t *testing.T) {
+	comments := []*types.PlanComment{
+		{
+			ID:      "c1",
+			Content: "needs work",
+			Anchor: &types.PlanCommentAnchor{
+				LineStart:  12,
+				LineEnd:    12,
+				QuotedText: "some quoted text",
+			},
+		},
+	}
+	out := captureStdout(t, func() {
+		printPlanComments(comments)
+	})
+	want := `[L12] "some quoted text" needs work` + "\n"
+	if out != want {
+		t.Errorf("printPlanComments anchored single line: got %q, want %q", out, want)
+	}
+}
+
+func TestPrintPlanCommentsAnchoredRange(t *testing.T) {
+	comments := []*types.PlanComment{
+		{
+			ID:      "c1",
+			Content: "needs work",
+			Anchor: &types.PlanCommentAnchor{
+				LineStart:  12,
+				LineEnd:    15,
+				QuotedText: "quote",
+			},
+		},
+	}
+	out := captureStdout(t, func() {
+		printPlanComments(comments)
+	})
+	want := `[L12-L15] "quote" needs work` + "\n"
+	if out != want {
+		t.Errorf("printPlanComments anchored range: got %q, want %q", out, want)
+	}
+}
+
+func TestPrintPlanCommentsResolvedPrefix(t *testing.T) {
+	now := time.Now()
+	line := 3
+	comments := []*types.PlanComment{
+		{ID: "c1", LineNumber: &line, Content: "done", ResolvedAt: &now},
+	}
+	out := captureStdout(t, func() {
+		printPlanComments(comments)
+	})
+	want := "✓ [L3] done\n"
+	if out != want {
+		t.Errorf("printPlanComments resolved: got %q, want %q", out, want)
+	}
+}
+
+func TestPlanWaitCmdRegistered(t *testing.T) {
+	found := false
+	for _, cmd := range planCmd.Commands() {
+		if cmd.Name() == "wait" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected planCmd to have a 'wait' subcommand")
+	}
+	if planWaitCmd.Flags().Lookup("timeout") == nil {
+		t.Error("expected planWaitCmd to have a --timeout flag")
+	}
+}
+
+func TestPlanWaitTimesOutWhenNoDecision(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := sqlite.New(dbPath)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer store.Close()
+
+	server := api.New(api.ServerOptions{Address: ":0", Store: store})
+	ts := httptest.NewServer(server.Echo())
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetActor("test-user")
+
+	filePath := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(filePath, []byte("# Plan\n"), 0o600); err != nil {
+		t.Fatalf("write plan file: %v", err)
+	}
+	plan, err := c.CreatePlan(filePath)
+	if err != nil {
+		t.Fatalf("create plan: %v", err)
+	}
+
+	origServerURL := serverURL
+	origTimeout := planWaitTimeout
+	serverURL = ts.URL
+	planWaitTimeout = 100 * time.Millisecond
+	defer func() {
+		serverURL = origServerURL
+		planWaitTimeout = origTimeout
+	}()
+
+	err = planWaitCmd.RunE(planWaitCmd, []string{plan.ID})
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+	if want := "timed out"; !strings.Contains(err.Error(), want) {
+		t.Errorf("expected error to contain %q, got %q", want, err.Error())
+	}
+}
+
+func TestPlanWaitReturnsDecisionAndComments(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := sqlite.New(dbPath)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer store.Close()
+
+	server := api.New(api.ServerOptions{Address: ":0", Store: store})
+	ts := httptest.NewServer(server.Echo())
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetActor("test-user")
+
+	filePath := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(filePath, []byte("# Plan\n"), 0o600); err != nil {
+		t.Fatalf("write plan file: %v", err)
+	}
+	plan, err := c.CreatePlan(filePath)
+	if err != nil {
+		t.Fatalf("create plan: %v", err)
+	}
+	if _, err := c.CreatePlanComment(plan.ID, nil, "looks good overall"); err != nil {
+		t.Fatalf("create plan comment: %v", err)
+	}
+	if err := c.UpdatePlanStatus(plan.ID, "approved"); err != nil {
+		t.Fatalf("update plan status: %v", err)
+	}
+
+	origServerURL := serverURL
+	origTimeout := planWaitTimeout
+	origOutputJSON := outputJSON
+	serverURL = ts.URL
+	planWaitTimeout = time.Minute
+	outputJSON = false
+	defer func() {
+		serverURL = origServerURL
+		planWaitTimeout = origTimeout
+		outputJSON = origOutputJSON
+	}()
+
+	out := captureStdout(t, func() {
+		if err := planWaitCmd.RunE(planWaitCmd, []string{plan.ID}); err != nil {
+			t.Fatalf("planWaitCmd.RunE: %v", err)
+		}
+	})
+
+	want := "Decision: approved\n[overall] looks good overall\n"
+	if out != want {
+		t.Errorf("planWaitCmd output: got %q, want %q", out, want)
+	}
+}
+
+// interceptGetPlan wraps server's Echo handler with one that fails GET
+// requests to the given plan's GetPlan endpoint according to shouldFail,
+// passing every other request through unmodified. getPlanPath starts empty
+// so requests made before the caller learns the plan ID (e.g. plan create)
+// are never intercepted.
+func interceptGetPlan(server *api.Server, getPlanPath *string, shouldFail func() bool) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if *getPlanPath != "" && r.Method == http.MethodGet && r.URL.Path == *getPlanPath && shouldFail() {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		server.Echo().ServeHTTP(w, r)
+	}))
+}
+
+func TestPlanWaitToleratesTransientGetPlanErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := sqlite.New(dbPath)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer store.Close()
+
+	server := api.New(api.ServerOptions{Address: ":0", Store: store})
+
+	var getPlanPath string
+	const failuresBeforeSuccess = 3
+	var failedCalls int
+	ts := interceptGetPlan(server, &getPlanPath, func() bool {
+		if failedCalls >= failuresBeforeSuccess {
+			return false
+		}
+		failedCalls++
+		return true
+	})
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetActor("test-user")
+
+	filePath := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(filePath, []byte("# Plan\n"), 0o600); err != nil {
+		t.Fatalf("write plan file: %v", err)
+	}
+	plan, err := c.CreatePlan(filePath)
+	if err != nil {
+		t.Fatalf("create plan: %v", err)
+	}
+	getPlanPath = "/api/v1/plans/" + plan.ID
+
+	if _, err := c.CreatePlanComment(plan.ID, nil, "looks good overall"); err != nil {
+		t.Fatalf("create plan comment: %v", err)
+	}
+	if err := c.UpdatePlanStatus(plan.ID, "approved"); err != nil {
+		t.Fatalf("update plan status: %v", err)
+	}
+
+	origServerURL := serverURL
+	origTimeout := planWaitTimeout
+	origOutputJSON := outputJSON
+	serverURL = ts.URL
+	planWaitTimeout = time.Minute
+	outputJSON = false
+	defer func() {
+		serverURL = origServerURL
+		planWaitTimeout = origTimeout
+		outputJSON = origOutputJSON
+	}()
+
+	out := captureStdout(t, func() {
+		if err := planWaitCmd.RunE(planWaitCmd, []string{plan.ID}); err != nil {
+			t.Fatalf("planWaitCmd.RunE: %v", err)
+		}
+	})
+
+	if failedCalls != failuresBeforeSuccess {
+		t.Fatalf("expected %d failed GetPlan calls before success, got %d", failuresBeforeSuccess, failedCalls)
+	}
+	want := "Decision: approved\n[overall] looks good overall\n"
+	if out != want {
+		t.Errorf("planWaitCmd output: got %q, want %q", out, want)
+	}
+}
+
+func TestPlanWaitAbortsAfterConsecutiveErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	store, err := sqlite.New(dbPath)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer store.Close()
+
+	server := api.New(api.ServerOptions{Address: ":0", Store: store})
+
+	var getPlanPath string
+	var getPlanCalls int
+	ts := interceptGetPlan(server, &getPlanPath, func() bool {
+		getPlanCalls++
+		return true
+	})
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetActor("test-user")
+
+	filePath := filepath.Join(t.TempDir(), "plan.md")
+	if err := os.WriteFile(filePath, []byte("# Plan\n"), 0o600); err != nil {
+		t.Fatalf("write plan file: %v", err)
+	}
+	plan, err := c.CreatePlan(filePath)
+	if err != nil {
+		t.Fatalf("create plan: %v", err)
+	}
+	getPlanPath = "/api/v1/plans/" + plan.ID
+
+	origServerURL := serverURL
+	origTimeout := planWaitTimeout
+	serverURL = ts.URL
+	planWaitTimeout = time.Minute
+	defer func() {
+		serverURL = origServerURL
+		planWaitTimeout = origTimeout
+	}()
+
+	err = planWaitCmd.RunE(planWaitCmd, []string{plan.ID})
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	want := fmt.Sprintf("aborted after %d consecutive errors", planWaitMaxConsecutiveErrors)
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("expected error to contain %q, got %q", want, err.Error())
+	}
+	if getPlanCalls != planWaitMaxConsecutiveErrors {
+		t.Errorf("expected %d GetPlan calls, got %d", planWaitMaxConsecutiveErrors, getPlanCalls)
 	}
 }

@@ -80,6 +80,17 @@ export async function renderMarkdown(content: string): Promise<string> {
 }
 
 /**
+ * Tokenize markdown with the SAME configured Marked instance used for
+ * rendering. Using the module-level `marked.lexer` singleton instead would
+ * tokenize with different options than the renderer — token/element
+ * alignment in PlanRenderer depends on these agreeing.
+ */
+export async function lexMarkdown(content: string) {
+	const instance = await getMarkedInstance();
+	return instance.lexer(content);
+}
+
+/**
  * Strip markdown syntax from a string to produce plain text.
  * Useful for card preview snippets.
  */

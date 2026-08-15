@@ -285,6 +285,18 @@ func (m *mockWPStore) ListPlanComments(_ context.Context, _ string) ([]*types.Pl
 	panic("not implemented")
 }
 
+func (m *mockWPStore) GetPlanComment(_ context.Context, _ string) (*types.PlanComment, error) {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) UpdatePlanComment(_ context.Context, _ *types.PlanComment) error {
+	panic("not implemented")
+}
+
+func (m *mockWPStore) DeletePlanComment(_ context.Context, _ string) error {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) GetEvents(_ context.Context, _ string, _ int) ([]*types.Event, error) {
 	panic("not implemented")
 }
