@@ -30,6 +30,7 @@
 	let comments = $state<PlanComment[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let actionError = $state<string | null>(null);
 	let toast = $state<string | null>(null);
 
 	// View modes: 'review' (rendered doc + highlights + rail), 'edit' (raw editor)
@@ -46,6 +47,8 @@
 	let anchorTops = $state<Record<string, number>>({});
 	let docWrap = $state<HTMLElement | undefined>(); // wraps PlanRenderer; position: relative
 	let overallFeedback = $state('');
+	let pendingOrphanBefore = $state<number | null>(null);
+	let statusBusy = $state(false);
 
 	// Per-comment resolution against current blocks.
 	const resolutions = $derived.by(() => {
@@ -163,6 +166,17 @@
 		blocks = b;
 		await tick();
 		measureAnchorTops();
+		if (pendingOrphanBefore !== null) {
+			const before = pendingOrphanBefore;
+			pendingOrphanBefore = null;
+			const after = comments.filter(
+				(c) => c.anchor && resolutions.get(c.id)?.status !== 'orphaned'
+			).length;
+			if (after < before) {
+				const lost = before - after;
+				showToast(`${lost} comment${lost === 1 ? '' : 's'} lost their anchor`, 5000);
+			}
+		}
 	}
 
 	function showToast(message: string, ms: number) {
@@ -196,7 +210,7 @@
 			selection = null;
 			window.getSelection()?.removeAllRanges();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to add comment';
+			actionError = err instanceof Error ? err.message : 'Failed to add comment';
 		}
 	}
 
@@ -207,7 +221,7 @@
 			comments = [...comments, created];
 			overallFeedback = '';
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to add comment';
+			actionError = err instanceof Error ? err.message : 'Failed to add comment';
 		}
 	}
 
@@ -217,7 +231,7 @@
 			const updated = await updatePlanComment(planId, id, { content });
 			comments = comments.map((c) => (c.id === id ? updated : c));
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save comment';
+			actionError = err instanceof Error ? err.message : 'Failed to save comment';
 		}
 	}
 
@@ -229,7 +243,7 @@
 			const updated = await updatePlanComment(planId, id, { resolved: !c.resolved_at });
 			comments = comments.map((x) => (x.id === id ? updated : x));
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to update comment';
+			actionError = err instanceof Error ? err.message : 'Failed to update comment';
 		}
 	}
 
@@ -240,7 +254,7 @@
 			comments = comments.filter((c) => c.id !== id);
 			if (activeId === id) activeId = null;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to delete comment';
+			actionError = err instanceof Error ? err.message : 'Failed to delete comment';
 		}
 	}
 
@@ -263,7 +277,7 @@
 				window.getSelection()?.removeAllRanges();
 				showToast('Highlight updated', 3000);
 			} catch (err) {
-				error = err instanceof Error ? err.message : 'Failed to change highlight';
+				actionError = err instanceof Error ? err.message : 'Failed to change highlight';
 			}
 		}
 	}
@@ -277,30 +291,25 @@
 			const updated = await updatePlanContent(planId, editContent);
 			plan = updated;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save';
+			actionError = err instanceof Error ? err.message : 'Failed to save';
 			return;
 		}
+		pendingOrphanBefore = before;
 		viewMode = 'review';
-		await tick(); // PlanRenderer re-renders; onBlocks refreshes `blocks` → resolutions recompute
-		// Defer the orphan check one frame so resolutions see the new blocks:
-		setTimeout(() => {
-			const after = comments.filter(
-				(c) => c.anchor && resolutions.get(c.id)?.status !== 'orphaned'
-			).length;
-			if (after < before) {
-				const lost = before - after;
-				showToast(`${lost} comment${lost === 1 ? '' : 's'} lost their anchor`, 5000);
-			}
-		}, 300);
+		// The next onBlocks fire (handleBlocks) reflects the freshly-saved content;
+		// it consumes pendingOrphanBefore to report any newly orphaned comments.
 	}
 
 	async function setStatus(status: string) {
-		if (!planId) return;
+		if (!planId || statusBusy) return;
+		statusBusy = true;
 		try {
 			const updated = await updatePlanStatus(planId, status);
 			if (plan) plan = { ...plan, status: updated.status };
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to update status';
+			actionError = err instanceof Error ? err.message : 'Failed to update status';
+		} finally {
+			statusBusy = false;
 		}
 	}
 
@@ -385,17 +394,21 @@
 				<button
 					class="btn-approve"
 					onclick={() => setStatus('approved')}
-					disabled={plan.status === 'approved'}>Approve</button
+					disabled={statusBusy || plan.status === 'approved'}>Approve</button
 				>
 				<button
 					class="btn-request"
 					onclick={() => setStatus('changes_requested')}
-					disabled={unresolvedCount === 0}
+					disabled={statusBusy || unresolvedCount === 0}
 					title={unresolvedCount === 0 ? 'Add at least one comment first' : undefined}
 				>
 					Request changes
 				</button>
-				<button class="btn-reject" onclick={() => setStatus('rejected')}>Reject</button>
+				<button
+					class="btn-reject"
+					onclick={() => setStatus('rejected')}
+					disabled={statusBusy}>Reject</button
+				>
 			</div>
 		</div>
 
@@ -423,6 +436,21 @@
 				Edit
 			</button>
 		</div>
+
+		{#if actionError}
+			<div
+				class="action-error flex items-center justify-between gap-3 rounded-lg border border-red-800 bg-red-900/30 px-3 py-2 text-sm text-red-400"
+				role="alert"
+			>
+				<span>{actionError}</span>
+				<button
+					type="button"
+					class="text-red-400 hover:text-red-300"
+					aria-label="Dismiss error"
+					onclick={() => (actionError = null)}>✕</button
+				>
+			</div>
+		{/if}
 
 		<!-- Review Mode: rendered document + margin rail -->
 		{#if viewMode === 'review'}
@@ -500,7 +528,12 @@
 							scrollMarkIntoView(id);
 						}}
 						onSaveContent={saveContent}
-						onReanchor={(id) => (reanchoringId = id)}
+						onReanchor={(id) => {
+							composing = false;
+							selection = null;
+							window.getSelection()?.removeAllRanges();
+							reanchoringId = id;
+						}}
 						onToggleResolve={toggleResolve}
 						onDelete={removeComment}
 					/>
