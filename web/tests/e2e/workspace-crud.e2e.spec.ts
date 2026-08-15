@@ -62,12 +62,18 @@ test.describe('Workspace CRUD', () => {
 			// Enter edit mode
 			await main.getByRole('button', { name: 'Edit' }).click();
 
-			// Select the extra workspace card by clicking it
+			// Select the extra workspace card via its checkbox (a small, non-overlapping
+			// target). Clicking the card body itself can land on the absolutely-positioned
+			// "Delete project" hover button that overlaps the card's center — it stays
+			// hit-testable even at opacity-0 — which opens the delete dialog instead of
+			// selecting the card.
 			const extraCard = main.locator('button.card').filter({ hasText: extraWs.name });
-			await extraCard.click();
+			const extraCheckbox = extraCard.locator('input[type="checkbox"]');
+			await extraCheckbox.click();
 
-			// Wait for selection to register
-			await expect(main.getByText('1 selected')).toBeVisible();
+			// Wait for selection to register on this specific row, not the shared toolbar
+			// text (which other cards toggling selection could also produce).
+			await expect(extraCheckbox).toBeChecked();
 
 			// Click the delete button in the batch actions bar (btn-danger class)
 			await main.locator('button.btn-danger').click();
@@ -99,12 +105,15 @@ test.describe('Workspace CRUD', () => {
 			// Enter edit mode
 			await main.getByRole('button', { name: 'Edit' }).click();
 
-			// Select ws2 (the source to merge)
+			// Select ws2 (the source to merge) via its checkbox — see the comment in
+			// 'delete workspace via edit mode' above for why we avoid clicking the card body.
 			const ws2Card = main.locator('button.card').filter({ hasText: ws2.name });
-			await ws2Card.click();
+			const ws2Checkbox = ws2Card.locator('input[type="checkbox"]');
+			await ws2Checkbox.click();
 
-			// Wait for selection state to register before looking for merge button
-			await expect(main.getByText('1 selected')).toBeVisible();
+			// Wait for selection to register on this specific row before looking for the
+			// merge button.
+			await expect(ws2Checkbox).toBeChecked();
 
 			// Click "Merge into..."
 			await main.getByRole('button', { name: /Merge into/ }).click();
@@ -178,14 +187,19 @@ test.describe('Workspace CRUD', () => {
 	});
 
 	test('empty state shows when no workspaces', async ({ page }) => {
-		// First, clean up all projects
-		const res = await fetch('http://localhost:7433/api/v1/projects');
-		const allWs = (await res.json()) as { id: string }[];
-		for (const ws of allWs) {
-			await deleteTestWorkspace(ws.id).catch(() => {});
-		}
+		// This test's premise is a genuinely empty project list, but the DB is shared
+		// across specs/workers, so we can't isolate it by deleting real data (that would
+		// wipe other tests'/specs' live fixtures under parallel or --repeat-each runs).
+		// Instead, intercept the projects-list request the SPA makes on load and fulfill
+		// it with an empty array, leaving the shared DB untouched.
+		await page.route('**/api/v1/projects', (route) => {
+			if (route.request().method() === 'GET') {
+				return route.fulfill({ contentType: 'application/json', body: '[]' });
+			}
+			return route.continue();
+		});
 
-		// Navigate fresh so the SPA fetches the empty list
+		// Navigate fresh so the SPA fetches the (faked) empty list
 		await page.goto('/');
 		const main = page.locator('main');
 		await expect(main.getByRole('heading', { name: 'No projects yet' })).toBeVisible({
