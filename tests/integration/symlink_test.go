@@ -10,9 +10,16 @@ import (
 	"testing"
 )
 
-// TestInitFromSymlinkRegistersBothPaths verifies that `arc init` from a
-// symlinked directory registers both the symlink path and the resolved path.
-func TestInitFromSymlinkRegistersBothPaths(t *testing.T) {
+// TestInitFromSymlinkRegistersCanonicalPath verifies that `arc init` from a
+// symlinked directory registers the canonical path, and that the project still
+// resolves when the directory is addressed through the symlink.
+//
+// The server canonicalizes paths on both write (createWorkspace) and read
+// (resolveProjectForPath), so the symlink form is deliberately not stored as a
+// separate row — the two forms converge to one before they reach storage. This
+// asserts the contract (either form resolves) rather than the row count, which
+// is an implementation detail of where canonicalization happens.
+func TestInitFromSymlinkRegistersCanonicalPath(t *testing.T) {
 	home := setupHome(t)
 
 	// Create a real directory and a symlink to it.
@@ -52,19 +59,31 @@ func TestInitFromSymlinkRegistersBothPaths(t *testing.T) {
 		t.Skipf("symlink path %q did not differ from its resolution", symlinkDir)
 	}
 
-	// Both forms must be registered. resolveProject() matches against the raw
-	// os.Getwd() result, which is the symlink form when the shell entered the
-	// directory that way — registering only the canonical path would leave
-	// every subsequent command unable to resolve the project.
+	// Every stored path must already be in canonical form, and the directory's
+	// canonical path must be among them.
 	registered := make(map[string]bool, len(paths))
 	for _, p := range paths {
+		canonical, evalErr := filepath.EvalSymlinks(p.Path)
+		if evalErr == nil && canonical != p.Path {
+			t.Errorf("path %q stored in non-canonical form (canonical: %q)", p.Path, canonical)
+		}
 		registered[p.Path] = true
 	}
-	if !registered[symlinkDir] {
-		t.Errorf("symlink path %q not registered; got %v", symlinkDir, paths)
-	}
 	if !registered[resolvedLink] {
-		t.Errorf("resolved path %q not registered; got %v", resolvedLink, paths)
+		t.Errorf("canonical path %q not registered; got %v", resolvedLink, paths)
+	}
+
+	// The contract that matters: the project resolves when reached via the
+	// symlink, which is the form os.Getwd() reports in a real shell.
+	whichOut := arcCmdInDirSuccess(t, home, symlinkDir, "which", "--json", "--server", serverURL)
+	var which struct {
+		ProjectID string `json:"project_id"`
+	}
+	if err := json.Unmarshal([]byte(whichOut), &which); err != nil {
+		t.Fatalf("parse which JSON: %v\noutput: %s", err, whichOut)
+	}
+	if which.ProjectID != projID {
+		t.Errorf("which from symlink resolved to %q, want %q", which.ProjectID, projID)
 	}
 }
 
