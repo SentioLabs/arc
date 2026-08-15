@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"os"
@@ -118,9 +117,8 @@ func TestWhichResultHasPlansFields(t *testing.T) {
 	result := whichResult{PlansDir: "/abs/dir", PlansType: "markdown", PlansSource: "default"}
 	b, err := json.Marshal(result)
 	require.NoError(t, err)
-	var buf bytes.Buffer
-	buf.Write(b)
-	assert.Contains(t, buf.String(), `"plans_dir":"/abs/dir"`)
-	assert.Contains(t, buf.String(), `"plans_type":"markdown"`)
-	assert.Contains(t, buf.String(), `"plans_source":"default"`)
+	encoded := string(b)
+	assert.Contains(t, encoded, `"plans_dir":"/abs/dir"`)
+	assert.Contains(t, encoded, `"plans_type":"markdown"`)
+	assert.Contains(t, encoded, `"plans_source":"default"`)
 }
