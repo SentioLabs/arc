@@ -687,6 +687,15 @@
    serif document column, Instrument Sans UI chrome, amber ink-comment marks.
    ========================================================================== */
 
+/* Amber annotation-ink tokens live on :root (not .planner-review) because the
+   review action bar, re-anchor banner, and toast may render outside the
+   .planner-review subtree and must keep their ink styling there. */
+:root {
+	--ink-comment: oklch(0.78 0.16 75); /* warm amber highlight */
+	--ink-comment-bg: oklch(0.78 0.16 75 / 0.16);
+	--ink-comment-edge: oklch(0.78 0.16 75 / 0.55);
+}
+
 /*
  * Review layout — document column + margin rail.
  *
@@ -726,9 +735,6 @@
 	--ink-rule: var(--color-border);
 
 	/* Comment ink — warm amber, the sole review-domain accent. */
-	--ink-comment: oklch(0.78 0.16 75);
-	--ink-comment-bg: oklch(0.78 0.16 75 / 0.16);
-	--ink-comment-edge: oklch(0.78 0.16 75 / 0.55);
 
 	background: var(--ink-paper);
 	color: var(--ink-text);
