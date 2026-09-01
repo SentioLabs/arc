@@ -191,7 +191,7 @@ func (m *mockWPStore) GetIssueDetails(_ context.Context, _ string) (*types.Issue
 	panic("not implemented")
 }
 
-func (m *mockWPStore) GetReadyWork(_ context.Context, _ types.WorkFilter) ([]*types.Issue, error) {
+func (m *mockWPStore) GetReadyWork(_ context.Context, _ types.WorkFilter) ([]*types.ReadyIssue, error) {
 	panic("not implemented")
 }
 

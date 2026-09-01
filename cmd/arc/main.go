@@ -953,7 +953,7 @@ var readyCmd = &cobra.Command{
 		limit, _ := cmd.Flags().GetInt("limit")
 		sortPolicy, _ := cmd.Flags().GetString("sort")
 
-		issues, err := c.GetReadyWork(wsID, limit, sortPolicy)
+		issues, err := c.GetReadyWork(wsID, limit, sortPolicy, "")
 		if err != nil {
 			return err
 		}
