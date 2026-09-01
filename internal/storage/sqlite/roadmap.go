@@ -19,7 +19,7 @@ func (s *Store) GetRoadmap(ctx context.Context, projectID string) ([]*types.Road
 		return nil, err
 	}
 
-	parentOf, childrenOf, blocksOf, err := s.loadRoadmapEdges(ctx, projectID, issuesByID)
+	parentOf, childrenOf, blocksOf, err := s.loadRoadmapEdges(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +82,21 @@ FROM issues WHERE project_id = ?`, projectID)
 //   - parentOf: issue ID -> parent-child parent ID
 //   - childrenOf: parent-child parent ID -> child issue IDs (any type)
 //   - blocksOf: issue ID -> open (non-closed) blocker IDs
-func (s *Store) loadRoadmapEdges(ctx context.Context, projectID string, issuesByID map[string]*types.Issue) (
+//
+// Blocker liveness is resolved with a join against issues rather than a
+// lookup in issuesByID, since a blocker may live in a different project and
+// so wouldn't appear in the project-scoped issue map (matching ready.go's
+// gating CTE, which joins issues the same way).
+func (s *Store) loadRoadmapEdges(ctx context.Context, projectID string) (
 	parentOf map[string]string, childrenOf, blocksOf map[string][]string, err error,
 ) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT d.issue_id, d.depends_on_id, d.type FROM dependencies d
-JOIN issues i ON i.id = d.issue_id WHERE i.project_id = ?`, projectID)
+SELECT d.issue_id, d.depends_on_id, d.type,
+       CASE WHEN d.type = 'blocks' THEN b.id ELSE NULL END
+FROM dependencies d
+JOIN issues i ON i.id = d.issue_id
+LEFT JOIN issues b ON b.id = d.depends_on_id AND b.status != 'closed'
+WHERE i.project_id = ?`, projectID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("load roadmap dependencies: %w", err)
 	}
@@ -98,7 +107,8 @@ JOIN issues i ON i.id = d.issue_id WHERE i.project_id = ?`, projectID)
 	blocksOf = map[string][]string{}
 	for rows.Next() {
 		var issueID, dependsOnID, depType string
-		if err := rows.Scan(&issueID, &dependsOnID, &depType); err != nil {
+		var openBlockerID *string
+		if err := rows.Scan(&issueID, &dependsOnID, &depType, &openBlockerID); err != nil {
 			return nil, nil, nil, fmt.Errorf("scan roadmap dependency: %w", err)
 		}
 		switch types.DependencyType(depType) {
@@ -106,8 +116,8 @@ JOIN issues i ON i.id = d.issue_id WHERE i.project_id = ?`, projectID)
 			parentOf[issueID] = dependsOnID
 			childrenOf[dependsOnID] = append(childrenOf[dependsOnID], issueID)
 		case types.DepBlocks:
-			if blocker, ok := issuesByID[dependsOnID]; ok && blocker.Status != types.StatusClosed {
-				blocksOf[issueID] = append(blocksOf[issueID], dependsOnID)
+			if openBlockerID != nil {
+				blocksOf[issueID] = append(blocksOf[issueID], *openBlockerID)
 			}
 		}
 	}
@@ -158,6 +168,9 @@ func countRoadmapDescendants(
 		}
 		visited[nodeID] = true
 		for _, childID := range childrenOf[nodeID] {
+			if visited[childID] {
+				continue
+			}
 			child, ok := issuesByID[childID]
 			if !ok {
 				continue
@@ -176,7 +189,8 @@ func countRoadmapDescendants(
 }
 
 // sortRoadmapIDs orders container IDs for display: releases first, then
-// priority ascending, then created_at ascending.
+// priority ascending, then created_at ascending, then issue ID as a final
+// tiebreaker so ordering is deterministic when everything else ties.
 func sortRoadmapIDs(ids []string, issuesByID map[string]*types.Issue) {
 	sort.SliceStable(ids, func(i, j int) bool {
 		a, b := issuesByID[ids[i]], issuesByID[ids[j]]
@@ -188,6 +202,9 @@ func sortRoadmapIDs(ids []string, issuesByID map[string]*types.Issue) {
 		if a.Priority != b.Priority {
 			return a.Priority < b.Priority
 		}
-		return a.CreatedAt.Before(b.CreatedAt)
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			return a.CreatedAt.Before(b.CreatedAt)
+		}
+		return a.ID < b.ID
 	})
 }

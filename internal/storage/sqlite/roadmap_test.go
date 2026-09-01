@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sentiolabs/arc/internal/types"
 )
@@ -194,6 +195,118 @@ func TestListIssuesDefaultFilterIncludesRoadmapTypes(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("release issue %s missing from unfiltered ListIssues", release.ID)
+	}
+}
+
+// TestGetRoadmapDiamondCountsOnce guards against double-counting a
+// descendant reachable through two parent-child paths (a task under two
+// sibling milestones of the same release). The release's TotalCount must
+// count the task once, not once per path.
+func TestGetRoadmapDiamondCountsOnce(t *testing.T) {
+	store, cleanup := newRoadmapTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := newRoadmapTestProject(t, store)
+
+	release := newRoadmapTestIssue(t, store, proj, "v1", types.TypeRelease)
+
+	m1 := newRoadmapTestIssue(t, store, proj, "M1", types.TypeMilestone)
+	linkRoadmapIssues(t, store, m1.ID, release.ID, types.DepParentChild)
+
+	m2 := newRoadmapTestIssue(t, store, proj, "M2", types.TypeMilestone)
+	linkRoadmapIssues(t, store, m2.ID, release.ID, types.DepParentChild)
+
+	shared := newRoadmapTestIssue(t, store, proj, "shared task", types.TypeTask)
+	linkRoadmapIssues(t, store, shared.ID, m1.ID, types.DepParentChild)
+	linkRoadmapIssues(t, store, shared.ID, m2.ID, types.DepParentChild)
+
+	nodes, err := store.GetRoadmap(ctx, proj.ID)
+	if err != nil {
+		t.Fatalf("GetRoadmap failed: %v", err)
+	}
+
+	releaseNode := findRoadmapNode(nodes, release.ID)
+	if releaseNode == nil {
+		t.Fatalf("release node not found")
+	}
+	if releaseNode.TotalCount != 1 {
+		t.Errorf("release.TotalCount = %d, want 1 (diamond task counted twice)", releaseNode.TotalCount)
+	}
+}
+
+// TestGetRoadmapCycleTerminates guards against an infinite DFS when two
+// containers point at each other via parent-child edges.
+func TestGetRoadmapCycleTerminates(t *testing.T) {
+	store, cleanup := newRoadmapTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := newRoadmapTestProject(t, store)
+
+	a := newRoadmapTestIssue(t, store, proj, "Container A", types.TypeMilestone)
+	b := newRoadmapTestIssue(t, store, proj, "Container B", types.TypeMilestone)
+
+	// AddDependency rejects cycles, so write the bad edges directly.
+	_, err := store.DB().ExecContext(ctx, `
+INSERT INTO dependencies (issue_id, depends_on_id, type)
+VALUES (?, ?, 'parent-child'), (?, ?, 'parent-child')`,
+		a.ID, b.ID, b.ID, a.ID)
+	if err != nil {
+		t.Fatalf("inserting cyclic dependencies failed: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := store.GetRoadmap(ctx, proj.ID)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("GetRoadmap on cyclic hierarchy failed: %v", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("GetRoadmap did not terminate on a cyclic hierarchy")
+	}
+}
+
+// TestGetRoadmapGatedByCrossProjectBlocker guards against dropping open
+// blockers that live in a different project than the gated issue, since
+// loadRoadmapEdges only loads issues from the roadmap's own project.
+func TestGetRoadmapGatedByCrossProjectBlocker(t *testing.T) {
+	store, cleanup := newRoadmapTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := newRoadmapTestProject(t, store)
+	otherProj := &types.Project{Name: "Other Roadmap Test Project", Prefix: "rmo"}
+	if err := store.CreateProject(ctx, otherProj); err != nil {
+		t.Fatalf("CreateProject(otherProj) failed: %v", err)
+	}
+
+	milestone := newRoadmapTestIssue(t, store, proj, "M1", types.TypeMilestone)
+	blocker := newRoadmapTestIssue(t, store, otherProj, "blocker", types.TypeTask)
+	linkRoadmapIssues(t, store, milestone.ID, blocker.ID, types.DepBlocks)
+
+	nodes, err := store.GetRoadmap(ctx, proj.ID)
+	if err != nil {
+		t.Fatalf("GetRoadmap failed: %v", err)
+	}
+
+	m1Node := findRoadmapNode(nodes, milestone.ID)
+	if m1Node == nil {
+		t.Fatalf("M1 node not found")
+	}
+	found := false
+	for _, id := range m1Node.GatedBy {
+		if id == blocker.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("M1.GatedBy = %v, want to include cross-project blocker %s", m1Node.GatedBy, blocker.ID)
 	}
 }
 
