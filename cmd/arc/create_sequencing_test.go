@@ -255,6 +255,39 @@ func TestSequencingJSONOutputIsPureJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(out), &payload), "stdout should be pure JSON: %q", out)
 }
 
+func TestSequencingJSONOutputIncludesBlocksDepWithoutLabels(t *testing.T) {
+	_, _, releaseID := setupSequencingTest(t)
+
+	m1ID, err := createMilestone(t, "Milestone 1", releaseID)
+	require.NoError(t, err)
+	require.NotEmpty(t, m1ID)
+
+	resetCreateFlags(t)
+	require.NoError(t, createCmd.Flags().Set("type", string(types.TypeMilestone)))
+	require.NoError(t, createCmd.Flags().Set("parent", releaseID))
+
+	outputJSON = true
+	defer func() { outputJSON = false }()
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = createCmd.RunE(createCmd, []string{"Milestone 2"})
+	})
+	require.NoError(t, runErr)
+
+	var details types.IssueDetails
+	require.NoError(t, json.Unmarshal([]byte(out), &details), "stdout should be pure JSON: %q", out)
+
+	var blocksTarget string
+	for _, dep := range details.Dependencies {
+		if dep.Type == types.DepBlocks {
+			blocksTarget = dep.DependsOnID
+		}
+	}
+	require.Equal(t, m1ID, blocksTarget,
+		"JSON output for an unlabeled milestone should still include the auto-sequenced blocks dep: %q", out)
+}
+
 func TestSequencingFlagsOnlyApplyToMilestone(t *testing.T) {
 	_, _, releaseID := setupSequencingTest(t)
 

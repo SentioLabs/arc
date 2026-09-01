@@ -40,6 +40,12 @@ const (
 	// defaultBlockedLimit is the default maximum number of issues shown by the blocked command.
 	defaultBlockedLimit = 10
 
+	// milestoneSiblingsLimit bounds the sibling-milestone lookup used for
+	// auto-sequencing. It must exceed the server's default list cap so a
+	// release with many milestones doesn't silently lose sequencing
+	// candidates past the cap.
+	milestoneSiblingsLimit = 1000
+
 	// depPairArgCount is the number of arguments for commands that take a pair of issue IDs.
 	depPairArgCount = 2
 
@@ -661,8 +667,9 @@ var createCmd = &cobra.Command{
 			if seqMsg != "" {
 				_, _ = fmt.Fprintln(os.Stderr, seqMsg)
 			}
-			// Re-fetch with details so JSON includes labels
-			if len(labels) > 0 {
+			// Re-fetch with details so JSON includes labels and any
+			// auto-sequenced blocks dependency.
+			if seqMsg != "" || len(labels) > 0 {
 				details, fetchErr := c.GetIssueDetails(wsID, issue.ID)
 				if fetchErr == nil {
 					outputResult(details)
@@ -690,7 +697,7 @@ func init() {
 	createCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	createCmd.Flags().String("parent", "", "Parent issue ID (creates child with .N suffix)")
 	createCmd.Flags().StringSlice("label", nil, "Label to apply (repeatable)")
-	createCmd.Flags().String("after", "", "Milestone only: sequence after this sibling milestone (blocks dep)")
+	createCmd.Flags().String("after", "", "Milestone only: sequence after this issue (blocks dep)")
 	createCmd.Flags().Bool("parallel", false, "Milestone only: parallel track, no sequencing dependency")
 }
 
@@ -745,17 +752,26 @@ func sequenceCreatedMilestone(c *client.Client, wsID, newID string, opts createS
 // given, otherwise the tail of the sequenced chain among sibling milestones.
 // It returns a confirmation line for the caller to print (empty if no
 // dependency was added).
+//
+// Known limitation: two clients creating milestones under the same parent
+// concurrently can compute the same tail and fan in on one predecessor
+// instead of chaining. Fixing this needs server-side sequencing; accepted
+// for now (documented in the epic).
 func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) (string, error) {
 	if afterID != "" {
 		if err := c.AddDependency(wsID, newID, afterID, string(types.DepBlocks)); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf(
-			"Sequenced after %s (blocks dependency); use --parallel or 'arc dep rm' to change", afterID,
+			"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", afterID,
 		), nil
 	}
 
-	siblings, err := c.ListIssues(wsID, client.ListIssuesOptions{Parent: parentID, Type: string(types.TypeMilestone)})
+	siblings, err := c.ListIssues(wsID, client.ListIssuesOptions{
+		Parent: parentID,
+		Type:   string(types.TypeMilestone),
+		Limit:  milestoneSiblingsLimit, // above the server's default cap, so large releases aren't truncated
+	})
 	if err != nil {
 		return "", err
 	}
@@ -773,7 +789,9 @@ func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) 
 	if err := c.AddDependency(wsID, newID, tail.ID, string(types.DepBlocks)); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("Sequenced after %s (blocks dependency); use --parallel or 'arc dep rm' to change", tail.ID), nil
+	return fmt.Sprintf(
+		"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", tail.ID,
+	), nil
 }
 
 // milestoneCandidates fetches dependency and label details for every sibling
