@@ -827,9 +827,13 @@ func TestAIAgentOptionalFields(t *testing.T) {
 // These verify the roadmap-hierarchy design spec. Do NOT modify
 // without updating the approved plan (plan.04dgqw).
 
+// assertType pins v's static type at compile time; a contract drift
+// (field type change) fails to compile here.
+func assertType[T any](v T) { _ = v }
+
 func TestRoadmapContract(t *testing.T) {
-	var _ IssueType = TypeRelease
-	var _ IssueType = TypeMilestone
+	assertType[IssueType](TypeRelease)
+	assertType[IssueType](TypeMilestone)
 	if !TypeRelease.IsContainer() || !TypeMilestone.IsContainer() || !TypeEpic.IsContainer() {
 		t.Fatal("release, milestone, and epic must be containers")
 	}
@@ -837,14 +841,14 @@ func TestRoadmapContract(t *testing.T) {
 		t.Fatal("task and bug must not be containers")
 	}
 	r := ReadyIssue{}
-	var _ int = r.EffectivePriority
-	var _ []string = r.Path
+	assertType[int](r.EffectivePriority)
+	assertType[[]string](r.Path)
 	n := RoadmapNode{}
-	var _ []*RoadmapNode = n.Children
-	var _ int = n.ClosedCount
-	var _ int = n.TotalCount
-	var _ []string = n.GatedBy
-	var _ string = WorkFilter{}.Under
+	assertType[[]*RoadmapNode](n.Children)
+	assertType[int](n.ClosedCount)
+	assertType[int](n.TotalCount)
+	assertType[[]string](n.GatedBy)
+	assertType[string](WorkFilter{}.Under)
 	if !TypeRelease.IsValid() || !TypeMilestone.IsValid() {
 		t.Fatal("release and milestone must be valid issue types")
 	}
