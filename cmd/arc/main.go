@@ -650,7 +650,7 @@ var createCmd = &cobra.Command{
 			}
 		}
 
-		sequenceCreatedMilestone(c, wsID, issue.ID, createSequencingOpts{
+		seqMsg := sequenceCreatedMilestone(c, wsID, issue.ID, createSequencingOpts{
 			issueType: issueType,
 			parentID:  parentID,
 			afterID:   afterID,
@@ -658,6 +658,9 @@ var createCmd = &cobra.Command{
 		})
 
 		if outputJSON {
+			if seqMsg != "" {
+				_, _ = fmt.Fprintln(os.Stderr, seqMsg)
+			}
 			// Re-fetch with details so JSON includes labels
 			if len(labels) > 0 {
 				details, fetchErr := c.GetIssueDetails(wsID, issue.ID)
@@ -672,6 +675,9 @@ var createCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Created: %s\n", issue.ID)
+		if seqMsg != "" {
+			fmt.Println(seqMsg)
+		}
 		return nil
 	},
 }
@@ -710,57 +716,64 @@ type createSequencingOpts struct {
 }
 
 // sequenceCreatedMilestone auto-wires a milestone's sequencing dependency
-// after a successful create. A parallel milestone opts out entirely; a
-// sequencing failure is reported as a warning rather than failing the
-// already-completed create.
-func sequenceCreatedMilestone(c *client.Client, wsID, newID string, opts createSequencingOpts) {
+// after a successful create and returns a confirmation line describing what
+// happened (empty if there's nothing to report). The caller prints this
+// after the create output, or routes it to stderr in JSON mode, so stdout
+// order and JSON purity stay the caller's concern. A parallel milestone opts
+// out entirely; a sequencing failure is reported as a warning on stderr
+// rather than failing the already-completed create.
+func sequenceCreatedMilestone(c *client.Client, wsID, newID string, opts createSequencingOpts) string {
 	if opts.parallel {
-		fmt.Println("Parallel track (no sequencing dependency)")
-		return
+		return "Parallel track (no sequencing dependency)"
 	}
 	if opts.issueType != string(types.TypeMilestone) || opts.parentID == "" {
-		return
+		return ""
 	}
-	if err := sequenceMilestone(c, wsID, newID, opts.parentID, opts.afterID); err != nil {
+	msg, err := sequenceMilestone(c, wsID, newID, opts.parentID, opts.afterID)
+	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"warning: issue created but auto-sequencing failed: %v\n"+
 				"Add manually: arc dep add %s <previous-milestone>\n",
 			err, newID)
+		return ""
 	}
+	return msg
 }
 
 // sequenceMilestone adds a "blocks" dependency from the newly created
 // milestone to its sequencing predecessor: the sibling named by afterID if
 // given, otherwise the tail of the sequenced chain among sibling milestones.
-func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) error {
+// It returns a confirmation line for the caller to print (empty if no
+// dependency was added).
+func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) (string, error) {
 	if afterID != "" {
 		if err := c.AddDependency(wsID, newID, afterID, string(types.DepBlocks)); err != nil {
-			return err
+			return "", err
 		}
-		fmt.Printf("Sequenced after %s (blocks dependency); use --parallel or 'arc dep rm' to change\n", afterID)
-		return nil
+		return fmt.Sprintf(
+			"Sequenced after %s (blocks dependency); use --parallel or 'arc dep rm' to change", afterID,
+		), nil
 	}
 
 	siblings, err := c.ListIssues(wsID, client.ListIssuesOptions{Parent: parentID, Type: string(types.TypeMilestone)})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	candidates, blocked, err := milestoneCandidates(c, wsID, siblings, newID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	tail := latestUnblockedCandidate(candidates, blocked)
 	if tail == nil {
-		return nil
+		return "", nil
 	}
 
 	if err := c.AddDependency(wsID, newID, tail.ID, string(types.DepBlocks)); err != nil {
-		return err
+		return "", err
 	}
-	fmt.Printf("Sequenced after %s (blocks dependency); use --parallel or 'arc dep rm' to change\n", tail.ID)
-	return nil
+	return fmt.Sprintf("Sequenced after %s (blocks dependency); use --parallel or 'arc dep rm' to change", tail.ID), nil
 }
 
 // milestoneCandidates fetches dependency and label details for every sibling
