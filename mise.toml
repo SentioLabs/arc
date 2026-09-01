@@ -5,7 +5,7 @@
 # task asserts this and is wired into `task ci`.
 
 [tools]
-go            = "1.26.0"
+go            = "1.26.6"
 task          = "3"
 golangci-lint = "2.12.2"
 jj            = "0.42.0"
