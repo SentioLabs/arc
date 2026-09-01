@@ -155,6 +155,50 @@ func TestGetRoadmap(t *testing.T) {
 	}
 }
 
+// TestGetRoadmapPopulatesLabels guards against roadmap nodes coming back
+// without labels, which would hide the `parallel` marker the CLI renderer
+// looks for on milestone nodes.
+func TestGetRoadmapPopulatesLabels(t *testing.T) {
+	store, cleanup := newRoadmapTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	proj := newRoadmapTestProject(t, store)
+
+	release := newRoadmapTestIssue(t, store, proj, "v1", types.TypeRelease)
+
+	m1 := newRoadmapTestIssue(t, store, proj, "M1", types.TypeMilestone)
+	linkRoadmapIssues(t, store, m1.ID, release.ID, types.DepParentChild)
+
+	label := &types.Label{Name: "parallel"}
+	if err := store.CreateLabel(ctx, label); err != nil {
+		t.Fatalf("CreateLabel failed: %v", err)
+	}
+	if err := store.AddLabelToIssue(ctx, m1.ID, "parallel", "test-actor"); err != nil {
+		t.Fatalf("AddLabelToIssue failed: %v", err)
+	}
+
+	nodes, err := store.GetRoadmap(ctx, proj.ID)
+	if err != nil {
+		t.Fatalf("GetRoadmap failed: %v", err)
+	}
+
+	m1Node := findRoadmapNode(nodes, m1.ID)
+	if m1Node == nil {
+		t.Fatalf("M1 node not found")
+	}
+
+	found := false
+	for _, l := range m1Node.Issue.Labels {
+		if l == "parallel" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("M1.Issue.Labels = %v, want to include %q", m1Node.Issue.Labels, "parallel")
+	}
+}
+
 func TestGetRoadmapEmptyProject(t *testing.T) {
 	store, cleanup := newRoadmapTestStore(t)
 	defer cleanup()

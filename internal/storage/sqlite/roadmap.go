@@ -40,9 +40,28 @@ func (s *Store) GetRoadmap(ctx context.Context, projectID string) ([]*types.Road
 	}
 	sortRoadmapIDs(rootIDs, issuesByID)
 
+	containerIDs := make([]string, 0, len(issuesByID))
+	for id, issue := range issuesByID {
+		if issue.IssueType.IsContainer() {
+			containerIDs = append(containerIDs, id)
+		}
+	}
+	labelsByID, err := s.GetLabelsForIssues(ctx, containerIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	tree := &roadmapTree{
+		issuesByID:          issuesByID,
+		childrenOf:          childrenOf,
+		containerChildrenOf: containerChildrenOf,
+		blocksOf:            blocksOf,
+		labelsByID:          labelsByID,
+	}
+
 	nodes := make([]*types.RoadmapNode, 0, len(rootIDs))
 	for _, id := range rootIDs {
-		nodes = append(nodes, buildRoadmapNode(id, issuesByID, childrenOf, containerChildrenOf, blocksOf))
+		nodes = append(nodes, buildRoadmapNode(id, tree))
 	}
 	return nodes, nil
 }
@@ -127,28 +146,34 @@ WHERE i.project_id = ?`, projectID)
 	return parentOf, childrenOf, blocksOf, nil
 }
 
+// roadmapTree bundles the lookups buildRoadmapNode needs to assemble a
+// container's node and recurse into its children, keeping the recursive
+// call to a single extra argument.
+type roadmapTree struct {
+	issuesByID          map[string]*types.Issue
+	childrenOf          map[string][]string
+	containerChildrenOf map[string][]string
+	blocksOf            map[string][]string
+	labelsByID          map[string][]string
+}
+
 // buildRoadmapNode assembles one container node and, recursively, its
 // container children.
-func buildRoadmapNode(
-	id string,
-	issuesByID map[string]*types.Issue,
-	childrenOf, containerChildrenOf map[string][]string,
-	blocksOf map[string][]string,
-) *types.RoadmapNode {
-	total, closed := countRoadmapDescendants(id, childrenOf, issuesByID)
+func buildRoadmapNode(id string, tree *roadmapTree) *types.RoadmapNode {
+	total, closed := countRoadmapDescendants(id, tree.childrenOf, tree.issuesByID)
 
-	childIDs := containerChildrenOf[id]
-	sortRoadmapIDs(childIDs, issuesByID)
+	childIDs := tree.containerChildrenOf[id]
+	sortRoadmapIDs(childIDs, tree.issuesByID)
 
 	node := &types.RoadmapNode{
-		Issue:       *issuesByID[id],
+		Issue:       *tree.issuesByID[id],
 		TotalCount:  total,
 		ClosedCount: closed,
-		GatedBy:     blocksOf[id],
+		GatedBy:     tree.blocksOf[id],
 	}
+	node.Issue.Labels = tree.labelsByID[id]
 	for _, childID := range childIDs {
-		child := buildRoadmapNode(childID, issuesByID, childrenOf, containerChildrenOf, blocksOf)
-		node.Children = append(node.Children, child)
+		node.Children = append(node.Children, buildRoadmapNode(childID, tree))
 	}
 	return node
 }
