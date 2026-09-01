@@ -12,7 +12,9 @@
 
 	let title = $state('');
 	let description = $state('');
-	let issueType = $state<'bug' | 'feature' | 'task' | 'epic' | 'chore'>('task');
+	let issueType = $state<'bug' | 'feature' | 'task' | 'epic' | 'chore' | 'release' | 'milestone'>(
+		'task'
+	);
 	let priority = $state(2);
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
@@ -22,7 +24,9 @@
 		{ value: 'feature', label: 'Feature' },
 		{ value: 'task', label: 'Task' },
 		{ value: 'epic', label: 'Epic' },
-		{ value: 'chore', label: 'Chore' }
+		{ value: 'chore', label: 'Chore' },
+		{ value: 'release', label: 'Release' },
+		{ value: 'milestone', label: 'Milestone' }
 	];
 
 	const priorities = [

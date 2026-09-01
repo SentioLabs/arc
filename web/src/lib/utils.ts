@@ -44,7 +44,9 @@ export const issueTypeLabels: Record<IssueType, string> = {
 	feature: 'Feature',
 	task: 'Task',
 	epic: 'Epic',
-	chore: 'Chore'
+	chore: 'Chore',
+	release: 'Release',
+	milestone: 'Milestone'
 };
 
 export const issueTypeIcons: Record<IssueType, string> = {
@@ -52,7 +54,9 @@ export const issueTypeIcons: Record<IssueType, string> = {
 	feature: '✨',
 	task: '📋',
 	epic: '🏔️',
-	chore: '🔧'
+	chore: '🔧',
+	release: '🚀',
+	milestone: '🚩'
 };
 
 // Dependency type utilities

@@ -1555,6 +1555,8 @@ components:
         - task
         - epic
         - chore
+        - release
+        - milestone
 
     DependencyType:
       type: string
