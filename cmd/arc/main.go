@@ -300,6 +300,7 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(closeCmd)
 	rootCmd.AddCommand(readyCmd)
+	rootCmd.AddCommand(roadmapCmd)
 	rootCmd.AddCommand(blockedCmd)
 	rootCmd.AddCommand(depCmd)
 	rootCmd.AddCommand(labelCmd)
@@ -1133,8 +1134,9 @@ var readyCmd = &cobra.Command{
 
 		limit, _ := cmd.Flags().GetInt("limit")
 		sortPolicy, _ := cmd.Flags().GetString("sort")
+		under, _ := cmd.Flags().GetString("under")
 
-		issues, err := c.GetReadyWork(wsID, limit, sortPolicy, "")
+		issues, err := c.GetReadyWork(wsID, limit, sortPolicy, under)
 		if err != nil {
 			return err
 		}
@@ -1150,8 +1152,7 @@ var readyCmd = &cobra.Command{
 		}
 
 		for _, issue := range issues {
-			fmt.Println(formatIssue(issue.ID, string(issue.Status), string(issue.IssueType),
-				issue.Priority, issue.Title, issue.Labels))
+			fmt.Println(formatReadyIssue(issue))
 		}
 
 		return nil
@@ -1163,6 +1164,8 @@ func init() {
 	readyCmd.Flags().String("sort", "hybrid",
 		"Sort policy: hybrid (recent by priority, old by age), "+
 			"priority (always by priority), oldest (oldest first)")
+	readyCmd.Flags().String("under", "",
+		"Only show ready work under this issue subtree (release/milestone/epic)")
 }
 
 // blockedCmd shows issues that are waiting on unresolved dependencies.
