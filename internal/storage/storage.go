@@ -50,6 +50,10 @@ type Storage interface {
 	GetBlockedIssues(ctx context.Context, filter types.WorkFilter) ([]*types.BlockedIssue, error)
 	IsBlocked(ctx context.Context, issueID string) (bool, []string, error)
 
+	// GetRoadmap returns the container tree (releases, milestones, epics) for a
+	// project with progress counts and gating info.
+	GetRoadmap(ctx context.Context, projectID string) ([]*types.RoadmapNode, error)
+
 	// Dependencies
 	AddDependency(ctx context.Context, dep *types.Dependency, actor string) error
 	RemoveDependency(ctx context.Context, issueID, dependsOnID string, actor string) error

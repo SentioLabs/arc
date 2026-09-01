@@ -199,6 +199,10 @@ func (m *mockWPStore) GetBlockedIssues(_ context.Context, _ types.WorkFilter) ([
 	panic("not implemented")
 }
 
+func (m *mockWPStore) GetRoadmap(_ context.Context, _ string) ([]*types.RoadmapNode, error) {
+	panic("not implemented")
+}
+
 func (m *mockWPStore) IsBlocked(_ context.Context, _ string) (bool, []string, error) {
 	panic("not implemented")
 }

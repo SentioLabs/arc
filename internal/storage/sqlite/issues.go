@@ -178,7 +178,16 @@ func (s *Store) GetIssueByExternalRef(ctx context.Context, externalRef string) (
 var allStatuses = []string{"open", "in_progress", "blocked", "deferred", "closed"}
 
 // allIssueTypes contains every valid issue type string for use as a default filter.
-var allIssueTypes = []string{"bug", "feature", "task", "epic", "chore"}
+var allIssueTypes = issueTypeStrings(types.AllIssueTypes())
+
+// issueTypeStrings converts issue types to their string values.
+func issueTypeStrings(issueTypes []types.IssueType) []string {
+	out := make([]string, len(issueTypes))
+	for i, t := range issueTypes {
+		out[i] = string(t)
+	}
+	return out
+}
 
 // allPriorities contains every valid priority value for use as a default filter.
 var allPriorities = []int64{0, 1, 2, 3, 4}

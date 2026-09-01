@@ -588,6 +588,22 @@ func (c *Client) GetReadyWork(projID string, limit int, sortPolicy, under string
 	return issues, nil
 }
 
+// GetRoadmap returns the project's roadmap tree: containers (releases,
+// milestones, epics) with progress counts and gating info.
+func (c *Client) GetRoadmap(projID string) ([]*types.RoadmapNode, error) {
+	resp, err := c.get(fmt.Sprintf("/api/v1/projects/%s/roadmap", projID))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var nodes []*types.RoadmapNode
+	if err := json.NewDecoder(resp.Body).Decode(&nodes); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return nodes, nil
+}
+
 // GetBlockedIssues returns blocked issues.
 func (c *Client) GetBlockedIssues(projID string, limit int) ([]*types.BlockedIssue, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/blocked", projID)
