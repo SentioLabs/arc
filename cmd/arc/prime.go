@@ -342,7 +342,9 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 ## Essential Commands
 
 ### Finding Work
+- ` + "`arc roadmap`" + ` - Release/milestone tree with progress and gating (run this first when a project has releases)
 - ` + "`arc ready`" + ` - Show issues ready to work (no blockers)
+- ` + "`arc ready --under=<id>`" + ` - Ready work scoped to one release/milestone/epic subtree
 - ` + "`arc list --status=open`" + ` - All open issues
 - ` + "`arc list --status=in_progress`" + ` - Your active work
 - ` + "`arc show <id>`" + ` - Detailed issue view with dependencies
@@ -352,6 +354,8 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 - **feature**: New functionality or capability to add
 - **task**: General work item, implementation step, or action to complete
 - **epic**: Large initiative containing multiple related issues (use deps to link children)
+- **release**: Versioned delivery container (v1, v2) — top of the roadmap tree
+- **milestone**: Ordered sub-goal within a release; milestones sequence via blocks deps
 - **chore**: Maintenance work that doesn't change functionality (refactoring, deps, cleanup, docs)
 
 ### Creating & Updating
@@ -361,6 +365,10 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
     ` + "`arc create \"title\" --type=task --stdin <<'EOF'`" + `
     ` + "`description here`" + `
     ` + "`EOF`" + `
+- Roadmap: ` + "`arc create \"v1\" --type=release`" + `, then milestones with
+  ` + "`arc create \"Phase\" --type=milestone --parent=<release-id>`" + ` (auto-sequences
+  after the previous milestone; ` + "`--parallel`" + ` for an independent track,
+  ` + "`--after=<id>`" + ` to sequence explicitly)
 - ` + "`arc update <id> --take`" + ` - Take issue for current AI session (sets session ID + in_progress)
 - ` + "`arc update <id> --title=\"new title\"`" + ` - Update fields
 - ` + "`arc update <id> --stdin <<'EOF'`" + ` - Update description via stdin heredoc

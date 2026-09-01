@@ -60,3 +60,31 @@ func TestPersistSessionID(t *testing.T) {
 		}
 	})
 }
+
+func TestPrime(t *testing.T) {
+	output := &strings.Builder{}
+	err := outputCLIContext(output, "test-session-id")
+	if err != nil {
+		t.Fatalf("outputCLIContext failed: %v", err)
+	}
+	content := output.String()
+
+	tests := []struct {
+		name      string
+		substring string
+	}{
+		{"includes release type", "release"},
+		{"includes milestone type", "milestone"},
+		{"documents arc roadmap command", "arc roadmap"},
+		{"documents --under flag", "--under"},
+		{"documents --parallel flag", "--parallel"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !strings.Contains(content, tt.substring) {
+				t.Errorf("prime output missing %q", tt.substring)
+			}
+		})
+	}
+}
