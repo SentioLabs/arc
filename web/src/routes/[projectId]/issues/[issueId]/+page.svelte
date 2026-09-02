@@ -138,7 +138,9 @@
 								{ value: 'feature', label: 'Feature' },
 								{ value: 'task', label: 'Task' },
 								{ value: 'epic', label: 'Epic' },
-								{ value: 'chore', label: 'Chore' }
+								{ value: 'chore', label: 'Chore' },
+								{ value: 'release', label: 'Release' },
+								{ value: 'milestone', label: 'Milestone' }
 							]}
 							onSave={(v) => handleUpdateField('issue_type', v)}
 						>

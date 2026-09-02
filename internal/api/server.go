@@ -166,6 +166,7 @@ func (s *Server) registerProjectRoutes(v1 *echo.Group) {
 	proj.POST("/issues/:id/close", s.closeIssue)
 	proj.POST("/issues/:id/reopen", s.reopenIssue)
 	proj.GET("/ready", s.getReadyWork)
+	proj.GET("/roadmap", s.getRoadmap)
 	proj.GET("/blocked", s.getBlockedIssues)
 	proj.GET("/team-context", s.getTeamContext)
 	proj.GET("/issues/:id/deps", s.getDependencies)

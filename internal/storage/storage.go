@@ -44,9 +44,15 @@ type Storage interface {
 	GetIssueDetails(ctx context.Context, id string) (*types.IssueDetails, error)
 
 	// Ready Work & Blocking
-	GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*types.Issue, error)
+	// GetReadyWork returns unblocked, ungated, non-container issues with
+	// effective priority and ancestry path populated.
+	GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*types.ReadyIssue, error)
 	GetBlockedIssues(ctx context.Context, filter types.WorkFilter) ([]*types.BlockedIssue, error)
 	IsBlocked(ctx context.Context, issueID string) (bool, []string, error)
+
+	// GetRoadmap returns the container tree (releases, milestones, epics) for a
+	// project with progress counts and gating info.
+	GetRoadmap(ctx context.Context, projectID string) ([]*types.RoadmapNode, error)
 
 	// Dependencies
 	AddDependency(ctx context.Context, dep *types.Dependency, actor string) error

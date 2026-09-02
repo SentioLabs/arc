@@ -559,7 +559,8 @@ func (c *Client) DeleteIssue(projID, id string) error {
 
 // GetReadyWork returns issues ready to work on.
 // sortPolicy can be: "hybrid" (default), "priority", or "oldest".
-func (c *Client) GetReadyWork(projID string, limit int, sortPolicy string) ([]*types.Issue, error) {
+// under restricts results to descendants of that issue ID when non-empty.
+func (c *Client) GetReadyWork(projID string, limit int, sortPolicy, under string) ([]*types.ReadyIssue, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/ready", projID)
 
 	query := url.Values{}
@@ -568,6 +569,9 @@ func (c *Client) GetReadyWork(projID string, limit int, sortPolicy string) ([]*t
 	}
 	if sortPolicy != "" {
 		query.Set("sort", sortPolicy)
+	}
+	if under != "" {
+		query.Set("under", under)
 	}
 	if len(query) > 0 {
 		path += "?" + query.Encode()
@@ -579,11 +583,27 @@ func (c *Client) GetReadyWork(projID string, limit int, sortPolicy string) ([]*t
 	}
 	defer resp.Body.Close()
 
-	var issues []*types.Issue
+	var issues []*types.ReadyIssue
 	if err := json.NewDecoder(resp.Body).Decode(&issues); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return issues, nil
+}
+
+// GetRoadmap returns the project's roadmap tree: containers (releases,
+// milestones, epics) with progress counts and gating info.
+func (c *Client) GetRoadmap(projID string) ([]*types.RoadmapNode, error) {
+	resp, err := c.get(fmt.Sprintf("/api/v1/projects/%s/roadmap", projID))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var nodes []*types.RoadmapNode
+	if err := json.NewDecoder(resp.Body).Decode(&nodes); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return nodes, nil
 }
 
 // GetBlockedIssues returns blocked issues.

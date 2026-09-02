@@ -103,27 +103,6 @@ func TestDependencyTypeIsValid(t *testing.T) {
 	}
 }
 
-func TestDependencyTypeAffectsReadyWork(t *testing.T) {
-	tests := []struct {
-		name    string
-		depType DependencyType
-		want    bool
-	}{
-		{"blocks affects ready work", DepBlocks, true},
-		{"parent-child affects ready work", DepParentChild, true},
-		{"related does not affect ready work", DepRelated, false},
-		{"discovered-from does not affect ready work", DepDiscoveredFrom, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.depType.AffectsReadyWork(); got != tt.want {
-				t.Errorf("DependencyType.AffectsReadyWork() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestSortPolicyIsValid(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -402,7 +381,7 @@ func TestAllStatuses(t *testing.T) {
 
 func TestAllIssueTypes(t *testing.T) {
 	types := AllIssueTypes()
-	expected := []IssueType{TypeBug, TypeFeature, TypeTask, TypeEpic, TypeChore}
+	expected := []IssueType{TypeBug, TypeFeature, TypeTask, TypeEpic, TypeChore, TypeRelease, TypeMilestone}
 
 	if len(types) != len(expected) {
 		t.Errorf("AllIssueTypes() returned %d items, want %d", len(types), len(expected))
@@ -856,5 +835,45 @@ func TestAIAgentOptionalFields(t *testing.T) {
 	}
 	if agent.ToolUseCount != nil {
 		t.Errorf("AIAgent.ToolUseCount should be nil by default, got %v", agent.ToolUseCount)
+	}
+}
+
+// --- Contract assertions ---
+// These verify the roadmap-hierarchy design spec. Do NOT modify
+// without updating the approved plan (plan.04dgqw).
+
+// assertType pins v's static type at compile time; a contract drift
+// (field type change) fails to compile here.
+func assertType[T any](v T) { _ = v }
+
+func TestRoadmapContract(t *testing.T) {
+	assertType[IssueType](TypeRelease)
+	assertType[IssueType](TypeMilestone)
+	if !TypeRelease.IsContainer() || !TypeMilestone.IsContainer() || !TypeEpic.IsContainer() {
+		t.Fatal("release, milestone, and epic must be containers")
+	}
+	if TypeTask.IsContainer() || TypeBug.IsContainer() {
+		t.Fatal("task and bug must not be containers")
+	}
+	r := ReadyIssue{}
+	assertType[int](r.EffectivePriority)
+	assertType[[]string](r.Path)
+	n := RoadmapNode{}
+	assertType[[]*RoadmapNode](n.Children)
+	assertType[int](n.ClosedCount)
+	assertType[int](n.TotalCount)
+	assertType[[]string](n.GatedBy)
+	assertType[string](WorkFilter{}.Under)
+	if !TypeRelease.IsValid() || !TypeMilestone.IsValid() {
+		t.Fatal("release and milestone must be valid issue types")
+	}
+}
+
+func TestIssueValidateReleaseAndMilestone(t *testing.T) {
+	for _, typ := range []IssueType{TypeRelease, TypeMilestone} {
+		i := Issue{Title: "v1", ProjectID: "p1", Status: StatusOpen, IssueType: typ, Priority: 0}
+		if err := i.Validate(); err != nil {
+			t.Fatalf("Validate() for %s: %v", typ, err)
+		}
 	}
 }

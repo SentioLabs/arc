@@ -40,6 +40,12 @@ const (
 	// defaultBlockedLimit is the default maximum number of issues shown by the blocked command.
 	defaultBlockedLimit = 10
 
+	// milestoneSiblingsLimit bounds the sibling-milestone lookup used for
+	// auto-sequencing. It must exceed the server's default list cap so a
+	// release with many milestones doesn't silently lose sequencing
+	// candidates past the cap.
+	milestoneSiblingsLimit = 1000
+
 	// depPairArgCount is the number of arguments for commands that take a pair of issue IDs.
 	depPairArgCount = 2
 
@@ -294,6 +300,7 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(closeCmd)
 	rootCmd.AddCommand(readyCmd)
+	rootCmd.AddCommand(roadmapCmd)
 	rootCmd.AddCommand(blockedCmd)
 	rootCmd.AddCommand(depCmd)
 	rootCmd.AddCommand(labelCmd)
@@ -614,6 +621,12 @@ var createCmd = &cobra.Command{
 		parentID, _ := cmd.Flags().GetString("parent")
 		titleFlag, _ := cmd.Flags().GetString("title")
 
+		afterID, _ := cmd.Flags().GetString("after")
+		parallel, _ := cmd.Flags().GetBool("parallel")
+		if err := validateSequencingFlags(issueType, afterID, parallel); err != nil {
+			return err
+		}
+
 		title := titleFlag
 		if len(args) > 0 {
 			title = args[0]
@@ -635,15 +648,29 @@ var createCmd = &cobra.Command{
 
 		// Apply labels (warn on failure, don't fail the create)
 		labels, _ := cmd.Flags().GetStringSlice("label")
+		if parallel {
+			labels = append(labels, "parallel")
+		}
 		for _, lbl := range labels {
 			if labelErr := c.AddLabelToIssue(wsID, issue.ID, lbl); labelErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
 			}
 		}
 
+		seqMsg := sequenceCreatedMilestone(c, wsID, issue.ID, createSequencingOpts{
+			issueType: issueType,
+			parentID:  parentID,
+			afterID:   afterID,
+			parallel:  parallel,
+		})
+
 		if outputJSON {
-			// Re-fetch with details so JSON includes labels
-			if len(labels) > 0 {
+			if seqMsg != "" {
+				_, _ = fmt.Fprintln(os.Stderr, seqMsg)
+			}
+			// Re-fetch with details so JSON includes labels and any
+			// auto-sequenced blocks dependency.
+			if seqMsg != "" || len(labels) > 0 {
 				details, fetchErr := c.GetIssueDetails(wsID, issue.ID)
 				if fetchErr == nil {
 					outputResult(details)
@@ -656,6 +683,9 @@ var createCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Created: %s\n", issue.ID)
+		if seqMsg != "" {
+			fmt.Println(seqMsg)
+		}
 		return nil
 	},
 }
@@ -668,6 +698,158 @@ func init() {
 	createCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	createCmd.Flags().String("parent", "", "Parent issue ID (creates child with .N suffix)")
 	createCmd.Flags().StringSlice("label", nil, "Label to apply (repeatable)")
+	createCmd.Flags().String("after", "", "Milestone only: sequence after this issue (blocks dep)")
+	createCmd.Flags().Bool("parallel", false, "Milestone only: parallel track, no sequencing dependency")
+}
+
+// validateSequencingFlags checks that --after and --parallel are used
+// correctly: they are mutually exclusive, and both apply only to milestones.
+func validateSequencingFlags(issueType, afterID string, parallel bool) error {
+	if afterID != "" && parallel {
+		return errors.New("--after and --parallel are mutually exclusive")
+	}
+	if (afterID != "" || parallel) && issueType != string(types.TypeMilestone) {
+		return errors.New("--after/--parallel only apply to --type=milestone")
+	}
+	return nil
+}
+
+// createSequencingOpts bundles the create-time flags relevant to milestone
+// sequencing.
+type createSequencingOpts struct {
+	issueType string
+	parentID  string
+	afterID   string
+	parallel  bool
+}
+
+// sequenceCreatedMilestone auto-wires a milestone's sequencing dependency
+// after a successful create and returns a confirmation line describing what
+// happened (empty if there's nothing to report). The caller prints this
+// after the create output, or routes it to stderr in JSON mode, so stdout
+// order and JSON purity stay the caller's concern. A parallel milestone opts
+// out entirely; a sequencing failure is reported as a warning on stderr
+// rather than failing the already-completed create.
+func sequenceCreatedMilestone(c *client.Client, wsID, newID string, opts createSequencingOpts) string {
+	if opts.parallel {
+		return "Parallel track (no sequencing dependency)"
+	}
+	if opts.issueType != string(types.TypeMilestone) || opts.parentID == "" {
+		return ""
+	}
+	msg, err := sequenceMilestone(c, wsID, newID, opts.parentID, opts.afterID)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr,
+			"warning: issue created but auto-sequencing failed: %v\n"+
+				"Add manually: arc dep add %s <previous-milestone>\n",
+			err, newID)
+		return ""
+	}
+	return msg
+}
+
+// sequenceMilestone adds a "blocks" dependency from the newly created
+// milestone to its sequencing predecessor: the sibling named by afterID if
+// given, otherwise the tail of the sequenced chain among sibling milestones.
+// It returns a confirmation line for the caller to print (empty if no
+// dependency was added).
+//
+// Known limitation: two clients creating milestones under the same parent
+// concurrently can compute the same tail and fan in on one predecessor
+// instead of chaining. Fixing this needs server-side sequencing; accepted
+// for now (documented in the epic).
+func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) (string, error) {
+	if afterID != "" {
+		if err := c.AddDependency(wsID, newID, afterID, string(types.DepBlocks)); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf(
+			"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", afterID,
+		), nil
+	}
+
+	siblings, err := c.ListIssues(wsID, client.ListIssuesOptions{
+		Parent: parentID,
+		Type:   string(types.TypeMilestone),
+		Limit:  milestoneSiblingsLimit, // above the server's default cap, so large releases aren't truncated
+	})
+	if err != nil {
+		return "", err
+	}
+
+	candidates, blocked, err := milestoneCandidates(c, wsID, siblings, newID)
+	if err != nil {
+		return "", err
+	}
+
+	tail := latestUnblockedCandidate(candidates, blocked)
+	if tail == nil {
+		return "", nil
+	}
+
+	if err := c.AddDependency(wsID, newID, tail.ID, string(types.DepBlocks)); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", tail.ID,
+	), nil
+}
+
+// milestoneCandidates fetches dependency and label details for every sibling
+// milestone except newID, returning the sequenced-chain candidates (those
+// without the "parallel" label) and the set of IDs that another sibling's
+// "blocks" dependency already targets (i.e. are not the chain tail).
+func milestoneCandidates(
+	c *client.Client, wsID string, siblings []*types.Issue, newID string,
+) ([]*types.IssueDetails, map[string]bool, error) {
+	var candidates []*types.IssueDetails
+	blocked := make(map[string]bool)
+
+	for _, sibling := range siblings {
+		if sibling.ID == newID {
+			continue
+		}
+		details, err := c.GetIssueDetails(wsID, sibling.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, dep := range details.Dependencies {
+			if dep.Type == types.DepBlocks {
+				blocked[dep.DependsOnID] = true
+			}
+		}
+		if !hasLabel(details.Labels, "parallel") {
+			candidates = append(candidates, details)
+		}
+	}
+
+	return candidates, blocked, nil
+}
+
+// hasLabel reports whether target is present in labels.
+func hasLabel(labels []string, target string) bool {
+	for _, l := range labels {
+		if l == target {
+			return true
+		}
+	}
+	return false
+}
+
+// latestUnblockedCandidate returns the candidate that no other candidate
+// blocks on, breaking ties by the most recent CreatedAt. It returns nil if
+// every candidate is already blocked on or there are no candidates.
+func latestUnblockedCandidate(candidates []*types.IssueDetails, blocked map[string]bool) *types.IssueDetails {
+	var tail *types.IssueDetails
+	for _, candidate := range candidates {
+		if blocked[candidate.ID] {
+			continue
+		}
+		if tail == nil || candidate.CreatedAt.After(tail.CreatedAt) {
+			tail = candidate
+		}
+	}
+	return tail
 }
 
 // showCmd displays full details for a single issue.
@@ -952,8 +1134,9 @@ var readyCmd = &cobra.Command{
 
 		limit, _ := cmd.Flags().GetInt("limit")
 		sortPolicy, _ := cmd.Flags().GetString("sort")
+		under, _ := cmd.Flags().GetString("under")
 
-		issues, err := c.GetReadyWork(wsID, limit, sortPolicy)
+		issues, err := c.GetReadyWork(wsID, limit, sortPolicy, under)
 		if err != nil {
 			return err
 		}
@@ -969,8 +1152,7 @@ var readyCmd = &cobra.Command{
 		}
 
 		for _, issue := range issues {
-			fmt.Println(formatIssue(issue.ID, string(issue.Status), string(issue.IssueType),
-				issue.Priority, issue.Title, issue.Labels))
+			fmt.Println(formatReadyIssue(issue))
 		}
 
 		return nil
@@ -982,6 +1164,8 @@ func init() {
 	readyCmd.Flags().String("sort", "hybrid",
 		"Sort policy: hybrid (recent by priority, old by age), "+
 			"priority (always by priority), oldest (oldest first)")
+	readyCmd.Flags().String("under", "",
+		"Only show ready work under this issue subtree (release/milestone/epic)")
 }
 
 // blockedCmd shows issues that are waiting on unresolved dependencies.

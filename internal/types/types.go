@@ -151,17 +151,19 @@ func AllStatuses() []Status {
 type IssueType string
 
 const (
-	TypeBug     IssueType = "bug"
-	TypeFeature IssueType = "feature"
-	TypeTask    IssueType = "task"
-	TypeEpic    IssueType = "epic"
-	TypeChore   IssueType = "chore"
+	TypeBug       IssueType = "bug"
+	TypeFeature   IssueType = "feature"
+	TypeTask      IssueType = "task"
+	TypeEpic      IssueType = "epic"
+	TypeChore     IssueType = "chore"
+	TypeRelease   IssueType = "release"   // versioned delivery container (v1, v2)
+	TypeMilestone IssueType = "milestone" // ordered sub-goal within a release
 )
 
 // IsValid checks if the issue type is valid.
 func (t IssueType) IsValid() bool {
 	switch t {
-	case TypeBug, TypeFeature, TypeTask, TypeEpic, TypeChore:
+	case TypeBug, TypeFeature, TypeTask, TypeEpic, TypeChore, TypeRelease, TypeMilestone:
 		return true
 	}
 	return false
@@ -169,7 +171,13 @@ func (t IssueType) IsValid() bool {
 
 // AllIssueTypes returns all valid issue type values.
 func AllIssueTypes() []IssueType {
-	return []IssueType{TypeBug, TypeFeature, TypeTask, TypeEpic, TypeChore}
+	return []IssueType{TypeBug, TypeFeature, TypeTask, TypeEpic, TypeChore, TypeRelease, TypeMilestone}
+}
+
+// IsContainer reports whether this type groups other issues rather than
+// being directly workable. Container types are excluded from ready work.
+func (t IssueType) IsContainer() bool {
+	return t == TypeEpic || t == TypeRelease || t == TypeMilestone
 }
 
 // SortPolicy defines how ready work should be sorted.
@@ -227,11 +235,6 @@ func (d DependencyType) IsValid() bool {
 		return true
 	}
 	return false
-}
-
-// AffectsReadyWork returns true if this dependency type blocks work.
-func (d DependencyType) AffectsReadyWork() bool {
-	return d == DepBlocks || d == DepParentChild
 }
 
 // AllDependencyTypes returns all valid dependency type values.
@@ -320,6 +323,7 @@ type WorkFilter struct {
 	IssueType  *IssueType // Filter by issue type
 	Priority   *int       // Filter by priority
 	Labels     []string   // AND semantics
+	Under      string     // restrict ready work to descendants of this issue ID (empty = no restriction)
 	SortPolicy SortPolicy // Sort policy: hybrid (default), priority, oldest
 	Limit      int        // Maximum results
 }
@@ -387,6 +391,22 @@ type BlockedIssue struct {
 	Issue
 	BlockedByCount int      `json:"blocked_by_count"`
 	BlockedBy      []string `json:"blocked_by"`
+}
+
+// ReadyIssue extends Issue with roadmap-aware fields computed by ready queries.
+type ReadyIssue struct {
+	Issue
+	EffectivePriority int      `json:"effective_priority"`
+	Path              []string `json:"path,omitempty"` // ancestor titles, root-first
+}
+
+// RoadmapNode is one node in the roadmap tree returned by GetRoadmap.
+type RoadmapNode struct {
+	Issue       Issue          `json:"issue"`
+	Children    []*RoadmapNode `json:"children,omitempty"`
+	ClosedCount int            `json:"closed_count"`
+	TotalCount  int            `json:"total_count"`
+	GatedBy     []string       `json:"gated_by,omitempty"` // open blocking issue IDs
 }
 
 // IssueDetails extends Issue with full relational data.
