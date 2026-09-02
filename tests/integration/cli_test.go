@@ -70,6 +70,45 @@ func TestIssueCreateShowClose(t *testing.T) {
 	}
 }
 
+// TestCreatePriorityZero pins the fix for a bug where `arc create
+// --priority=0` was silently rewritten to P2. It exercises the full path:
+// CLI flag -> client request -> API handler -> storage.
+func TestCreatePriorityZero(t *testing.T) {
+	home := setupHome(t)
+
+	arcCmdSuccess(t, home, "init", "create-priority-zero-proj", "--server", serverURL)
+
+	createOut := arcCmdSuccess(t, home, "create", "Critical issue", "--priority", "0", "--server", serverURL)
+	id, ok := extractID(createOut)
+	if !ok {
+		t.Fatalf("could not extract issue ID from create output: %s", createOut)
+	}
+
+	showOut := arcCmdSuccess(t, home, "show", id, "--server", serverURL)
+	if !strings.Contains(showOut, "P0") {
+		t.Errorf("expected P0 in show output, got: %s", showOut)
+	}
+}
+
+// TestCreateDefaultPriority verifies that `arc create` with no --priority
+// flag still defaults to P2.
+func TestCreateDefaultPriority(t *testing.T) {
+	home := setupHome(t)
+
+	arcCmdSuccess(t, home, "init", "create-default-priority-proj", "--server", serverURL)
+
+	createOut := arcCmdSuccess(t, home, "create", "Default priority issue", "--server", serverURL)
+	id, ok := extractID(createOut)
+	if !ok {
+		t.Fatalf("could not extract issue ID from create output: %s", createOut)
+	}
+
+	showOut := arcCmdSuccess(t, home, "show", id, "--server", serverURL)
+	if !strings.Contains(showOut, "P2") {
+		t.Errorf("expected P2 in show output, got: %s", showOut)
+	}
+}
+
 // TestListAndReady verifies that `arc list` returns created issues and
 // `arc ready` shows actionable work.
 func TestListAndReady(t *testing.T) {

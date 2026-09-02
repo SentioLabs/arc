@@ -25,7 +25,9 @@ type createIssueRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
 	Status      string `json:"status,omitempty"`
-	Priority    int    `json:"priority,omitempty"`
+	// Priority is a pointer so absent (defaults to 2) can be told apart from
+	// an explicit 0 (critical).
+	Priority    *int   `json:"priority,omitempty"`
 	IssueType   string `json:"issue_type,omitempty"`
 	AISessionID string `json:"ai_session_id,omitempty"`
 	ExternalRef string `json:"external_ref,omitempty"`
@@ -121,13 +123,18 @@ func (s *Server) createIssue(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
+	priority := defaultPriority
+	if req.Priority != nil {
+		priority = *req.Priority
+	}
+
 	issue := &types.Issue{
 		ProjectID:   pID,
 		ParentID:    req.ParentID,
 		Title:       req.Title,
 		Description: req.Description,
 		Status:      types.Status(req.Status),
-		Priority:    req.Priority,
+		Priority:    priority,
 		IssueType:   types.IssueType(req.IssueType),
 		AISessionID: req.AISessionID,
 		ExternalRef: req.ExternalRef,

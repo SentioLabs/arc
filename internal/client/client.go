@@ -297,10 +297,12 @@ func (c *Client) CreateIssue(projID string, req CreateIssueRequest) (*types.Issu
 type CreateIssueRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
-	Priority    int    `json:"priority,omitempty"`
-	IssueType   string `json:"issue_type,omitempty"`
-	Assignee    string `json:"assignee,omitempty"`
-	ParentID    string `json:"parent_id,omitempty"` // For hierarchical child IDs
+	// Priority is a pointer so a caller can distinguish "not set" (nil,
+	// server defaults to 2) from an explicit 0 (critical).
+	Priority  *int   `json:"priority,omitempty"`
+	IssueType string `json:"issue_type,omitempty"`
+	Assignee  string `json:"assignee,omitempty"`
+	ParentID  string `json:"parent_id,omitempty"` // For hierarchical child IDs
 }
 
 // Project-agnostic issue methods operate on issues by their globally-unique ID

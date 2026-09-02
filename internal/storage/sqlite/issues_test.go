@@ -66,8 +66,7 @@ func TestListIssuesMultiFilterPriorities(t *testing.T) {
 	ctx := context.Background()
 	proj := setupTestProject(t, store)
 
-	// Create issues with different priorities.
-	// Note: priority 0 is overwritten to 2 by SetDefaults, so we use 1, 3, 4.
+	// Create issues with different priorities (1, 3, 4 to exercise a spread).
 	issue1 := &types.Issue{
 		ProjectID: proj.ID,
 		Title:     "High Priority Issue",
@@ -236,7 +235,6 @@ func TestListIssuesMultiFilterCombined(t *testing.T) {
 	proj := setupTestProject(t, store)
 
 	// Create: open bug p1, open feature p2, in_progress bug p1
-	// Note: priority 0 is overwritten to 2 by SetDefaults, so we use 1 for "high".
 	issue1 := &types.Issue{
 		ProjectID: proj.ID,
 		Title:     "Open Bug P1",

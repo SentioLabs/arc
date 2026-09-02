@@ -125,6 +125,64 @@ func TestListIssuesWithoutParentIDReturnsAll(t *testing.T) {
 	}
 }
 
+// TestCreateIssuePreservesPriorityZero pins the fix for a bug where an
+// explicit priority of 0 (critical) was clobbered to 2 on create.
+func TestCreateIssuePreservesPriorityZero(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	pID := createTestProject(t, e)
+
+	body := `{"title": "Critical issue", "type": "task", "priority": 0}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pID+"/issues", bytes.NewBufferString(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create issue: %s", rec.Body.String())
+	}
+
+	var issue types.Issue
+	if err := json.Unmarshal(rec.Body.Bytes(), &issue); err != nil {
+		t.Fatalf("failed to parse issue response: %v", err)
+	}
+
+	if issue.Priority != 0 {
+		t.Errorf("expected priority 0, got %d", issue.Priority)
+	}
+}
+
+// TestCreateIssueDefaultsPriorityWhenOmitted verifies that a create request
+// with no priority field still defaults to priority 2.
+func TestCreateIssueDefaultsPriorityWhenOmitted(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+
+	pID := createTestProject(t, e)
+
+	body := `{"title": "No priority set", "type": "task"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pID+"/issues", bytes.NewBufferString(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create issue: %s", rec.Body.String())
+	}
+
+	var issue types.Issue
+	if err := json.Unmarshal(rec.Body.Bytes(), &issue); err != nil {
+		t.Fatalf("failed to parse issue response: %v", err)
+	}
+
+	if issue.Priority != 2 {
+		t.Errorf("expected default priority 2, got %d", issue.Priority)
+	}
+}
+
 // closeTestIssue sends a POST to close an issue with the given JSON body.
 func closeTestIssue(t *testing.T, e *echo.Echo, pID, issueID, body string) *httptest.ResponseRecorder {
 	t.Helper()

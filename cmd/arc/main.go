@@ -625,7 +625,7 @@ var createCmd = &cobra.Command{
 		issue, err := c.CreateIssue(wsID, client.CreateIssueRequest{
 			Title:       title,
 			Description: description,
-			Priority:    priority,
+			Priority:    &priority,
 			IssueType:   issueType,
 			ParentID:    parentID,
 		})

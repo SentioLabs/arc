@@ -110,16 +110,15 @@ func (i *Issue) Validate() error {
 	return nil
 }
 
-// SetDefaults applies default values for missing fields.
+// SetDefaults applies default values for missing fields. Priority is not
+// defaulted here: 0 is a valid, meaningful value (critical), so "unset" must
+// be resolved by the caller before Priority reaches the Issue at all.
 func (i *Issue) SetDefaults() {
 	if i.Status == "" {
 		i.Status = StatusOpen
 	}
 	if i.IssueType == "" {
 		i.IssueType = TypeTask
-	}
-	if i.Priority == 0 {
-		i.Priority = 2 // Default priority
 	}
 }
 
