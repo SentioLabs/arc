@@ -322,6 +322,58 @@ func TestFTSNoResults(t *testing.T) {
 	}
 }
 
+// TestFTSIndexConsistentAfterRebuildAndDelete guards against FTS5 index
+// corruption (SQLITE_CORRUPT_VTAB, logged as "database disk image is
+// malformed"). The old external-content table declaration required rowids to
+// match issues.rowid, but the manual insert/delete sync never aligned them.
+func TestFTSIndexConsistentAfterRebuildAndDelete(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ws := setupTestProject(t, store)
+
+	issues := make([]*types.Issue, 0, 3)
+	for _, title := range []string{
+		"alpha searchable task",
+		"beta searchable task",
+		"gamma searchable task",
+	} {
+		issues = append(issues, setupTestIssue(t, store, ws, title))
+	}
+
+	// Updating an issue rebuilds its FTS entry (delete + reinsert), which
+	// drifted the FTS rowid away from issues.rowid under the old schema.
+	err := store.UpdateIssue(ctx, issues[0].ID, map[string]any{
+		"title": "alpha renamed task",
+	}, "test-actor")
+	if err != nil {
+		t.Fatalf("failed to update issue: %v", err)
+	}
+
+	if err := store.DeleteIssue(ctx, issues[1].ID); err != nil {
+		t.Fatalf("failed to delete issue: %v", err)
+	}
+
+	_, err = store.DB().ExecContext(ctx,
+		`INSERT INTO issues_fts(issues_fts, rank) VALUES('integrity-check', 1)`)
+	if err != nil {
+		t.Fatalf("FTS integrity check failed: %v", err)
+	}
+
+	// Search must still resolve to the right issue.
+	results, err := store.ListIssues(ctx, types.IssueFilter{
+		ProjectID: ws.ID,
+		Query:     "renamed",
+	})
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(results) != 1 || results[0].ID != issues[0].ID {
+		t.Fatalf("expected only issue %s for 'renamed', got %+v", issues[0].ID, results)
+	}
+}
+
 func TestFTSDeletedIssueNotSearchable(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()
