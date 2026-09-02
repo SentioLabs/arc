@@ -273,8 +273,23 @@ func TestIssueSetDefaults(t *testing.T) {
 	if issue.IssueType != TypeTask {
 		t.Errorf("SetDefaults() IssueType = %v, want %v", issue.IssueType, TypeTask)
 	}
-	if issue.Priority != 2 {
-		t.Errorf("SetDefaults() Priority = %v, want %v", issue.Priority, 2)
+}
+
+// TestIssueSetDefaultsPreservesPriorityZero pins the fix for a bug where
+// SetDefaults treated Priority == 0 (a valid, explicit "critical" value) as
+// unset and rewrote it to 2. Priority must be resolved by the caller before
+// SetDefaults runs; SetDefaults itself must never touch it.
+func TestIssueSetDefaultsPreservesPriorityZero(t *testing.T) {
+	issue := Issue{
+		Title:     "Critical issue",
+		ProjectID: testProjectID,
+		Priority:  0,
+	}
+
+	issue.SetDefaults()
+
+	if issue.Priority != 0 {
+		t.Errorf("SetDefaults() Priority = %v, want 0 (must not clobber explicit priority)", issue.Priority)
 	}
 }
 

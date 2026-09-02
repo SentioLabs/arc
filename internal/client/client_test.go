@@ -12,6 +12,12 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
+// intPtr returns a pointer to the given int, for building CreateIssueRequest
+// literals where Priority must be a *int.
+func intPtr(i int) *int {
+	return &i
+}
+
 // createTestPlanClient creates a plan for testing via client and returns its ID.
 func createTestPlanClient(t *testing.T, c *client.Client) string {
 	t.Helper()
@@ -72,7 +78,7 @@ func createTestIssueClient(t *testing.T, c *client.Client, projID, title string)
 	issue, err := c.CreateIssue(projID, client.CreateIssueRequest{
 		Title:     title,
 		IssueType: "task",
-		Priority:  2,
+		Priority:  intPtr(2),
 	})
 	if err != nil {
 		t.Fatalf("failed to create issue: %v", err)
@@ -81,6 +87,48 @@ func createTestIssueClient(t *testing.T, c *client.Client, projID, title string)
 }
 
 // --- Non-plan tests ---
+
+// TestClientCreateIssuePreservesPriorityZero pins the fix for a bug where an
+// explicit priority of 0 (critical) was clobbered to 2 on create. It exercises
+// the full path: client request -> API handler -> storage.
+func TestClientCreateIssuePreservesPriorityZero(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	proj := createTestProjectClient(t, c)
+
+	issue, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
+		Title:     "Critical issue",
+		IssueType: "task",
+		Priority:  intPtr(0),
+	})
+	if err != nil {
+		t.Fatalf("failed to create issue: %v", err)
+	}
+	if issue.Priority != 0 {
+		t.Errorf("Priority = %d, want 0", issue.Priority)
+	}
+}
+
+// TestClientCreateIssueDefaultsPriorityWhenOmitted verifies that a create
+// request with no Priority set still defaults to priority 2.
+func TestClientCreateIssueDefaultsPriorityWhenOmitted(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	proj := createTestProjectClient(t, c)
+
+	issue, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
+		Title:     "No priority set",
+		IssueType: "task",
+	})
+	if err != nil {
+		t.Fatalf("failed to create issue: %v", err)
+	}
+	if issue.Priority != 2 {
+		t.Errorf("Priority = %d, want 2", issue.Priority)
+	}
+}
 
 func TestClientCloseIssueSendsCascade(t *testing.T) {
 	c, cleanup := testClientServer(t)
@@ -109,7 +157,7 @@ func TestClientCloseIssueReturnsOpenChildrenError(t *testing.T) {
 	child, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Open child",
 		IssueType: "task",
-		Priority:  2,
+		Priority:  intPtr(2),
 		ParentID:  parent.ID,
 	})
 	if err != nil {
@@ -148,7 +196,7 @@ func TestClientCloseIssueWithCascade(t *testing.T) {
 	_, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Open child",
 		IssueType: "task",
-		Priority:  2,
+		Priority:  intPtr(2),
 		ParentID:  parent.ID,
 	})
 	if err != nil {
@@ -260,7 +308,7 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	epic, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Epic parent",
 		IssueType: "epic",
-		Priority:  1,
+		Priority:  intPtr(1),
 	})
 	if err != nil {
 		t.Fatalf("create epic: %v", err)
@@ -269,7 +317,7 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	child, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Child task",
 		IssueType: "task",
-		Priority:  2,
+		Priority:  intPtr(2),
 		ParentID:  epic.ID,
 	})
 	if err != nil {
@@ -279,7 +327,7 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	_, err = c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Unrelated task",
 		IssueType: "task",
-		Priority:  2,
+		Priority:  intPtr(2),
 	})
 	if err != nil {
 		t.Fatalf("create unrelated: %v", err)

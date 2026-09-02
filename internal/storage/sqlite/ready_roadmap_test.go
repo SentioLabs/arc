@@ -21,6 +21,7 @@ func setupRoadmapIssue(t *testing.T, store *sqlite.Store, proj *types.Project,
 		Title:     title,
 		Status:    types.StatusOpen,
 		IssueType: issueType,
+		Priority:  2,
 	}
 	if err := store.CreateIssue(context.Background(), issue, "test-actor"); err != nil {
 		t.Fatalf("CreateIssue(%s) failed: %v", title, err)
@@ -28,8 +29,7 @@ func setupRoadmapIssue(t *testing.T, store *sqlite.Store, proj *types.Project,
 	return issue
 }
 
-// setRoadmapPriority sets an issue's priority after creation, which is the only
-// way to reach priority 0 because SetDefaults rewrites it to 2.
+// setRoadmapPriority sets an issue's priority after creation.
 func setRoadmapPriority(t *testing.T, store *sqlite.Store, issue *types.Issue, priority int) {
 	t.Helper()
 	err := store.UpdateIssue(context.Background(), issue.ID,

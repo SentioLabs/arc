@@ -37,7 +37,6 @@ func setupSequencingTest(t *testing.T) (c *client.Client, wsID, releaseID string
 	release, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
 		Title:     "Release 1",
 		IssueType: string(types.TypeRelease),
-		Priority:  2,
 	})
 	require.NoError(t, err)
 
