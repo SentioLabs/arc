@@ -110,3 +110,65 @@ func TestRenderRoadmap_MarkersAndCounts(t *testing.T) {
 	assert.Contains(t, out, "⏸ Jackery (milestone) — gated by arc-99")
 	assert.Contains(t, out, "▶ ESP32 Shunt (milestone, parallel) — 1/9 — ACTIVE")
 }
+
+func TestRenderRoadmap_ChildInheritsAncestorGating(t *testing.T) {
+	release := &types.RoadmapNode{
+		Issue: types.Issue{
+			ID:        "arc-1",
+			Title:     "v1",
+			Status:    types.StatusOpen,
+			IssueType: types.TypeRelease,
+			Priority:  0,
+		},
+		Children: []*types.RoadmapNode{
+			{
+				Issue: types.Issue{
+					ID:        "arc-4",
+					Title:     "Jackery",
+					Status:    types.StatusOpen,
+					IssueType: types.TypeMilestone,
+				},
+				GatedBy: []string{"arc-99"},
+				Children: []*types.RoadmapNode{
+					{
+						Issue: types.Issue{
+							ID:        "arc-10",
+							Title:     "HP3600 Telemetry",
+							Status:    types.StatusOpen,
+							IssueType: types.TypeEpic,
+						},
+					},
+				},
+			},
+			{
+				Issue: types.Issue{
+					ID:        "arc-3",
+					Title:     "Renogy Monitoring",
+					Status:    types.StatusOpen,
+					IssueType: types.TypeMilestone,
+				},
+				TotalCount:  8,
+				ClosedCount: 3,
+				Children: []*types.RoadmapNode{
+					{
+						Issue: types.Issue{
+							ID:        "arc-11",
+							Title:     "Shunt Driver",
+							Status:    types.StatusOpen,
+							IssueType: types.TypeEpic,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	renderRoadmap([]*types.RoadmapNode{release}, &buf)
+	out := buf.String()
+
+	assert.Contains(t, out, "⏸ HP3600 Telemetry (epic) — gated via ancestor")
+	assert.NotContains(t, out, "HP3600 Telemetry (epic) — 0/0 — ACTIVE")
+
+	assert.Contains(t, out, "▶ Shunt Driver (epic) — 0/0 — ACTIVE")
+}
