@@ -92,21 +92,24 @@ func formatReadyIssue(ri *types.ReadyIssue) string {
 func renderRoadmap(nodes []*types.RoadmapNode, w io.Writer) {
 	for _, node := range nodes {
 		_, _ = fmt.Fprintln(w, roadmapRootLine(node))
-		renderRoadmapChildren(node.Children, w, "")
+		renderRoadmapChildren(node.Children, w, "", false)
 	}
 }
 
 // renderRoadmapChildren recurses through a node's children, drawing the
 // standard box-drawing tree (├──/└── branches, │ /blank continuation).
-func renderRoadmapChildren(children []*types.RoadmapNode, w io.Writer, prefix string) {
+// ancestorGated is true when any ancestor of children is itself gated or
+// deferred/blocked, so descendants inherit a "gated via ancestor" marker
+// even though their own GatedBy/status is clean.
+func renderRoadmapChildren(children []*types.RoadmapNode, w io.Writer, prefix string, ancestorGated bool) {
 	for i, child := range children {
 		last := i == len(children)-1
 		branch, nextPrefix := "├── ", prefix+"│   "
 		if last {
 			branch, nextPrefix = "└── ", prefix+"    "
 		}
-		_, _ = fmt.Fprintln(w, prefix+branch+roadmapChildLine(child))
-		renderRoadmapChildren(child.Children, w, nextPrefix)
+		_, _ = fmt.Fprintln(w, prefix+branch+roadmapChildLine(child, ancestorGated))
+		renderRoadmapChildren(child.Children, w, nextPrefix, ancestorGated || roadmapNodeGated(child))
 	}
 }
 
@@ -118,8 +121,9 @@ func roadmapRootLine(node *types.RoadmapNode) string {
 }
 
 // roadmapChildLine renders one non-root container line with its status
-// marker: ✓ for closed, ⏸ for gated or deferred/blocked, ▶ + ACTIVE otherwise.
-func roadmapChildLine(node *types.RoadmapNode) string {
+// marker: ✓ for closed, ⏸ for gated (own or inherited from an ancestor) or
+// deferred/blocked, ▶ + ACTIVE otherwise.
+func roadmapChildLine(node *types.RoadmapNode, ancestorGated bool) string {
 	typeLabel := roadmapTypeLabel(node)
 	switch {
 	case node.Issue.Status == types.StatusClosed:
@@ -128,9 +132,19 @@ func roadmapChildLine(node *types.RoadmapNode) string {
 		return fmt.Sprintf("⏸ %s (%s) — gated by %s", node.Issue.Title, typeLabel, strings.Join(node.GatedBy, ", "))
 	case node.Issue.Status == types.StatusDeferred || node.Issue.Status == types.StatusBlocked:
 		return fmt.Sprintf("⏸ %s (%s) — %s", node.Issue.Title, typeLabel, node.Issue.Status)
+	case ancestorGated:
+		return fmt.Sprintf("⏸ %s (%s) — gated via ancestor", node.Issue.Title, typeLabel)
 	default:
 		return fmt.Sprintf("▶ %s (%s) — %d/%d — ACTIVE", node.Issue.Title, typeLabel, node.ClosedCount, node.TotalCount)
 	}
+}
+
+// roadmapNodeGated reports whether node's own gating state (GatedBy, or a
+// deferred/blocked status) should propagate to its descendants as inherited
+// gating.
+func roadmapNodeGated(node *types.RoadmapNode) bool {
+	deferredOrBlocked := node.Issue.Status == types.StatusDeferred || node.Issue.Status == types.StatusBlocked
+	return len(node.GatedBy) > 0 || deferredOrBlocked
 }
 
 // roadmapTypeLabel returns the issue type, appending ", parallel" when the
