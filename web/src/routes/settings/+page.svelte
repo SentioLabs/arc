@@ -5,7 +5,8 @@
 	import SettingsField from '$lib/components/settings/SettingsField.svelte';
 	import ChannelPicker from '$lib/components/settings/ChannelPicker.svelte';
 
-	let { data }: { data: { config: ConfigResponse | null; available: boolean; error?: string } } = $props();
+	let { data }: { data: { config: ConfigResponse | null; available: boolean; error?: string } } =
+		$props();
 
 	function stripMeta({ meta: _meta, ...rest }: ConfigResponse): Config {
 		return rest;
@@ -14,14 +15,20 @@
 	const initial = $derived(data.config);
 	// Use untrack to explicitly capture the one-time initial value — this is intentional
 	// (working/snapshot are the editable copy; they don't track data reactively)
-	let working = $state<Config | null>(untrack(() => data.config ? structuredClone(stripMeta(data.config)) : null));
-	let snapshot = $state<Config | null>(untrack(() => data.config ? structuredClone(stripMeta(data.config)) : null));
+	let working = $state<Config | null>(
+		untrack(() => (data.config ? structuredClone(stripMeta(data.config)) : null))
+	);
+	let snapshot = $state<Config | null>(
+		untrack(() => (data.config ? structuredClone(stripMeta(data.config)) : null))
+	);
 	let errors = $state<Record<string, string>>({});
 	let saving = $state(false);
 	let toast = $state<string | null>(null);
 
 	const restartKeys = $derived(initial?.meta.requires_restart ?? []);
-	const dirty = $derived(working && snapshot && JSON.stringify(working) !== JSON.stringify(snapshot));
+	const dirty = $derived(
+		working && snapshot && JSON.stringify(working) !== JSON.stringify(snapshot)
+	);
 
 	async function save() {
 		if (!working) return;
@@ -67,16 +74,34 @@
 		</div>
 	{:else}
 		<SettingsSection title="CLI">
-			<SettingsField label="Server URL" help="Where the CLI calls home." error={errors['cli.server']}>
+			<SettingsField
+				label="Server URL"
+				help="Where the CLI calls home."
+				error={errors['cli.server']}
+			>
 				<input class="input w-full" bind:value={working.cli.server} />
 			</SettingsField>
 		</SettingsSection>
 
 		<SettingsSection title="Server" warn="Changes here require restarting arc-server.">
-			<SettingsField label="Port" error={errors['server.port']} requiresRestart={restartKeys.includes('server.port')}>
-				<input class="input w-full" type="number" min="1" max="65535" bind:value={working.server.port} />
+			<SettingsField
+				label="Port"
+				error={errors['server.port']}
+				requiresRestart={restartKeys.includes('server.port')}
+			>
+				<input
+					class="input w-full"
+					type="number"
+					min="1"
+					max="65535"
+					bind:value={working.server.port}
+				/>
 			</SettingsField>
-			<SettingsField label="Database path" error={errors['server.db_path']} requiresRestart={restartKeys.includes('server.db_path')}>
+			<SettingsField
+				label="Database path"
+				error={errors['server.db_path']}
+				requiresRestart={restartKeys.includes('server.db_path')}
+			>
 				<input class="input w-full" bind:value={working.server.db_path} />
 			</SettingsField>
 		</SettingsSection>
@@ -91,7 +116,9 @@
 		</SettingsSection>
 
 		<footer class="flex justify-between">
-			<button class="btn btn-ghost" onclick={discard} disabled={!dirty || saving}>Discard changes</button>
+			<button class="btn btn-ghost" onclick={discard} disabled={!dirty || saving}
+				>Discard changes</button
+			>
 			<button class="btn btn-primary" onclick={save} disabled={!dirty || saving}>
 				{saving ? 'Saving…' : 'Save'}
 			</button>

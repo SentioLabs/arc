@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	let { label, help, error, requiresRestart, children }: {
+	let {
+		label,
+		help,
+		error,
+		requiresRestart,
+		children
+	}: {
 		label: string;
 		help?: string;
 		error?: string;

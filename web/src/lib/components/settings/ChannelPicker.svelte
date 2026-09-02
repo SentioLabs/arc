@@ -1,6 +1,11 @@
 <script lang="ts">
 	type Channel = 'stable' | 'rc' | 'nightly';
-	let { value, onChange, label = 'Channel', disabled = false }: {
+	let {
+		value,
+		onChange,
+		label = 'Channel',
+		disabled = false
+	}: {
 		value: Channel;
 		onChange: (v: Channel) => void;
 		label?: string;
