@@ -88,6 +88,10 @@ func TestCreatePriorityZero(t *testing.T) {
 	if !strings.Contains(showOut, "P0") {
 		t.Errorf("expected P0 in show output, got: %s", showOut)
 	}
+
+	// Integration tests share one project per working directory. Close the
+	// issue so a stray P0 doesn't shift other tests' `arc ready` output.
+	arcCmdSuccess(t, home, "close", id, "--server", serverURL)
 }
 
 // TestCreateDefaultPriority verifies that `arc create` with no --priority
@@ -107,6 +111,8 @@ func TestCreateDefaultPriority(t *testing.T) {
 	if !strings.Contains(showOut, "P2") {
 		t.Errorf("expected P2 in show output, got: %s", showOut)
 	}
+
+	arcCmdSuccess(t, home, "close", id, "--server", serverURL)
 }
 
 // TestListAndReady verifies that `arc list` returns created issues and
