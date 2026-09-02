@@ -1041,9 +1041,10 @@ func init() {
 
 // closeCmd marks one or more issues as closed.
 var closeCmd = &cobra.Command{
-	Use:   "close <id> [ids...]",
-	Short: "Close one or more issues",
-	Args:  cobra.MinimumNArgs(1),
+	Use:          "close <id> [ids...]",
+	Short:        "Close one or more issues",
+	Args:         cobra.MinimumNArgs(1),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -1053,6 +1054,7 @@ var closeCmd = &cobra.Command{
 		reason, _ := cmd.Flags().GetString("reason")
 		cascade, _ := cmd.Flags().GetBool("cascade")
 
+		failed := 0
 		for _, id := range args {
 			issue, err := c.CloseIssueByID(id, reason, cascade)
 			if err != nil {
@@ -1062,11 +1064,15 @@ var closeCmd = &cobra.Command{
 				} else {
 					_, _ = fmt.Fprintf(os.Stderr, "Failed to close %s: %v\n", id, err)
 				}
+				failed++
 				continue
 			}
 			fmt.Printf("Closed: %s\n", issue.ID)
 		}
 
+		if failed > 0 {
+			return fmt.Errorf("failed to close %d of %d issues", failed, len(args))
+		}
 		return nil
 	},
 }
