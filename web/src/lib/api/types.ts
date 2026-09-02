@@ -774,7 +774,7 @@ export interface components {
         /** @enum {string} */
         Status: "open" | "in_progress" | "blocked" | "deferred" | "closed";
         /** @enum {string} */
-        IssueType: "bug" | "feature" | "task" | "epic" | "chore";
+        IssueType: "bug" | "feature" | "task" | "epic" | "chore" | "release" | "milestone";
         /** @enum {string} */
         DependencyType: "blocks" | "parent-child" | "related" | "discovered-from";
         /** @enum {string} */

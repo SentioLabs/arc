@@ -32,6 +32,14 @@
 		chore: {
 			icon: `<path d="M22.7 19L13.6 9.9C14.5 7.6 14 4.9 12.1 3C10.1 1 7.1 0.6 4.7 1.7L9 6L6 9L1.6 4.7C0.4 7.1 0.9 10.1 2.9 12.1C4.8 14 7.5 14.5 9.8 13.6L18.9 22.7C19.3 23.1 19.9 23.1 20.3 22.7L22.6 20.4C23.1 20 23.1 19.3 22.7 19Z"/>`,
 			color: 'text-type-chore'
+		},
+		release: {
+			icon: `<path d="M12 2L4 6V12C4 17 7.5 20.7 12 22C16.5 20.7 20 17 20 12V6L12 2ZM12 4.2L18 7.1V12C18 15.9 15.4 18.9 12 19.9C8.6 18.9 6 15.9 6 12V7.1L12 4.2Z"/><path d="M11 8H13V13H11V8ZM11 15H13V17H11V15Z"/>`,
+			color: 'text-type-release'
+		},
+		milestone: {
+			icon: `<path d="M6 2H4V22H6V15H13L14 17H20V4H15L14 2H6Z"/>`,
+			color: 'text-type-milestone'
 		}
 	};
 

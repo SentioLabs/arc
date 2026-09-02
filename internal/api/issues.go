@@ -350,6 +350,10 @@ func (s *Server) getReadyWork(c echo.Context) error {
 		p := queryInt(c, "priority", defaultPriority)
 		filter.Priority = &p
 	}
+	filter.Under = c.QueryParam("under")
+	if sort := c.QueryParam("sort"); sort != "" {
+		filter.SortPolicy = types.SortPolicy(sort)
+	}
 
 	issues, err := s.store.GetReadyWork(c.Request().Context(), filter)
 	if err != nil {

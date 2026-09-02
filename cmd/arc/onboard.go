@@ -155,7 +155,7 @@ func runOnboard(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get ready work (use default hybrid sort)
-	readyIssues, err := c.GetReadyWork(wsID, onboardLimit, "")
+	readyIssues, err := c.GetReadyWork(wsID, onboardLimit, "", "")
 	if err != nil {
 		return fmt.Errorf("get ready work: %w", err)
 	}
