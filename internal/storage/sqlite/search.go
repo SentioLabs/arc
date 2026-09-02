@@ -82,8 +82,13 @@ func (s *Store) recreateFTSTable(ctx context.Context) {
 			log.Printf("fts: second DROP TABLE attempt also failed: %v", dropErr)
 		}
 	}
+	// The table stores its own copy of the indexed columns. An
+	// external-content declaration (content=issues) would require every
+	// insert and delete to carry the matching issues.rowid, and the manual
+	// sync in this file never did, which corrupted the index
+	// (SQLITE_CORRUPT_VTAB, "database disk image is malformed").
 	createSQL := `CREATE VIRTUAL TABLE IF NOT EXISTS issues_fts
-		USING fts5(id, title, description, content=issues, content_rowid=rowid)`
+		USING fts5(id, title, description)`
 	if _, err := s.db.ExecContext(ctx, createSQL); err != nil {
 		log.Printf("fts: failed to recreate FTS table: %v", err)
 	}
