@@ -198,6 +198,71 @@ func TestSequencingAfterFlagTargetsNamedSibling(t *testing.T) {
 	require.Equal(t, m1ID, blocksDepTarget(t, c, wsID, m3ID))
 }
 
+func TestSequencingAfterParallelTargetInheritsLabel(t *testing.T) {
+	c, wsID, releaseID := setupSequencingTest(t)
+
+	m7ID, err := createMilestone(t, "Parallel M7", releaseID, withParallel())
+	require.NoError(t, err)
+	m8ID, err := createMilestone(t, "M8 extends track", releaseID, withAfter(m7ID))
+	require.NoError(t, err)
+
+	details, err := c.GetIssueDetails(wsID, m8ID)
+	require.NoError(t, err)
+	require.Contains(t, details.Labels, "parallel",
+		"--after onto a parallel-track member should inherit the parallel label")
+	require.Equal(t, m7ID, blocksDepTarget(t, c, wsID, m8ID))
+}
+
+func TestSequencingAfterPlainTargetDoesNotInheritLabel(t *testing.T) {
+	c, wsID, releaseID := setupSequencingTest(t)
+
+	m1ID, err := createMilestone(t, "Milestone 1", releaseID)
+	require.NoError(t, err)
+	m2ID, err := createMilestone(t, "Milestone 2", releaseID, withAfter(m1ID))
+	require.NoError(t, err)
+
+	details, err := c.GetIssueDetails(wsID, m2ID)
+	require.NoError(t, err)
+	require.NotContains(t, details.Labels, "parallel")
+}
+
+func TestSequencingPlainMilestoneSkipsExtendedParallelTrack(t *testing.T) {
+	c, wsID, releaseID := setupSequencingTest(t)
+
+	m1ID, err := createMilestone(t, "Main chain M1", releaseID)
+	require.NoError(t, err)
+	m7ID, err := createMilestone(t, "Parallel M7", releaseID, withParallel())
+	require.NoError(t, err)
+	m8ID, err := createMilestone(t, "M8 extends track", releaseID, withAfter(m7ID))
+	require.NoError(t, err)
+	m9ID, err := createMilestone(t, "Plain M9", releaseID)
+	require.NoError(t, err)
+
+	require.Equal(t, m1ID, blocksDepTarget(t, c, wsID, m9ID),
+		"a plain milestone should chain onto the main-chain tail, not the parallel track")
+	require.NotEqual(t, m8ID, blocksDepTarget(t, c, wsID, m9ID))
+}
+
+func TestSequencingAfterParallelConfirmationMentionsInheritedLabel(t *testing.T) {
+	_, _, releaseID := setupSequencingTest(t)
+
+	m7ID, err := createMilestone(t, "Parallel M7", releaseID, withParallel())
+	require.NoError(t, err)
+
+	resetCreateFlags(t)
+	require.NoError(t, createCmd.Flags().Set("type", string(types.TypeMilestone)))
+	require.NoError(t, createCmd.Flags().Set("parent", releaseID))
+	require.NoError(t, createCmd.Flags().Set("after", m7ID))
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = createCmd.RunE(createCmd, []string{"M8 extends track"})
+	})
+	require.NoError(t, runErr)
+	require.Contains(t, out, "parallel label inherited",
+		"plain-mode confirmation should mention the inherited label: %q", out)
+}
+
 func TestSequencingAfterAndParallelMutuallyExclusive(t *testing.T) {
 	_, _, releaseID := setupSequencingTest(t)
 

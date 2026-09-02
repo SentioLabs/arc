@@ -763,6 +763,17 @@ func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) 
 		if err := c.AddDependency(wsID, newID, afterID, string(types.DepBlocks)); err != nil {
 			return "", err
 		}
+		inherited, err := inheritParallelLabel(c, wsID, newID, afterID)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"Warning: failed to inherit parallel label from %s: %v\n", afterID, err)
+		}
+		if inherited {
+			return fmt.Sprintf(
+				"Sequenced after %s (blocks dependency, parallel label inherited); use 'arc dep remove' to change",
+				afterID,
+			), nil
+		}
 		return fmt.Sprintf(
 			"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", afterID,
 		), nil
@@ -793,6 +804,25 @@ func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) 
 	return fmt.Sprintf(
 		"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", tail.ID,
 	), nil
+}
+
+// inheritParallelLabel copies the "parallel" label from the --after target
+// onto the new milestone when the target carries it. Track membership has to
+// propagate, or the extension becomes the newest unlabeled sibling and the
+// tail rule chains the next plain milestone onto the wrong track. It reports
+// whether the label was inherited.
+func inheritParallelLabel(c *client.Client, wsID, newID, afterID string) (bool, error) {
+	details, err := c.GetIssueDetails(wsID, afterID)
+	if err != nil {
+		return false, err
+	}
+	if !hasLabel(details.Labels, "parallel") {
+		return false, nil
+	}
+	if err := c.AddLabelToIssue(wsID, newID, "parallel"); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // milestoneCandidates fetches dependency and label details for every sibling
