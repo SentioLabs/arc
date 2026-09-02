@@ -556,15 +556,17 @@ var listCmd = &cobra.Command{
 		status, _ := cmd.Flags().GetString("status")
 		issueType, _ := cmd.Flags().GetString("type")
 		query, _ := cmd.Flags().GetString("query")
+		priorities, _ := cmd.Flags().GetIntSlice("priority")
 		limit, _ := cmd.Flags().GetInt("limit")
 		parentID, _ := cmd.Flags().GetString("parent")
 
 		issues, err := c.ListIssues(wsID, client.ListIssuesOptions{
-			Status: status,
-			Type:   issueType,
-			Query:  query,
-			Limit:  limit,
-			Parent: parentID,
+			Status:     status,
+			Type:       issueType,
+			Query:      query,
+			Priorities: priorities,
+			Limit:      limit,
+			Parent:     parentID,
 		})
 		if err != nil {
 			return err
@@ -587,6 +589,7 @@ func init() {
 	listCmd.Flags().String("status", "", "Filter by status")
 	listCmd.Flags().String("type", "", "Filter by type")
 	listCmd.Flags().StringP("query", "q", "", "Search query")
+	listCmd.Flags().IntSlice("priority", nil, "Filter by priority 0-4 (repeatable, values OR-combine)")
 	listCmd.Flags().IntP("limit", "l", defaultListLimit, "Max results")
 	listCmd.Flags().String("parent", "", "Filter by parent issue ID")
 }

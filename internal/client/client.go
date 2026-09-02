@@ -239,6 +239,9 @@ func (c *Client) ListIssues(projID string, opts ListIssuesOptions) ([]*types.Iss
 	if opts.Query != "" {
 		query.Set("q", opts.Query)
 	}
+	for _, p := range opts.Priorities {
+		query.Add("priority", strconv.Itoa(p))
+	}
 	if opts.Limit > 0 {
 		query.Set("limit", strconv.Itoa(opts.Limit))
 	}
@@ -268,12 +271,13 @@ func (c *Client) ListIssues(projID string, opts ListIssuesOptions) ([]*types.Iss
 // ListIssuesOptions configures issue listing.
 // All fields are optional; zero values are omitted from the query.
 type ListIssuesOptions struct {
-	Status   string // Filter by status (e.g., "open", "closed")
-	Type     string // Filter by issue type (e.g., "bug", "feature")
-	Assignee string // Filter by assignee name
-	Query    string // Full-text search in title/description
-	Limit    int    // Maximum number of results
-	Parent   string // Filter by parent issue ID
+	Status     string // Filter by status (e.g., "open", "closed")
+	Type       string // Filter by issue type (e.g., "bug", "feature")
+	Assignee   string // Filter by assignee name
+	Query      string // Full-text search in title/description
+	Priorities []int  // Filter by priority; multiple values OR-combine
+	Limit      int    // Maximum number of results
+	Parent     string // Filter by parent issue ID
 }
 
 // CreateIssue creates a new issue.

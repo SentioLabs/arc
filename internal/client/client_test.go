@@ -408,3 +408,57 @@ func TestClientDeletePlanComment(t *testing.T) {
 		}
 	}
 }
+
+func TestClientListIssuesPriorityFilter(t *testing.T) {
+	c, cleanup := testClientServer(t)
+	defer cleanup()
+
+	proj := createTestProjectClient(t, c)
+
+	p0, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
+		Title: "P0 task", IssueType: "task", Priority: intPtr(0),
+	})
+	if err != nil {
+		t.Fatalf("create p0: %v", err)
+	}
+	_, err = c.CreateIssue(proj.ID, client.CreateIssueRequest{
+		Title: "P1 task", IssueType: "task", Priority: intPtr(1),
+	})
+	if err != nil {
+		t.Fatalf("create p1: %v", err)
+	}
+	p2, err := c.CreateIssue(proj.ID, client.CreateIssueRequest{
+		Title: "P2 task", IssueType: "task", Priority: intPtr(2),
+	})
+	if err != nil {
+		t.Fatalf("create p2: %v", err)
+	}
+
+	only0, err := c.ListIssues(proj.ID, client.ListIssuesOptions{Priorities: []int{0}})
+	if err != nil {
+		t.Fatalf("ListIssues with Priorities {0}: %v", err)
+	}
+	if len(only0) != 1 || only0[0].ID != p0.ID {
+		t.Errorf("expected only the P0 issue, got %d issues", len(only0))
+	}
+
+	both, err := c.ListIssues(proj.ID, client.ListIssuesOptions{Priorities: []int{0, 2}})
+	if err != nil {
+		t.Fatalf("ListIssues with Priorities {0,2}: %v", err)
+	}
+	if len(both) != 2 {
+		t.Fatalf("expected 2 issues for priorities {0,2}, got %d", len(both))
+	}
+	gotIDs := map[string]bool{both[0].ID: true, both[1].ID: true}
+	if !gotIDs[p0.ID] || !gotIDs[p2.ID] {
+		t.Errorf("expected P0 and P2 issues, got %v", gotIDs)
+	}
+
+	all, err := c.ListIssues(proj.ID, client.ListIssuesOptions{})
+	if err != nil {
+		t.Fatalf("ListIssues without priorities: %v", err)
+	}
+	if len(all) != 3 {
+		t.Errorf("expected 3 issues without priority filter, got %d", len(all))
+	}
+}
