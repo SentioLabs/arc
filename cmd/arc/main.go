@@ -556,15 +556,17 @@ var listCmd = &cobra.Command{
 		status, _ := cmd.Flags().GetString("status")
 		issueType, _ := cmd.Flags().GetString("type")
 		query, _ := cmd.Flags().GetString("query")
+		priorities, _ := cmd.Flags().GetIntSlice("priority")
 		limit, _ := cmd.Flags().GetInt("limit")
 		parentID, _ := cmd.Flags().GetString("parent")
 
 		issues, err := c.ListIssues(wsID, client.ListIssuesOptions{
-			Status: status,
-			Type:   issueType,
-			Query:  query,
-			Limit:  limit,
-			Parent: parentID,
+			Status:     status,
+			Type:       issueType,
+			Query:      query,
+			Priorities: priorities,
+			Limit:      limit,
+			Parent:     parentID,
 		})
 		if err != nil {
 			return err
@@ -587,6 +589,7 @@ func init() {
 	listCmd.Flags().String("status", "", "Filter by status")
 	listCmd.Flags().String("type", "", "Filter by type")
 	listCmd.Flags().StringP("query", "q", "", "Search query")
+	listCmd.Flags().IntSlice("priority", nil, "Filter by priority 0-4 (repeatable, values OR-combine)")
 	listCmd.Flags().IntP("limit", "l", defaultListLimit, "Max results")
 	listCmd.Flags().String("parent", "", "Filter by parent issue ID")
 }
@@ -763,6 +766,17 @@ func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) 
 		if err := c.AddDependency(wsID, newID, afterID, string(types.DepBlocks)); err != nil {
 			return "", err
 		}
+		inherited, err := inheritParallelLabel(c, wsID, newID, afterID)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"Warning: failed to inherit parallel label from %s: %v\n", afterID, err)
+		}
+		if inherited {
+			return fmt.Sprintf(
+				"Sequenced after %s (blocks dependency, parallel label inherited); use 'arc dep remove' to change",
+				afterID,
+			), nil
+		}
 		return fmt.Sprintf(
 			"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", afterID,
 		), nil
@@ -793,6 +807,25 @@ func sequenceMilestone(c *client.Client, wsID, newID, parentID, afterID string) 
 	return fmt.Sprintf(
 		"Sequenced after %s (blocks dependency); use --parallel or 'arc dep remove' to change", tail.ID,
 	), nil
+}
+
+// inheritParallelLabel copies the "parallel" label from the --after target
+// onto the new milestone when the target carries it. Track membership has to
+// propagate, or the extension becomes the newest unlabeled sibling and the
+// tail rule chains the next plain milestone onto the wrong track. It reports
+// whether the label was inherited.
+func inheritParallelLabel(c *client.Client, wsID, newID, afterID string) (bool, error) {
+	details, err := c.GetIssueDetails(wsID, afterID)
+	if err != nil {
+		return false, err
+	}
+	if !hasLabel(details.Labels, "parallel") {
+		return false, nil
+	}
+	if err := c.AddLabelToIssue(wsID, newID, "parallel"); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // milestoneCandidates fetches dependency and label details for every sibling
@@ -1041,9 +1074,10 @@ func init() {
 
 // closeCmd marks one or more issues as closed.
 var closeCmd = &cobra.Command{
-	Use:   "close <id> [ids...]",
-	Short: "Close one or more issues",
-	Args:  cobra.MinimumNArgs(1),
+	Use:          "close <id> [ids...]",
+	Short:        "Close one or more issues",
+	Args:         cobra.MinimumNArgs(1),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c, err := getClient()
 		if err != nil {
@@ -1053,6 +1087,7 @@ var closeCmd = &cobra.Command{
 		reason, _ := cmd.Flags().GetString("reason")
 		cascade, _ := cmd.Flags().GetBool("cascade")
 
+		failed := 0
 		for _, id := range args {
 			issue, err := c.CloseIssueByID(id, reason, cascade)
 			if err != nil {
@@ -1062,11 +1097,15 @@ var closeCmd = &cobra.Command{
 				} else {
 					_, _ = fmt.Fprintf(os.Stderr, "Failed to close %s: %v\n", id, err)
 				}
+				failed++
 				continue
 			}
 			fmt.Printf("Closed: %s\n", issue.ID)
 		}
 
+		if failed > 0 {
+			return fmt.Errorf("failed to close %d of %d issues", failed, len(args))
+		}
 		return nil
 	},
 }

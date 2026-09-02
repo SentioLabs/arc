@@ -113,10 +113,9 @@ func TestCloseCascade(t *testing.T) {
 	arcCmdSuccess(t, home, "dep", "add", child1ID, parentID, "--type", "parent-child", "--server", serverURL)
 	arcCmdSuccess(t, home, "dep", "add", child2ID, parentID, "--type", "parent-child", "--server", serverURL)
 
-	// Attempt to close parent WITHOUT --cascade — should print an error
-	// about open children. Note: the close command exits 0 even on failure
-	// because it iterates over IDs with continue, so we check output content.
-	failOut := arcCmdSuccess(t, home, "close", parentID, "--server", serverURL)
+	// Attempt to close parent WITHOUT --cascade — should exit non-zero and
+	// print an error about open children.
+	failOut := arcCmdFailure(t, home, "close", parentID, "--server", serverURL)
 	if !strings.Contains(strings.ToLower(failOut), "child") {
 		t.Errorf("expected error to mention open children, got: %s", failOut)
 	}
@@ -189,9 +188,7 @@ func TestCloseNonexistentIssue(t *testing.T) {
 
 	arcCmdSuccess(t, home, "init", proj, "--server", serverURL)
 
-	// Note: the close command exits 0 even on failure because it iterates
-	// over IDs with continue, so we check output for error text.
-	output := arcCmdSuccess(t, home, "close", "nonexistent-id-xyz", "--server", serverURL)
+	output := arcCmdFailure(t, home, "close", "nonexistent-id-xyz", "--server", serverURL)
 	if !strings.Contains(strings.ToLower(output), "failed") && !strings.Contains(strings.ToLower(output), "not found") {
 		t.Errorf("expected error message when closing nonexistent issue, got: %s", output)
 	}

@@ -99,6 +99,18 @@ func arcCmdSuccess(t *testing.T, homeDir string, args ...string) string {
 	return output
 }
 
+// arcCmdFailure runs the arc binary and fails the test if the command
+// returns a zero exit code.
+func arcCmdFailure(t *testing.T, homeDir string, args ...string) string {
+	t.Helper()
+
+	output, err := arcCmd(t, homeDir, args...)
+	if err == nil {
+		t.Fatalf("arc %v succeeded, expected failure\noutput: %s", args, output)
+	}
+	return output
+}
+
 // arcCmdSuccessWithEnv runs the arc binary with extra env vars and fails the test on error.
 func arcCmdSuccessWithEnv(t *testing.T, home string, env []string, args ...string) string {
 	t.Helper()
