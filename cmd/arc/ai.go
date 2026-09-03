@@ -30,10 +30,22 @@ type postToolUsePayload struct {
 	ToolResponse struct {
 		Status            string `json:"status"`
 		AgentID           string `json:"agentId"`           //nolint:tagliatelle // matches Claude Code payload
+		NamedAgentID      string `json:"agent_id"`          // addressable (named) agents: "name@session-xxx"
 		TotalDurationMs   int    `json:"totalDurationMs"`   //nolint:tagliatelle // matches Claude Code payload
 		TotalTokens       int    `json:"totalTokens"`       //nolint:tagliatelle // matches Claude Code payload
 		TotalToolUseCount int    `json:"totalToolUseCount"` //nolint:tagliatelle // matches Claude Code payload
 	} `json:"tool_response"`
+}
+
+// agentID returns the agent identifier from the tool response, or "" if the
+// payload carries none. Classic Agent results report it as agentId. Named
+// (addressable) agents report agent_id instead. Background launches report
+// neither, since the agent has not finished when the hook fires.
+func (p *postToolUsePayload) agentID() string {
+	if p.ToolResponse.AgentID != "" {
+		return p.ToolResponse.AgentID
+	}
+	return p.ToolResponse.NamedAgentID
 }
 
 // parsePostToolUsePayload reads and parses a PostToolUse JSON payload from r.
@@ -297,6 +309,13 @@ var aiAgentRegisterCmd = &cobra.Command{
 			return errors.New("session_id is required in payload")
 		}
 
+		agentID := payload.agentID()
+		if agentID == "" {
+			// Nothing to register: the server would reject an empty id and
+			// the hook runs on every Agent call, so skip silently.
+			return nil
+		}
+
 		// Resolve project from payload CWD; silently skip if unresolvable
 		resolvedProjectID, err := resolveFromServer(payload.CWD)
 		if err != nil {
@@ -313,7 +332,7 @@ var aiAgentRegisterCmd = &cobra.Command{
 		toolUseCount := payload.ToolResponse.TotalToolUseCount
 
 		agent := &types.AIAgent{
-			ID:           payload.ToolResponse.AgentID,
+			ID:           agentID,
 			SessionID:    payload.SessionID,
 			Description:  payload.ToolInput.Description,
 			Prompt:       payload.ToolInput.Prompt,
