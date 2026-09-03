@@ -424,6 +424,50 @@ func TestAIAgentRegisterJsonOutput(t *testing.T) {
 	}
 }
 
+// TestAIAgentRegisterNamedAgentID verifies that a payload carrying the
+// addressable-agent shape (agent_id: "name@session-xxx") registers under that id.
+func TestAIAgentRegisterNamedAgentID(t *testing.T) {
+	home, _, workDir := setupAIProject(t)
+
+	arcCmdSuccess(t, home, "ai", "session", "start",
+		"--id", "test-register-named-sess",
+		"--transcript-path", "/tmp/register.jsonl",
+		"--cwd", workDir,
+		"--server", serverURL)
+
+	payload := strings.Replace(
+		makePostToolUsePayload("test-register-named-sess", "builder-lint-2@session-abc", "Named agent", workDir),
+		`"agentId"`, `"agent_id"`, 1)
+
+	output := arcCmdWithStdinSuccess(t, home, payload,
+		"ai", "agent", "register", "--stdin", "--server", serverURL)
+
+	if !strings.Contains(output, "builder-lint-2@session-abc") {
+		t.Errorf("expected named agent ID in output, got: %s", output)
+	}
+}
+
+// TestAIAgentRegisterMissingIDSkips verifies that a payload with no agent id
+// (a background launch) exits 0 without registering anything.
+func TestAIAgentRegisterMissingIDSkips(t *testing.T) {
+	home, _, workDir := setupAIProject(t)
+
+	arcCmdSuccess(t, home, "ai", "session", "start",
+		"--id", "test-register-noid-sess",
+		"--transcript-path", "/tmp/register.jsonl",
+		"--cwd", workDir,
+		"--server", serverURL)
+
+	payload := makePostToolUsePayload("test-register-noid-sess", "", "Background launch", workDir)
+
+	output := arcCmdWithStdinSuccess(t, home, payload,
+		"ai", "agent", "register", "--stdin", "--server", serverURL)
+
+	if strings.TrimSpace(output) != "" {
+		t.Errorf("expected no output when agent id is missing, got: %s", output)
+	}
+}
+
 // TestAIAgentRegisterLazySession verifies that registering an agent for a
 // non-existent session auto-creates the session.
 func TestAIAgentRegisterLazySession(t *testing.T) {

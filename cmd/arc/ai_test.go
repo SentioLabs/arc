@@ -74,6 +74,37 @@ func TestParsePostToolUsePayload(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Bash", p.ToolName)
 	})
+
+	t.Run("named agent reports agent_id", func(t *testing.T) {
+		input := `{"session_id": "s3", "tool_name": "Agent",
+			"tool_response": {"agent_id": "builder-lint-2@session-abc"}}`
+		p, err := parsePostToolUsePayload(strings.NewReader(input))
+		require.NoError(t, err)
+		assert.Empty(t, p.ToolResponse.AgentID)
+		assert.Equal(t, "builder-lint-2@session-abc", p.ToolResponse.NamedAgentID)
+	})
+}
+
+func TestPostToolUsePayloadAgentID(t *testing.T) {
+	tests := []struct {
+		name  string
+		camel string
+		snake string
+		want  string
+	}{
+		{name: "classic agentId", camel: "abc123", want: "abc123"},
+		{name: "named agent_id", snake: "builder-lint-2@session-abc", want: "builder-lint-2@session-abc"},
+		{name: "agentId wins when both present", camel: "abc123", snake: "x@session-y", want: "abc123"},
+		{name: "background launch has neither", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var p postToolUsePayload
+			p.ToolResponse.AgentID = tt.camel
+			p.ToolResponse.NamedAgentID = tt.snake
+			assert.Equal(t, tt.want, p.agentID())
+		})
+	}
 }
 
 // hasSubcommand checks whether parent has a subcommand with the given name.
