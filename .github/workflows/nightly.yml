@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   nightly:
@@ -35,12 +36,15 @@ jobs:
             fi
           fi
 
-      - name: Read version from manifest
+      - name: Compute next patch version
         if: steps.check.outputs.has_changes == 'true'
         id: version
         run: |
-          VERSION=$(jq -r '.["."]' .release-please-manifest.json)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # The manifest holds the last released version. A nightly must sort
+          # above it under semver, so tag the next patch: 0.15.0 -> v0.15.1-nightly.<date>.
+          RELEASED=$(jq -r '.["."]' .release-please-manifest.json)
+          IFS=. read -r MAJOR MINOR PATCH <<< "$RELEASED"
+          echo "version=${MAJOR}.${MINOR}.$((PATCH + 1))" >> "$GITHUB_OUTPUT"
 
       - name: Create nightly tag
         if: steps.check.outputs.has_changes == 'true'
@@ -52,6 +56,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Nightly build $DATE"
           git push origin "$TAG"
+          gh workflow run prerelease.yml --ref "$TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   cleanup:
     runs-on: ubuntu-latest

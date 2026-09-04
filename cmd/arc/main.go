@@ -5,13 +5,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/tabwriter"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/sentiolabs/arc/internal/client"
@@ -81,8 +85,69 @@ var (
 )
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := runRoot(); err != nil {
 		os.Exit(1)
+	}
+}
+
+// runRoot executes the root command under a context that SIGINT or SIGTERM
+// cancels. The first signal no longer kills the process, so every command
+// that can block for a long time must watch ctx.Done. See tailFollow and
+// planWaitCmd.
+func runRoot() error {
+	ctx, stop := signalContext()
+	defer stop()
+	return rootCmd.ExecuteContext(ctx)
+}
+
+// Signal-handling constants.
+const (
+	// signalBuffer holds the two signals signalContext reads: the one that
+	// cancels the context and the one that exits the process.
+	signalBuffer = 2
+
+	// signalExitBase is the offset a shell adds to a signal number when it
+	// reports a process killed by that signal.
+	signalExitBase = 128
+)
+
+// signalContext returns a context cancelled by the first SIGINT or SIGTERM.
+// A second signal exits the process with 128 plus the signal number, the
+// same status a shell reports for a process killed by that signal.
+func signalContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	sigs := make(chan os.Signal, signalBuffer)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		cancel()
+		s := <-sigs
+		if n, ok := s.(syscall.Signal); ok {
+			os.Exit(signalExitBase + int(n))
+		}
+		os.Exit(1)
+	}()
+	return ctx, func() { signal.Stop(sigs); cancel() }
+}
+
+// cmdContext returns cmd's context. Tests that call RunE directly never go
+// through Execute, so cmd.Context() is nil for them and a never-cancelled
+// background context keeps their behavior unchanged.
+func cmdContext(cmd *cobra.Command) context.Context {
+	if ctx := cmd.Context(); ctx != nil {
+		return ctx
+	}
+	return context.Background()
+}
+
+// sleepOrCancel waits for d, or returns early when ctx is cancelled. It
+// reports whether the full delay elapsed.
+func sleepOrCancel(ctx context.Context, d time.Duration) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case <-time.After(d):
+		return true
 	}
 }
 

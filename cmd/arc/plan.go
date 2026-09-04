@@ -320,11 +320,17 @@ type planWaitResult struct {
 	Comments []*types.PlanComment `json:"comments"`
 }
 
+// planWaitCancelled reports an interrupted wait. It stays non-zero so a
+// caller still tells "no decision yet" from a decision.
+func planWaitCancelled(planID string, cause error) error {
+	return fmt.Errorf("stopped waiting for a decision on %s: %w", planID, cause)
+}
+
 // planWaitCmd blocks until a review decision is made in the planner web UI.
 // It polls the plan status every 2s until it leaves draft/in_review, then
 // prints the decision and the full comment thread (the same formats used by
 // `arc plan comments`). Exits non-zero on timeout so callers can distinguish
-// "no decision yet" from a decision.
+// "no decision yet" from a decision. A cancelled context also ends the wait.
 var planWaitCmd = &cobra.Command{
 	Use:   "wait <plan-id>",
 	Short: "Block until the plan is approved/rejected/changes-requested in the web UI",
@@ -335,6 +341,7 @@ var planWaitCmd = &cobra.Command{
 			return err
 		}
 		planID := args[0]
+		ctx := cmdContext(cmd)
 
 		deadline := time.Now().Add(planWaitTimeout)
 		var consecutiveErrors int
@@ -350,7 +357,9 @@ var planWaitCmd = &cobra.Command{
 					return fmt.Errorf("timed out after %s waiting for a decision on %s: %w",
 						planWaitTimeout, planID, err)
 				}
-				time.Sleep(planWaitPollInterval)
+				if !sleepOrCancel(ctx, planWaitPollInterval) {
+					return planWaitCancelled(planID, ctx.Err())
+				}
 				continue
 			}
 			consecutiveErrors = 0
@@ -371,7 +380,9 @@ var planWaitCmd = &cobra.Command{
 				return fmt.Errorf("timed out after %s waiting for a decision on %s (status: %s)",
 					planWaitTimeout, planID, plan.Status)
 			}
-			time.Sleep(planWaitPollInterval)
+			if !sleepOrCancel(ctx, planWaitPollInterval) {
+				return planWaitCancelled(planID, ctx.Err())
+			}
 		}
 	},
 }
