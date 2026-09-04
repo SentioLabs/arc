@@ -91,13 +91,43 @@ func main() {
 }
 
 // runRoot executes the root command under a context that SIGINT or SIGTERM
-// cancels. Registering a handler stops those signals from killing the
-// process outright, so every command that can block for a long time must
-// watch ctx.Done. See tailFollow and planWaitCmd.
+// cancels. The first signal no longer kills the process, so every command
+// that can block for a long time must watch ctx.Done. See tailFollow and
+// planWaitCmd.
 func runRoot() error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signalContext()
 	defer stop()
 	return rootCmd.ExecuteContext(ctx)
+}
+
+// Signal-handling constants.
+const (
+	// signalBuffer holds the two signals signalContext reads: the one that
+	// cancels the context and the one that exits the process.
+	signalBuffer = 2
+
+	// signalExitBase is the offset a shell adds to a signal number when it
+	// reports a process killed by that signal.
+	signalExitBase = 128
+)
+
+// signalContext returns a context cancelled by the first SIGINT or SIGTERM.
+// A second signal exits the process with 128 plus the signal number, the
+// same status a shell reports for a process killed by that signal.
+func signalContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	sigs := make(chan os.Signal, signalBuffer)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		cancel()
+		s := <-sigs
+		if n, ok := s.(syscall.Signal); ok {
+			os.Exit(signalExitBase + int(n))
+		}
+		os.Exit(1)
+	}()
+	return ctx, func() { signal.Stop(sigs); cancel() }
 }
 
 // cmdContext returns cmd's context. Tests that call RunE directly never go

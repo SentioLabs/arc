@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -36,6 +37,24 @@ func awaitCommand(t *testing.T, run func() error) error {
 	case <-time.After(cancelReturnTimeout):
 		t.Fatal("command did not return after its context was cancelled")
 		return nil
+	}
+}
+
+// TestSignalContextCancelsOnInterrupt sends exactly one SIGINT. A second
+// signal would exit the test binary, which is the helper's whole point.
+func TestSignalContextCancelsOnInterrupt(t *testing.T) {
+	ctx, stop := signalContext()
+	defer stop()
+	require.NotNil(t, ctx.Done(), "the context must be cancellable")
+	require.NoError(t, ctx.Err(), "the context must not start cancelled")
+
+	require.NoError(t, syscall.Kill(os.Getpid(), syscall.SIGINT))
+
+	select {
+	case <-ctx.Done():
+		require.ErrorIs(t, ctx.Err(), context.Canceled)
+	case <-time.After(cancelReturnTimeout):
+		t.Fatal("SIGINT did not cancel the context from signalContext")
 	}
 }
 
