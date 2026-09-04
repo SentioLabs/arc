@@ -492,6 +492,21 @@ task docker:up
 
 - `GET /api/v1/projects/:id/issues/:iid/events` - Get audit events
 
+## Releasing
+
+### Release candidates and nightlies
+
+Tag release candidates on `main` with the next version and a dotted counter:
+`v0.16.0-rc.1`, `v0.16.0-rc.2`. The dot matters from the tenth candidate on.
+Semver compares `rc.10` and `rc.9` numerically but `rc10` and `rc9` lexically.
+Without the dot, `v0.16.0-rc10` sorts below `v0.16.0-rc9` and the rc channel
+never offers it. `arc self update` asks for confirmation before installing.
+Pass `-y` or `--yes` to skip the prompt in scripts.
+
+Nightlies are tagged automatically as `v<next patch>-nightly.<date>`. The next
+patch, not the released version, is what makes a nightly sort above the current
+release. The update channel logic always prefers a newer stable release.
+
 ## License
 
 MIT
