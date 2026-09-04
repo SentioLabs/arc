@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -303,7 +304,7 @@ func runServerLogs(cmd *cobra.Command, args []string) error {
 	}
 
 	if follow {
-		return tailFollow(logPath, lines)
+		return tailFollow(cmdContext(cmd), logPath, lines)
 	}
 
 	return tailLines(logPath, lines)
@@ -438,8 +439,9 @@ func tailLines(path string, n int) error {
 	return scanner.Err()
 }
 
-// tailFollow follows a log file (like tail -f)
-func tailFollow(path string, initialLines int) error {
+// tailFollow follows a log file (like tail -f). It returns nil once ctx is
+// cancelled, so Ctrl-C ends the follow without reporting an error.
+func tailFollow(ctx context.Context, path string, initialLines int) error {
 	// Print initial lines
 	if err := tailLines(path, initialLines); err != nil {
 		return err
@@ -458,15 +460,18 @@ func tailFollow(path string, initialLines int) error {
 	}
 
 	reader := bufio.NewReader(file)
-	for {
+	for ctx.Err() == nil {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
-				time.Sleep(serverPollInterval)
+				if !sleepOrCancel(ctx, serverPollInterval) {
+					return nil
+				}
 				continue
 			}
 			return err
 		}
 		_, _ = fmt.Print(line)
 	}
+	return nil
 }

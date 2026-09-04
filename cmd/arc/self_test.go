@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
+	"io"
 	"path/filepath"
 	"testing"
 
 	"github.com/sentiolabs/go-selfupdate"
+	"github.com/sentiolabs/go-selfupdate/cobracmd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,4 +87,69 @@ func TestPreInstallBacksUpOnlyOnMajorMinorChange(t *testing.T) {
 	assert.Equal(t, 1, calls, "minor bump must back up")
 	require.NoError(t, hook(t.Context(), "v0.16.0", "v1.0.0"))
 	assert.Equal(t, 2, calls, "major bump must back up")
+}
+
+// fakeSource serves one release tag without touching the network.
+type fakeSource struct{ tag string }
+
+func (f fakeSource) Latest(context.Context) (selfupdate.Release, error) {
+	return selfupdate.Release{Tag: f.tag}, nil
+}
+
+func (f fakeSource) List(context.Context, int) ([]selfupdate.Release, error) {
+	return []selfupdate.Release{{Tag: f.tag}}, nil
+}
+
+// blockingInstaller announces that Install started, then waits for the
+// context it was handed and reports why it stopped.
+type blockingInstaller struct{ started chan struct{} }
+
+func (b *blockingInstaller) Install(ctx context.Context, _ string) error {
+	close(b.started)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// useFakeSelfCmd swaps rootCmd's real self command for one driving u, so the
+// test exercises arc's own command tree without reaching GitHub. It silences
+// rootCmd's streams and restores every change when the test ends.
+func useFakeSelfCmd(t *testing.T, u *selfupdate.Updater) {
+	t.Helper()
+	fake := cobracmd.New(u, cobracmd.WithCheckShorthand("c"))
+	rootCmd.RemoveCommand(selfCmd)
+	rootCmd.AddCommand(fake)
+	rootCmd.SetOut(io.Discard)
+	rootCmd.SetErr(io.Discard)
+	t.Cleanup(func() {
+		rootCmd.RemoveCommand(fake)
+		rootCmd.AddCommand(selfCmd)
+		rootCmd.SetArgs(nil)
+		// A nil writer restores cobra's os.Stdout and os.Stderr defaults.
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+	})
+}
+
+// TestSelfUpdateHonorsCancelledRootContext covers the reason main runs the
+// root command with ExecuteContext: cobra must hand the installer a context
+// whose Done channel actually closes.
+func TestSelfUpdateHonorsCancelledRootContext(t *testing.T) {
+	inst := &blockingInstaller{started: make(chan struct{})}
+	useFakeSelfCmd(t, &selfupdate.Updater{
+		Name:      cliName,
+		Version:   "v0.1.0",
+		Source:    fakeSource{tag: "v99.0.0"},
+		Installer: inst,
+	})
+	rootCmd.SetArgs([]string{"self", "update", "-y"})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go func() {
+		<-inst.started
+		cancel()
+	}()
+
+	err := awaitCommand(t, func() error { return rootCmd.ExecuteContext(ctx) })
+	require.ErrorIs(t, err, context.Canceled)
 }

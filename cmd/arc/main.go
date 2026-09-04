@@ -5,13 +5,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/tabwriter"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/sentiolabs/arc/internal/client"
@@ -81,8 +85,39 @@ var (
 )
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := runRoot(); err != nil {
 		os.Exit(1)
+	}
+}
+
+// runRoot executes the root command under a context that SIGINT or SIGTERM
+// cancels. Registering a handler stops those signals from killing the
+// process outright, so every command that can block for a long time must
+// watch ctx.Done. See tailFollow and planWaitCmd.
+func runRoot() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return rootCmd.ExecuteContext(ctx)
+}
+
+// cmdContext returns cmd's context. Tests that call RunE directly never go
+// through Execute, so cmd.Context() is nil for them and a never-cancelled
+// background context keeps their behavior unchanged.
+func cmdContext(cmd *cobra.Command) context.Context {
+	if ctx := cmd.Context(); ctx != nil {
+		return ctx
+	}
+	return context.Background()
+}
+
+// sleepOrCancel waits for d, or returns early when ctx is cancelled. It
+// reports whether the full delay elapsed.
+func sleepOrCancel(ctx context.Context, d time.Duration) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case <-time.After(d):
+		return true
 	}
 }
 
