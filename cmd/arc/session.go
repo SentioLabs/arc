@@ -9,30 +9,25 @@ import (
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// resolveSessionID honors explicit and Arc identities before native fallbacks.
-// Native IDs can be inherited across nested runtimes, so conflicting values
-// need an explicit choice instead of silently attributing work to the wrong one.
-func resolveSessionID(explicit string) (string, error) {
-	if explicit != "" {
+var errEmptySessionID = errors.New("--session-id cannot be empty")
+
+// resolveSessionID uses an explicitly supplied session ID or Arc's generic
+// environment fallback. Harness integrations are responsible for passing their
+// native identity through one of these provider-neutral boundaries.
+func resolveSessionID(explicit string, explicitSet bool) (string, error) {
+	if explicitSet {
+		if explicit == "" {
+			return "", errEmptySessionID
+		}
 		return explicit, nil
 	}
-	if id := os.Getenv("ARC_SESSION_ID"); id != "" {
-		return id, nil
-	}
-	codexID, piID := os.Getenv("CODEX_THREAD_ID"), os.Getenv("PI_SESSION_ID")
-	if codexID != "" && piID != "" && codexID != piID {
-		return "", errors.New("conflicting runtime session IDs: set ARC_SESSION_ID or pass --session-id")
-	}
-	if piID != "" {
-		return piID, nil
-	}
-	return codexID, nil
+	return os.Getenv("ARC_SESSION_ID"), nil
 }
 
 // resolveClaimSessionID ensures the selected identity is registered in the
 // issue's project before updating ownership, regardless of the runtime or hook.
-func resolveClaimSessionID(c *client.Client, issueID, explicit string) (string, error) {
-	id, err := resolveSessionID(explicit)
+func resolveClaimSessionID(c *client.Client, issueID, explicit string, explicitSet bool) (string, error) {
+	id, err := resolveSessionID(explicit, explicitSet)
 	if err != nil || id == "" {
 		return id, err
 	}
@@ -57,6 +52,18 @@ func resolveClaimSessionID(c *client.Client, issueID, explicit string) (string, 
 		return "", fmt.Errorf("register AI session: %w", err)
 	}
 	return validateClaimSession(session, id, issue.ProjectID)
+}
+
+// resolvePrimeSessionID gives a validated Claude hook identity precedence over
+// ARC_SESSION_ID unless prime was given an explicit session ID.
+func resolvePrimeSessionID(explicit string, explicitSet bool, hookID string) (string, error) {
+	if explicitSet {
+		return resolveSessionID(explicit, true)
+	}
+	if hookID != "" {
+		return hookID, nil
+	}
+	return resolveSessionID("", false)
 }
 
 func validateClaimSession(session *types.AISession, id, projectID string) (string, error) {

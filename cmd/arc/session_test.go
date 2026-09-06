@@ -74,26 +74,31 @@ func takeTestCommand() *cobra.Command {
 func TestUpdateTakeSessionIdentity(t *testing.T) {
 	tests := []struct {
 		name, explicit, arcID, codexID, piID, status, wantID, wantErr string
-		withoutTake                                                   bool
+		explicitSet, withoutTake                                      bool
 	}{
-		{name: "explicit", explicit: "explicit-session", wantID: "explicit-session"},
+		{name: "explicit", explicit: "explicit-session", explicitSet: true, wantID: "explicit-session"},
 		{name: "arc environment", arcID: "arc-session", wantID: "arc-session"},
-		{name: "codex", codexID: "codex-thread", wantID: "codex-thread"},
-		{name: "pi", piID: "pi-session", wantID: "pi-session"},
-		{name: "native conflict", codexID: "codex", piID: "pi", wantErr: "conflicting runtime session IDs"},
-		{name: "same native identity", codexID: "same", piID: "same", wantID: "same"},
-		{name: "flag resolves native conflict", explicit: "flag", codexID: "codex", piID: "pi", wantID: "flag"},
+		{name: "native Codex environment is ignored", codexID: "codex-thread", wantErr: "no session ID available"},
+		{name: "native Pi environment is ignored", piID: "pi-session", wantErr: "no session ID available"},
 		{
-			name: "arc resolves native conflict", arcID: "arc-session",
-			codexID: "codex", piID: "pi", wantID: "arc-session",
+			name: "missing generic identity with native environments", codexID: "codex", piID: "pi",
+			wantErr: "no session ID available",
 		},
-		{name: "missing", wantErr: "no session ID available"},
-		{name: "flag wins conflicts", explicit: "flag", arcID: "arc-session", codexID: "codex", wantID: "flag"},
-		{name: "arc wins conflict", arcID: "arc-session", codexID: "codex", wantID: "arc-session"},
-		{name: "matching env", arcID: "same", codexID: "same", wantID: "same"},
-		{name: "preserve status", codexID: "codex", status: string(types.StatusBlocked), wantID: "codex"},
 		{
-			name: "flag requires take", explicit: "flag", codexID: "codex", withoutTake: true,
+			name: "flag wins conflicts", explicit: "flag", explicitSet: true, arcID: "arc-session",
+			codexID: "codex", piID: "pi", wantID: "flag",
+		},
+		{name: "arc wins native conflict", arcID: "arc-session", codexID: "codex", piID: "pi", wantID: "arc-session"},
+		{
+			name: "preserve status", explicit: "explicit", explicitSet: true,
+			status: string(types.StatusBlocked), wantID: "explicit",
+		},
+		{
+			name: "empty explicit value does not fall back", explicitSet: true, arcID: "arc-session",
+			codexID: "codex", piID: "pi", wantErr: "--session-id cannot be empty",
+		},
+		{
+			name: "flag requires take", explicit: "flag", explicitSet: true, codexID: "codex", withoutTake: true,
 			wantErr: "--session-id requires --take",
 		},
 	}
@@ -109,7 +114,9 @@ func TestUpdateTakeSessionIdentity(t *testing.T) {
 			if tt.withoutTake {
 				require.NoError(t, cmd.Flags().Set("take", "false"))
 			}
-			require.NoError(t, cmd.Flags().Set("session-id", tt.explicit))
+			if tt.explicitSet {
+				require.NoError(t, cmd.Flags().Set("session-id", tt.explicit))
+			}
 			if tt.status != "" {
 				require.NoError(t, cmd.Flags().Set("status", tt.status))
 			}
@@ -142,49 +149,39 @@ func TestUpdateTakeSessionIdentity(t *testing.T) {
 	}
 }
 
-func TestRuntimeHookRegistrationAndTake(t *testing.T) {
-	for _, runtime := range []string{"claude", "codex", "pi"} {
-		t.Run(runtime, func(t *testing.T) {
+func TestHarnessRegistrationAndExplicitTake(t *testing.T) {
+	tests := []struct {
+		name, id string
+	}{
+		{name: "Claude", id: "983a7cf7-bcb6-48fc-b485-129b4f1aaa45"},
+		{name: "Codex", id: "72b52c9a-2f32-4ae8-b387-ecde0e36e70f"},
+		{name: "Pi", id: "455df4ac-2b0f-4d28-93b7-f811a8fb4b03"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			c, projID := setupSessionTest(t)
-			const threadID = "983a7cf7-bcb6-48fc-b485-129b4f1aaa45"
-			switch runtime {
-			case "claude":
-				envFile := filepath.Join(t.TempDir(), "claude-env")
-				t.Setenv("CLAUDE_ENV_FILE", envFile)
-				sessionTestStdin(t, `{"session_id":"`+threadID+`"}`)
-				captureStdout(t, func() { primeCmd.Run(primeCmd, nil) })
-				data, err := os.ReadFile(envFile)
-				require.NoError(t, err)
-				require.Equal(t, "export ARC_SESSION_ID="+threadID+"\n", string(data))
-				t.Setenv("ARC_SESSION_ID", threadID)
-			case "codex":
-				t.Setenv("CODEX_THREAD_ID", threadID)
-			case "pi":
-				t.Setenv("PI_SESSION_ID", threadID)
-			}
 			cwd, err := os.Getwd()
 			require.NoError(t, err)
-			payload, err := json.Marshal(hookInput{
-				SessionID: threadID, CWD: cwd, TranscriptPath: "/recorded/transcript.jsonl",
+			registered, err := c.CreateAISession(projID, &types.AISession{
+				ID: tt.id, CWD: cwd, TranscriptPath: "/recorded/transcript.jsonl",
 			})
 			require.NoError(t, err)
-			sessionTestStdin(t, string(payload))
-			require.NoError(t, runSessionStart(aiSessionStartCmd, true))
-			registered, err := c.GetAISession(projID, threadID)
-			require.NoError(t, err)
-			issue, err := c.CreateIssue(projID, client.CreateIssueRequest{Title: "Runtime claim fixture"})
+			issue, err := c.CreateIssue(projID, client.CreateIssueRequest{Title: tt.name + " claim fixture"})
 			require.NoError(t, err)
 			// A registered parent remains usable from a worker's different directory.
 			t.Chdir(t.TempDir())
-			require.NoError(t, updateCmd.RunE(takeTestCommand(), []string{issue.ID}))
+			claimCmd := takeTestCommand()
+			require.NoError(t, claimCmd.Flags().Set("session-id", tt.id))
+			require.NoError(t, updateCmd.RunE(claimCmd, []string{issue.ID}))
 			claimed, err := c.GetIssueByID(issue.ID)
 			require.NoError(t, err)
 			require.Equal(t, registered.ID, claimed.AISessionID)
+			require.Equal(t, tt.id, claimed.AISessionID)
 			require.Equal(t, types.StatusInProgress, claimed.Status)
-			require.NoError(t, updateCmd.RunE(takeTestCommand(), []string{issue.ID}))
-			retried, err := c.GetAISession(projID, threadID)
+			require.NoError(t, updateCmd.RunE(claimCmd, []string{issue.ID}))
+			retried, err := c.GetAISession(projID, tt.id)
 			require.NoError(t, err)
-			require.Equal(t, registered.AISession, retried.AISession, "claims must retain original hook metadata")
+			require.Equal(t, *registered, retried.AISession, "claims must retain original hook metadata")
 		})
 	}
 }
@@ -195,7 +192,8 @@ func TestClaimRejectsProjectMismatch(t *testing.T) {
 			c, projID := setupSessionTest(t)
 			other, err := c.CreateProject("Other Project", "other", "")
 			require.NoError(t, err)
-			t.Setenv("CODEX_THREAD_ID", "worker-thread")
+			claimCmd := takeTestCommand()
+			require.NoError(t, claimCmd.Flags().Set("session-id", "worker-thread"))
 			targetProject := projID
 			if mismatch == "cwd" {
 				targetProject = other.ID
@@ -205,7 +203,7 @@ func TestClaimRejectsProjectMismatch(t *testing.T) {
 			}
 			issue, err := c.CreateIssue(targetProject, client.CreateIssueRequest{Title: "Must remain unclaimed"})
 			require.NoError(t, err)
-			err = updateCmd.RunE(takeTestCommand(), []string{issue.ID})
+			err = updateCmd.RunE(claimCmd, []string{issue.ID})
 			require.ErrorContains(t, err, "register AI session")
 			got, err := c.GetIssueByID(issue.ID)
 			require.NoError(t, err)
@@ -218,20 +216,38 @@ func TestClaimRejectsProjectMismatch(t *testing.T) {
 func TestClaimValidatesRegistrationResponse(t *testing.T) {
 	for _, failure := range []string{"wrong project", "wrong id", "server error"} {
 		t.Run(failure, func(t *testing.T) {
-			t.Setenv("ARC_SESSION_ID", "")
-			t.Setenv("CODEX_THREAD_ID", "worker-thread")
-			t.Setenv("PI_SESSION_ID", "")
 			var updated atomic.Bool
 			ts := claimRegistrationFailureServer(failure, &updated)
 			t.Cleanup(ts.Close)
 			origURL, origConfig := serverURL, configPath
 			serverURL, configPath = ts.URL, filepath.Join(t.TempDir(), "config.toml")
 			t.Cleanup(func() { serverURL, configPath = origURL, origConfig })
-			err := updateCmd.RunE(takeTestCommand(), []string{"fixture"})
+			claimCmd := takeTestCommand()
+			require.NoError(t, claimCmd.Flags().Set("session-id", "worker-thread"))
+			err := updateCmd.RunE(claimCmd, []string{"fixture"})
 			require.ErrorContains(t, err, "register AI session")
 			require.False(t, updated.Load(), "registration failure must stop before issue mutation")
 		})
 	}
+}
+
+func TestEmptyClaimIDSkipsAPICalls(t *testing.T) {
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(ts.Close)
+
+	origURL, origConfig := serverURL, configPath
+	serverURL, configPath = ts.URL, filepath.Join(t.TempDir(), "config.toml")
+	t.Cleanup(func() { serverURL, configPath = origURL, origConfig })
+
+	claimCmd := takeTestCommand()
+	require.NoError(t, claimCmd.Flags().Set("session-id", ""))
+	err := updateCmd.RunE(claimCmd, []string{"fixture"})
+	require.ErrorIs(t, err, errEmptySessionID)
+	require.Zero(t, calls.Load(), "an empty explicit session ID must fail before API requests")
 }
 
 func claimRegistrationFailureServer(failure string, updated *atomic.Bool) *httptest.Server {
@@ -295,20 +311,40 @@ func TestSessionStartKeepsExplicitIdentity(t *testing.T) {
 	require.Equal(t, "hook-session", sessions[0].ID)
 }
 
+func primeTestCommand() *cobra.Command {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("session-id", "", "")
+	return cmd
+}
+
 func TestPrimeSessionIdentity(t *testing.T) {
 	const hookID = "983a7cf7-bcb6-48fc-b485-129b4f1aaa45"
-	tests := []struct{ name, hook, arcID, codexID, piID, wantID string }{
-		{name: "codex", codexID: "codex-thread", wantID: "codex-thread"},
-		{name: "pi", piID: "pi-session", wantID: "pi-session"},
-		{name: "native conflict", codexID: "codex", piID: "pi"},
-		{name: "hook resolves native conflict", hook: hookID, codexID: "codex", piID: "pi", wantID: hookID},
-		{name: "arc wins conflict", arcID: "arc-session", codexID: "codex-thread", wantID: "arc-session"},
-		{name: "hook wins conflicts", hook: hookID, arcID: "arc-session", codexID: "codex-thread", wantID: hookID},
+	tests := []struct {
+		name, explicit, hook, arcID, codexID, piID, wantID, wantErr string
+		explicitSet                                                 bool
+	}{
+		{
+			name: "explicit wins conflicts", explicit: "explicit", explicitSet: true, hook: hookID,
+			arcID: "arc-session", codexID: "codex-thread", piID: "pi", wantID: "explicit",
+		},
+		{
+			name: "hook wins ARC fallback", hook: hookID, arcID: "arc-session",
+			codexID: "codex-thread", piID: "pi", wantID: hookID,
+		},
+		{
+			name: "ARC fallback ignores native environments", arcID: "arc-session",
+			codexID: "codex-thread", piID: "pi", wantID: "arc-session",
+		},
+		{name: "native environments are ignored", codexID: "codex-thread", piID: "pi"},
+		{
+			name: "empty explicit fails", explicitSet: true, hook: hookID, arcID: "arc-session",
+			wantErr: "--session-id cannot be empty",
+		},
 		{name: "missing"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setupSessionTest(t)
+			c, projID := setupSessionTest(t)
 			t.Setenv("ARC_SESSION_ID", tt.arcID)
 			t.Setenv("CODEX_THREAD_ID", tt.codexID)
 			t.Setenv("PI_SESSION_ID", tt.piID)
@@ -317,7 +353,19 @@ func TestPrimeSessionIdentity(t *testing.T) {
 			payload, err := json.Marshal(hookInput{SessionID: tt.hook})
 			require.NoError(t, err)
 			sessionTestStdin(t, string(payload))
-			out := captureStdout(t, func() { primeCmd.Run(primeCmd, nil) })
+			cmd := primeTestCommand()
+			if tt.explicitSet {
+				require.NoError(t, cmd.Flags().Set("session-id", tt.explicit))
+			}
+			var runErr error
+			out := captureStdout(t, func() { runErr = primeCmd.RunE(cmd, nil) })
+			if tt.wantErr != "" {
+				require.ErrorContains(t, runErr, tt.wantErr)
+				require.Empty(t, out)
+				require.NoFileExists(t, envFile)
+				return
+			}
+			require.NoError(t, runErr)
 			if tt.wantID == "" {
 				require.NotContains(t, out, "> **Session**:")
 			} else {
@@ -330,6 +378,9 @@ func TestPrimeSessionIdentity(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, "export ARC_SESSION_ID="+tt.hook+"\n", string(data))
 			}
+			sessions, err := c.ListAISessions(projID, 10, 0)
+			require.NoError(t, err)
+			require.Empty(t, sessions, "prime must not lazily register sessions")
 		})
 	}
 }

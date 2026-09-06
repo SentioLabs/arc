@@ -78,6 +78,10 @@ func TestPrime(t *testing.T) {
 		{"documents arc roadmap command", "arc roadmap"},
 		{"documents --under flag", "--under"},
 		{"documents --parallel flag", "--parallel"},
+		{"documents generic session identity", "ARC_SESSION_ID"},
+		{"documents explicit session identity", "--session-id"},
+		{"documents prime non-registration", "prime` does not register sessions"},
+		{"documents claim registration", "--take` registers or reuses"},
 	}
 
 	for _, tt := range tests {
@@ -86,5 +90,15 @@ func TestPrime(t *testing.T) {
 				t.Errorf("prime output missing %q", tt.substring)
 			}
 		})
+	}
+	if strings.Contains(content, "$CURRENT_SESSION_ID") {
+		t.Error("prime output must not invent a session environment variable")
+	}
+}
+
+func TestPrimeSessionIDFlag(t *testing.T) {
+	flag := primeCmd.Flags().Lookup("session-id")
+	if flag == nil {
+		t.Fatal("prime must expose --session-id")
 	}
 }
