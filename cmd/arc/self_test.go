@@ -55,6 +55,23 @@ func TestSelfUpdaterWiring(t *testing.T) {
 	assert.NotNil(t, u.PreInstall)
 }
 
+func TestSelfUpdaterRecognizesLegacyRCUpdates(t *testing.T) {
+	for _, latest := range []string{"v0.16.0-rc10", "v0.16.0-rc.10"} {
+		t.Run(latest, func(t *testing.T) {
+			u := newSelfUpdater()
+			u.Version = "v0.16.0-rc9"
+			u.Source = fakeSource{tag: latest}
+			u.Store = &selfupdate.MemStore{Current: selfupdate.ChannelRC}
+
+			result, err := u.Check(t.Context())
+			require.NoError(t, err)
+			assert.Positive(t, result.Cmp, "the next RC must be offered without --force")
+			assert.Equal(t, "v0.16.0-rc9", result.Current)
+			assert.Equal(t, latest, result.Latest)
+		})
+	}
+}
+
 // channelCmdName is the "channel" subcommand's name.
 const channelCmdName = "channel"
 
