@@ -53,10 +53,7 @@ Workflow customization:
 			persistSessionID(sessionID)
 		}
 
-		// Also check env var (may have been set by a previous SessionStart hook)
-		if sessionID == "" {
-			sessionID = os.Getenv("ARC_SESSION_ID")
-		}
+		sessionID = resolveSessionID(sessionID)
 
 		// Check if this project has arc configured via workspace path resolution
 		cwd, err := os.Getwd()

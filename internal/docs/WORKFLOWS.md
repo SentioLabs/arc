@@ -39,6 +39,27 @@ Session Start (when arc is available):
 
 **Server connection**: Arc automatically connects to the server. If not running, start with `arc server` or let daemon auto-start.
 
+### Claiming an issue for the current session
+
+`arc update <id> --take` sets the issue's AI session and changes its status to
+`in_progress` unless `--status` is supplied. Session identity uses the first
+nonempty value in this order:
+
+1. `--session-id` (requires `--take`)
+2. `ARC_SESSION_ID`
+3. `CODEX_THREAD_ID`, provided by Codex for commands in the current thread
+
+Explicit flags and `ARC_SESSION_ID` take precedence when identities conflict.
+Without any identity, the command fails without updating the issue.
+
+The Arc plugin's `SessionStart` hook registers the runtime's `session_id`
+unchanged. In a Codex session this matches `CODEX_THREAD_ID`; no environment-file
+repair is needed. `arc prime` uses the same environment fallback, while a valid
+hook payload takes precedence and retains Claude's `CLAUDE_ENV_FILE` persistence.
+Neither `prime` nor `--take` registers a session. Registration remains
+`arc ai session start --stdin` for hooks or `arc ai session start --id <id> --cwd <path>`
+for manual use.
+
 ---
 
 ## Compaction Survival {#compaction-survival}
