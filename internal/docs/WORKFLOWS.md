@@ -47,16 +47,38 @@ nonempty value in this order:
 
 1. `--session-id` (requires `--take`)
 2. `ARC_SESSION_ID`
-3. `CODEX_THREAD_ID`, provided by Codex for commands in the current thread
 
-Explicit flags and `ARC_SESSION_ID` take precedence when identities conflict.
-Without any identity, the command fails without updating the issue.
+The CLI treats these IDs as opaque and does not read harness-specific identity
+variables. Harnesses should pass their current identity explicitly, for example:
+
+```bash
+# Claude hook identity retained as ARC_SESSION_ID
+arc update <id> --take --session-id "${ARC_SESSION_ID:?ARC_SESSION_ID is required}"
+arc prime --session-id "${ARC_SESSION_ID:?ARC_SESSION_ID is required}"
+
+# Codex and Pi integrations pass their current native identity explicitly
+arc update <id> --take --session-id "${CODEX_THREAD_ID:?CODEX_THREAD_ID is required}"
+arc update <id> --take --session-id "${PI_SESSION_ID:?PI_SESSION_ID is required}"
+```
+
+Claude hooks provide their canonical UUID and can retain it through
+`ARC_SESSION_ID`. Codex integrations pass the current `CODEX_THREAD_ID`, and Pi
+integrations pass the current `PI_SESSION_ID` (or the extension's session-manager
+identity). The missing-value guards above prevent passing an empty ID. Do not copy
+a parent ID into a spawned worker; each integration passes that worker's current
+identity.
+
+An explicitly empty `--session-id` is an error; it does not fall back to
+`ARC_SESSION_ID`. Without either value, `--take` fails before updating the
+issue. `--session-id` is accepted by `update` only with `--take`.
+
+For `arc prime`, an explicit `--session-id` wins; otherwise a valid Claude hook
+payload wins over `ARC_SESSION_ID`. The hook payload must be a UUID-format session ID and
+is the only input persisted to `CLAUDE_ENV_FILE`; explicit and environment
+identities are never persisted.
 
 The Arc plugin's `SessionStart` hook registers the runtime's `session_id`
-unchanged. In a Codex session this matches `CODEX_THREAD_ID`; no environment-file
-repair is needed. `arc prime` uses the same environment fallback, while a valid
-hook payload takes precedence and retains Claude's `CLAUDE_ENV_FILE` persistence.
-Neither `prime` nor `--take` registers a session. Registration remains
+unchanged. Neither `prime` nor `--take` registers a session. Registration remains
 `arc ai session start --stdin` for hooks or `arc ai session start --id <id> --cwd <path>`
 for manual use.
 

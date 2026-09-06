@@ -1,17 +1,33 @@
 package main
 
-import "os"
+import (
+	"errors"
+	"os"
+)
 
-// resolveSessionID uses an explicit flag or hook identity first, then Arc's
-// environment override, then the Codex thread identity. Codex SessionStart
-// hooks register their session_id unchanged, matching CODEX_THREAD_ID in the
-// session's commands. This only resolves identity; it does not register a session.
-func resolveSessionID(explicit string) string {
-	if explicit != "" {
-		return explicit
+var errEmptySessionID = errors.New("--session-id cannot be empty")
+
+// resolveSessionID uses an explicitly supplied session ID or Arc's generic
+// environment fallback. Harness integrations are responsible for passing their
+// native identity through one of these provider-neutral boundaries.
+func resolveSessionID(explicit string, explicitSet bool) (string, error) {
+	if explicitSet {
+		if explicit == "" {
+			return "", errEmptySessionID
+		}
+		return explicit, nil
 	}
-	if id := os.Getenv("ARC_SESSION_ID"); id != "" {
-		return id
+	return os.Getenv("ARC_SESSION_ID"), nil
+}
+
+// resolvePrimeSessionID gives a validated Claude hook identity precedence over
+// ARC_SESSION_ID unless prime was given an explicit session ID.
+func resolvePrimeSessionID(explicit string, explicitSet bool, hookID string) (string, error) {
+	if explicitSet {
+		return resolveSessionID(explicit, true)
 	}
-	return os.Getenv("CODEX_THREAD_ID")
+	if hookID != "" {
+		return hookID, nil
+	}
+	return resolveSessionID("", false)
 }
