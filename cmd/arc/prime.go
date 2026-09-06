@@ -321,7 +321,8 @@ You are the **{{.Role}}** teammate.
 
 var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 
-> **Context Recovery**: Run ` + "`arc prime`" + ` after compaction, clear, or new session
+> **Context Recovery**: Run ` + "`arc prime --session-id <session-id>`" + ` after compaction,
+> clear, or a new manual session
 > Hooks auto-call this in Claude Code when project config detected
 {{- if .SessionID}}
 > **Session**: ` + "`{{.SessionID}}`" + `
@@ -355,7 +356,8 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
   ` + "`arc prime --session-id <session-id>`" + `. Do not copy a parent session ID into a spawned worker.
 - A supplied empty ` + "`--session-id`" + ` fails instead of falling back.
   ` + "`--session-id`" + ` on ` + "`update`" + ` requires ` + "`--take`" + `.
-- ` + "`prime`" + ` and ` + "`--take`" + ` do not register sessions; harness setup owns registration.
+- ` + "`prime`" + ` does not register sessions. ` + "`--take`" + ` registers or reuses the selected session in
+  the issue's project before changing issue ownership or status.
 
 ## Essential Commands
 

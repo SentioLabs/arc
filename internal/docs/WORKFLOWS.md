@@ -41,9 +41,9 @@ Session Start (when arc is available):
 
 ### Claiming an issue for the current session
 
-`arc update <id> --take` sets the issue's AI session and changes its status to
-`in_progress` unless `--status` is supplied. Session identity uses the first
-nonempty value in this order:
+`arc update <id> --take` registers or reuses the issue's AI session and changes
+its status to `in_progress` unless `--status` is supplied. Session identity uses
+the first nonempty value in this order:
 
 1. `--session-id` (requires `--take`)
 2. `ARC_SESSION_ID`
@@ -78,9 +78,12 @@ is the only input persisted to `CLAUDE_ENV_FILE`; explicit and environment
 identities are never persisted.
 
 The Arc plugin's `SessionStart` hook registers the runtime's `session_id`
-unchanged. Neither `prime` nor `--take` registers a session. Registration remains
-`arc ai session start --stdin` for hooks or `arc ai session start --id <id> --cwd <path>`
-for manual use.
+unchanged. `arc prime` never registers a session; `--take` verifies the selected
+session in the issue's project, reuses matching metadata when present, and lazily
+registers a missing session with the current cwd before mutating the issue.
+Registration failures and cross-project session IDs leave issue ownership and
+status unchanged. Manual registration remains
+`arc ai session start --id <id> --cwd <path>` when needed.
 
 ---
 

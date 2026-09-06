@@ -100,6 +100,9 @@ func (s *Server) createAISession(c echo.Context) error {
 		if getErr != nil {
 			return errorJSON(c, http.StatusInternalServerError, err.Error())
 		}
+		if existing.ProjectID != projectID {
+			return errorJSON(c, http.StatusConflict, "session ID already belongs to another project")
+		}
 		return successJSON(c, existing)
 	}
 

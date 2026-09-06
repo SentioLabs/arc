@@ -1864,6 +1864,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Existing AI session in the same project (metadata preserved) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISessionResponse"];
+                };
+            };
             /** @description AI session created */
             201: {
                 headers: {
@@ -1874,6 +1883,24 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            /** @description Session ID already belongs to another project */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Working directory does not resolve to the requested project */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };

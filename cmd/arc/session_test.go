@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/sentiolabs/arc/internal/api"
@@ -134,6 +137,14 @@ func TestUpdateTakeSessionIdentity(t *testing.T) {
 			default:
 				require.Equal(t, types.StatusInProgress, got.Status)
 			}
+			sessions, err := c.ListAISessions(projID, 10, 0)
+			require.NoError(t, err)
+			if tt.wantErr == "" {
+				require.Len(t, sessions, 1, "every claim must have a registered session")
+				require.Equal(t, tt.wantID, sessions[0].ID)
+			} else {
+				require.Empty(t, sessions)
+			}
 		})
 	}
 }
@@ -151,17 +162,14 @@ func TestHarnessRegistrationAndExplicitTake(t *testing.T) {
 			c, projID := setupSessionTest(t)
 			cwd, err := os.Getwd()
 			require.NoError(t, err)
-			registerCmd := &cobra.Command{}
-			registerCmd.Flags().String("id", "", "")
-			registerCmd.Flags().String("transcript-path", "", "")
-			registerCmd.Flags().String("cwd", "", "")
-			require.NoError(t, registerCmd.Flags().Set("id", tt.id))
-			require.NoError(t, registerCmd.Flags().Set("cwd", cwd))
-			require.NoError(t, runSessionStart(registerCmd, false))
-			registered, err := c.GetAISession(projID, tt.id)
+			registered, err := c.CreateAISession(projID, &types.AISession{
+				ID: tt.id, CWD: cwd, TranscriptPath: "/recorded/transcript.jsonl",
+			})
 			require.NoError(t, err)
 			issue, err := c.CreateIssue(projID, client.CreateIssueRequest{Title: tt.name + " claim fixture"})
 			require.NoError(t, err)
+			// A registered parent remains usable from a worker's different directory.
+			t.Chdir(t.TempDir())
 			claimCmd := takeTestCommand()
 			require.NoError(t, claimCmd.Flags().Set("session-id", tt.id))
 			require.NoError(t, updateCmd.RunE(claimCmd, []string{issue.ID}))
@@ -170,8 +178,107 @@ func TestHarnessRegistrationAndExplicitTake(t *testing.T) {
 			require.Equal(t, registered.ID, claimed.AISessionID)
 			require.Equal(t, tt.id, claimed.AISessionID)
 			require.Equal(t, types.StatusInProgress, claimed.Status)
+			require.NoError(t, updateCmd.RunE(claimCmd, []string{issue.ID}))
+			retried, err := c.GetAISession(projID, tt.id)
+			require.NoError(t, err)
+			require.Equal(t, *registered, retried.AISession, "claims must retain original hook metadata")
 		})
 	}
+}
+
+func TestClaimRejectsProjectMismatch(t *testing.T) {
+	for _, mismatch := range []string{"cwd", "registered session"} {
+		t.Run(mismatch, func(t *testing.T) {
+			c, projID := setupSessionTest(t)
+			other, err := c.CreateProject("Other Project", "other", "")
+			require.NoError(t, err)
+			claimCmd := takeTestCommand()
+			require.NoError(t, claimCmd.Flags().Set("session-id", "worker-thread"))
+			targetProject := projID
+			if mismatch == "cwd" {
+				targetProject = other.ID
+			} else {
+				_, err = c.CreateAISession(other.ID, &types.AISession{ID: "worker-thread"})
+				require.NoError(t, err)
+			}
+			issue, err := c.CreateIssue(targetProject, client.CreateIssueRequest{Title: "Must remain unclaimed"})
+			require.NoError(t, err)
+			err = updateCmd.RunE(claimCmd, []string{issue.ID})
+			require.ErrorContains(t, err, "register AI session")
+			got, err := c.GetIssueByID(issue.ID)
+			require.NoError(t, err)
+			require.Empty(t, got.AISessionID)
+			require.Equal(t, types.StatusOpen, got.Status)
+		})
+	}
+}
+
+func TestClaimValidatesRegistrationResponse(t *testing.T) {
+	for _, failure := range []string{"wrong project", "wrong id", "server error"} {
+		t.Run(failure, func(t *testing.T) {
+			var updated atomic.Bool
+			ts := claimRegistrationFailureServer(failure, &updated)
+			t.Cleanup(ts.Close)
+			origURL, origConfig := serverURL, configPath
+			serverURL, configPath = ts.URL, filepath.Join(t.TempDir(), "config.toml")
+			t.Cleanup(func() { serverURL, configPath = origURL, origConfig })
+			claimCmd := takeTestCommand()
+			require.NoError(t, claimCmd.Flags().Set("session-id", "worker-thread"))
+			err := updateCmd.RunE(claimCmd, []string{"fixture"})
+			require.ErrorContains(t, err, "register AI session")
+			require.False(t, updated.Load(), "registration failure must stop before issue mutation")
+		})
+	}
+}
+
+func TestEmptyClaimIDSkipsAPICalls(t *testing.T) {
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(ts.Close)
+
+	origURL, origConfig := serverURL, configPath
+	serverURL, configPath = ts.URL, filepath.Join(t.TempDir(), "config.toml")
+	t.Cleanup(func() { serverURL, configPath = origURL, origConfig })
+
+	claimCmd := takeTestCommand()
+	require.NoError(t, claimCmd.Flags().Set("session-id", ""))
+	err := updateCmd.RunE(claimCmd, []string{"fixture"})
+	require.ErrorIs(t, err, errEmptySessionID)
+	require.Zero(t, calls.Load(), "an empty explicit session ID must fail before API requests")
+}
+
+func claimRegistrationFailureServer(failure string, updated *atomic.Bool) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			if strings.Contains(r.URL.Path, "/ai/sessions/") {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error":"not found"}`))
+				return
+			}
+			_ = json.NewEncoder(w).Encode(types.Issue{ID: "fixture", ProjectID: "target-project"})
+		case http.MethodPost:
+			if failure == "server error" {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"error":"registration unavailable"}`))
+				return
+			}
+			session := types.AISession{ID: "worker-thread", ProjectID: "target-project"}
+			if failure == "wrong project" {
+				session.ProjectID = "other-project"
+			} else {
+				session.ID = "other-thread"
+			}
+			_ = json.NewEncoder(w).Encode(session)
+		case http.MethodPut:
+			updated.Store(true)
+			_ = json.NewEncoder(w).Encode(types.Issue{ID: "fixture"})
+		}
+	}))
 }
 
 func TestSessionStartKeepsExplicitIdentity(t *testing.T) {
@@ -237,7 +344,7 @@ func TestPrimeSessionIdentity(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setupSessionTest(t)
+			c, projID := setupSessionTest(t)
 			t.Setenv("ARC_SESSION_ID", tt.arcID)
 			t.Setenv("CODEX_THREAD_ID", tt.codexID)
 			t.Setenv("PI_SESSION_ID", tt.piID)
@@ -271,6 +378,9 @@ func TestPrimeSessionIdentity(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, "export ARC_SESSION_ID="+tt.hook+"\n", string(data))
 			}
+			sessions, err := c.ListAISessions(projID, 10, 0)
+			require.NoError(t, err)
+			require.Empty(t, sessions, "prime must not lazily register sessions")
 		})
 	}
 }

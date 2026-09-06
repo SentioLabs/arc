@@ -80,7 +80,8 @@ func TestPrime(t *testing.T) {
 		{"documents --parallel flag", "--parallel"},
 		{"documents generic session identity", "ARC_SESSION_ID"},
 		{"documents explicit session identity", "--session-id"},
-		{"documents separate registration", "do not register sessions"},
+		{"documents prime non-registration", "prime` does not register sessions"},
+		{"documents claim registration", "--take` registers or reuses"},
 	}
 
 	for _, tt := range tests {

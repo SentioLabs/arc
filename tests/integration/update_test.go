@@ -289,6 +289,7 @@ func TestUpdateTake(t *testing.T) {
 func TestUpdateTakeNoSession(t *testing.T) {
 	t.Setenv("ARC_SESSION_ID", "")
 	t.Setenv("CODEX_THREAD_ID", "")
+	t.Setenv("PI_SESSION_ID", "")
 	home := setupHome(t)
 
 	arcCmdSuccess(t, home, "init", "take-nosess-proj", "--server", serverURL)

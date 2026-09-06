@@ -1059,7 +1059,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		if take {
-			sessionID, err = resolveSessionID(sessionID, sessionIDSet)
+			sessionID, err = resolveClaimSessionID(c, args[0], sessionID, sessionIDSet)
 			if err != nil {
 				return err
 			}
