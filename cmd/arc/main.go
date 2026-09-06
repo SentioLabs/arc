@@ -1052,18 +1052,20 @@ var updateCmd = &cobra.Command{
 		// Handle --take flag
 		take, _ := cmd.Flags().GetBool("take")
 		sessionID, _ := cmd.Flags().GetString("session-id")
+		sessionIDSet := cmd.Flags().Changed("session-id")
 
-		if sessionID != "" && !take {
+		if sessionIDSet && !take {
 			return errors.New("--session-id requires --take")
 		}
 
 		if take {
-			// Resolve session ID: explicit flag > env var > error
-			if sessionID == "" {
-				sessionID = os.Getenv("ARC_SESSION_ID")
+			sessionID, err = resolveSessionID(sessionID, sessionIDSet)
+			if err != nil {
+				return err
 			}
 			if sessionID == "" {
-				return errors.New("no session ID available — set ARC_SESSION_ID or pass --session-id")
+				return errors.New(
+					"no session ID available — set ARC_SESSION_ID or pass --session-id")
 			}
 			updates["ai_session_id"] = sessionID
 			// Set status to in_progress unless user explicitly passed --status
@@ -1131,8 +1133,8 @@ func init() {
 	updateCmd.Flags().StringP("description", "d", "", "New description")
 	updateCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	updateCmd.Flags().Bool("take", false,
-		"Take this issue for the current AI session (sets ai_session_id + status=in_progress)")
-	updateCmd.Flags().String("session-id", "", "Explicit AI session ID (used with --take)")
+		"Take this issue (session: --session-id > ARC_SESSION_ID; status=in_progress)")
+	updateCmd.Flags().String("session-id", "", "Explicit AI session ID (requires --take; overrides ARC_SESSION_ID)")
 	updateCmd.Flags().StringSlice("label-add", nil, "Label to add (repeatable)")
 	updateCmd.Flags().StringSlice("label-remove", nil, "Label to remove (repeatable)")
 }

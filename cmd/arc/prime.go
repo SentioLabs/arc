@@ -46,22 +46,28 @@ Role detection (in priority order):
 
 Workflow customization:
 - Place a .arc/PRIME.md file to override the default output entirely.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// Read hook stdin and persist session ID if available
-		sessionID := readHookStdin()
-		if sessionID != "" {
-			persistSessionID(sessionID)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		explicitSessionID, _ := cmd.Flags().GetString("session-id")
+		explicitSessionIDSet := cmd.Flags().Changed("session-id")
+		if explicitSessionIDSet && explicitSessionID == "" {
+			return errEmptySessionID
 		}
 
-		// Also check env var (may have been set by a previous SessionStart hook)
-		if sessionID == "" {
-			sessionID = os.Getenv("ARC_SESSION_ID")
+		// Read hook stdin and persist session ID if available
+		hookSessionID := readHookStdin()
+		if hookSessionID != "" {
+			persistSessionID(hookSessionID)
+		}
+
+		sessionID, err := resolvePrimeSessionID(explicitSessionID, explicitSessionIDSet, hookSessionID)
+		if err != nil {
+			return err
 		}
 
 		// Check if this project has arc configured via workspace path resolution
 		cwd, err := os.Getwd()
 		if err != nil {
-			os.Exit(0)
+			return nil
 		}
 		normalizedCwd := project.NormalizePath(cwd)
 
@@ -77,7 +83,7 @@ Workflow customization:
 			// Fall back to legacy config check (works offline)
 			arcHome := project.DefaultArcHome()
 			if cfg, err := readLegacyConfig(arcHome, cwd); err != nil || cfg == nil {
-				os.Exit(0)
+				return nil
 			}
 		}
 
@@ -85,7 +91,7 @@ Workflow customization:
 		localPrimePath := ".arc/PRIME.md"
 		if content, err := os.ReadFile(localPrimePath); err == nil {
 			_, _ = os.Stdout.Write(content)
-			return
+			return nil
 		}
 
 		// Detect role from flag or env var
@@ -97,14 +103,14 @@ Workflow customization:
 		// Role-based output takes precedence over mode flags
 		if role == "lead" {
 			if err := outputTeamLeadContext(os.Stdout, sessionID); err != nil {
-				os.Exit(0)
+				return nil
 			}
-			return
+			return nil
 		} else if role != "" {
 			if err := outputTeammateContext(os.Stdout, role, sessionID); err != nil {
-				os.Exit(0)
+				return nil
 			}
-			return
+			return nil
 		}
 
 		// Determine output mode
@@ -115,8 +121,9 @@ Workflow customization:
 
 		// Output workflow context
 		if err := outputPrimeContext(os.Stdout, mcpMode, sessionID); err != nil {
-			os.Exit(0)
+			return nil
 		}
+		return nil
 	},
 }
 
@@ -225,6 +232,7 @@ func init() {
 	primeCmd.Flags().BoolVar(&primeFullMode, "full", false, "Force full CLI output")
 	primeCmd.Flags().BoolVar(&primeMCPMode, "mcp", false, "Force MCP mode (minimal output)")
 	primeCmd.Flags().StringVar(&primeRole, "role", "", "Teammate role (lead, frontend, backend, etc.)")
+	primeCmd.Flags().String("session-id", "", "Explicit AI session ID (overrides hook input and ARC_SESSION_ID)")
 	rootCmd.AddCommand(primeCmd)
 }
 
@@ -339,6 +347,16 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 - Git workflow: commit and push at session end
 - Session management: check ` + "`arc ready`" + ` for available work
 
+### Session Identity
+- The CLI accepts only ` + "`--session-id`" + ` and ` + "`ARC_SESSION_ID`" + `; harnesses pass their
+  current identity explicitly.
+- Pass a harness's current binding as
+  ` + "`arc update <id> --take --session-id <session-id>`" + ` or
+  ` + "`arc prime --session-id <session-id>`" + `. Do not copy a parent session ID into a spawned worker.
+- A supplied empty ` + "`--session-id`" + ` fails instead of falling back.
+  ` + "`--session-id`" + ` on ` + "`update`" + ` requires ` + "`--take`" + `.
+- ` + "`prime`" + ` and ` + "`--take`" + ` do not register sessions; harness setup owns registration.
+
 ## Essential Commands
 
 ### Finding Work
@@ -369,7 +387,8 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
   ` + "`arc create \"Phase\" --type=milestone --parent=<release-id>`" + ` (auto-sequences
   after the previous milestone; ` + "`--parallel`" + ` for an independent track,
   ` + "`--after=<id>`" + ` to sequence explicitly)
-- ` + "`arc update <id> --take`" + ` - Take issue for current AI session (sets session ID + in_progress)
+- ` + "`arc update <id> --take --session-id <session-id>`" + ` - Take issue for current AI session
+  (sets session ID + in_progress)
 - ` + "`arc update <id> --title=\"new title\"`" + ` - Update fields
 - ` + "`arc update <id> --stdin <<'EOF'`" + ` - Update description via stdin heredoc
 - ` + "`arc close <id>`" + ` - Mark complete
@@ -404,7 +423,7 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 ` + "```bash" + `
 arc ready           # Find available work
 arc show <id>       # Review issue details
-arc update <id> --take  # Take it (sets session ID + in_progress)
+arc update <id> --take --session-id <session-id>  # Take it (sets session ID + in_progress)
 ` + "```" + `
 
 **Completing work:**

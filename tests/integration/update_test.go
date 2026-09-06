@@ -287,6 +287,8 @@ func TestUpdateTake(t *testing.T) {
 
 // TestUpdateTakeNoSession verifies that --take fails without a session ID.
 func TestUpdateTakeNoSession(t *testing.T) {
+	t.Setenv("ARC_SESSION_ID", "")
+	t.Setenv("CODEX_THREAD_ID", "")
 	home := setupHome(t)
 
 	arcCmdSuccess(t, home, "init", "take-nosess-proj", "--server", serverURL)
@@ -297,7 +299,7 @@ func TestUpdateTakeNoSession(t *testing.T) {
 		t.Fatalf("could not extract issue ID from create output: %s", createOut)
 	}
 
-	// Should fail — no ARC_SESSION_ID and no --session-id
+	// Should fail with neither runtime identity nor --session-id.
 	_, err := arcCmd(t, home, "update", id, "--take", "--server", serverURL)
 	if err == nil {
 		t.Error("expected error when --take used without session ID")
