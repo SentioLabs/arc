@@ -41,24 +41,39 @@ Session Start (when arc is available):
 
 ### Claiming an issue for the current session
 
-`arc update <id> --take` sets the issue's AI session and changes its status to
-`in_progress` unless `--status` is supplied. Session identity uses the first
-nonempty value in this order:
+`arc update <id> --take` registers or reuses the issue's AI session and changes
+its status to `in_progress` unless `--status` is supplied. Session identity uses:
 
 1. `--session-id` (requires `--take`)
-2. `ARC_SESSION_ID`
-3. `CODEX_THREAD_ID`, provided by Codex for commands in the current thread
+2. `ARC_SESSION_ID`, the runtime-neutral override
+3. `CODEX_THREAD_ID` or `PI_SESSION_ID`, provided by their respective runtimes
 
-Explicit flags and `ARC_SESSION_ID` take precedence when identities conflict.
-Without any identity, the command fails without updating the issue.
+Explicit flags and `ARC_SESSION_ID` take precedence. If both native variables
+are nonempty and differ, the command fails: choose the current identity with
+`ARC_SESSION_ID` or `--session-id`. This prevents a nested runtime from silently
+claiming work as an inherited parent. Missing identity also leaves the issue unchanged.
 
-The Arc plugin's `SessionStart` hook registers the runtime's `session_id`
-unchanged. In a Codex session this matches `CODEX_THREAD_ID`; no environment-file
-repair is needed. `arc prime` uses the same environment fallback, while a valid
-hook payload takes precedence and retains Claude's `CLAUDE_ENV_FILE` persistence.
-Neither `prime` nor `--take` registers a session. Registration remains
-`arc ai session start --stdin` for hooks or `arc ai session start --id <id> --cwd <path>`
-for manual use.
+Claude Code's Arc hooks register the supplied `session_id` and persist it through
+`CLAUDE_ENV_FILE` as `ARC_SESSION_ID`. Claude subagent IDs are separate agent records;
+they are not substituted for the parent session ID. Codex uses its exact thread ID,
+including spawned workers. Pi uses its session manager's exact ID; its adapter
+should send `session_id`, `cwd`, and `transcript_path` to
+`arc ai session start --stdin` and bind extension commands to the current session.
+No runtime's session identity is inferred from an agent ID or transcript filename.
+
+Every `--take` verifies that the selected session exists in the issue's project.
+Existing hook metadata is preserved, even if the command runs from another cwd.
+If registration is missing, Arc registers the exact ID using the current cwd,
+which the server validates against that project. No transcript path is invented.
+Registration errors or a session belonging to another project stop the claim before
+updating the issue. This also applies to explicit and `ARC_SESSION_ID` identities,
+which previously could assign an unregistered ID. Register them first from the
+correct workspace when claiming from elsewhere.
+
+`arc prime` displays identity without registering it. A valid hook payload takes
+precedence and retains Claude's environment-file persistence. Conflicting native
+IDs produce a warning and omit the session line; workflow context still prints.
+Manual registration uses `arc ai session start --id <id> --cwd <path>`.
 
 ---
 

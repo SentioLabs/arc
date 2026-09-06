@@ -336,6 +336,30 @@ func TestCreateAISession_Idempotent(t *testing.T) {
 	}
 }
 
+func TestCreateAISession_DuplicateIDInAnotherProject(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	e := server.echo
+	projectA := createNamedProject(t, e, "session-owner", "own")
+	projectB := createNamedProject(t, e, "session-collision", "col")
+	createTestAISession(t, e, aiSessionOpts{
+		ProjectID: projectA, ID: "same-session", TranscriptPath: "/private/transcript.jsonl",
+	})
+
+	req := httptest.NewRequest(http.MethodPost, sessionURL(projectB, ""),
+		strings.NewReader(`{"id":"same-session"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected conflict, got %d: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "/private/transcript.jsonl") || strings.Contains(body, projectA) {
+		t.Fatal("cross-project duplicate response disclosed the existing session")
+	}
+}
+
 func TestGetAISession(t *testing.T) {
 	server, cleanup := testServer(t)
 	defer cleanup()

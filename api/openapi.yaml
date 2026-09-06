@@ -665,6 +665,12 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateAISessionRequest"
       responses:
+        "200":
+          description: Existing AI session in the same project (metadata preserved)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AISessionResponse"
         "201":
           description: AI session created
           content:
@@ -673,6 +679,18 @@ paths:
                 $ref: "#/components/schemas/AISessionResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Session ID already belongs to another project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Working directory does not resolve to the requested project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           $ref: "#/components/responses/InternalError"
 

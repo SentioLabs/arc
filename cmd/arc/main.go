@@ -1058,10 +1058,14 @@ var updateCmd = &cobra.Command{
 		}
 
 		if take {
-			sessionID = resolveSessionID(sessionID)
+			sessionID, err = resolveClaimSessionID(c, args[0], sessionID)
+			if err != nil {
+				return err
+			}
 			if sessionID == "" {
 				return errors.New(
-					"no session ID available — set ARC_SESSION_ID or CODEX_THREAD_ID, or pass --session-id")
+					"no session ID available — set ARC_SESSION_ID, CODEX_THREAD_ID, or PI_SESSION_ID, " +
+						"or pass --session-id")
 			}
 			updates["ai_session_id"] = sessionID
 			// Set status to in_progress unless user explicitly passed --status
@@ -1129,7 +1133,7 @@ func init() {
 	updateCmd.Flags().StringP("description", "d", "", "New description")
 	updateCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	updateCmd.Flags().Bool("take", false,
-		"Take this issue (session: --session-id > ARC_SESSION_ID > CODEX_THREAD_ID; status=in_progress)")
+		"Take this issue (session: --session-id > ARC_SESSION_ID > runtime identity; status=in_progress)")
 	updateCmd.Flags().String("session-id", "", "Explicit AI session ID (used with --take)")
 	updateCmd.Flags().StringSlice("label-add", nil, "Label to add (repeatable)")
 	updateCmd.Flags().StringSlice("label-remove", nil, "Label to remove (repeatable)")

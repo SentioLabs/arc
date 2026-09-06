@@ -31,8 +31,8 @@ var primeCmd = &cobra.Command{
 	Short: "Output AI-optimized workflow context",
 	Long: `Output essential Arc workflow context in AI-optimized markdown format.
 
-Designed for Claude Code hooks (SessionStart, PreCompact) and manual use
-in Codex CLI to prevent agents from forgetting arc workflow after compaction.
+Designed for Claude Code hooks (SessionStart, PreCompact), Codex, pi, and manual
+use to prevent agents from forgetting Arc workflow after compaction.
 
 Modes:
 - Default: Full CLI reference (~1-2k tokens)
@@ -53,7 +53,10 @@ Workflow customization:
 			persistSessionID(sessionID)
 		}
 
-		sessionID = resolveSessionID(sessionID)
+		sessionID, identityErr := resolveSessionID(sessionID)
+		if identityErr != nil {
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning:", identityErr)
+		}
 
 		// Check if this project has arc configured via workspace path resolution
 		cwd, err := os.Getwd()
