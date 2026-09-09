@@ -56,6 +56,10 @@ linters:
 
   # Detailed settings for specific linters
   settings:
+    goconst:
+      # Excluding test diagnostics alone still lets fixture strings inflate
+      # duplicate counts in production files. Skip tests during analysis too.
+      ignore-tests: true
     revive:
       rules:
         - name: use-any
