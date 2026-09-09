@@ -30,6 +30,10 @@ Key Differences:
 curl -fsSL https://raw.githubusercontent.com/sentiolabs/arc/main/scripts/install.sh | bash
 ```
 
+The bootstrap script verifies the release checksum. If Arc is already installed,
+use `arc self update`. The script still accepts `--force` and `--tag=vX.Y.Z`
+for reinstalls and updates from older Arc binaries.
+
 ### Linux Packages
 
 Download `.deb`, `.rpm`, or `.pkg.tar.zst` (Arch) from the [latest release](https://github.com/sentiolabs/arc/releases/latest).
@@ -503,7 +507,19 @@ release tag is preserved for downloads. Older Arc binaries may need a one-time
 `arc self update --force` when switching from undotted to dotted RC tags.
 
 `arc self update` asks for confirmation before installing. Pass `-y` or `--yes`
-to skip the prompt in scripts.
+to skip the prompt in scripts. Updates use `selfupdate-go` v0.2.0 to download
+and verify the release archive, then atomically replace the current executable.
+No shell installer, curl, or wget is needed for self-updates. A running local
+server is stopped only after verification and restarted using the installed
+binary; a stopped server stays stopped. Major/minor updates retain the
+pre-update database backup.
+
+Package-managed binaries (including Homebrew, system packages, and Nix) must be
+updated with their package manager. Native updates refuse managed paths and
+unwritable installation directories instead of moving Arc to another location.
+On macOS, the native installer also performs ad-hoc signing. If the server fails
+to restart after a successful update, the command reports that the binary was
+updated and instructs you to retry `arc server start`.
 
 Nightlies are tagged automatically as `v<next patch>-nightly.<date>`. The next
 patch, not the released version, is what makes a nightly sort above the current

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sentiolabs/go-selfupdate"
-	"github.com/sentiolabs/go-selfupdate/cobracmd"
+	"github.com/sentiolabs/selfupdate-go"
+	"github.com/sentiolabs/selfupdate-go/cobracmd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,9 +49,13 @@ func TestSelfUpdaterWiring(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "sentiolabs", src.Owner)
 	assert.Equal(t, "arc", src.Repo)
-	inst, ok := u.Installer.(*selfupdate.ScriptInstaller)
+	inst, ok := u.Installer.(*updateLifecycle)
 	require.True(t, ok)
-	assert.Contains(t, inst.ScriptURL, "sentiolabs/arc/main/scripts/install.sh")
+	archive, ok := inst.installer.(*selfupdate.ArchiveInstaller)
+	require.True(t, ok)
+	assert.Equal(t, "arc", archive.Name)
+	assert.False(t, archive.SkipChecksum)
+	assert.NotNil(t, u.PostInstall)
 	assert.NotNil(t, u.PreInstall)
 }
 
@@ -121,10 +125,10 @@ func (f fakeSource) List(context.Context, int) ([]selfupdate.Release, error) {
 // context it was handed and reports why it stopped.
 type blockingInstaller struct{ started chan struct{} }
 
-func (b *blockingInstaller) Install(ctx context.Context, _ string) error {
+func (b *blockingInstaller) Prepare(ctx context.Context, _ selfupdate.Release) (selfupdate.Staged, error) {
 	close(b.started)
 	<-ctx.Done()
-	return ctx.Err()
+	return nil, ctx.Err()
 }
 
 // useFakeSelfCmd swaps rootCmd's real self command for one driving u, so the
