@@ -113,13 +113,21 @@ func (s *Store) DeleteProject(ctx context.Context, idOrName string) error {
 		}
 	}
 
-	// Delete by the resolved ID
-	err = s.queries.DeleteProject(ctx, p.ID)
+	// Ownership checks and deletion share a write transaction so a concurrent
+	// upload cannot publish a database reference after ownership was checked.
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	q := s.queries.WithTx(tx)
+	if err := guardDurableOwnership(ctx, q, p.ID); err != nil {
+		return err
+	}
+	if err := q.DeleteProject(ctx, p.ID); err != nil {
 		return fmt.Errorf("delete project: %w", err)
 	}
-
-	return nil
+	return tx.Commit()
 }
 
 // MergeProjects moves all issues and plans from source projects into the
@@ -199,6 +207,10 @@ func mergeOneSource(
 		return 0, fmt.Errorf("source project not found: %s", srcID)
 	}
 
+	if err := guardDurableOwnership(ctx, qtx, srcID); err != nil {
+		return 0, err
+	}
+
 	res, err := qtx.MoveIssuesToProject(ctx, db.MoveIssuesToProjectParams{
 		ProjectID:   targetID,
 		ProjectID_2: srcID,
@@ -255,6 +267,22 @@ func toNullTime(t *time.Time) sql.NullTime {
 func fromNullTime(nt sql.NullTime) *time.Time {
 	if nt.Valid {
 		return &nt.Time
+	}
+	return nil
+}
+
+// Archived plans retain project ownership and cannot be erased by project operations.
+func guardDurableOwnership(ctx context.Context, q *db.Queries, projectID string) error {
+	ids, err := q.ListOwnedPlanIDs(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if len(ids) > 0 {
+		return fmt.Errorf(
+			"project owns retained durable plans %v; archive preserves ownership; "+
+				"deletion and source merge are unavailable",
+			ids,
+		)
 	}
 	return nil
 }

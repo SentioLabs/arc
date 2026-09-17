@@ -66,6 +66,11 @@ func New(cfg ServerOptions) *Server {
 		startTime: time.Now(),
 	}
 
+	if publisherStore, ok := cfg.Store.(interface{ SetPlanPublisher(planfiles.Publisher) }); ok &&
+		cfg.PlanFiles != nil {
+		publisherStore.SetPlanPublisher(cfg.PlanFiles)
+	}
+
 	// Register routes
 	s.registerRoutes()
 
@@ -123,16 +128,36 @@ func (s *Server) registerRoutes() {
 	v1.PATCH("/projects/:id/workspaces/:pathId", s.updateWorkspace)
 	v1.DELETE("/projects/:id/workspaces/:pathId", s.deleteWorkspace)
 
-	// Plans (ephemeral review artifacts, not project-scoped)
-	v1.POST("/plans", s.createPlan)
-	v1.GET("/plans/:planId", s.getPlan)
-	v1.PUT("/plans/:planId", s.updatePlanContent)
-	v1.PATCH("/plans/:planId/status", s.updatePlanStatus)
-	v1.DELETE("/plans/:planId", s.deletePlan)
-	v1.GET("/plans/:planId/comments", s.listPlanComments)
-	v1.POST("/plans/:planId/comments", s.createPlanComment)
-	v1.PATCH("/plans/:planId/comments/:commentId", s.updatePlanComment)
-	v1.DELETE("/plans/:planId/comments/:commentId", s.deletePlanComment)
+	// Old clients receive explicit upgrade guidance without dereferencing paths.
+	v1.Any("/plans", s.legacyPlanUpgrade)
+	v1.Any("/plans/*", s.legacyPlanUpgrade)
+	plans := v1.Group("/projects/:projectId/plans")
+	plans.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			ctx := storage.WithPlanProvenance(
+				c.Request().Context(),
+				getActor(c),
+				c.Request().Header.Get("X-AI-Session-ID"),
+			)
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
+		}
+	})
+	plans.POST("", s.createDurablePlan)
+	plans.GET("", s.listDurablePlans)
+	plans.GET("/:planId", s.getDurablePlan)
+	plans.PATCH("/:planId", s.updateDurablePlan)
+	plans.DELETE("/:planId", s.legacyPlanUpgrade)
+	plans.GET("/:planId/revisions", s.listPlanRevisions)
+	plans.POST("/:planId/revisions", s.savePlanRevision)
+	plans.GET("/:planId/revisions/:revision", s.readPlanRevision)
+	plans.POST("/:planId/revisions/:revision/decisions", s.decidePlanRevision)
+	plans.GET("/:planId/revisions/:revision/comments", s.listRevisionComments)
+	plans.POST("/:planId/revisions/:revision/comments", s.createRevisionComment)
+	plans.PATCH("/:planId/revisions/:revision/comments/:commentId", s.updateRevisionComment)
+	plans.DELETE("/:planId/revisions/:revision/comments/:commentId", s.updateRevisionComment)
+	plans.GET("/:planId/revisions/:revision/dispositions", s.listPlanDispositions)
+	plans.POST("/:planId/revisions/:revision/dispositions", s.addPlanDisposition)
 
 	// Issues (global lookup by unique ID — no project context required)
 	issues := v1.Group("/issues")

@@ -1,372 +1,481 @@
-// Package api provides HTTP handlers for the arc REST API.
-// This file implements ephemeral plan management — plans are lightweight review
-// artifacts backed by filesystem markdown files, with metadata and comments in the DB.
+// Durable plan handlers keep request presence validation separate from public values.
+// Storage owns transaction boundaries, publication order, and project isolation.
+// These adapters expose that contract without reading any client-selected path.
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
+	"strconv"
+	"unicode/utf8"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sentiolabs/arc/internal/project"
+	"github.com/sentiolabs/arc/internal/planfiles"
+	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
-// File permission constants for plan files and directories.
-const (
-	planFilePerms = 0o600
-	planDirPerms  = 0o750
-)
+const planContentField = "content"
 
-// createPlanRequest is the body for POST /plans.
-type createPlanRequest struct {
-	FilePath string `json:"file_path" validate:"required"`
+const planUpgradeMessage = "upgrade the Arc CLI/server together: path-based plans were removed; " +
+	"upload content to /api/v1/projects/{projectId}/plans with Idempotency-Key; " +
+	"migrate retained legacy plans with arc server plans migrate; use archive instead of deletion"
+
+// legacyPlanUpgrade rejects every global plan operation before binding request bodies.
+// Local paths are neither read nor normalized on this route.
+func (s *Server) legacyPlanUpgrade(c echo.Context) error {
+	return errorJSON(c, http.StatusBadRequest, planUpgradeMessage)
 }
 
-// updatePlanContentRequest is the body for PUT /plans/:planId.
-type updatePlanContentRequest struct {
-	Content string `json:"content" validate:"required"`
-}
-
-// updatePlanStatusRequest is the body for PATCH /plans/:planId/status.
-type updatePlanStatusRequest struct {
-	Status string `json:"status" validate:"required"`
-}
-
-// createPlanCommentRequest is the body for POST /plans/:planId/comments.
-// LineNumber is nil for overall feedback, or a specific line for anchored comments.
-type createPlanCommentRequest struct {
-	LineNumber *int                     `json:"line_number,omitempty"`
-	Content    string                   `json:"content" validate:"required"`
-	Anchor     *types.PlanCommentAnchor `json:"anchor,omitempty"`
-}
-
-// updatePlanCommentRequest is the body for PATCH /plans/:planId/comments/:commentId.
-// Pointer fields distinguish "omitted" (nil = unchanged) from provided values.
-// Anchor semantics: omitted/null = unchanged; object = full replace.
-type updatePlanCommentRequest struct {
-	Content  *string                  `json:"content,omitempty"`
-	Anchor   *types.PlanCommentAnchor `json:"anchor,omitempty"`
-	Resolved *bool                    `json:"resolved,omitempty"`
-}
-
-// validateAnchor checks anchor invariants; a nil anchor is valid.
-func validateAnchor(a *types.PlanCommentAnchor) error {
-	if a == nil {
-		return nil
+// planError translates typed service failures into the coordinated HTTP contract.
+// Integrity failures deliberately omit private server storage paths.
+func planError(c echo.Context, err error) error {
+	code := http.StatusInternalServerError
+	var integrity *planfiles.IntegrityError
+	switch {
+	case errors.Is(err, storage.ErrPlanNotFound):
+		code = http.StatusNotFound
+	case errors.Is(err, storage.ErrPlanConflict), errors.Is(err, storage.ErrUnresolvedFeedback):
+		code = http.StatusConflict
+	case errors.Is(err, storage.ErrPlanPrecondition):
+		code = http.StatusPreconditionRequired
+	case errors.Is(err, storage.ErrPlanInvalid):
+		code = http.StatusBadRequest
+	case errors.As(err, &integrity):
+		return errorJSON(
+			c,
+			http.StatusServiceUnavailable,
+			"retained plan content failed integrity verification",
+		)
 	}
-	if a.LineStart < 1 {
-		return errors.New("anchor.line_start must be >= 1")
+	return errorJSON(c, code, err.Error())
+}
+
+// Decode required presence separately from the exact public concurrency types.
+// A zero version is valid; absent and explicit null both fail a precondition.
+func decodePlanBody(c echo.Context, target any, required, preconditions []string) error {
+	const maxBody = 6*planfiles.MaxContentBytes + 4096 // JSON escaping can expand exact upload bytes.
+	body, err := io.ReadAll(io.LimitReader(c.Request().Body, maxBody+1))
+	if err != nil {
+		return fmt.Errorf("%w: cannot read body", storage.ErrPlanInvalid)
 	}
-	if a.LineEnd < a.LineStart {
-		return errors.New("anchor.line_end must be >= anchor.line_start")
+	if len(body) > maxBody {
+		return fmt.Errorf("%w: request too large", storage.ErrPlanInvalid)
 	}
-	if strings.TrimSpace(a.QuotedText) == "" {
-		return errors.New("anchor.quoted_text must not be empty")
+	if !validPlanJSONUnicode(body) {
+		return fmt.Errorf(
+			"%w: JSON must contain valid Unicode without replacement",
+			storage.ErrPlanInvalid,
+		)
 	}
-	if a.Occurrence < 0 {
-		return errors.New("anchor.occurrence must be >= 0")
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil || fields == nil {
+		return fmt.Errorf("%w: expected JSON object", storage.ErrPlanInvalid)
+	}
+	if _, ok := fields["file_path"]; ok {
+		return fmt.Errorf("%w: %s", storage.ErrPlanInvalid, planUpgradeMessage)
+	}
+	for _, key := range preconditions {
+		raw, ok := fields[key]
+		if !ok || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return fmt.Errorf("%w: %s", storage.ErrPlanPrecondition, key)
+		}
+	}
+	for _, key := range required {
+		raw, ok := fields[key]
+		if !ok || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return fmt.Errorf("%w: %s is required", storage.ErrPlanInvalid, key)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return fmt.Errorf("%w: %w", storage.ErrPlanInvalid, err)
 	}
 	return nil
 }
 
-// --- Plan Handlers ---
-
-// createPlan registers an ephemeral plan backed by a filesystem markdown file.
-func (s *Server) createPlan(c echo.Context) error {
-	var req createPlanRequest
-	if err := c.Bind(&req); err != nil {
-		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+// planPage enforces one bounded pagination policy for all retained history.
+// The service independently validates these bounds for non-HTTP callers.
+func planPage(c echo.Context) (limit, offset int, err error) {
+	limit = 50
+	if value := c.QueryParam("limit"); value != "" {
+		limit, err = strconv.Atoi(value)
+		if err != nil {
+			return 0, 0, storage.ErrPlanInvalid
+		}
 	}
-
-	if req.FilePath == "" {
-		return errorJSON(c, http.StatusBadRequest, "file_path is required")
+	if value := c.QueryParam("offset"); value != "" {
+		offset, err = strconv.Atoi(value)
+		if err != nil {
+			return 0, 0, storage.ErrPlanInvalid
+		}
 	}
-
-	if err := s.validateFilePath(req.FilePath); err != nil {
-		return errorJSON(c, http.StatusBadRequest, err.Error())
+	if limit < 1 || limit > 200 || offset < 0 {
+		return 0, 0, storage.ErrPlanInvalid
 	}
-
-	now := time.Now()
-	plan := &types.LegacyPlan{
-		ID:        project.GeneratePlanID(filepath.Base(req.FilePath)),
-		FilePath:  req.FilePath,
-		Status:    types.PlanStatusDraft,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-
-	if err := s.store.CreatePlan(c.Request().Context(), plan); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	return createdJSON(c, plan)
+	return limit, offset, nil
 }
 
-// getPlan returns plan metadata and file content.
-func (s *Server) getPlan(c echo.Context) error {
-	planID := c.Param("planId")
-	ctx := c.Request().Context()
+// planRevisionParam requires an explicit positive revision for review operations.
+// It never substitutes the current head from a mutable server read.
+func planRevisionParam(c echo.Context) (int64, error) {
+	value, err := strconv.ParseInt(c.Param("revision"), 10, 64)
+	if err != nil || value < 1 {
+		return 0, storage.ErrPlanInvalid
+	}
+	return value, nil
+}
 
-	plan, err := s.store.GetPlan(ctx, planID)
+// createDurablePlan uploads exact content with an independently scoped request key.
+// Replay responses carry the originally committed metadata and a replay marker.
+func (s *Server) createDurablePlan(c echo.Context) error {
+	var req storage.PlanUpload
+	if err := decodePlanBody(c, &req, []string{planContentField}, nil); err != nil {
+		return planError(c, err)
+	}
+	result, err := s.store.CreateDurablePlan(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Request().Header.Get("Idempotency-Key"),
+		req,
+	)
 	if err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
+		return planError(c, err)
 	}
+	if result.Replay {
+		return successJSON(c, result)
+	}
+	return createdJSON(c, result)
+}
 
-	content, err := os.ReadFile(plan.FilePath)
+// getDurablePlan returns metadata including the current head and concurrency versions.
+// Consumers combine this with an exact revision read when deriving supersession.
+func (s *Server) getDurablePlan(c echo.Context) error {
+	result, err := s.store.GetDurablePlan(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+	)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return errorJSON(c, http.StatusNotFound, "plan file not found")
-		}
-		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("reading plan file: %v", err))
+		return planError(c, err)
 	}
-
-	result := types.LegacyPlanWithContent{
-		LegacyPlan: *plan,
-		Content:    string(content),
-	}
-
 	return successJSON(c, result)
 }
 
-// updatePlanContent writes new content to the plan's file.
-func (s *Server) updatePlanContent(c echo.Context) error {
-	planID := c.Param("planId")
-	ctx := c.Request().Context()
-
-	plan, err := s.store.GetPlan(ctx, planID)
+// listDurablePlans selects active or archived retained artifacts in one project.
+// Archived artifacts remain readable and continue to own their history.
+func (s *Server) listDurablePlans(c echo.Context) error {
+	limit, offset, err := planPage(c)
 	if err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
+		return planError(c, err)
 	}
-
-	var req updatePlanContentRequest
-	if err := c.Bind(&req); err != nil {
-		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	result, err := s.store.ListDurablePlans(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.QueryParam("archived") == "true",
+		limit,
+		offset,
+	)
+	if err != nil {
+		return planError(c, err)
 	}
-
-	if req.Content == "" {
-		return errorJSON(c, http.StatusBadRequest, "content is required")
-	}
-
-	if err := s.validateFilePath(plan.FilePath); err != nil {
-		return errorJSON(c, http.StatusBadRequest, err.Error())
-	}
-
-	// Ensure parent directory exists
-	dir := filepath.Dir(plan.FilePath)
-	if err := os.MkdirAll(dir, planDirPerms); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("creating directory: %v", err))
-	}
-
-	if err := os.WriteFile(plan.FilePath, []byte(req.Content), planFilePerms); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("writing plan file: %v", err))
-	}
-
-	result := types.LegacyPlanWithContent{
-		LegacyPlan: *plan,
-		Content:    req.Content,
-	}
-
 	return successJSON(c, result)
 }
 
-// updatePlanStatus updates the status of a plan.
-func (s *Server) updatePlanStatus(c echo.Context) error {
-	planID := c.Param("planId")
-	ctx := c.Request().Context()
-
-	var req updatePlanStatusRequest
-	if err := c.Bind(&req); err != nil {
-		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+// savePlanRevision requires the head actually used by the editing client.
+// A replay can succeed even when later revisions or archive changed that head.
+func (s *Server) savePlanRevision(c echo.Context) error {
+	var req storage.PlanSave
+	if err := decodePlanBody(c, &req, []string{planContentField}, []string{"expected_revision"}); err != nil {
+		return planError(c, err)
 	}
-
-	// Validate status
-	switch req.Status {
-	case types.PlanStatusDraft, types.PlanStatusInReview, types.PlanStatusApproved,
-		types.PlanStatusRejected, types.PlanStatusChangesRequested:
-		// valid
-	default:
-		return errorJSON(c, http.StatusBadRequest,
-			"status must be one of: draft, in_review, approved, rejected, changes_requested")
-	}
-
-	if err := s.store.UpdatePlanStatus(ctx, planID, req.Status); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	plan, err := s.store.GetPlan(ctx, planID)
+	result, err := s.store.SavePlanRevision(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		c.Request().Header.Get("Idempotency-Key"),
+		req,
+	)
 	if err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
+		return planError(c, err)
 	}
-
-	return successJSON(c, plan)
+	if result.Replay {
+		return successJSON(c, result)
+	}
+	return createdJSON(c, result)
 }
 
-// deletePlan deletes a plan and its comments.
-func (s *Server) deletePlan(c echo.Context) error {
-	planID := c.Param("planId")
-	ctx := c.Request().Context()
-
-	if err := s.store.DeletePlan(ctx, planID); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	return c.NoContent(http.StatusNoContent)
-}
-
-// listPlanComments returns all comments for a plan.
-func (s *Server) listPlanComments(c echo.Context) error {
-	planID := c.Param("planId")
-	ctx := c.Request().Context()
-
-	comments, err := s.store.ListPlanComments(ctx, planID)
+// readPlanRevision returns verified retained bytes, never a client filesystem path.
+// Missing or modified content surfaces as a typed integrity failure.
+func (s *Server) readPlanRevision(c echo.Context) error {
+	revision, err := planRevisionParam(c)
 	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return planError(c, err)
 	}
-
-	if comments == nil {
-		comments = []*types.PlanComment{}
+	result, err := s.store.ReadPlanRevision(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+	)
+	if err != nil {
+		return planError(c, err)
 	}
-
-	return successJSON(c, comments)
+	return successJSON(c, result)
 }
 
-// createPlanComment adds a review comment to a plan.
-func (s *Server) createPlanComment(c echo.Context) error {
-	planID := c.Param("planId")
-	ctx := c.Request().Context()
-
-	// Verify plan exists
-	if _, err := s.store.GetPlan(ctx, planID); err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
+// listPlanRevisions exposes exact historical review state without rewriting it.
+// Pagination is descending so callers can inspect the latest revisions first.
+func (s *Server) listPlanRevisions(c echo.Context) error {
+	limit, offset, err := planPage(c)
+	if err != nil {
+		return planError(c, err)
 	}
-
-	var req createPlanCommentRequest
-	if err := c.Bind(&req); err != nil {
-		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	result, err := s.store.ListPlanRevisions(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		limit,
+		offset,
+	)
+	if err != nil {
+		return planError(c, err)
 	}
-
-	if req.Content == "" {
-		return errorJSON(c, http.StatusBadRequest, "content is required")
-	}
-
-	if err := validateAnchor(req.Anchor); err != nil {
-		return errorJSON(c, http.StatusBadRequest, err.Error())
-	}
-
-	lineNumber := req.LineNumber
-	if req.Anchor != nil {
-		ls := req.Anchor.LineStart
-		lineNumber = &ls // mirror anchor.line_start into line_number for CLI compat
-	}
-
-	comment := &types.PlanComment{
-		ID:         "pc." + project.GeneratePlanID("comment"),
-		PlanID:     planID,
-		LineNumber: lineNumber,
-		Content:    req.Content,
-		Anchor:     req.Anchor,
-		CreatedAt:  time.Now(),
-	}
-
-	if err := s.store.CreatePlanComment(ctx, comment); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	return createdJSON(c, comment)
+	return successJSON(c, result)
 }
 
-// updatePlanComment applies a partial update to a plan review comment.
-func (s *Server) updatePlanComment(c echo.Context) error {
-	planID := c.Param("planId")
-	commentID := c.Param("commentId")
-	ctx := c.Request().Context()
-
-	// Verify plan exists.
-	if _, err := s.store.GetPlan(ctx, planID); err != nil {
-		return errorJSON(c, http.StatusNotFound, err.Error())
+// updateDurablePlan supports title edits and reversible archive/restore.
+// Its metadata version is separate from content and feedback version counters.
+func (s *Server) updateDurablePlan(c echo.Context) error {
+	var req storage.PlanMetadataUpdate
+	if err := decodePlanBody(c, &req, nil, []string{"expected_version"}); err != nil {
+		return planError(c, err)
 	}
-
-	// Read-merge-write: fetch the full comment so a partial PATCH can't wipe
-	// fields it doesn't mention (e.g. anchor, resolved_at).
-	comment, err := s.store.GetPlanComment(ctx, commentID)
-	if err != nil || comment.PlanID != planID {
-		return errorJSON(c, http.StatusNotFound, "comment not found")
+	result, err := s.store.UpdateDurablePlan(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		req,
+	)
+	if err != nil {
+		return planError(c, err)
 	}
+	return successJSON(c, result)
+}
 
-	var req updatePlanCommentRequest
-	if err := c.Bind(&req); err != nil {
-		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+// decidePlanRevision checks presence before decoding the exact public review shape.
+// Explicit zero feedback/review versions are valid initial preconditions.
+func (s *Server) decidePlanRevision(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
 	}
+	var req types.PlanReviewRequest
+	if err := decodePlanBody(
+		c,
+		&req,
+		[]string{"status"},
+		[]string{"expected_head", "expected_review_version", "expected_feedback_version"},
+	); err != nil {
+		return planError(c, err)
+	}
+	if req.ExpectedHead < 1 || req.ExpectedReviewVersion < 0 || req.ExpectedFeedbackVersion < 0 {
+		return planError(c, storage.ErrPlanInvalid)
+	}
+	result, err := s.store.DecidePlanRevision(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		req,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return successJSON(c, result)
+}
 
-	// Content: omitted = unchanged; empty string is rejected as invalid.
-	if req.Content != nil {
-		if strings.TrimSpace(*req.Content) == "" {
-			return errorJSON(c, http.StatusBadRequest, "content must not be empty")
+// createRevisionComment binds new feedback to its original revision and anchor.
+// The service increments feedback version in the same transaction.
+func (s *Server) createRevisionComment(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	var req storage.PlanCommentCreate
+	if err := decodePlanBody(c, &req, []string{planContentField}, nil); err != nil {
+		return planError(c, err)
+	}
+	result, err := s.store.CreateRevisionComment(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		req,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return createdJSON(c, result)
+}
+
+// updateRevisionComment preserves history through versioned edits and tombstones.
+// Generic resolution flags cannot bypass an addressed disposition with a reason.
+func (s *Server) updateRevisionComment(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	var req storage.PlanCommentUpdate
+	if err := decodePlanBody(c, &req, nil, []string{"expected_version"}); err != nil {
+		return planError(c, err)
+	}
+	req.Delete = c.Request().Method == http.MethodDelete
+	result, err := s.store.UpdateRevisionComment(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		c.Param("commentId"),
+		req,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return successJSON(c, result)
+}
+
+// listRevisionComments optionally includes prior feedback with original provenance.
+// No anchor is silently moved to the current revision.
+func (s *Server) listRevisionComments(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	limit, offset, err := planPage(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	result, err := s.store.ListRevisionComments(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		c.QueryParam("include_prior") == "true",
+		limit,
+		offset,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return successJSON(c, result)
+}
+
+// addPlanDisposition binds a reason to an exact comment version and review target.
+// Its feedback precondition invalidates stale approval contexts.
+func (s *Server) addPlanDisposition(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	var req storage.PlanDispositionRequest
+	if err := decodePlanBody(
+		c,
+		&req,
+		[]string{"comment_id", "disposition", "reason"},
+		[]string{"expected_comment_version", "expected_feedback_version"},
+	); err != nil {
+		return planError(c, err)
+	}
+	result, err := s.store.AddPlanDisposition(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		req,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return createdJSON(c, result)
+}
+
+// listPlanDispositions exposes append-only history through the chosen revision.
+// Clients can distinguish addressed carry-forward from target-only deferrals.
+func (s *Server) listPlanDispositions(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	limit, offset, err := planPage(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	result, err := s.store.ListPlanDispositions(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return successJSON(c, result)
+}
+
+// validPlanJSONUnicode prevents encoding/json from silently replacing malformed
+// UTF-8 or unpaired UTF-16 escapes. Valid surrogate pairs decode to exact UTF-8.
+// Escaped backslashes are skipped so a literal "\\uD800" remains ordinary text.
+func validPlanJSONUnicode(body []byte) bool {
+	if !utf8.Valid(body) {
+		return false
+	}
+	for i := 0; i < len(body); i++ {
+		if body[i] != '\\' {
+			continue
 		}
-		comment.Content = *req.Content
-	}
-	// Anchor: omitted/null = unchanged; object = full replace + re-mirror line_number.
-	if req.Anchor != nil {
-		if err := validateAnchor(req.Anchor); err != nil {
-			return errorJSON(c, http.StatusBadRequest, err.Error())
+		i++
+		if i >= len(body) {
+			return false
 		}
-		comment.Anchor = req.Anchor
-		ls := req.Anchor.LineStart
-		comment.LineNumber = &ls
-	}
-	// Resolved: true sets resolved_at, false clears it.
-	if req.Resolved != nil {
-		if *req.Resolved {
-			now := time.Now()
-			comment.ResolvedAt = &now
-		} else {
-			comment.ResolvedAt = nil
+		if body[i] != 'u' {
+			continue
 		}
+		next, ok := planJSONUnicodeEscape(body, i)
+		if !ok {
+			return false
+		}
+		i = next
 	}
-	now := time.Now()
-	comment.UpdatedAt = &now
-
-	if err := s.store.UpdatePlanComment(ctx, comment); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-	return successJSON(c, comment)
+	return true
 }
 
-// deletePlanComment removes a plan review comment.
-func (s *Server) deletePlanComment(c echo.Context) error {
-	planID := c.Param("planId")
-	commentID := c.Param("commentId")
-	ctx := c.Request().Context()
-
-	comment, err := s.store.GetPlanComment(ctx, commentID)
-	if err != nil || comment.PlanID != planID {
-		return errorJSON(c, http.StatusNotFound, "comment not found")
+// planJSONUnicodeEscape validates one UTF-16 code unit or a paired surrogate.
+// The returned index points to the last consumed hex digit for the outer scan.
+func planJSONUnicodeEscape(body []byte, offset int) (int, bool) {
+	const hexDigits = 4
+	const escapedUnitBytes = 6
+	if offset+4 >= len(body) {
+		return 0, false
 	}
-
-	if err := s.store.DeletePlanComment(ctx, commentID); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	value, err := strconv.ParseUint(string(body[offset+1:offset+5]), 16, 16)
+	if err != nil || value >= 0xdc00 && value <= 0xdfff {
+		return 0, false
 	}
-	return c.NoContent(http.StatusNoContent)
-}
-
-// validateFilePath checks that a file path is within the current working directory.
-func (s *Server) validateFilePath(filePath string) error {
-	if filePath == "" {
-		return errors.New("file_path is required")
+	last := offset + hexDigits
+	if value < 0xd800 || value > 0xdbff {
+		return last, true
 	}
-	if !filepath.IsAbs(filePath) {
-		return errors.New("file_path must be absolute")
+	if last+6 >= len(body) || body[last+1] != '\\' || body[last+2] != 'u' {
+		return 0, false
 	}
-	// Basic path traversal check: reject paths containing ".." components.
-	cleaned := filepath.Clean(filePath)
-	if strings.Contains(cleaned, "..") {
-		return errors.New("path must not contain '..' components")
-	}
-	return nil
+	low, err := strconv.ParseUint(string(body[last+3:last+7]), 16, 16)
+	return last + escapedUnitBytes, err == nil && low >= 0xdc00 && low <= 0xdfff
 }

@@ -110,7 +110,7 @@ type Label struct {
 	Description sql.NullString `json:"description"`
 }
 
-type Plan struct {
+type LegacyPlan struct {
 	ID        string    `json:"id"`
 	FilePath  string    `json:"file_path"`
 	Status    string    `json:"status"`
@@ -118,7 +118,7 @@ type Plan struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type PlanComment struct {
+type LegacyPlanComment struct {
 	ID            string         `json:"id"`
 	PlanID        string         `json:"plan_id"`
 	LineNumber    sql.NullInt64  `json:"line_number"`
@@ -133,6 +133,83 @@ type PlanComment struct {
 	ContextAfter  sql.NullString `json:"context_after"`
 	UpdatedAt     sql.NullTime   `json:"updated_at"`
 	ResolvedAt    sql.NullTime   `json:"resolved_at"`
+}
+
+type Plan struct {
+	ID                     string         `json:"id"`
+	ProjectID              string         `json:"project_id"`
+	Title                  string         `json:"title"`
+	Lifecycle              string         `json:"lifecycle"`
+	HeadRevision           int64          `json:"head_revision"`
+	Version                int64          `json:"version"`
+	FeedbackVersion        int64          `json:"feedback_version"`
+	LegacyStatusUnverified sql.NullString `json:"legacy_status_unverified"`
+	CreatedAt              time.Time      `json:"created_at"`
+	UpdatedAt              time.Time      `json:"updated_at"`
+}
+
+type PlanComment struct {
+	ID       string        `json:"id"`
+	PlanID   string        `json:"plan_id"`
+	Revision sql.NullInt64 `json:"revision"`
+	Version  int64         `json:"version"`
+	Body     string        `json:"body"`
+}
+
+type PlanCommentEvent struct {
+	Actor     string    `json:"actor"`
+	SessionID string    `json:"session_id"`
+	CommentID string    `json:"comment_id"`
+	Version   int64     `json:"version"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type PlanDisposition struct {
+	Actor          string    `json:"actor"`
+	SessionID      string    `json:"session_id"`
+	ID             string    `json:"id"`
+	PlanID         string    `json:"plan_id"`
+	TargetRevision int64     `json:"target_revision"`
+	CommentID      string    `json:"comment_id"`
+	CommentVersion int64     `json:"comment_version"`
+	Disposition    string    `json:"disposition"`
+	Reason         string    `json:"reason"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type PlanIdempotency struct {
+	ProjectID   string    `json:"project_id"`
+	Scope       string    `json:"scope"`
+	Key         string    `json:"key"`
+	Fingerprint string    `json:"fingerprint"`
+	Result      string    `json:"result"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type PlanReviewEvent struct {
+	Actor           string    `json:"actor"`
+	SessionID       string    `json:"session_id"`
+	ID              string    `json:"id"`
+	PlanID          string    `json:"plan_id"`
+	Revision        int64     `json:"revision"`
+	Status          string    `json:"status"`
+	ReviewVersion   int64     `json:"review_version"`
+	FeedbackVersion int64     `json:"feedback_version"`
+	DispositionIds  string    `json:"disposition_ids"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+type PlanRevision struct {
+	PlanID        string    `json:"plan_id"`
+	Revision      int64     `json:"revision"`
+	ContentPath   string    `json:"content_path"`
+	ContentSha256 string    `json:"content_sha256"`
+	ContentBytes  int64     `json:"content_bytes"`
+	SourceName    string    `json:"source_name"`
+	ReviewStatus  string    `json:"review_status"`
+	ReviewVersion int64     `json:"review_version"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type Project struct {

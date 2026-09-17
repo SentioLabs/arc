@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/plans"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
@@ -342,12 +343,18 @@ var planWaitCmd = &cobra.Command{
 		}
 		planID := args[0]
 		ctx := cmdContext(cmd)
+		if err := ctx.Err(); err != nil {
+			return planWaitCancelled(planID, err)
+		}
 
 		deadline := time.Now().Add(planWaitTimeout)
 		var consecutiveErrors int
 		for {
 			plan, err := c.GetPlan(planID)
 			if err != nil {
+				if errors.Is(err, client.ErrPlanUpgrade) {
+					return err
+				}
 				consecutiveErrors++
 				if consecutiveErrors >= planWaitMaxConsecutiveErrors {
 					return fmt.Errorf("plan wait aborted after %d consecutive errors: %w",

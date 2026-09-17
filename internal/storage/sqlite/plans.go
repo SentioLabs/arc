@@ -61,7 +61,7 @@ func (s *Store) UpdatePlanStatus(ctx context.Context, id string, status string) 
 // Comments are deleted explicitly to ensure cascade behavior regardless of
 // whether the SQLite driver honours the ON DELETE CASCADE pragma.
 func (s *Store) DeletePlan(ctx context.Context, id string) error {
-	if _, err := s.db.ExecContext(ctx, "DELETE FROM plan_comments WHERE plan_id = ?", id); err != nil {
+	if _, err := s.db.ExecContext(ctx, "DELETE FROM legacy_plan_comments WHERE plan_id = ?", id); err != nil {
 		return fmt.Errorf("delete plan comments for plan: %w", err)
 	}
 	err := s.queries.DeletePlan(ctx, id)
@@ -195,7 +195,7 @@ func planCommentAnchorParams(a *types.PlanCommentAnchor) (
 }
 
 // dbPlanToType converts a db.Plan to types.LegacyPlan.
-func dbPlanToType(row *db.Plan) *types.LegacyPlan {
+func dbPlanToType(row *db.LegacyPlan) *types.LegacyPlan {
 	return &types.LegacyPlan{
 		ID:        row.ID,
 		FilePath:  row.FilePath,
@@ -206,7 +206,7 @@ func dbPlanToType(row *db.Plan) *types.LegacyPlan {
 }
 
 // dbPlanCommentToType converts a db.PlanComment to types.PlanComment.
-func dbPlanCommentToType(row *db.PlanComment) *types.PlanComment {
+func dbPlanCommentToType(row *db.LegacyPlanComment) *types.PlanComment {
 	var lineNumber *int
 	if row.LineNumber.Valid {
 		v := int(row.LineNumber.Int64)

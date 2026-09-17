@@ -394,8 +394,9 @@ export async function browseFilesystem(dir: string): Promise<BrowseEntry[]> {
 }
 
 // Plan APIs
-export type Plan = components['schemas']['Plan'];
-export type PlanWithContent = components['schemas']['PlanWithContent'];
+// Legacy planner transport surfaces server upgrade errors until the durable UI lands.
+export type Plan = components['schemas']['LegacyPlan'];
+export type PlanWithContent = components['schemas']['LegacyPlanWithContent'];
 export type PlanComment = components['schemas']['PlanComment'];
 export type PlanCommentAnchor = components['schemas']['PlanCommentAnchor'];
 export type UpdatePlanCommentRequest = components['schemas']['UpdatePlanCommentRequest'];

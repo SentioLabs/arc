@@ -1289,212 +1289,1027 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  # ====================
-  # Plans (ephemeral review artifacts, not project-scoped)
-  # ====================
+  # Durable project-scoped plans and explicit legacy upgrade errors.
   /plans:
     post:
       operationId: createPlan
-      tags: [plans]
-      summary: Register an ephemeral plan
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreatePlanRequest"
+              $ref: '#/components/schemas/CreatePlanRequest'
       responses:
-        "201":
-          description: Plan created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Plan"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
   /plans/{planId}:
     parameters:
-      - name: planId
-        in: path
-        required: true
-        schema:
-          type: string
+    - name: planId
+      in: path
+      required: true
+      schema:
+        type: string
     get:
       operationId: getPlan
-      tags: [plans]
-      summary: Get plan metadata and file content
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
       responses:
-        "200":
-          description: Plan with content
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PlanWithContent"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
     put:
       operationId: updatePlanContent
-      tags: [plans]
-      summary: Update plan file content
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdatePlanContentRequest"
+              $ref: '#/components/schemas/UpdatePlanContentRequest'
       responses:
-        "200":
-          description: Content updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PlanWithContent"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
     delete:
       operationId: deletePlan
-      tags: [plans]
-      summary: Delete plan and its comments
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
       responses:
-        "204":
-          description: Plan deleted
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
   /plans/{planId}/status:
     parameters:
-      - name: planId
-        in: path
-        required: true
-        schema:
-          type: string
+    - name: planId
+      in: path
+      required: true
+      schema:
+        type: string
     patch:
       operationId: updatePlanStatus
-      tags: [plans]
-      summary: Update plan status
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdatePlanStatusRequest"
+              $ref: '#/components/schemas/UpdatePlanStatusRequest'
       responses:
-        "200":
-          description: Status updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Plan"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
   /plans/{planId}/comments:
     parameters:
-      - name: planId
-        in: path
-        required: true
-        schema:
-          type: string
+    - name: planId
+      in: path
+      required: true
+      schema:
+        type: string
     get:
       operationId: listPlanComments
-      tags: [plans]
-      summary: List plan review comments
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
       responses:
-        "200":
-          description: Comments list
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
+    post:
+      operationId: createPlanComment
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanCommentRequest'
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
+  /plans/{planId}/comments/{commentId}:
+    parameters:
+    - name: planId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+    patch:
+      operationId: updatePlanComment
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanCommentRequest'
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
+    delete:
+      operationId: deletePlanComment
+      tags:
+      - plans
+      summary: Removed legacy path-based operation; upgrade required
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      deprecated: true
+      description: Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped
+        durable API and archive instead of delete.
+  /projects/{projectId}/plans:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema: &id002
+        type: string
+    get:
+      operationId: listDurablePlans
+      tags:
+      - plans
+      summary: List active or archived retained plans
+      responses:
+        '200':
+          description: Success
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/PlanComment"
-        "500":
-          $ref: "#/components/responses/InternalError"
+                  $ref: '#/components/schemas/Plan'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: archived
+        in: query
+        schema:
+          type: boolean
+          default: false
     post:
-      operationId: createPlanComment
-      tags: [plans]
-      summary: Add a review comment
+      operationId: createDurablePlan
+      tags:
+      - plans
+      summary: Upload exact Markdown bytes as revision 1
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: &id001
+                $ref: '#/components/schemas/PlanWriteResult'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Originally committed result with replay=true
+          content:
+            application/json:
+              schema: *id001
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreatePlanCommentRequest"
-      responses:
-        "201":
-          description: Comment created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PlanComment"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /plans/{planId}/comments/{commentId}:
+              $ref: '#/components/schemas/PlanUpload'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 256
+        description: Retained indefinitely, scoped by project and operation target. Identical payload replays original
+          result; different payload conflicts.
+  /projects/{projectId}/plans/{planId}:
     parameters:
-      - name: planId
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: commentId
-        in: path
-        required: true
-        schema:
-          type: string
+    - name: projectId
+      in: path
+      required: true
+      schema: *id002
+    - name: planId
+      in: path
+      required: true
+      schema: *id002
+    get:
+      operationId: getDurablePlan
+      tags:
+      - plans
+      summary: Read project-scoped plan metadata
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     patch:
-      operationId: updatePlanComment
-      tags: [plans]
-      summary: Update a plan review comment (content, anchor, resolved state)
+      operationId: updateDurablePlan
+      tags:
+      - plans
+      summary: Change title or archive/restore with expected plan version
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdatePlanCommentRequest"
+              $ref: '#/components/schemas/PlanMetadataUpdate'
+  /projects/{projectId}/plans/{planId}/revisions:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema: *id002
+    - name: planId
+      in: path
+      required: true
+      schema: *id002
+    get:
+      operationId: listPlanRevisions
+      tags:
+      - plans
+      summary: Read immutable revision history
       responses:
-        "200":
-          description: Updated comment
+        '200':
+          description: Success
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PlanComment"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    delete:
-      operationId: deletePlanComment
-      tags: [plans]
-      summary: Delete a plan review comment
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanRevision'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+    post:
+      operationId: savePlanRevision
+      tags:
+      - plans
+      summary: Publish a new draft against explicit head revision
       responses:
-        "204":
-          description: Comment deleted
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema: &id003
+                $ref: '#/components/schemas/PlanWriteResult'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Originally committed result with replay=true
+          content:
+            application/json:
+              schema: *id003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanSave'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 256
+        description: Retained indefinitely, scoped by project and operation target. Identical payload replays original
+          result; different payload conflicts.
+  /projects/{projectId}/plans/{planId}/revisions/{revision}:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema: *id002
+    - name: planId
+      in: path
+      required: true
+      schema: *id002
+    - name: revision
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    get:
+      operationId: readPlanRevision
+      tags:
+      - plans
+      summary: Read and verify exact retained revision bytes
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRevisionWithContent'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{projectId}/plans/{planId}/revisions/{revision}/decisions:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema: *id002
+    - name: planId
+      in: path
+      required: true
+      schema: *id002
+    - name: revision
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    post:
+      operationId: decidePlanRevision
+      tags:
+      - plans
+      summary: Submit or decide current head with review and feedback preconditions
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanRevision'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanReviewRequest'
+  /projects/{projectId}/plans/{planId}/revisions/{revision}/comments:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema: *id002
+    - name: planId
+      in: path
+      required: true
+      schema: *id002
+    - name: revision
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    get:
+      operationId: listRevisionComments
+      tags:
+      - plans
+      summary: Read original anchors, versioned comments, and audit tombstones
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanComment'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: include_prior
+        in: query
+        schema:
+          type: boolean
+          default: false
+        description: Include earlier revision feedback and unknown-provenance migrated discussion.
+    post:
+      operationId: createRevisionComment
+      tags:
+      - plans
+      summary: Add feedback on an exact revision
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanComment'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanCommentRequest'
+  /projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId}:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema: *id002
+    - name: planId
+      in: path
+      required: true
+      schema: *id002
+    - name: revision
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    - name: commentId
+      in: path
+      required: true
+      schema: *id002
+    patch:
+      operationId: updateRevisionComment
+      tags:
+      - plans
+      summary: Edit or reopen feedback, invalidating prior-version dispositions
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanComment'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanCommentUpdate'
+    delete:
+      operationId: deleteRevisionComment
+      tags:
+      - plans
+      summary: Create audit tombstone; feedback remains an approval obligation
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanComment'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanCommentDelete'
+  /projects/{projectId}/plans/{planId}/revisions/{revision}/dispositions:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema: *id002
+    - name: planId
+      in: path
+      required: true
+      schema: *id002
+    - name: revision
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    get:
+      operationId: listPlanDispositions
+      tags:
+      - plans
+      summary: Read append-only dispositions through the requested revision
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanFeedbackDisposition'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+    post:
+      operationId: addPlanDisposition
+      tags:
+      - plans
+      summary: Address or defer an exact feedback version with a reason
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanFeedbackDisposition'
+        '400':
+          description: Invalid input or legacy file_path request; upgrade and upload bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Unknown or out-of-project artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale precondition, invalid lifecycle/transition, or unresolved feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required precondition or Idempotency-Key is missing or null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained content failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanDispositionRequest'
 
 components:
   parameters:
@@ -1609,7 +2424,11 @@ components:
         - prefix
         - created_at
         - updated_at
+        - governance_generation
       properties:
+        governance_generation:
+          type: integer
+          format: int64
         id:
           type: string
           description: Unique project ID (e.g., "proj-a1b2")
@@ -1739,7 +2558,13 @@ components:
         - issue_type
         - created_at
         - updated_at
+        - contract_version
       properties:
+        contract_version:
+          type: integer
+          format: int64
+        governing_plan:
+          $ref: "#/components/schemas/PlanReference"
         id:
           type: string
           description: Unique issue ID
@@ -1797,6 +2622,8 @@ components:
         - $ref: "#/components/schemas/Issue"
         - type: object
           properties:
+            resolved_governance:
+              $ref: "#/components/schemas/GoverningPlan"
             dependents:
               type: array
               items:
@@ -2363,45 +3190,70 @@ components:
           additionalProperties:
             type: string
 
-    # ====================
-    # Plan Schemas
-    # ====================
+    # Durable plans, review concurrency, and governed-work contracts.
     PlanStatus:
       type: string
-      enum: [draft, in_review, approved, rejected, changes_requested]
-
+      enum:
+      - draft
+      - in_review
+      - approved
+      - rejected
+      - changes_requested
     Plan:
       type: object
-      required: [id, file_path, status, created_at, updated_at]
+      required:
+      - id
+      - project_id
+      - title
+      - lifecycle
+      - head_revision
+      - version
+      - feedback_version
+      - created_at
+      - updated_at
       properties:
         id:
           type: string
-          description: Unique plan ID (plan.xxxxx format)
-        file_path:
+        project_id:
           type: string
-          description: Relative path to the plan markdown file
-        status:
-          $ref: "#/components/schemas/PlanStatus"
+        title:
+          type: string
+        lifecycle:
+          type: string
+          enum:
+          - active
+          - archived
+        head_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        feedback_version:
+          type: integer
+          format: int64
+          minimum: 0
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
-
     PlanWithContent:
+      description: Deprecated legacy compatibility alias. Use PlanRevisionWithContent for retained bytes.
       allOf:
-        - $ref: "#/components/schemas/Plan"
-        - type: object
-          properties:
-            content:
-              type: string
-              description: Markdown content read from the plan file
+        - $ref: '#/components/schemas/LegacyPlanWithContent'
 
     PlanCommentAnchor:
       type: object
       description: Pins a comment to a quoted text range in the rendered document.
-      required: [line_start, line_end, quoted_text, occurrence]
+      required:
+      - line_start
+      - line_end
+      - quoted_text
+      - occurrence
       properties:
         line_start:
           type: integer
@@ -2424,10 +3276,15 @@ components:
         context_after:
           type: string
           description: Up to 64 rendered chars immediately after the selection
-
     PlanComment:
       type: object
-      required: [id, plan_id, content, created_at]
+      required:
+      - id
+      - plan_id
+      - content
+      - created_at
+      - revision
+      - version
       properties:
         id:
           type: string
@@ -2440,7 +3297,7 @@ components:
         content:
           type: string
         anchor:
-          $ref: "#/components/schemas/PlanCommentAnchor"
+          $ref: '#/components/schemas/PlanCommentAnchor'
         created_at:
           type: string
           format: date-time
@@ -2450,31 +3307,43 @@ components:
         resolved_at:
           type: string
           format: date-time
-
+        revision:
+          type: integer
+          format: int64
+          nullable: true
+          description: Exact revision; null only for migrated legacy discussion with unknown provenance.
+        version: &id002
+          type: integer
+          format: int64
+          minimum: 0
+        deleted_at:
+          type: string
+          format: date-time
     CreatePlanRequest:
       type: object
-      required: [file_path]
+      required:
+      - file_path
       properties:
         file_path:
           type: string
-
     UpdatePlanContentRequest:
       type: object
-      required: [content]
+      required:
+      - content
       properties:
         content:
           type: string
-
     UpdatePlanStatusRequest:
       type: object
-      required: [status]
+      required:
+      - status
       properties:
         status:
-          $ref: "#/components/schemas/PlanStatus"
-
+          $ref: '#/components/schemas/PlanStatus'
     CreatePlanCommentRequest:
       type: object
-      required: [content]
+      required:
+      - content
       properties:
         line_number:
           type: integer
@@ -2482,18 +3351,467 @@ components:
         content:
           type: string
         anchor:
-          $ref: "#/components/schemas/PlanCommentAnchor"
-
+          $ref: '#/components/schemas/PlanCommentAnchor'
     UpdatePlanCommentRequest:
       type: object
-      description: >
-        Partial update. anchor omitted/null = unchanged; anchor object = full
-        replace (line_number is re-mirrored from anchor.line_start).
-        resolved true/false sets/clears resolved_at.
+      description: 'Partial update. anchor omitted/null = unchanged; anchor object = full replace (line_number is re-mirrored
+        from anchor.line_start). resolved true/false sets/clears resolved_at.
+
+        '
       properties:
         content:
           type: string
         anchor:
-          $ref: "#/components/schemas/PlanCommentAnchor"
+          $ref: '#/components/schemas/PlanCommentAnchor'
         resolved:
           type: boolean
+    LegacyPlan:
+      type: object
+      required:
+      - id
+      - file_path
+      - status
+      - created_at
+      - updated_at
+      properties:
+        id:
+          type: string
+          description: Unique plan ID (plan.xxxxx format)
+        file_path:
+          type: string
+          description: Relative path to the plan markdown file
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      description: Preserved legacy inventory metadata; status is unverified and paths are never dereferenced by HTTP.
+    LegacyPlanWithContent:
+      allOf:
+      - $ref: '#/components/schemas/LegacyPlan'
+      - type: object
+        required:
+        - content
+        properties:
+          content: &id001
+            type: string
+    PlanReference:
+      type: object
+      required:
+      - plan_id
+      - revision
+      properties:
+        plan_id:
+          type: string
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+    PlanRevision:
+      type: object
+      required:
+      - plan_id
+      - revision
+      - content_sha256
+      - content_bytes
+      - review_status
+      - review_version
+      - created_at
+      properties:
+        plan_id:
+          type: string
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        content_sha256:
+          type: string
+        content_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        review_status:
+          $ref: '#/components/schemas/PlanStatus'
+        review_version:
+          type: integer
+          format: int64
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+    PlanRevisionWithContent:
+      allOf:
+      - $ref: '#/components/schemas/PlanRevision'
+      - type: object
+        required:
+        - content
+        properties:
+          content:
+            type: string
+            description: Exact retained UTF-8 upload, verified against content_sha256 and content_bytes.
+    GoverningPlan:
+      type: object
+      required:
+      - container_id
+      - container_type
+      - reference
+      - context
+      properties:
+        container_id:
+          type: string
+        container_type:
+          $ref: '#/components/schemas/IssueType'
+        reference:
+          $ref: '#/components/schemas/PlanReference'
+        context:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoverningPlanContext'
+    GoverningPlanContext:
+      type: object
+      required:
+      - container_id
+      - container_type
+      - reference
+      properties:
+        container_id:
+          type: string
+        container_type:
+          $ref: '#/components/schemas/IssueType'
+        reference:
+          $ref: '#/components/schemas/PlanReference'
+    ExpectedGovernance:
+      type: object
+      required:
+      - governing
+      - contract_version
+      properties:
+        governing:
+          allOf:
+          - $ref: '#/components/schemas/GoverningPlan'
+          nullable: true
+        contract_version:
+          type: integer
+          format: int64
+          minimum: 0
+      description: Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract.
+    PlanReviewRequest:
+      type: object
+      required:
+      - status
+      - expected_head
+      - expected_review_version
+      - expected_feedback_version
+      properties:
+        status:
+          type: string
+          enum:
+          - in_review
+          - approved
+          - rejected
+          - changes_requested
+        expected_head:
+          type: integer
+          format: int64
+          minimum: 0
+        expected_review_version:
+          type: integer
+          format: int64
+          minimum: 0
+        expected_feedback_version:
+          type: integer
+          format: int64
+          minimum: 0
+    PlanFeedbackDisposition:
+      type: object
+      required:
+      - id
+      - plan_id
+      - target_revision
+      - comment_id
+      - comment_version
+      - disposition
+      - reason
+      - created_at
+      properties:
+        id:
+          type: string
+        plan_id:
+          type: string
+        target_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        comment_id:
+          type: string
+        comment_version:
+          type: integer
+          format: int64
+          minimum: 0
+        disposition:
+          type: string
+        reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ExecutionEvidenceRequest:
+      type: object
+      required:
+      - expected
+      - phase
+      - evidence
+      properties:
+        expected:
+          allOf:
+          - $ref: '#/components/schemas/ExpectedGovernance'
+          nullable: true
+        phase:
+          type: string
+        evidence:
+          type: string
+      description: Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract.
+    ReconciledTask:
+      type: object
+      required:
+      - issue_id
+      - expected
+      - disposition
+      - reason
+      - follow_up_keys
+      properties:
+        issue_id:
+          type: string
+        expected:
+          $ref: '#/components/schemas/ExpectedGovernance'
+        disposition:
+          type: string
+        reason:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        follow_up_keys:
+          type: array
+          items:
+            type: string
+    ReconciliationFollowUp:
+      type: object
+      required:
+      - key
+      - parent_id
+      - title
+      - description
+      - issue_type
+      - priority
+      properties:
+        key:
+          type: string
+        parent_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        issue_type:
+          $ref: '#/components/schemas/IssueType'
+        priority:
+          type: integer
+          format: int64
+          minimum: 0
+    ReconciliationEdge:
+      type: object
+      required:
+      - issue_id
+      - depends_on_id
+      - type
+      - remove
+      properties:
+        issue_id:
+          type: string
+        depends_on_id:
+          type: string
+        type:
+          $ref: '#/components/schemas/DependencyType'
+        remove:
+          type: boolean
+    ReconciliationTypeChange:
+      type: object
+      required:
+      - issue_id
+      - expected_contract_version
+      - issue_type
+      properties:
+        issue_id:
+          type: string
+        expected_contract_version:
+          type: integer
+          format: int64
+          minimum: 0
+        issue_type:
+          $ref: '#/components/schemas/IssueType'
+    ReconciledContainerPin:
+      type: object
+      required:
+      - container_id
+      - expected_container_version
+      - expected_pin
+      - target_pin
+      - disposition
+      - reason
+      properties:
+        container_id:
+          type: string
+        expected_container_version:
+          type: integer
+          format: int64
+          minimum: 0
+        expected_pin:
+          allOf:
+          - $ref: '#/components/schemas/PlanReference'
+          nullable: true
+        target_pin:
+          allOf:
+          - $ref: '#/components/schemas/PlanReference'
+          nullable: true
+        disposition:
+          type: string
+        reason:
+          type: string
+    PlanAdoptionRequest:
+      type: object
+      required:
+      - expected_container_version
+      - expected_governance_generation
+      - expected_pin
+      - target_pin
+      - tasks
+      - container_pins
+      - follow_ups
+      - edges
+      - type_changes
+      - dry_run
+      properties:
+        expected_container_version:
+          type: integer
+          format: int64
+          minimum: 0
+        expected_governance_generation:
+          type: integer
+          format: int64
+          minimum: 0
+        expected_pin:
+          allOf:
+          - $ref: '#/components/schemas/PlanReference'
+          nullable: true
+        target_pin:
+          allOf:
+          - $ref: '#/components/schemas/PlanReference'
+          nullable: true
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciledTask'
+        container_pins:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciledContainerPin'
+        follow_ups:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciliationFollowUp'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciliationEdge'
+        type_changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciliationTypeChange'
+        dry_run:
+          type: boolean
+      description: Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract.
+    PlanUpload:
+      type: object
+      required:
+      - content
+      properties:
+        title: *id001
+        content: *id001
+        source_name: *id001
+    PlanSave:
+      type: object
+      required:
+      - content
+      - expected_revision
+      properties:
+        content: *id001
+        source_name: *id001
+        expected_revision: *id002
+    PlanWriteResult:
+      type: object
+      required:
+      - plan
+      - revision
+      - replay
+      properties:
+        plan:
+          $ref: '#/components/schemas/Plan'
+        revision:
+          $ref: '#/components/schemas/PlanRevisionWithContent'
+        replay:
+          type: boolean
+          description: True returns the originally committed result, even after later saves or archive.
+    PlanMetadataUpdate:
+      type: object
+      required:
+      - expected_version
+      properties:
+        title: *id001
+        lifecycle:
+          type: string
+          enum:
+          - active
+          - archived
+        expected_version: *id002
+    PlanCommentUpdate:
+      type: object
+      required:
+      - expected_version
+      properties:
+        content: *id001
+        anchor:
+          $ref: '#/components/schemas/PlanCommentAnchor'
+        reopen:
+          type: boolean
+        expected_version: *id002
+    PlanCommentDelete:
+      type: object
+      required:
+      - expected_version
+      properties:
+        expected_version: *id002
+    PlanDispositionRequest:
+      type: object
+      required:
+      - comment_id
+      - expected_comment_version
+      - expected_feedback_version
+      - disposition
+      - reason
+      properties:
+        comment_id: *id001
+        expected_comment_version: *id002
+        expected_feedback_version: *id002
+        disposition:
+          type: string
+          enum:
+          - addressed
+          - deferred
+        reason:
+          type: string
+          minLength: 1

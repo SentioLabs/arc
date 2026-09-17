@@ -55,13 +55,39 @@ const (
 	Task      IssueType = "task"
 )
 
+// Defines values for PlanLifecycle.
+const (
+	PlanLifecycleActive   PlanLifecycle = "active"
+	PlanLifecycleArchived PlanLifecycle = "archived"
+)
+
+// Defines values for PlanDispositionRequestDisposition.
+const (
+	Addressed PlanDispositionRequestDisposition = "addressed"
+	Deferred  PlanDispositionRequestDisposition = "deferred"
+)
+
+// Defines values for PlanMetadataUpdateLifecycle.
+const (
+	PlanMetadataUpdateLifecycleActive   PlanMetadataUpdateLifecycle = "active"
+	PlanMetadataUpdateLifecycleArchived PlanMetadataUpdateLifecycle = "archived"
+)
+
+// Defines values for PlanReviewRequestStatus.
+const (
+	PlanReviewRequestStatusApproved         PlanReviewRequestStatus = "approved"
+	PlanReviewRequestStatusChangesRequested PlanReviewRequestStatus = "changes_requested"
+	PlanReviewRequestStatusInReview         PlanReviewRequestStatus = "in_review"
+	PlanReviewRequestStatusRejected         PlanReviewRequestStatus = "rejected"
+)
+
 // Defines values for PlanStatus.
 const (
-	Approved         PlanStatus = "approved"
-	ChangesRequested PlanStatus = "changes_requested"
-	Draft            PlanStatus = "draft"
-	InReview         PlanStatus = "in_review"
-	Rejected         PlanStatus = "rejected"
+	PlanStatusApproved         PlanStatus = "approved"
+	PlanStatusChangesRequested PlanStatus = "changes_requested"
+	PlanStatusDraft            PlanStatus = "draft"
+	PlanStatusInReview         PlanStatus = "in_review"
+	PlanStatusRejected         PlanStatus = "rejected"
 )
 
 // Defines values for Status.
@@ -184,18 +210,20 @@ type BatchDeleteAISessionsResponse struct {
 // BlockedIssue defines model for BlockedIssue.
 type BlockedIssue struct {
 	// AiSessionID AI coding session UUID (e.g., Claude Code session ID)
-	AiSessionID    *string       `json:"ai_session_id,omitempty"`
-	BlockedBy      []string      `json:"blocked_by"`
-	BlockedByCount int           `json:"blocked_by_count"`
-	CloseReason    *string       `json:"close_reason,omitempty"`
-	ClosedAt       *time.Time    `json:"closed_at,omitempty"`
-	Comments       *[]Comment    `json:"comments,omitempty"`
-	CreatedAt      time.Time     `json:"created_at"`
-	Dependencies   *[]Dependency `json:"dependencies,omitempty"`
-	Description    *string       `json:"description,omitempty"`
+	AiSessionID     *string       `json:"ai_session_id,omitempty"`
+	BlockedBy       []string      `json:"blocked_by"`
+	BlockedByCount  int           `json:"blocked_by_count"`
+	CloseReason     *string       `json:"close_reason,omitempty"`
+	ClosedAt        *time.Time    `json:"closed_at,omitempty"`
+	Comments        *[]Comment    `json:"comments,omitempty"`
+	ContractVersion int64         `json:"contract_version"`
+	CreatedAt       time.Time     `json:"created_at"`
+	Dependencies    *[]Dependency `json:"dependencies,omitempty"`
+	Description     *string       `json:"description,omitempty"`
 
 	// ExternalRef External reference (e.g., "gh-9", "jira-ABC")
-	ExternalRef *string `json:"external_ref,omitempty"`
+	ExternalRef   *string        `json:"external_ref,omitempty"`
+	GoverningPlan *PlanReference `json:"governing_plan,omitempty"`
 
 	// ID Unique issue ID
 	ID        string    `json:"id"`
@@ -383,19 +411,36 @@ type Event struct {
 // EventType defines model for EventType.
 type EventType string
 
+// GoverningPlan defines model for GoverningPlan.
+type GoverningPlan struct {
+	ContainerID   string                 `json:"container_id"`
+	ContainerType IssueType              `json:"container_type"`
+	Context       []GoverningPlanContext `json:"context"`
+	Reference     PlanReference          `json:"reference"`
+}
+
+// GoverningPlanContext defines model for GoverningPlanContext.
+type GoverningPlanContext struct {
+	ContainerID   string        `json:"container_id"`
+	ContainerType IssueType     `json:"container_type"`
+	Reference     PlanReference `json:"reference"`
+}
+
 // Issue defines model for Issue.
 type Issue struct {
 	// AiSessionID AI coding session UUID (e.g., Claude Code session ID)
-	AiSessionID  *string       `json:"ai_session_id,omitempty"`
-	CloseReason  *string       `json:"close_reason,omitempty"`
-	ClosedAt     *time.Time    `json:"closed_at,omitempty"`
-	Comments     *[]Comment    `json:"comments,omitempty"`
-	CreatedAt    time.Time     `json:"created_at"`
-	Dependencies *[]Dependency `json:"dependencies,omitempty"`
-	Description  *string       `json:"description,omitempty"`
+	AiSessionID     *string       `json:"ai_session_id,omitempty"`
+	CloseReason     *string       `json:"close_reason,omitempty"`
+	ClosedAt        *time.Time    `json:"closed_at,omitempty"`
+	Comments        *[]Comment    `json:"comments,omitempty"`
+	ContractVersion int64         `json:"contract_version"`
+	CreatedAt       time.Time     `json:"created_at"`
+	Dependencies    *[]Dependency `json:"dependencies,omitempty"`
+	Description     *string       `json:"description,omitempty"`
 
 	// ExternalRef External reference (e.g., "gh-9", "jira-ABC")
-	ExternalRef *string `json:"external_ref,omitempty"`
+	ExternalRef   *string        `json:"external_ref,omitempty"`
+	GoverningPlan *PlanReference `json:"governing_plan,omitempty"`
 
 	// ID Unique issue ID
 	ID        string    `json:"id"`
@@ -416,17 +461,19 @@ type Issue struct {
 // IssueDetails defines model for IssueDetails.
 type IssueDetails struct {
 	// AiSessionID AI coding session UUID (e.g., Claude Code session ID)
-	AiSessionID  *string       `json:"ai_session_id,omitempty"`
-	CloseReason  *string       `json:"close_reason,omitempty"`
-	ClosedAt     *time.Time    `json:"closed_at,omitempty"`
-	Comments     *[]Comment    `json:"comments,omitempty"`
-	CreatedAt    time.Time     `json:"created_at"`
-	Dependencies *[]Dependency `json:"dependencies,omitempty"`
-	Dependents   *[]Dependency `json:"dependents,omitempty"`
-	Description  *string       `json:"description,omitempty"`
+	AiSessionID     *string       `json:"ai_session_id,omitempty"`
+	CloseReason     *string       `json:"close_reason,omitempty"`
+	ClosedAt        *time.Time    `json:"closed_at,omitempty"`
+	Comments        *[]Comment    `json:"comments,omitempty"`
+	ContractVersion int64         `json:"contract_version"`
+	CreatedAt       time.Time     `json:"created_at"`
+	Dependencies    *[]Dependency `json:"dependencies,omitempty"`
+	Dependents      *[]Dependency `json:"dependents,omitempty"`
+	Description     *string       `json:"description,omitempty"`
 
 	// ExternalRef External reference (e.g., "gh-9", "jira-ABC")
-	ExternalRef *string `json:"external_ref,omitempty"`
+	ExternalRef   *string        `json:"external_ref,omitempty"`
+	GoverningPlan *PlanReference `json:"governing_plan,omitempty"`
 
 	// ID Unique issue ID
 	ID        string    `json:"id"`
@@ -438,10 +485,11 @@ type IssueDetails struct {
 	ProjectID string `json:"project_id"`
 
 	// Rank 0 = unranked (sorts last), 1+ = lower rank = work on first
-	Rank      *int      `json:"rank,omitempty"`
-	Status    Status    `json:"status"`
-	Title     string    `json:"title"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Rank               *int           `json:"rank,omitempty"`
+	ResolvedGovernance *GoverningPlan `json:"resolved_governance,omitempty"`
+	Status             Status         `json:"status"`
+	Title              string         `json:"title"`
+	UpdatedAt          time.Time      `json:"updated_at"`
 }
 
 // IssueType defines model for IssueType.
@@ -473,16 +521,19 @@ type PaginatedIssues struct {
 
 // Plan defines model for Plan.
 type Plan struct {
-	CreatedAt time.Time `json:"created_at"`
-
-	// FilePath Relative path to the plan markdown file
-	FilePath string `json:"file_path"`
-
-	// ID Unique plan ID (plan.xxxxx format)
-	ID        string     `json:"id"`
-	Status    PlanStatus `json:"status"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	CreatedAt       time.Time     `json:"created_at"`
+	FeedbackVersion int64         `json:"feedback_version"`
+	HeadRevision    int64         `json:"head_revision"`
+	ID              string        `json:"id"`
+	Lifecycle       PlanLifecycle `json:"lifecycle"`
+	ProjectID       string        `json:"project_id"`
+	Title           string        `json:"title"`
+	UpdatedAt       time.Time     `json:"updated_at"`
+	Version         int64         `json:"version"`
 }
+
+// PlanLifecycle defines model for Plan.Lifecycle.
+type PlanLifecycle string
 
 // PlanComment defines model for PlanComment.
 type PlanComment struct {
@@ -490,13 +541,18 @@ type PlanComment struct {
 	Anchor    *PlanCommentAnchor `json:"anchor,omitempty"`
 	Content   string             `json:"content"`
 	CreatedAt time.Time          `json:"created_at"`
+	DeletedAt *time.Time         `json:"deleted_at,omitempty"`
 	ID        string             `json:"id"`
 
 	// LineNumber Line number anchor (null for overall feedback; mirrors anchor.line_start when anchored)
 	LineNumber *int       `json:"line_number"`
 	PlanID     string     `json:"plan_id"`
 	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
-	UpdatedAt  *time.Time `json:"updated_at,omitempty"`
+
+	// Revision Exact revision; null only for migrated legacy discussion with unknown provenance.
+	Revision  *int64     `json:"revision"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	Version   int64      `json:"version"`
 }
 
 // PlanCommentAnchor Pins a comment to a quoted text range in the rendered document.
@@ -523,22 +579,119 @@ type PlanCommentAnchor struct {
 	QuotedText string `json:"quoted_text"`
 }
 
+// PlanCommentDelete defines model for PlanCommentDelete.
+type PlanCommentDelete struct {
+	ExpectedVersion int64 `json:"expected_version"`
+}
+
+// PlanCommentUpdate defines model for PlanCommentUpdate.
+type PlanCommentUpdate struct {
+	// Anchor Pins a comment to a quoted text range in the rendered document.
+	Anchor          *PlanCommentAnchor `json:"anchor,omitempty"`
+	Content         *string            `json:"content,omitempty"`
+	ExpectedVersion int64              `json:"expected_version"`
+	Reopen          *bool              `json:"reopen,omitempty"`
+}
+
+// PlanDispositionRequest defines model for PlanDispositionRequest.
+type PlanDispositionRequest struct {
+	CommentID               string                            `json:"comment_id"`
+	Disposition             PlanDispositionRequestDisposition `json:"disposition"`
+	ExpectedCommentVersion  int64                             `json:"expected_comment_version"`
+	ExpectedFeedbackVersion int64                             `json:"expected_feedback_version"`
+	Reason                  string                            `json:"reason"`
+}
+
+// PlanDispositionRequestDisposition defines model for PlanDispositionRequest.Disposition.
+type PlanDispositionRequestDisposition string
+
+// PlanFeedbackDisposition defines model for PlanFeedbackDisposition.
+type PlanFeedbackDisposition struct {
+	CommentID      string    `json:"comment_id"`
+	CommentVersion int64     `json:"comment_version"`
+	CreatedAt      time.Time `json:"created_at"`
+	Disposition    string    `json:"disposition"`
+	ID             string    `json:"id"`
+	PlanID         string    `json:"plan_id"`
+	Reason         string    `json:"reason"`
+	TargetRevision int64     `json:"target_revision"`
+}
+
+// PlanMetadataUpdate defines model for PlanMetadataUpdate.
+type PlanMetadataUpdate struct {
+	ExpectedVersion int64                        `json:"expected_version"`
+	Lifecycle       *PlanMetadataUpdateLifecycle `json:"lifecycle,omitempty"`
+	Title           *string                      `json:"title,omitempty"`
+}
+
+// PlanMetadataUpdateLifecycle defines model for PlanMetadataUpdate.Lifecycle.
+type PlanMetadataUpdateLifecycle string
+
+// PlanReference defines model for PlanReference.
+type PlanReference struct {
+	PlanID   string `json:"plan_id"`
+	Revision int64  `json:"revision"`
+}
+
+// PlanReviewRequest defines model for PlanReviewRequest.
+type PlanReviewRequest struct {
+	ExpectedFeedbackVersion int64                   `json:"expected_feedback_version"`
+	ExpectedHead            int64                   `json:"expected_head"`
+	ExpectedReviewVersion   int64                   `json:"expected_review_version"`
+	Status                  PlanReviewRequestStatus `json:"status"`
+}
+
+// PlanReviewRequestStatus defines model for PlanReviewRequest.Status.
+type PlanReviewRequestStatus string
+
+// PlanRevision defines model for PlanRevision.
+type PlanRevision struct {
+	ContentBytes  int64      `json:"content_bytes"`
+	ContentSha256 string     `json:"content_sha256"`
+	CreatedAt     time.Time  `json:"created_at"`
+	PlanID        string     `json:"plan_id"`
+	ReviewStatus  PlanStatus `json:"review_status"`
+	ReviewVersion int64      `json:"review_version"`
+	Revision      int64      `json:"revision"`
+}
+
+// PlanRevisionWithContent defines model for PlanRevisionWithContent.
+type PlanRevisionWithContent struct {
+	// Content Exact retained UTF-8 upload, verified against content_sha256 and content_bytes.
+	Content       string     `json:"content"`
+	ContentBytes  int64      `json:"content_bytes"`
+	ContentSha256 string     `json:"content_sha256"`
+	CreatedAt     time.Time  `json:"created_at"`
+	PlanID        string     `json:"plan_id"`
+	ReviewStatus  PlanStatus `json:"review_status"`
+	ReviewVersion int64      `json:"review_version"`
+	Revision      int64      `json:"revision"`
+}
+
+// PlanSave defines model for PlanSave.
+type PlanSave struct {
+	Content          string  `json:"content"`
+	ExpectedRevision int64   `json:"expected_revision"`
+	SourceName       *string `json:"source_name,omitempty"`
+}
+
 // PlanStatus defines model for PlanStatus.
 type PlanStatus string
 
-// PlanWithContent defines model for PlanWithContent.
-type PlanWithContent struct {
-	// Content Markdown content read from the plan file
-	Content   *string   `json:"content,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+// PlanUpload defines model for PlanUpload.
+type PlanUpload struct {
+	Content    string  `json:"content"`
+	SourceName *string `json:"source_name,omitempty"`
+	Title      *string `json:"title,omitempty"`
+}
 
-	// FilePath Relative path to the plan markdown file
-	FilePath string `json:"file_path"`
+// PlanWriteResult defines model for PlanWriteResult.
+type PlanWriteResult struct {
+	Plan Plan `json:"plan"`
 
-	// ID Unique plan ID (plan.xxxxx format)
-	ID        string     `json:"id"`
-	Status    PlanStatus `json:"status"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	// Replay True returns the originally committed result, even after later saves or archive.
+	Replay   bool                    `json:"replay"`
+	Revision PlanRevisionWithContent `json:"revision"`
 }
 
 // Project defines model for Project.
@@ -546,7 +699,8 @@ type Project struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// Description Project description
-	Description *string `json:"description,omitempty"`
+	Description          *string `json:"description,omitempty"`
+	GovernanceGeneration int64   `json:"governance_generation"`
 
 	// ID Unique project ID (e.g., "proj-a1b2")
 	ID string `json:"id"`
@@ -828,6 +982,46 @@ type ReopenIssueParams struct {
 	XActor *ActorHeader `json:"X-Actor,omitempty"`
 }
 
+// ListDurablePlansParams defines parameters for ListDurablePlans.
+type ListDurablePlansParams struct {
+	Limit    *int  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset   *int  `form:"offset,omitempty" json:"offset,omitempty"`
+	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
+}
+
+// CreateDurablePlanParams defines parameters for CreateDurablePlan.
+type CreateDurablePlanParams struct {
+	// IdempotencyKey Retained indefinitely, scoped by project and operation target. Identical payload replays original result; different payload conflicts.
+	IdempotencyKey string `json:"Idempotency-Key"`
+}
+
+// ListPlanRevisionsParams defines parameters for ListPlanRevisions.
+type ListPlanRevisionsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// SavePlanRevisionParams defines parameters for SavePlanRevision.
+type SavePlanRevisionParams struct {
+	// IdempotencyKey Retained indefinitely, scoped by project and operation target. Identical payload replays original result; different payload conflicts.
+	IdempotencyKey string `json:"Idempotency-Key"`
+}
+
+// ListRevisionCommentsParams defines parameters for ListRevisionComments.
+type ListRevisionCommentsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// IncludePrior Include earlier revision feedback and unknown-provenance migrated discussion.
+	IncludePrior *bool `form:"include_prior,omitempty" json:"include_prior,omitempty"`
+}
+
+// ListPlanDispositionsParams defines parameters for ListPlanDispositions.
+type ListPlanDispositionsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // GetReadyWorkParams defines parameters for GetReadyWork.
 type GetReadyWorkParams struct {
 	// Type Filter by issue type
@@ -918,6 +1112,30 @@ type AddDependencyJSONRequestBody = AddDependencyRequest
 // AddLabelToIssueJSONRequestBody defines body for AddLabelToIssue for application/json ContentType.
 type AddLabelToIssueJSONRequestBody = AddLabelToIssueRequest
 
+// CreateDurablePlanJSONRequestBody defines body for CreateDurablePlan for application/json ContentType.
+type CreateDurablePlanJSONRequestBody = PlanUpload
+
+// UpdateDurablePlanJSONRequestBody defines body for UpdateDurablePlan for application/json ContentType.
+type UpdateDurablePlanJSONRequestBody = PlanMetadataUpdate
+
+// SavePlanRevisionJSONRequestBody defines body for SavePlanRevision for application/json ContentType.
+type SavePlanRevisionJSONRequestBody = PlanSave
+
+// CreateRevisionCommentJSONRequestBody defines body for CreateRevisionComment for application/json ContentType.
+type CreateRevisionCommentJSONRequestBody = CreatePlanCommentRequest
+
+// DeleteRevisionCommentJSONRequestBody defines body for DeleteRevisionComment for application/json ContentType.
+type DeleteRevisionCommentJSONRequestBody = PlanCommentDelete
+
+// UpdateRevisionCommentJSONRequestBody defines body for UpdateRevisionComment for application/json ContentType.
+type UpdateRevisionCommentJSONRequestBody = PlanCommentUpdate
+
+// DecidePlanRevisionJSONRequestBody defines body for DecidePlanRevision for application/json ContentType.
+type DecidePlanRevisionJSONRequestBody = PlanReviewRequest
+
+// AddPlanDispositionJSONRequestBody defines body for AddPlanDisposition for application/json ContentType.
+type AddPlanDispositionJSONRequestBody = PlanDispositionRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Get the current arc configuration
@@ -941,31 +1159,31 @@ type ServerInterface interface {
 	// Update a label
 	// (PUT /labels/{labelName})
 	UpdateLabel(ctx echo.Context, labelName string) error
-	// Register an ephemeral plan
+	// Removed legacy path-based operation; upgrade required
 	// (POST /plans)
 	CreatePlan(ctx echo.Context) error
-	// Delete plan and its comments
+	// Removed legacy path-based operation; upgrade required
 	// (DELETE /plans/{planId})
 	DeletePlan(ctx echo.Context, planID string) error
-	// Get plan metadata and file content
+	// Removed legacy path-based operation; upgrade required
 	// (GET /plans/{planId})
 	GetPlan(ctx echo.Context, planID string) error
-	// Update plan file content
+	// Removed legacy path-based operation; upgrade required
 	// (PUT /plans/{planId})
 	UpdatePlanContent(ctx echo.Context, planID string) error
-	// List plan review comments
+	// Removed legacy path-based operation; upgrade required
 	// (GET /plans/{planId}/comments)
 	ListPlanComments(ctx echo.Context, planID string) error
-	// Add a review comment
+	// Removed legacy path-based operation; upgrade required
 	// (POST /plans/{planId}/comments)
 	CreatePlanComment(ctx echo.Context, planID string) error
-	// Delete a plan review comment
+	// Removed legacy path-based operation; upgrade required
 	// (DELETE /plans/{planId}/comments/{commentId})
 	DeletePlanComment(ctx echo.Context, planID string, commentID string) error
-	// Update a plan review comment (content, anchor, resolved state)
+	// Removed legacy path-based operation; upgrade required
 	// (PATCH /plans/{planId}/comments/{commentId})
 	UpdatePlanComment(ctx echo.Context, planID string, commentID string) error
-	// Update plan status
+	// Removed legacy path-based operation; upgrade required
 	// (PATCH /plans/{planId}/status)
 	UpdatePlanStatus(ctx echo.Context, planID string) error
 	// List all projects
@@ -1076,6 +1294,48 @@ type ServerInterface interface {
 	// Reopen a closed issue
 	// (POST /projects/{projectId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx echo.Context, projectID ProjectID, issueID IssueID, params ReopenIssueParams) error
+	// List active or archived retained plans
+	// (GET /projects/{projectId}/plans)
+	ListDurablePlans(ctx echo.Context, projectID string, params ListDurablePlansParams) error
+	// Upload exact Markdown bytes as revision 1
+	// (POST /projects/{projectId}/plans)
+	CreateDurablePlan(ctx echo.Context, projectID string, params CreateDurablePlanParams) error
+	// Read project-scoped plan metadata
+	// (GET /projects/{projectId}/plans/{planId})
+	GetDurablePlan(ctx echo.Context, projectID string, planID string) error
+	// Change title or archive/restore with expected plan version
+	// (PATCH /projects/{projectId}/plans/{planId})
+	UpdateDurablePlan(ctx echo.Context, projectID string, planID string) error
+	// Read immutable revision history
+	// (GET /projects/{projectId}/plans/{planId}/revisions)
+	ListPlanRevisions(ctx echo.Context, projectID string, planID string, params ListPlanRevisionsParams) error
+	// Publish a new draft against explicit head revision
+	// (POST /projects/{projectId}/plans/{planId}/revisions)
+	SavePlanRevision(ctx echo.Context, projectID string, planID string, params SavePlanRevisionParams) error
+	// Read and verify exact retained revision bytes
+	// (GET /projects/{projectId}/plans/{planId}/revisions/{revision})
+	ReadPlanRevision(ctx echo.Context, projectID string, planID string, revision int64) error
+	// Read original anchors, versioned comments, and audit tombstones
+	// (GET /projects/{projectId}/plans/{planId}/revisions/{revision}/comments)
+	ListRevisionComments(ctx echo.Context, projectID string, planID string, revision int64, params ListRevisionCommentsParams) error
+	// Add feedback on an exact revision
+	// (POST /projects/{projectId}/plans/{planId}/revisions/{revision}/comments)
+	CreateRevisionComment(ctx echo.Context, projectID string, planID string, revision int64) error
+	// Create audit tombstone; feedback remains an approval obligation
+	// (DELETE /projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId})
+	DeleteRevisionComment(ctx echo.Context, projectID string, planID string, revision int64, commentID string) error
+	// Edit or reopen feedback, invalidating prior-version dispositions
+	// (PATCH /projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId})
+	UpdateRevisionComment(ctx echo.Context, projectID string, planID string, revision int64, commentID string) error
+	// Submit or decide current head with review and feedback preconditions
+	// (POST /projects/{projectId}/plans/{planId}/revisions/{revision}/decisions)
+	DecidePlanRevision(ctx echo.Context, projectID string, planID string, revision int64) error
+	// Read append-only dispositions through the requested revision
+	// (GET /projects/{projectId}/plans/{planId}/revisions/{revision}/dispositions)
+	ListPlanDispositions(ctx echo.Context, projectID string, planID string, revision int64, params ListPlanDispositionsParams) error
+	// Address or defer an exact feedback version with a reason
+	// (POST /projects/{projectId}/plans/{planId}/revisions/{revision}/dispositions)
+	AddPlanDisposition(ctx echo.Context, projectID string, planID string, revision int64) error
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /projects/{projectId}/ready)
 	GetReadyWork(ctx echo.Context, projectID ProjectID, params GetReadyWorkParams) error
@@ -2413,6 +2673,528 @@ func (w *ServerInterfaceWrapper) ReopenIssue(ctx echo.Context) error {
 	return err
 }
 
+// ListDurablePlans converts echo context to params.
+func (w *ServerInterfaceWrapper) ListDurablePlans(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDurablePlansParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// ------------- Optional query parameter "archived" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "archived", ctx.QueryParams(), &params.Archived)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter archived: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListDurablePlans(ctx, projectID, params)
+	return err
+}
+
+// CreateDurablePlan converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateDurablePlan(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateDurablePlanParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Idempotency-Key, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Idempotency-Key: %s", err))
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Idempotency-Key is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateDurablePlan(ctx, projectID, params)
+	return err
+}
+
+// GetDurablePlan converts echo context to params.
+func (w *ServerInterfaceWrapper) GetDurablePlan(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetDurablePlan(ctx, projectID, planID)
+	return err
+}
+
+// UpdateDurablePlan converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateDurablePlan(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateDurablePlan(ctx, projectID, planID)
+	return err
+}
+
+// ListPlanRevisions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListPlanRevisions(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPlanRevisionsParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListPlanRevisions(ctx, projectID, planID, params)
+	return err
+}
+
+// SavePlanRevision converts echo context to params.
+func (w *ServerInterfaceWrapper) SavePlanRevision(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePlanRevisionParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Idempotency-Key, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Idempotency-Key: %s", err))
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Idempotency-Key is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SavePlanRevision(ctx, projectID, planID, params)
+	return err
+}
+
+// ReadPlanRevision converts echo context to params.
+func (w *ServerInterfaceWrapper) ReadPlanRevision(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ReadPlanRevision(ctx, projectID, planID, revision)
+	return err
+}
+
+// ListRevisionComments converts echo context to params.
+func (w *ServerInterfaceWrapper) ListRevisionComments(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRevisionCommentsParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// ------------- Optional query parameter "include_prior" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "include_prior", ctx.QueryParams(), &params.IncludePrior)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter include_prior: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListRevisionComments(ctx, projectID, planID, revision, params)
+	return err
+}
+
+// CreateRevisionComment converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateRevisionComment(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateRevisionComment(ctx, projectID, planID, revision)
+	return err
+}
+
+// DeleteRevisionComment converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteRevisionComment(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// ------------- Path parameter "commentId" -------------
+	var commentID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "commentId", ctx.Param("commentId"), &commentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter commentId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteRevisionComment(ctx, projectID, planID, revision, commentID)
+	return err
+}
+
+// UpdateRevisionComment converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateRevisionComment(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// ------------- Path parameter "commentId" -------------
+	var commentID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "commentId", ctx.Param("commentId"), &commentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter commentId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateRevisionComment(ctx, projectID, planID, revision, commentID)
+	return err
+}
+
+// DecidePlanRevision converts echo context to params.
+func (w *ServerInterfaceWrapper) DecidePlanRevision(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DecidePlanRevision(ctx, projectID, planID, revision)
+	return err
+}
+
+// ListPlanDispositions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListPlanDispositions(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPlanDispositionsParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListPlanDispositions(ctx, projectID, planID, revision, params)
+	return err
+}
+
+// AddPlanDisposition converts echo context to params.
+func (w *ServerInterfaceWrapper) AddPlanDisposition(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "projectId" -------------
+	var projectID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", ctx.Param("projectId"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter projectId: %s", err))
+	}
+
+	// ------------- Path parameter "planId" -------------
+	var planID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planId", ctx.Param("planId"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter planId: %s", err))
+	}
+
+	// ------------- Path parameter "revision" -------------
+	var revision int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "revision", ctx.Param("revision"), &revision, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter revision: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.AddPlanDisposition(ctx, projectID, planID, revision)
+	return err
+}
+
 // GetReadyWork converts echo context to params.
 func (w *ServerInterfaceWrapper) GetReadyWork(ctx echo.Context) error {
 	var err error
@@ -2580,6 +3362,20 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/projects/:projectId/issues/:issueId/labels", wrapper.AddLabelToIssue)
 	router.DELETE(baseURL+"/projects/:projectId/issues/:issueId/labels/:labelName", wrapper.RemoveLabelFromIssue)
 	router.POST(baseURL+"/projects/:projectId/issues/:issueId/reopen", wrapper.ReopenIssue)
+	router.GET(baseURL+"/projects/:projectId/plans", wrapper.ListDurablePlans)
+	router.POST(baseURL+"/projects/:projectId/plans", wrapper.CreateDurablePlan)
+	router.GET(baseURL+"/projects/:projectId/plans/:planId", wrapper.GetDurablePlan)
+	router.PATCH(baseURL+"/projects/:projectId/plans/:planId", wrapper.UpdateDurablePlan)
+	router.GET(baseURL+"/projects/:projectId/plans/:planId/revisions", wrapper.ListPlanRevisions)
+	router.POST(baseURL+"/projects/:projectId/plans/:planId/revisions", wrapper.SavePlanRevision)
+	router.GET(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision", wrapper.ReadPlanRevision)
+	router.GET(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision/comments", wrapper.ListRevisionComments)
+	router.POST(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision/comments", wrapper.CreateRevisionComment)
+	router.DELETE(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision/comments/:commentId", wrapper.DeleteRevisionComment)
+	router.PATCH(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision/comments/:commentId", wrapper.UpdateRevisionComment)
+	router.POST(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision/decisions", wrapper.DecidePlanRevision)
+	router.GET(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision/dispositions", wrapper.ListPlanDispositions)
+	router.POST(baseURL+"/projects/:projectId/plans/:planId/revisions/:revision/dispositions", wrapper.AddPlanDisposition)
 	router.GET(baseURL+"/projects/:projectId/ready", wrapper.GetReadyWork)
 	router.GET(baseURL+"/projects/:projectId/stats", wrapper.GetProjectStats)
 	router.GET(baseURL+"/projects/:projectId/team-context", wrapper.GetTeamContext)
@@ -2837,29 +3633,11 @@ type CreatePlanResponseObject interface {
 	VisitCreatePlanResponse(w http.ResponseWriter) error
 }
 
-type CreatePlan201JSONResponse Plan
-
-func (response CreatePlan201JSONResponse) VisitCreatePlanResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type CreatePlan400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response CreatePlan400JSONResponse) VisitCreatePlanResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreatePlan500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response CreatePlan500JSONResponse) VisitCreatePlanResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2872,28 +3650,11 @@ type DeletePlanResponseObject interface {
 	VisitDeletePlanResponse(w http.ResponseWriter) error
 }
 
-type DeletePlan204Response struct {
-}
+type DeletePlan400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response DeletePlan204Response) VisitDeletePlanResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeletePlan404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeletePlan404JSONResponse) VisitDeletePlanResponse(w http.ResponseWriter) error {
+func (response DeletePlan400JSONResponse) VisitDeletePlanResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeletePlan500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response DeletePlan500JSONResponse) VisitDeletePlanResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2906,29 +3667,11 @@ type GetPlanResponseObject interface {
 	VisitGetPlanResponse(w http.ResponseWriter) error
 }
 
-type GetPlan200JSONResponse PlanWithContent
+type GetPlan400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response GetPlan200JSONResponse) VisitGetPlanResponse(w http.ResponseWriter) error {
+func (response GetPlan400JSONResponse) VisitGetPlanResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPlan404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetPlan404JSONResponse) VisitGetPlanResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPlan500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetPlan500JSONResponse) VisitGetPlanResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2942,38 +3685,11 @@ type UpdatePlanContentResponseObject interface {
 	VisitUpdatePlanContentResponse(w http.ResponseWriter) error
 }
 
-type UpdatePlanContent200JSONResponse PlanWithContent
-
-func (response UpdatePlanContent200JSONResponse) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type UpdatePlanContent400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response UpdatePlanContent400JSONResponse) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdatePlanContent404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response UpdatePlanContent404JSONResponse) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdatePlanContent500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response UpdatePlanContent500JSONResponse) VisitUpdatePlanContentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2986,20 +3702,11 @@ type ListPlanCommentsResponseObject interface {
 	VisitListPlanCommentsResponse(w http.ResponseWriter) error
 }
 
-type ListPlanComments200JSONResponse []PlanComment
+type ListPlanComments400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response ListPlanComments200JSONResponse) VisitListPlanCommentsResponse(w http.ResponseWriter) error {
+func (response ListPlanComments400JSONResponse) VisitListPlanCommentsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListPlanComments500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ListPlanComments500JSONResponse) VisitListPlanCommentsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -3013,38 +3720,11 @@ type CreatePlanCommentResponseObject interface {
 	VisitCreatePlanCommentResponse(w http.ResponseWriter) error
 }
 
-type CreatePlanComment201JSONResponse PlanComment
-
-func (response CreatePlanComment201JSONResponse) VisitCreatePlanCommentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type CreatePlanComment400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response CreatePlanComment400JSONResponse) VisitCreatePlanCommentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreatePlanComment404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response CreatePlanComment404JSONResponse) VisitCreatePlanCommentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreatePlanComment500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response CreatePlanComment500JSONResponse) VisitCreatePlanCommentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -3058,28 +3738,11 @@ type DeletePlanCommentResponseObject interface {
 	VisitDeletePlanCommentResponse(w http.ResponseWriter) error
 }
 
-type DeletePlanComment204Response struct {
-}
+type DeletePlanComment400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response DeletePlanComment204Response) VisitDeletePlanCommentResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeletePlanComment404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeletePlanComment404JSONResponse) VisitDeletePlanCommentResponse(w http.ResponseWriter) error {
+func (response DeletePlanComment400JSONResponse) VisitDeletePlanCommentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeletePlanComment500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response DeletePlanComment500JSONResponse) VisitDeletePlanCommentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -3094,38 +3757,11 @@ type UpdatePlanCommentResponseObject interface {
 	VisitUpdatePlanCommentResponse(w http.ResponseWriter) error
 }
 
-type UpdatePlanComment200JSONResponse PlanComment
-
-func (response UpdatePlanComment200JSONResponse) VisitUpdatePlanCommentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type UpdatePlanComment400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response UpdatePlanComment400JSONResponse) VisitUpdatePlanCommentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdatePlanComment404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response UpdatePlanComment404JSONResponse) VisitUpdatePlanCommentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdatePlanComment500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response UpdatePlanComment500JSONResponse) VisitUpdatePlanCommentResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -3139,38 +3775,11 @@ type UpdatePlanStatusResponseObject interface {
 	VisitUpdatePlanStatusResponse(w http.ResponseWriter) error
 }
 
-type UpdatePlanStatus200JSONResponse Plan
-
-func (response UpdatePlanStatus200JSONResponse) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type UpdatePlanStatus400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response UpdatePlanStatus400JSONResponse) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdatePlanStatus404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response UpdatePlanStatus404JSONResponse) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdatePlanStatus500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response UpdatePlanStatus500JSONResponse) VisitUpdatePlanStatusResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -4576,6 +5185,928 @@ func (response ReopenIssue500JSONResponse) VisitReopenIssueResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListDurablePlansRequestObject struct {
+	ProjectID string `json:"projectId"`
+	Params    ListDurablePlansParams
+}
+
+type ListDurablePlansResponseObject interface {
+	VisitListDurablePlansResponse(w http.ResponseWriter) error
+}
+
+type ListDurablePlans200JSONResponse []Plan
+
+func (response ListDurablePlans200JSONResponse) VisitListDurablePlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListDurablePlans400JSONResponse Error
+
+func (response ListDurablePlans400JSONResponse) VisitListDurablePlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListDurablePlans404JSONResponse Error
+
+func (response ListDurablePlans404JSONResponse) VisitListDurablePlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListDurablePlans409JSONResponse Error
+
+func (response ListDurablePlans409JSONResponse) VisitListDurablePlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListDurablePlans428JSONResponse Error
+
+func (response ListDurablePlans428JSONResponse) VisitListDurablePlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListDurablePlans503JSONResponse Error
+
+func (response ListDurablePlans503JSONResponse) VisitListDurablePlansResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDurablePlanRequestObject struct {
+	ProjectID string `json:"projectId"`
+	Params    CreateDurablePlanParams
+	Body      *CreateDurablePlanJSONRequestBody
+}
+
+type CreateDurablePlanResponseObject interface {
+	VisitCreateDurablePlanResponse(w http.ResponseWriter) error
+}
+
+type CreateDurablePlan200JSONResponse PlanWriteResult
+
+func (response CreateDurablePlan200JSONResponse) VisitCreateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDurablePlan201JSONResponse PlanWriteResult
+
+func (response CreateDurablePlan201JSONResponse) VisitCreateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDurablePlan400JSONResponse Error
+
+func (response CreateDurablePlan400JSONResponse) VisitCreateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDurablePlan404JSONResponse Error
+
+func (response CreateDurablePlan404JSONResponse) VisitCreateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDurablePlan409JSONResponse Error
+
+func (response CreateDurablePlan409JSONResponse) VisitCreateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDurablePlan428JSONResponse Error
+
+func (response CreateDurablePlan428JSONResponse) VisitCreateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateDurablePlan503JSONResponse Error
+
+func (response CreateDurablePlan503JSONResponse) VisitCreateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDurablePlanRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+}
+
+type GetDurablePlanResponseObject interface {
+	VisitGetDurablePlanResponse(w http.ResponseWriter) error
+}
+
+type GetDurablePlan200JSONResponse Plan
+
+func (response GetDurablePlan200JSONResponse) VisitGetDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDurablePlan400JSONResponse Error
+
+func (response GetDurablePlan400JSONResponse) VisitGetDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDurablePlan404JSONResponse Error
+
+func (response GetDurablePlan404JSONResponse) VisitGetDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDurablePlan409JSONResponse Error
+
+func (response GetDurablePlan409JSONResponse) VisitGetDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDurablePlan428JSONResponse Error
+
+func (response GetDurablePlan428JSONResponse) VisitGetDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDurablePlan503JSONResponse Error
+
+func (response GetDurablePlan503JSONResponse) VisitGetDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDurablePlanRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Body      *UpdateDurablePlanJSONRequestBody
+}
+
+type UpdateDurablePlanResponseObject interface {
+	VisitUpdateDurablePlanResponse(w http.ResponseWriter) error
+}
+
+type UpdateDurablePlan200JSONResponse Plan
+
+func (response UpdateDurablePlan200JSONResponse) VisitUpdateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDurablePlan400JSONResponse Error
+
+func (response UpdateDurablePlan400JSONResponse) VisitUpdateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDurablePlan404JSONResponse Error
+
+func (response UpdateDurablePlan404JSONResponse) VisitUpdateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDurablePlan409JSONResponse Error
+
+func (response UpdateDurablePlan409JSONResponse) VisitUpdateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDurablePlan428JSONResponse Error
+
+func (response UpdateDurablePlan428JSONResponse) VisitUpdateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDurablePlan503JSONResponse Error
+
+func (response UpdateDurablePlan503JSONResponse) VisitUpdateDurablePlanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanRevisionsRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Params    ListPlanRevisionsParams
+}
+
+type ListPlanRevisionsResponseObject interface {
+	VisitListPlanRevisionsResponse(w http.ResponseWriter) error
+}
+
+type ListPlanRevisions200JSONResponse []PlanRevision
+
+func (response ListPlanRevisions200JSONResponse) VisitListPlanRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanRevisions400JSONResponse Error
+
+func (response ListPlanRevisions400JSONResponse) VisitListPlanRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanRevisions404JSONResponse Error
+
+func (response ListPlanRevisions404JSONResponse) VisitListPlanRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanRevisions409JSONResponse Error
+
+func (response ListPlanRevisions409JSONResponse) VisitListPlanRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanRevisions428JSONResponse Error
+
+func (response ListPlanRevisions428JSONResponse) VisitListPlanRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanRevisions503JSONResponse Error
+
+func (response ListPlanRevisions503JSONResponse) VisitListPlanRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SavePlanRevisionRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Params    SavePlanRevisionParams
+	Body      *SavePlanRevisionJSONRequestBody
+}
+
+type SavePlanRevisionResponseObject interface {
+	VisitSavePlanRevisionResponse(w http.ResponseWriter) error
+}
+
+type SavePlanRevision200JSONResponse PlanWriteResult
+
+func (response SavePlanRevision200JSONResponse) VisitSavePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SavePlanRevision201JSONResponse PlanWriteResult
+
+func (response SavePlanRevision201JSONResponse) VisitSavePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SavePlanRevision400JSONResponse Error
+
+func (response SavePlanRevision400JSONResponse) VisitSavePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SavePlanRevision404JSONResponse Error
+
+func (response SavePlanRevision404JSONResponse) VisitSavePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SavePlanRevision409JSONResponse Error
+
+func (response SavePlanRevision409JSONResponse) VisitSavePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SavePlanRevision428JSONResponse Error
+
+func (response SavePlanRevision428JSONResponse) VisitSavePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SavePlanRevision503JSONResponse Error
+
+func (response SavePlanRevision503JSONResponse) VisitSavePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReadPlanRevisionRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+}
+
+type ReadPlanRevisionResponseObject interface {
+	VisitReadPlanRevisionResponse(w http.ResponseWriter) error
+}
+
+type ReadPlanRevision200JSONResponse PlanRevisionWithContent
+
+func (response ReadPlanRevision200JSONResponse) VisitReadPlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReadPlanRevision400JSONResponse Error
+
+func (response ReadPlanRevision400JSONResponse) VisitReadPlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReadPlanRevision404JSONResponse Error
+
+func (response ReadPlanRevision404JSONResponse) VisitReadPlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReadPlanRevision409JSONResponse Error
+
+func (response ReadPlanRevision409JSONResponse) VisitReadPlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReadPlanRevision428JSONResponse Error
+
+func (response ReadPlanRevision428JSONResponse) VisitReadPlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReadPlanRevision503JSONResponse Error
+
+func (response ReadPlanRevision503JSONResponse) VisitReadPlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRevisionCommentsRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+	Params    ListRevisionCommentsParams
+}
+
+type ListRevisionCommentsResponseObject interface {
+	VisitListRevisionCommentsResponse(w http.ResponseWriter) error
+}
+
+type ListRevisionComments200JSONResponse []PlanComment
+
+func (response ListRevisionComments200JSONResponse) VisitListRevisionCommentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRevisionComments400JSONResponse Error
+
+func (response ListRevisionComments400JSONResponse) VisitListRevisionCommentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRevisionComments404JSONResponse Error
+
+func (response ListRevisionComments404JSONResponse) VisitListRevisionCommentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRevisionComments409JSONResponse Error
+
+func (response ListRevisionComments409JSONResponse) VisitListRevisionCommentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRevisionComments428JSONResponse Error
+
+func (response ListRevisionComments428JSONResponse) VisitListRevisionCommentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRevisionComments503JSONResponse Error
+
+func (response ListRevisionComments503JSONResponse) VisitListRevisionCommentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRevisionCommentRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+	Body      *CreateRevisionCommentJSONRequestBody
+}
+
+type CreateRevisionCommentResponseObject interface {
+	VisitCreateRevisionCommentResponse(w http.ResponseWriter) error
+}
+
+type CreateRevisionComment201JSONResponse PlanComment
+
+func (response CreateRevisionComment201JSONResponse) VisitCreateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRevisionComment400JSONResponse Error
+
+func (response CreateRevisionComment400JSONResponse) VisitCreateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRevisionComment404JSONResponse Error
+
+func (response CreateRevisionComment404JSONResponse) VisitCreateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRevisionComment409JSONResponse Error
+
+func (response CreateRevisionComment409JSONResponse) VisitCreateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRevisionComment428JSONResponse Error
+
+func (response CreateRevisionComment428JSONResponse) VisitCreateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateRevisionComment503JSONResponse Error
+
+func (response CreateRevisionComment503JSONResponse) VisitCreateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRevisionCommentRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+	CommentID string `json:"commentId"`
+	Body      *DeleteRevisionCommentJSONRequestBody
+}
+
+type DeleteRevisionCommentResponseObject interface {
+	VisitDeleteRevisionCommentResponse(w http.ResponseWriter) error
+}
+
+type DeleteRevisionComment200JSONResponse PlanComment
+
+func (response DeleteRevisionComment200JSONResponse) VisitDeleteRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRevisionComment400JSONResponse Error
+
+func (response DeleteRevisionComment400JSONResponse) VisitDeleteRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRevisionComment404JSONResponse Error
+
+func (response DeleteRevisionComment404JSONResponse) VisitDeleteRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRevisionComment409JSONResponse Error
+
+func (response DeleteRevisionComment409JSONResponse) VisitDeleteRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRevisionComment428JSONResponse Error
+
+func (response DeleteRevisionComment428JSONResponse) VisitDeleteRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteRevisionComment503JSONResponse Error
+
+func (response DeleteRevisionComment503JSONResponse) VisitDeleteRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateRevisionCommentRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+	CommentID string `json:"commentId"`
+	Body      *UpdateRevisionCommentJSONRequestBody
+}
+
+type UpdateRevisionCommentResponseObject interface {
+	VisitUpdateRevisionCommentResponse(w http.ResponseWriter) error
+}
+
+type UpdateRevisionComment200JSONResponse PlanComment
+
+func (response UpdateRevisionComment200JSONResponse) VisitUpdateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateRevisionComment400JSONResponse Error
+
+func (response UpdateRevisionComment400JSONResponse) VisitUpdateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateRevisionComment404JSONResponse Error
+
+func (response UpdateRevisionComment404JSONResponse) VisitUpdateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateRevisionComment409JSONResponse Error
+
+func (response UpdateRevisionComment409JSONResponse) VisitUpdateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateRevisionComment428JSONResponse Error
+
+func (response UpdateRevisionComment428JSONResponse) VisitUpdateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateRevisionComment503JSONResponse Error
+
+func (response UpdateRevisionComment503JSONResponse) VisitUpdateRevisionCommentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DecidePlanRevisionRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+	Body      *DecidePlanRevisionJSONRequestBody
+}
+
+type DecidePlanRevisionResponseObject interface {
+	VisitDecidePlanRevisionResponse(w http.ResponseWriter) error
+}
+
+type DecidePlanRevision200JSONResponse PlanRevision
+
+func (response DecidePlanRevision200JSONResponse) VisitDecidePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DecidePlanRevision400JSONResponse Error
+
+func (response DecidePlanRevision400JSONResponse) VisitDecidePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DecidePlanRevision404JSONResponse Error
+
+func (response DecidePlanRevision404JSONResponse) VisitDecidePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DecidePlanRevision409JSONResponse Error
+
+func (response DecidePlanRevision409JSONResponse) VisitDecidePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DecidePlanRevision428JSONResponse Error
+
+func (response DecidePlanRevision428JSONResponse) VisitDecidePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DecidePlanRevision503JSONResponse Error
+
+func (response DecidePlanRevision503JSONResponse) VisitDecidePlanRevisionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanDispositionsRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+	Params    ListPlanDispositionsParams
+}
+
+type ListPlanDispositionsResponseObject interface {
+	VisitListPlanDispositionsResponse(w http.ResponseWriter) error
+}
+
+type ListPlanDispositions200JSONResponse []PlanFeedbackDisposition
+
+func (response ListPlanDispositions200JSONResponse) VisitListPlanDispositionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanDispositions400JSONResponse Error
+
+func (response ListPlanDispositions400JSONResponse) VisitListPlanDispositionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanDispositions404JSONResponse Error
+
+func (response ListPlanDispositions404JSONResponse) VisitListPlanDispositionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanDispositions409JSONResponse Error
+
+func (response ListPlanDispositions409JSONResponse) VisitListPlanDispositionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanDispositions428JSONResponse Error
+
+func (response ListPlanDispositions428JSONResponse) VisitListPlanDispositionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPlanDispositions503JSONResponse Error
+
+func (response ListPlanDispositions503JSONResponse) VisitListPlanDispositionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPlanDispositionRequestObject struct {
+	ProjectID string `json:"projectId"`
+	PlanID    string `json:"planId"`
+	Revision  int64  `json:"revision"`
+	Body      *AddPlanDispositionJSONRequestBody
+}
+
+type AddPlanDispositionResponseObject interface {
+	VisitAddPlanDispositionResponse(w http.ResponseWriter) error
+}
+
+type AddPlanDisposition201JSONResponse PlanFeedbackDisposition
+
+func (response AddPlanDisposition201JSONResponse) VisitAddPlanDispositionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPlanDisposition400JSONResponse Error
+
+func (response AddPlanDisposition400JSONResponse) VisitAddPlanDispositionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPlanDisposition404JSONResponse Error
+
+func (response AddPlanDisposition404JSONResponse) VisitAddPlanDispositionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPlanDisposition409JSONResponse Error
+
+func (response AddPlanDisposition409JSONResponse) VisitAddPlanDispositionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPlanDisposition428JSONResponse Error
+
+func (response AddPlanDisposition428JSONResponse) VisitAddPlanDispositionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(428)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPlanDisposition503JSONResponse Error
+
+func (response AddPlanDisposition503JSONResponse) VisitAddPlanDispositionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetReadyWorkRequestObject struct {
 	ProjectID ProjectID `json:"projectId"`
 	Params    GetReadyWorkParams
@@ -4697,31 +6228,31 @@ type StrictServerInterface interface {
 	// Update a label
 	// (PUT /labels/{labelName})
 	UpdateLabel(ctx context.Context, request UpdateLabelRequestObject) (UpdateLabelResponseObject, error)
-	// Register an ephemeral plan
+	// Removed legacy path-based operation; upgrade required
 	// (POST /plans)
 	CreatePlan(ctx context.Context, request CreatePlanRequestObject) (CreatePlanResponseObject, error)
-	// Delete plan and its comments
+	// Removed legacy path-based operation; upgrade required
 	// (DELETE /plans/{planId})
 	DeletePlan(ctx context.Context, request DeletePlanRequestObject) (DeletePlanResponseObject, error)
-	// Get plan metadata and file content
+	// Removed legacy path-based operation; upgrade required
 	// (GET /plans/{planId})
 	GetPlan(ctx context.Context, request GetPlanRequestObject) (GetPlanResponseObject, error)
-	// Update plan file content
+	// Removed legacy path-based operation; upgrade required
 	// (PUT /plans/{planId})
 	UpdatePlanContent(ctx context.Context, request UpdatePlanContentRequestObject) (UpdatePlanContentResponseObject, error)
-	// List plan review comments
+	// Removed legacy path-based operation; upgrade required
 	// (GET /plans/{planId}/comments)
 	ListPlanComments(ctx context.Context, request ListPlanCommentsRequestObject) (ListPlanCommentsResponseObject, error)
-	// Add a review comment
+	// Removed legacy path-based operation; upgrade required
 	// (POST /plans/{planId}/comments)
 	CreatePlanComment(ctx context.Context, request CreatePlanCommentRequestObject) (CreatePlanCommentResponseObject, error)
-	// Delete a plan review comment
+	// Removed legacy path-based operation; upgrade required
 	// (DELETE /plans/{planId}/comments/{commentId})
 	DeletePlanComment(ctx context.Context, request DeletePlanCommentRequestObject) (DeletePlanCommentResponseObject, error)
-	// Update a plan review comment (content, anchor, resolved state)
+	// Removed legacy path-based operation; upgrade required
 	// (PATCH /plans/{planId}/comments/{commentId})
 	UpdatePlanComment(ctx context.Context, request UpdatePlanCommentRequestObject) (UpdatePlanCommentResponseObject, error)
-	// Update plan status
+	// Removed legacy path-based operation; upgrade required
 	// (PATCH /plans/{planId}/status)
 	UpdatePlanStatus(ctx context.Context, request UpdatePlanStatusRequestObject) (UpdatePlanStatusResponseObject, error)
 	// List all projects
@@ -4832,6 +6363,48 @@ type StrictServerInterface interface {
 	// Reopen a closed issue
 	// (POST /projects/{projectId}/issues/{issueId}/reopen)
 	ReopenIssue(ctx context.Context, request ReopenIssueRequestObject) (ReopenIssueResponseObject, error)
+	// List active or archived retained plans
+	// (GET /projects/{projectId}/plans)
+	ListDurablePlans(ctx context.Context, request ListDurablePlansRequestObject) (ListDurablePlansResponseObject, error)
+	// Upload exact Markdown bytes as revision 1
+	// (POST /projects/{projectId}/plans)
+	CreateDurablePlan(ctx context.Context, request CreateDurablePlanRequestObject) (CreateDurablePlanResponseObject, error)
+	// Read project-scoped plan metadata
+	// (GET /projects/{projectId}/plans/{planId})
+	GetDurablePlan(ctx context.Context, request GetDurablePlanRequestObject) (GetDurablePlanResponseObject, error)
+	// Change title or archive/restore with expected plan version
+	// (PATCH /projects/{projectId}/plans/{planId})
+	UpdateDurablePlan(ctx context.Context, request UpdateDurablePlanRequestObject) (UpdateDurablePlanResponseObject, error)
+	// Read immutable revision history
+	// (GET /projects/{projectId}/plans/{planId}/revisions)
+	ListPlanRevisions(ctx context.Context, request ListPlanRevisionsRequestObject) (ListPlanRevisionsResponseObject, error)
+	// Publish a new draft against explicit head revision
+	// (POST /projects/{projectId}/plans/{planId}/revisions)
+	SavePlanRevision(ctx context.Context, request SavePlanRevisionRequestObject) (SavePlanRevisionResponseObject, error)
+	// Read and verify exact retained revision bytes
+	// (GET /projects/{projectId}/plans/{planId}/revisions/{revision})
+	ReadPlanRevision(ctx context.Context, request ReadPlanRevisionRequestObject) (ReadPlanRevisionResponseObject, error)
+	// Read original anchors, versioned comments, and audit tombstones
+	// (GET /projects/{projectId}/plans/{planId}/revisions/{revision}/comments)
+	ListRevisionComments(ctx context.Context, request ListRevisionCommentsRequestObject) (ListRevisionCommentsResponseObject, error)
+	// Add feedback on an exact revision
+	// (POST /projects/{projectId}/plans/{planId}/revisions/{revision}/comments)
+	CreateRevisionComment(ctx context.Context, request CreateRevisionCommentRequestObject) (CreateRevisionCommentResponseObject, error)
+	// Create audit tombstone; feedback remains an approval obligation
+	// (DELETE /projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId})
+	DeleteRevisionComment(ctx context.Context, request DeleteRevisionCommentRequestObject) (DeleteRevisionCommentResponseObject, error)
+	// Edit or reopen feedback, invalidating prior-version dispositions
+	// (PATCH /projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId})
+	UpdateRevisionComment(ctx context.Context, request UpdateRevisionCommentRequestObject) (UpdateRevisionCommentResponseObject, error)
+	// Submit or decide current head with review and feedback preconditions
+	// (POST /projects/{projectId}/plans/{planId}/revisions/{revision}/decisions)
+	DecidePlanRevision(ctx context.Context, request DecidePlanRevisionRequestObject) (DecidePlanRevisionResponseObject, error)
+	// Read append-only dispositions through the requested revision
+	// (GET /projects/{projectId}/plans/{planId}/revisions/{revision}/dispositions)
+	ListPlanDispositions(ctx context.Context, request ListPlanDispositionsRequestObject) (ListPlanDispositionsResponseObject, error)
+	// Address or defer an exact feedback version with a reason
+	// (POST /projects/{projectId}/plans/{planId}/revisions/{revision}/dispositions)
+	AddPlanDisposition(ctx context.Context, request AddPlanDispositionRequestObject) (AddPlanDispositionResponseObject, error)
 	// Get issues ready to work on (no blocking dependencies)
 	// (GET /projects/{projectId}/ready)
 	GetReadyWork(ctx context.Context, request GetReadyWorkRequestObject) (GetReadyWorkResponseObject, error)
@@ -6313,6 +7886,432 @@ func (sh *strictHandler) ReopenIssue(ctx echo.Context, projectID ProjectID, issu
 	return nil
 }
 
+// ListDurablePlans operation middleware
+func (sh *strictHandler) ListDurablePlans(ctx echo.Context, projectID string, params ListDurablePlansParams) error {
+	var request ListDurablePlansRequestObject
+
+	request.ProjectID = projectID
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDurablePlans(ctx.Request().Context(), request.(ListDurablePlansRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDurablePlans")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListDurablePlansResponseObject); ok {
+		return validResponse.VisitListDurablePlansResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateDurablePlan operation middleware
+func (sh *strictHandler) CreateDurablePlan(ctx echo.Context, projectID string, params CreateDurablePlanParams) error {
+	var request CreateDurablePlanRequestObject
+
+	request.ProjectID = projectID
+	request.Params = params
+
+	var body CreateDurablePlanJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateDurablePlan(ctx.Request().Context(), request.(CreateDurablePlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateDurablePlan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateDurablePlanResponseObject); ok {
+		return validResponse.VisitCreateDurablePlanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDurablePlan operation middleware
+func (sh *strictHandler) GetDurablePlan(ctx echo.Context, projectID string, planID string) error {
+	var request GetDurablePlanRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDurablePlan(ctx.Request().Context(), request.(GetDurablePlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDurablePlan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetDurablePlanResponseObject); ok {
+		return validResponse.VisitGetDurablePlanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateDurablePlan operation middleware
+func (sh *strictHandler) UpdateDurablePlan(ctx echo.Context, projectID string, planID string) error {
+	var request UpdateDurablePlanRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+
+	var body UpdateDurablePlanJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateDurablePlan(ctx.Request().Context(), request.(UpdateDurablePlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateDurablePlan")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateDurablePlanResponseObject); ok {
+		return validResponse.VisitUpdateDurablePlanResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPlanRevisions operation middleware
+func (sh *strictHandler) ListPlanRevisions(ctx echo.Context, projectID string, planID string, params ListPlanRevisionsParams) error {
+	var request ListPlanRevisionsRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPlanRevisions(ctx.Request().Context(), request.(ListPlanRevisionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPlanRevisions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListPlanRevisionsResponseObject); ok {
+		return validResponse.VisitListPlanRevisionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SavePlanRevision operation middleware
+func (sh *strictHandler) SavePlanRevision(ctx echo.Context, projectID string, planID string, params SavePlanRevisionParams) error {
+	var request SavePlanRevisionRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Params = params
+
+	var body SavePlanRevisionJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePlanRevision(ctx.Request().Context(), request.(SavePlanRevisionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePlanRevision")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SavePlanRevisionResponseObject); ok {
+		return validResponse.VisitSavePlanRevisionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ReadPlanRevision operation middleware
+func (sh *strictHandler) ReadPlanRevision(ctx echo.Context, projectID string, planID string, revision int64) error {
+	var request ReadPlanRevisionRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReadPlanRevision(ctx.Request().Context(), request.(ReadPlanRevisionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReadPlanRevision")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ReadPlanRevisionResponseObject); ok {
+		return validResponse.VisitReadPlanRevisionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListRevisionComments operation middleware
+func (sh *strictHandler) ListRevisionComments(ctx echo.Context, projectID string, planID string, revision int64, params ListRevisionCommentsParams) error {
+	var request ListRevisionCommentsRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRevisionComments(ctx.Request().Context(), request.(ListRevisionCommentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRevisionComments")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListRevisionCommentsResponseObject); ok {
+		return validResponse.VisitListRevisionCommentsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateRevisionComment operation middleware
+func (sh *strictHandler) CreateRevisionComment(ctx echo.Context, projectID string, planID string, revision int64) error {
+	var request CreateRevisionCommentRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+
+	var body CreateRevisionCommentJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRevisionComment(ctx.Request().Context(), request.(CreateRevisionCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRevisionComment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateRevisionCommentResponseObject); ok {
+		return validResponse.VisitCreateRevisionCommentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteRevisionComment operation middleware
+func (sh *strictHandler) DeleteRevisionComment(ctx echo.Context, projectID string, planID string, revision int64, commentID string) error {
+	var request DeleteRevisionCommentRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+	request.CommentID = commentID
+
+	var body DeleteRevisionCommentJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRevisionComment(ctx.Request().Context(), request.(DeleteRevisionCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRevisionComment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteRevisionCommentResponseObject); ok {
+		return validResponse.VisitDeleteRevisionCommentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateRevisionComment operation middleware
+func (sh *strictHandler) UpdateRevisionComment(ctx echo.Context, projectID string, planID string, revision int64, commentID string) error {
+	var request UpdateRevisionCommentRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+	request.CommentID = commentID
+
+	var body UpdateRevisionCommentJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateRevisionComment(ctx.Request().Context(), request.(UpdateRevisionCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateRevisionComment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateRevisionCommentResponseObject); ok {
+		return validResponse.VisitUpdateRevisionCommentResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DecidePlanRevision operation middleware
+func (sh *strictHandler) DecidePlanRevision(ctx echo.Context, projectID string, planID string, revision int64) error {
+	var request DecidePlanRevisionRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+
+	var body DecidePlanRevisionJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DecidePlanRevision(ctx.Request().Context(), request.(DecidePlanRevisionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DecidePlanRevision")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DecidePlanRevisionResponseObject); ok {
+		return validResponse.VisitDecidePlanRevisionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPlanDispositions operation middleware
+func (sh *strictHandler) ListPlanDispositions(ctx echo.Context, projectID string, planID string, revision int64, params ListPlanDispositionsParams) error {
+	var request ListPlanDispositionsRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPlanDispositions(ctx.Request().Context(), request.(ListPlanDispositionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPlanDispositions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListPlanDispositionsResponseObject); ok {
+		return validResponse.VisitListPlanDispositionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AddPlanDisposition operation middleware
+func (sh *strictHandler) AddPlanDisposition(ctx echo.Context, projectID string, planID string, revision int64) error {
+	var request AddPlanDispositionRequestObject
+
+	request.ProjectID = projectID
+	request.PlanID = planID
+	request.Revision = revision
+
+	var body AddPlanDispositionJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AddPlanDisposition(ctx.Request().Context(), request.(AddPlanDispositionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddPlanDisposition")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AddPlanDispositionResponseObject); ok {
+		return validResponse.VisitAddPlanDispositionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetReadyWork operation middleware
 func (sh *strictHandler) GetReadyWork(ctx echo.Context, projectID ProjectID, params GetReadyWorkParams) error {
 	var request GetReadyWorkRequestObject
@@ -6393,118 +8392,149 @@ func (sh *strictHandler) GetTeamContext(ctx echo.Context, projectID ProjectID, p
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"AQAA//9didFo+SQBAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

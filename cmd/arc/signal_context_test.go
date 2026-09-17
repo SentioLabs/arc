@@ -2,16 +2,12 @@ package main
 
 import (
 	"context"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
 
-	"github.com/sentiolabs/arc/internal/api"
-	"github.com/sentiolabs/arc/internal/client"
-	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -106,23 +102,6 @@ func TestTailFollowStopsWhileFollowing(t *testing.T) {
 // TestPlanWaitStopsOnCancel covers `arc plan wait`, whose default poll runs
 // for 30 minutes. It must give up as soon as its context is cancelled.
 func TestPlanWaitStopsOnCancel(t *testing.T) {
-	store, err := sqlite.New(filepath.Join(t.TempDir(), "test.db"))
-	require.NoError(t, err)
-	defer store.Close()
-	ts := httptest.NewServer(api.New(api.ServerOptions{Address: ":0", Store: store}).Echo())
-	defer ts.Close()
-
-	c := client.New(ts.URL)
-	c.SetActor("test-user")
-	planPath := filepath.Join(t.TempDir(), "plan.md")
-	require.NoError(t, os.WriteFile(planPath, []byte("# Plan\n"), 0o600))
-	plan, err := c.CreatePlan(planPath)
-	require.NoError(t, err)
-
-	origServerURL, origTimeout := serverURL, planWaitTimeout
-	serverURL, planWaitTimeout = ts.URL, time.Hour
-	t.Cleanup(func() { serverURL, planWaitTimeout = origServerURL, origTimeout })
-
 	// A separate command carries the context so the shared planWaitCmd, which
 	// other tests invoke with no context at all, keeps its nil one.
 	ctx, cancel := context.WithCancel(t.Context())
@@ -130,7 +109,7 @@ func TestPlanWaitStopsOnCancel(t *testing.T) {
 	probe := &cobra.Command{Use: "wait"}
 	probe.SetContext(ctx)
 
-	err = awaitCommand(t, func() error { return planWaitCmd.RunE(probe, []string{plan.ID}) })
+	err := awaitCommand(t, func() error { return planWaitCmd.RunE(probe, []string{"plan.legacy"}) })
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Contains(t, err.Error(), "stopped waiting for a decision")
 }

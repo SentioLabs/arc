@@ -12,7 +12,7 @@ import (
 )
 
 const createPlan = `-- name: CreatePlan :exec
-INSERT INTO plans (id, file_path, status, created_at, updated_at)
+INSERT INTO legacy_plans (id, file_path, status, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?)
 `
 
@@ -36,7 +36,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) error {
 }
 
 const createPlanComment = `-- name: CreatePlanComment :exec
-INSERT INTO plan_comments (
+INSERT INTO legacy_plan_comments (
   id, plan_id, line_number, content, created_at,
   line_start, line_end, quoted_text, occurrence,
   heading_slug, context_before, context_after,
@@ -82,7 +82,7 @@ func (q *Queries) CreatePlanComment(ctx context.Context, arg CreatePlanCommentPa
 }
 
 const deletePlan = `-- name: DeletePlan :exec
-DELETE FROM plans WHERE id = ?
+DELETE FROM legacy_plans WHERE id = ?
 `
 
 func (q *Queries) DeletePlan(ctx context.Context, id string) error {
@@ -91,7 +91,7 @@ func (q *Queries) DeletePlan(ctx context.Context, id string) error {
 }
 
 const deletePlanComment = `-- name: DeletePlanComment :exec
-DELETE FROM plan_comments WHERE id = ?
+DELETE FROM legacy_plan_comments WHERE id = ?
 `
 
 func (q *Queries) DeletePlanComment(ctx context.Context, id string) error {
@@ -99,14 +99,41 @@ func (q *Queries) DeletePlanComment(ctx context.Context, id string) error {
 	return err
 }
 
-const getPlan = `-- name: GetPlan :one
-SELECT id, file_path, status, created_at, updated_at
-FROM plans WHERE id = ?
+const getDurablePlan = `-- name: GetDurablePlan :one
+SELECT id, project_id, title, lifecycle, head_revision, version, feedback_version, legacy_status_unverified, created_at, updated_at FROM plans WHERE project_id = ? AND id = ?
 `
 
-func (q *Queries) GetPlan(ctx context.Context, id string) (*Plan, error) {
-	row := q.db.QueryRowContext(ctx, getPlan, id)
+type GetDurablePlanParams struct {
+	ProjectID string `json:"project_id"`
+	ID        string `json:"id"`
+}
+
+func (q *Queries) GetDurablePlan(ctx context.Context, arg GetDurablePlanParams) (*Plan, error) {
+	row := q.db.QueryRowContext(ctx, getDurablePlan, arg.ProjectID, arg.ID)
 	var i Plan
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Lifecycle,
+		&i.HeadRevision,
+		&i.Version,
+		&i.FeedbackVersion,
+		&i.LegacyStatusUnverified,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getPlan = `-- name: GetPlan :one
+SELECT id, file_path, status, created_at, updated_at
+FROM legacy_plans WHERE id = ?
+`
+
+func (q *Queries) GetPlan(ctx context.Context, id string) (*LegacyPlan, error) {
+	row := q.db.QueryRowContext(ctx, getPlan, id)
+	var i LegacyPlan
 	err := row.Scan(
 		&i.ID,
 		&i.FilePath,
@@ -118,12 +145,12 @@ func (q *Queries) GetPlan(ctx context.Context, id string) (*Plan, error) {
 }
 
 const getPlanComment = `-- name: GetPlanComment :one
-SELECT id, plan_id, line_number, content, created_at, line_start, line_end, quoted_text, occurrence, heading_slug, context_before, context_after, updated_at, resolved_at FROM plan_comments WHERE id = ?
+SELECT id, plan_id, line_number, content, created_at, line_start, line_end, quoted_text, occurrence, heading_slug, context_before, context_after, updated_at, resolved_at FROM legacy_plan_comments WHERE id = ?
 `
 
-func (q *Queries) GetPlanComment(ctx context.Context, id string) (*PlanComment, error) {
+func (q *Queries) GetPlanComment(ctx context.Context, id string) (*LegacyPlanComment, error) {
 	row := q.db.QueryRowContext(ctx, getPlanComment, id)
-	var i PlanComment
+	var i LegacyPlanComment
 	err := row.Scan(
 		&i.ID,
 		&i.PlanID,
@@ -143,19 +170,122 @@ func (q *Queries) GetPlanComment(ctx context.Context, id string) (*PlanComment, 
 	return &i, err
 }
 
-const listPlanComments = `-- name: ListPlanComments :many
-SELECT id, plan_id, line_number, content, created_at, line_start, line_end, quoted_text, occurrence, heading_slug, context_before, context_after, updated_at, resolved_at FROM plan_comments WHERE plan_id = ? ORDER BY created_at ASC
+const getPlanRevision = `-- name: GetPlanRevision :one
+SELECT plan_id, revision, content_path, content_sha256, content_bytes, source_name, review_status, review_version, created_at FROM plan_revisions WHERE plan_id = ? AND revision = ?
 `
 
-func (q *Queries) ListPlanComments(ctx context.Context, planID string) ([]*PlanComment, error) {
+type GetPlanRevisionParams struct {
+	PlanID   string `json:"plan_id"`
+	Revision int64  `json:"revision"`
+}
+
+func (q *Queries) GetPlanRevision(ctx context.Context, arg GetPlanRevisionParams) (*PlanRevision, error) {
+	row := q.db.QueryRowContext(ctx, getPlanRevision, arg.PlanID, arg.Revision)
+	var i PlanRevision
+	err := row.Scan(
+		&i.PlanID,
+		&i.Revision,
+		&i.ContentPath,
+		&i.ContentSha256,
+		&i.ContentBytes,
+		&i.SourceName,
+		&i.ReviewStatus,
+		&i.ReviewVersion,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const listDurablePlans = `-- name: ListDurablePlans :many
+SELECT id, project_id, title, lifecycle, head_revision, version, feedback_version, legacy_status_unverified, created_at, updated_at FROM plans WHERE project_id = ? AND lifecycle = ? ORDER BY created_at DESC, id LIMIT ? OFFSET ?
+`
+
+type ListDurablePlansParams struct {
+	ProjectID string `json:"project_id"`
+	Lifecycle string `json:"lifecycle"`
+	Limit     int64  `json:"limit"`
+	Offset    int64  `json:"offset"`
+}
+
+func (q *Queries) ListDurablePlans(ctx context.Context, arg ListDurablePlansParams) ([]*Plan, error) {
+	rows, err := q.db.QueryContext(ctx, listDurablePlans,
+		arg.ProjectID,
+		arg.Lifecycle,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Plan{}
+	for rows.Next() {
+		var i Plan
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Lifecycle,
+			&i.HeadRevision,
+			&i.Version,
+			&i.FeedbackVersion,
+			&i.LegacyStatusUnverified,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOwnedPlanIDs = `-- name: ListOwnedPlanIDs :many
+SELECT id FROM plans WHERE project_id = ? ORDER BY id
+`
+
+func (q *Queries) ListOwnedPlanIDs(ctx context.Context, projectID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listOwnedPlanIDs, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlanComments = `-- name: ListPlanComments :many
+SELECT id, plan_id, line_number, content, created_at, line_start, line_end, quoted_text, occurrence, heading_slug, context_before, context_after, updated_at, resolved_at FROM legacy_plan_comments WHERE plan_id = ? ORDER BY created_at ASC
+`
+
+func (q *Queries) ListPlanComments(ctx context.Context, planID string) ([]*LegacyPlanComment, error) {
 	rows, err := q.db.QueryContext(ctx, listPlanComments, planID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*PlanComment{}
+	items := []*LegacyPlanComment{}
 	for rows.Next() {
-		var i PlanComment
+		var i LegacyPlanComment
 		if err := rows.Scan(
 			&i.ID,
 			&i.PlanID,
@@ -185,8 +315,51 @@ func (q *Queries) ListPlanComments(ctx context.Context, planID string) ([]*PlanC
 	return items, nil
 }
 
+const listPlanRevisions = `-- name: ListPlanRevisions :many
+SELECT plan_id, revision, content_path, content_sha256, content_bytes, source_name, review_status, review_version, created_at FROM plan_revisions WHERE plan_id = ? ORDER BY revision DESC LIMIT ? OFFSET ?
+`
+
+type ListPlanRevisionsParams struct {
+	PlanID string `json:"plan_id"`
+	Limit  int64  `json:"limit"`
+	Offset int64  `json:"offset"`
+}
+
+func (q *Queries) ListPlanRevisions(ctx context.Context, arg ListPlanRevisionsParams) ([]*PlanRevision, error) {
+	rows, err := q.db.QueryContext(ctx, listPlanRevisions, arg.PlanID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*PlanRevision{}
+	for rows.Next() {
+		var i PlanRevision
+		if err := rows.Scan(
+			&i.PlanID,
+			&i.Revision,
+			&i.ContentPath,
+			&i.ContentSha256,
+			&i.ContentBytes,
+			&i.SourceName,
+			&i.ReviewStatus,
+			&i.ReviewVersion,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updatePlanComment = `-- name: UpdatePlanComment :exec
-UPDATE plan_comments
+UPDATE legacy_plan_comments
 SET content = ?, line_number = ?,
     line_start = ?, line_end = ?, quoted_text = ?, occurrence = ?,
     heading_slug = ?, context_before = ?, context_after = ?,
@@ -228,7 +401,7 @@ func (q *Queries) UpdatePlanComment(ctx context.Context, arg UpdatePlanCommentPa
 }
 
 const updatePlanStatus = `-- name: UpdatePlanStatus :exec
-UPDATE plans SET status = ?, updated_at = ? WHERE id = ?
+UPDATE legacy_plans SET status = ?, updated_at = ? WHERE id = ?
 `
 
 type UpdatePlanStatusParams struct {

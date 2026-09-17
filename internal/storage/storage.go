@@ -3,12 +3,14 @@ package storage
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sentiolabs/arc/internal/types"
 )
 
 //nolint:interfacebloat // Storage interface intentionally covers all operations as a single contract
 type Storage interface {
+	DurablePlans
 	// Projects
 	CreateProject(ctx context.Context, project *types.Project) error
 	GetProject(ctx context.Context, id string) (*types.Project, error)
@@ -16,7 +18,12 @@ type Storage interface {
 	ListProjects(ctx context.Context) ([]*types.Project, error)
 	UpdateProject(ctx context.Context, project *types.Project) error
 	DeleteProject(ctx context.Context, id string) error
-	MergeProjects(ctx context.Context, targetID string, sourceIDs []string, actor string) (*types.MergeResult, error)
+	MergeProjects(
+		ctx context.Context,
+		targetID string,
+		sourceIDs []string,
+		actor string,
+	) (*types.MergeResult, error)
 
 	// Project config (per-project key/value settings)
 	GetProjectConfig(ctx context.Context, projectID string) (map[string]string, error)
@@ -93,13 +100,20 @@ type Storage interface {
 	// AI Sessions
 	CreateAISession(ctx context.Context, session *types.AISession) error
 	GetAISession(ctx context.Context, id string) (*types.AISession, error)
-	ListAISessionsByProject(ctx context.Context, projectID string, limit, offset int) ([]*types.AISession, error)
+	ListAISessionsByProject(
+		ctx context.Context,
+		projectID string,
+		limit, offset int,
+	) ([]*types.AISession, error)
 	CountAISessionsByProject(ctx context.Context, projectID string) (int64, error)
 	DeleteAISession(ctx context.Context, id string) error
 	CreateAIAgent(ctx context.Context, agent *types.AIAgent) error
 	GetAIAgent(ctx context.Context, id string) (*types.AIAgent, error)
 	ListAIAgents(ctx context.Context, sessionID string) ([]*types.AIAgent, error)
-	GetAgentSummariesForSessions(ctx context.Context, sessionIDs []string) (map[string]*types.AgentSummary, error)
+	GetAgentSummariesForSessions(
+		ctx context.Context,
+		sessionIDs []string,
+	) (map[string]*types.AgentSummary, error)
 
 	// Events (audit trail)
 	GetEvents(ctx context.Context, issueID string, limit int) ([]*types.Event, error)
@@ -110,4 +124,124 @@ type Storage interface {
 	// Lifecycle
 	Close() error
 	Path() string
+}
+
+// PlanUpload retains the exact UTF-8 content; SourceName is optional provenance.
+type PlanUpload struct {
+	Title      string `json:"title"`
+	Content    string `json:"content"`
+	SourceName string `json:"source_name,omitempty"`
+}
+type PlanSave struct {
+	Content          string `json:"content"`
+	SourceName       string `json:"source_name,omitempty"`
+	ExpectedRevision int64  `json:"expected_revision"`
+}
+type PlanWriteResult struct {
+	Plan     types.Plan                    `json:"plan"`
+	Revision types.PlanRevisionWithContent `json:"revision"`
+	Replay   bool                          `json:"replay"`
+}
+type PlanMetadataUpdate struct {
+	ExpectedVersion int64   `json:"expected_version"`
+	Title           *string `json:"title,omitempty"`
+	Lifecycle       string  `json:"lifecycle,omitempty"`
+}
+type PlanCommentCreate struct {
+	Content    string                   `json:"content"`
+	LineNumber *int                     `json:"line_number,omitempty"`
+	Anchor     *types.PlanCommentAnchor `json:"anchor,omitempty"`
+}
+type PlanCommentUpdate struct {
+	ExpectedVersion int64                    `json:"expected_version"`
+	Content         *string                  `json:"content,omitempty"`
+	Anchor          *types.PlanCommentAnchor `json:"anchor,omitempty"`
+	Reopen          bool                     `json:"reopen,omitempty"`
+	Delete          bool                     `json:"-"`
+}
+type PlanDispositionRequest struct {
+	CommentID               string `json:"comment_id"`
+	ExpectedCommentVersion  int64  `json:"expected_comment_version"`
+	ExpectedFeedbackVersion int64  `json:"expected_feedback_version"`
+	Disposition             string `json:"disposition"`
+	Reason                  string `json:"reason"`
+}
+
+// DurablePlans is the project-scoped service contract for retained plan history.
+//
+//nolint:interfacebloat // One transactional plan service shared by API and storage consumers.
+type DurablePlans interface {
+	CreateDurablePlan(context.Context, string, string, PlanUpload) (*PlanWriteResult, error)
+	SavePlanRevision(context.Context, string, string, string, PlanSave) (*PlanWriteResult, error)
+	GetDurablePlan(context.Context, string, string) (*types.Plan, error)
+	ListDurablePlans(context.Context, string, bool, int, int) ([]*types.Plan, error)
+	ReadPlanRevision(context.Context, string, string, int64) (*types.PlanRevisionWithContent, error)
+	ListPlanRevisions(context.Context, string, string, int, int) ([]*types.PlanRevision, error)
+	UpdateDurablePlan(context.Context, string, string, PlanMetadataUpdate) (*types.Plan, error)
+	DecidePlanRevision(
+		context.Context,
+		string,
+		string,
+		int64,
+		types.PlanReviewRequest,
+	) (*types.PlanRevision, error)
+	CreateRevisionComment(
+		context.Context,
+		string,
+		string,
+		int64,
+		PlanCommentCreate,
+	) (*types.PlanComment, error)
+	UpdateRevisionComment(
+		context.Context,
+		string,
+		string,
+		int64,
+		string,
+		PlanCommentUpdate,
+	) (*types.PlanComment, error)
+	ListRevisionComments(context.Context, string, string, int64, bool, int, int) ([]*types.PlanComment, error)
+	AddPlanDisposition(
+		context.Context,
+		string,
+		string,
+		int64,
+		PlanDispositionRequest,
+	) (*types.PlanFeedbackDisposition, error)
+	ListPlanDispositions(
+		context.Context,
+		string,
+		string,
+		int64,
+		int,
+		int,
+	) ([]*types.PlanFeedbackDisposition, error)
+}
+
+var (
+	ErrPlanNotFound       = errors.New("plan or revision not found in project")
+	ErrPlanConflict       = errors.New("plan precondition conflict")
+	ErrPlanPrecondition   = errors.New("plan precondition required")
+	ErrPlanInvalid        = errors.New("invalid plan request")
+	ErrUnresolvedFeedback = errors.New(
+		"unresolved plan feedback requires addressed or deferred dispositions with reasons",
+	)
+)
+
+// PlanProvenance retains caller-supplied attribution, not authenticated identity.
+type PlanProvenance struct {
+	Actor     string
+	SessionID string
+}
+type planProvenanceKey struct{}
+
+// WithPlanProvenance records available request attribution for append-only events.
+func WithPlanProvenance(ctx context.Context, actor, sessionID string) context.Context {
+	return context.WithValue(ctx, planProvenanceKey{}, PlanProvenance{Actor: actor, SessionID: sessionID})
+}
+
+// PlanProvenanceFromContext returns optional caller-supplied attribution.
+func PlanProvenanceFromContext(ctx context.Context) PlanProvenance {
+	value, _ := ctx.Value(planProvenanceKey{}).(PlanProvenance)
+	return value
 }

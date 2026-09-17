@@ -5,12 +5,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/planfiles"
+	"github.com/sentiolabs/arc/internal/storage"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
+	"github.com/stretchr/testify/require"
 )
 
 // testServer creates a test server with a temporary SQLite database.
@@ -25,9 +31,15 @@ func testServer(t *testing.T) (*Server, func()) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
+	publisher, err := planfiles.New(filepath.Join(tmpDir, "plans"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = publisher.Close() })
 	server := New(ServerOptions{
-		Address: ":0",
-		Store:   store,
+		PlanFiles: publisher,
+		Address:   ":0",
+		Store:     store,
 	})
 
 	cleanup := func() {
@@ -64,7 +76,11 @@ func createTestIssue(t *testing.T, e *echo.Echo, pID, title string) string {
 	t.Helper()
 
 	body := `{"title": "` + title + `", "type": "task", "priority": 2}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pID+"/issues", bytes.NewBufferString(body))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+pID+"/issues",
+		bytes.NewBufferString(body),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -81,347 +97,296 @@ func createTestIssue(t *testing.T, e *echo.Echo, pID, title string) string {
 	return issue.ID
 }
 
-// createTestPlan creates a plan for testing and returns its ID.
-func createTestPlan(t *testing.T, e *echo.Echo) string {
-	t.Helper()
-
-	filePath := filepath.Join(t.TempDir(), "plan.md")
-	encodedPath, err := json.Marshal(filePath)
-	if err != nil {
-		t.Fatalf("failed to encode file path: %v", err)
-	}
-	body := `{"file_path": ` + string(encodedPath) + `}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/plans", bytes.NewBufferString(body))
+func planRequest(e *echo.Echo, method, path, body, key string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("failed to create plan: %s", rec.Body.String())
+	if key != "" {
+		req.Header.Set("Idempotency-Key", key)
 	}
-
-	var plan types.LegacyPlan
-	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
-		t.Fatalf("failed to parse plan response: %v", err)
-	}
-
-	return plan.ID
-}
-
-// createTestPlanComment creates a plan comment for testing and returns the decoded comment.
-func createTestPlanComment(t *testing.T, e *echo.Echo, planID, body string) types.PlanComment {
-	t.Helper()
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+planID+"/comments", bytes.NewBufferString(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("failed to create plan comment: %s", rec.Body.String())
-	}
-
-	var comment types.PlanComment
-	if err := json.Unmarshal(rec.Body.Bytes(), &comment); err != nil {
-		t.Fatalf("failed to parse plan comment response: %v", err)
-	}
-
-	return comment
-}
-
-// patchPlanComment sends a PATCH request to a plan comment and returns the raw response.
-func patchPlanComment(e *echo.Echo, planID, commentID, body string) *httptest.ResponseRecorder {
-	url := "/api/v1/plans/" + planID + "/comments/" + commentID
-	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewBufferString(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
 }
 
-func TestCreatePlanComment_WithAnchorMirrorsLineNumber(t *testing.T) {
-	server, cleanup := testServer(t)
+func TestDurableAPIRequiredFieldsAndIsolation(t *testing.T) {
+	s, cleanup := testServer(t)
 	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-
-	body := `{
-		"content": "please clarify",
-		"anchor": {
-			"line_start": 5,
-			"line_end": 7,
-			"quoted_text": "some quoted text",
-			"occurrence": 0
-		}
-	}`
-	comment := createTestPlanComment(t, e, planID, body)
-
-	if comment.Anchor == nil {
-		t.Fatalf("expected anchor to be present in response")
-	}
-	if comment.Anchor.LineStart != 5 || comment.Anchor.LineEnd != 7 {
-		t.Errorf("anchor not stored correctly: %+v", comment.Anchor)
-	}
-	if comment.Anchor.QuotedText != "some quoted text" {
-		t.Errorf("expected quoted_text to round-trip, got %q", comment.Anchor.QuotedText)
-	}
-	if comment.LineNumber == nil || *comment.LineNumber != 5 {
-		t.Errorf("expected line_number to mirror anchor.line_start (5), got %v", comment.LineNumber)
-	}
-}
-
-func TestCreatePlanComment_InvalidAnchor(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-
-	tests := []struct {
-		name   string
-		anchor string
+	p := createTestProject(t, s.echo)
+	base := "/api/v1/projects/" + p + "/plans"
+	for _, tc := range []struct {
+		body, key string
+		code      int
 	}{
-		{"line_start zero", `{"line_start":0,"line_end":1,"quoted_text":"x","occurrence":0}`},
-		{"empty quoted_text", `{"line_start":1,"line_end":1,"quoted_text":"","occurrence":0}`},
-		{"line_end less than line_start", `{"line_start":5,"line_end":4,"quoted_text":"x","occurrence":0}`},
-		{"negative occurrence", `{"line_start":1,"line_end":1,"quoted_text":"x","occurrence":-1}`},
+		{`{"file_path":"/never/open"}`, "", 400},
+		{`{"content":""}`, "", 428},
+		{`{"title":"t"}`, "key", 400},
+		{`{"content":null}`, "key", 400},
+	} {
+		r := planRequest(s.echo, "POST", base, tc.body, tc.key)
+		if r.Code != tc.code {
+			t.Fatalf("create %s: %d %s", tc.body, r.Code, r.Body.String())
+		}
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			body := `{"content":"hi","anchor":` + tt.anchor + `}`
-			url := "/api/v1/plans/" + planID + "/comments"
-			req := httptest.NewRequest(http.MethodPost, url, bytes.NewBufferString(body))
-			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, req)
-
-			if rec.Code != http.StatusBadRequest {
-				t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
-			}
-		})
+	r := planRequest(s.echo, "POST", base, `{"title":"title","content":""}`, "create")
+	if r.Code != 201 {
+		t.Fatalf("create: %d %s", r.Code, r.Body.String())
 	}
-}
-
-func TestUpdatePlanComment_ContentOnly(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-	comment := createTestPlanComment(t, e, planID, `{
-		"content": "original",
-		"anchor": {"line_start": 2, "line_end": 3, "quoted_text": "quote", "occurrence": 0}
-	}`)
-
-	rec := patchPlanComment(e, planID, comment.ID, `{"content":"updated content"}`)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	var result storage.PlanWriteResult
+	if err := json.Unmarshal(r.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
 	}
-
-	var updated types.PlanComment
-	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
+	path := base + "/" + result.Plan.ID
+	for _, body := range []string{`{"content":"next"}`, `{"content":"next","expected_revision":null}`} {
+		r = planRequest(s.echo, "POST", path+"/revisions", body, "save")
+		if r.Code != 428 {
+			t.Fatalf("save missing: %d %s", r.Code, r.Body.String())
+		}
 	}
-
-	if updated.Content != "updated content" {
-		t.Errorf("expected content to be updated, got %q", updated.Content)
+	for _, body := range []string{`{"status":"in_review","expected_head":1,"expected_feedback_version":0}`, `{
+  "status": "in_review",
+  "expected_head": 1,
+  "expected_review_version": null,
+  "expected_feedback_version": 0
+}`} {
+		r = planRequest(s.echo, "POST", path+"/revisions/1/decisions", body, "")
+		if r.Code != 428 {
+			t.Fatalf("decision missing: %d %s", r.Code, r.Body.String())
+		}
 	}
-	if updated.UpdatedAt == nil {
-		t.Errorf("expected updated_at to be set")
+	r = planRequest(
+		s.echo,
+		"POST",
+		path+"/revisions/1/decisions",
+		`{"status":"in_review","expected_head":1,"expected_review_version":0,"expected_feedback_version":0}`,
+		"",
+	)
+	if r.Code != 200 {
+		t.Fatalf("explicit zero: %d %s", r.Code, r.Body.String())
 	}
-	if updated.Anchor == nil || updated.Anchor.LineStart != 2 || updated.Anchor.QuotedText != "quote" {
-		t.Errorf("expected anchor to be left untouched, got %+v", updated.Anchor)
-	}
-}
-
-func TestUpdatePlanComment_AnchorReplacesAndMirrorsLineNumber(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-	comment := createTestPlanComment(t, e, planID, `{"content":"original"}`)
-
-	body := `{"anchor":{"line_start":10,"line_end":12,"quoted_text":"new quote","occurrence":1}}`
-	rec := patchPlanComment(e, planID, comment.ID, body)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var updated types.PlanComment
-	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
-	}
-
-	if updated.Anchor == nil || updated.Anchor.LineStart != 10 || updated.Anchor.QuotedText != "new quote" {
-		t.Errorf("expected anchor to be replaced, got %+v", updated.Anchor)
-	}
-	if updated.LineNumber == nil || *updated.LineNumber != 10 {
-		t.Errorf("expected line_number to re-mirror anchor.line_start (10), got %v", updated.LineNumber)
-	}
-}
-
-func TestUpdatePlanComment_ResolvedSetsAndClearsResolvedAt(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-	comment := createTestPlanComment(t, e, planID, `{"content":"original"}`)
-
-	// Resolve.
-	rec := patchPlanComment(e, planID, comment.ID, `{"resolved":true}`)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var resolved types.PlanComment
-	if err := json.Unmarshal(rec.Body.Bytes(), &resolved); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
-	}
-	if resolved.ResolvedAt == nil {
-		t.Fatalf("expected resolved_at to be set")
-	}
-
-	// Un-resolve.
-	rec2 := patchPlanComment(e, planID, comment.ID, `{"resolved":false}`)
-
-	if rec2.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec2.Code, rec2.Body.String())
-	}
-
-	var unresolved types.PlanComment
-	if err := json.Unmarshal(rec2.Body.Bytes(), &unresolved); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
-	}
-	if unresolved.ResolvedAt != nil {
-		t.Errorf("expected resolved_at to be cleared, got %v", unresolved.ResolvedAt)
-	}
-}
-
-func TestUpdatePlanComment_DifferentPlanReturns404(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.Echo()
-
-	planA := createTestPlan(t, e)
-	planB := createTestPlan(t, e)
-	comment := createTestPlanComment(t, e, planA, `{"content":"original"}`)
-
-	rec := patchPlanComment(e, planB, comment.ID, `{"content":"hijack"}`)
-
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestUpdatePlanComment_UnknownCommentOrPlanReturns404(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-
-	// Unknown comment on a known plan.
-	rec := patchPlanComment(e, planID, "pc.unknown", `{"content":"x"}`)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 for unknown comment, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	// Known comment on an unknown plan.
-	comment := createTestPlanComment(t, e, planID, `{"content":"original"}`)
-	rec2 := patchPlanComment(e, "plan.unknown", comment.ID, `{"content":"x"}`)
-	if rec2.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 for unknown plan, got %d: %s", rec2.Code, rec2.Body.String())
-	}
-}
-
-func TestDeletePlanComment(t *testing.T) {
-	server, cleanup := testServer(t)
-	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-	comment := createTestPlanComment(t, e, planID, `{"content":"original"}`)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/plans/"+planID+"/comments/"+comment.ID, nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	// Verify it's gone from the list.
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/plans/"+planID+"/comments", nil)
-	listRec := httptest.NewRecorder()
-	e.ServeHTTP(listRec, listReq)
-
-	if listRec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", listRec.Code, listRec.Body.String())
-	}
-
-	var comments []types.PlanComment
-	if err := json.Unmarshal(listRec.Body.Bytes(), &comments); err != nil {
-		t.Fatalf("failed to parse list response: %v", err)
-	}
-	for _, c := range comments {
-		if c.ID == comment.ID {
-			t.Fatalf("expected comment %s to be deleted, but it's still in the list", comment.ID)
+	for _, suffix := range []string{
+		"",
+		"/revisions",
+		"/revisions/1",
+		"/revisions/1/comments",
+		"/revisions/1/dispositions",
+	} {
+		r = planRequest(
+			s.echo,
+			"GET",
+			"/api/v1/projects/unknown/plans/"+result.Plan.ID+suffix,
+			"",
+			"",
+		)
+		if r.Code != 404 {
+			t.Fatalf("isolation %s: %d %s", suffix, r.Code, r.Body.String())
 		}
 	}
 }
 
-func TestDeletePlanComment_UnknownCommentOrPlanReturns404(t *testing.T) {
-	server, cleanup := testServer(t)
+func TestLegacyPlanRoutesRequireUpgrade(t *testing.T) {
+	s, cleanup := testServer(t)
 	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/plans/"+planID+"/comments/pc.unknown", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 for unknown comment, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	comment := createTestPlanComment(t, e, planID, `{"content":"original"}`)
-	req2 := httptest.NewRequest(http.MethodDelete, "/api/v1/plans/plan.unknown/comments/"+comment.ID, nil)
-	rec2 := httptest.NewRecorder()
-	e.ServeHTTP(rec2, req2)
-	if rec2.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 for unknown plan, got %d: %s", rec2.Code, rec2.Body.String())
+	for _, tc := range []struct{ method, path string }{
+		{"POST", "/plans"},
+		{"GET", "/plans/old"},
+		{"PUT", "/plans/old"},
+		{"PATCH", "/plans/old/status"},
+		{"DELETE", "/plans/old"},
+		{"POST", "/plans/old/comments"},
+		{"PATCH", "/plans/old/comments/c"},
+		{"DELETE", "/plans/old/comments/c"},
+	} {
+		r := planRequest(s.echo, tc.method, "/api/v1"+tc.path, `{"file_path":"/not/read"}`, "")
+		if r.Code != 400 || !strings.Contains(r.Body.String(), "upgrade") {
+			t.Fatalf("%s %s: %d %s", tc.method, tc.path, r.Code, r.Body.String())
+		}
 	}
 }
 
-func TestUpdatePlanStatus_ChangesRequestedAccepted(t *testing.T) {
-	server, cleanup := testServer(t)
+func TestDurableAPIRestartRetainsExactClientBytes(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "server.db")
+	root := filepath.Join(t.TempDir(), "server-root")
+	open := func() (*Server, func()) {
+		store, err := sqlite.New(dbPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		publisher, err := planfiles.New(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return New(
+			ServerOptions{Store: store, PlanFiles: publisher},
+		), func() { _ = store.Close(); _ = publisher.Close() }
+	}
+	server, closeServer := open()
+	project := createTestProject(t, server.echo)
+	content := "# retained\r\n\nUTF-8: λ\n"
+	source := filepath.Join(t.TempDir(), "client.md")
+	if err := os.WriteFile(source, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(
+		storage.PlanUpload{Title: "retained", Content: content, SourceName: source},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := "/api/v1/projects/" + project + "/plans"
+	rec := planRequest(server.echo, "POST", base, string(body), "create")
+	if rec.Code != 201 {
+		t.Fatal(rec.Body.String())
+	}
+	var first storage.PlanWriteResult
+	if err = json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Remove(source); err != nil {
+		t.Fatal(err)
+	}
+	closeServer()
+	server, closeServer = open()
+	defer closeServer()
+	rec = planRequest(server.echo, "GET", base+"/"+first.Plan.ID+"/revisions/1", "", "")
+	if rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	var retained types.PlanRevisionWithContent
+	if err = json.Unmarshal(rec.Body.Bytes(), &retained); err != nil {
+		t.Fatal(err)
+	}
+	if retained.Content != content || retained.ContentSHA256 != first.Revision.ContentSHA256 ||
+		retained.ContentBytes != int64(len(content)) {
+		t.Fatalf("bytes changed after restart: %+v", retained)
+	}
+}
+
+func TestDurableAPICommentVersionAndReviewIsolation(t *testing.T) {
+	s, cleanup := testServer(t)
 	defer cleanup()
-	e := server.Echo()
-
-	planID := createTestPlan(t, e)
-
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/plans/"+planID+"/status",
-		bytes.NewBufferString(`{"status":"changes_requested"}`))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	p := createTestProject(t, s.echo)
+	base := "/api/v1/projects/" + p + "/plans"
+	rec := planRequest(s.echo, "POST", base, `{"content":"anchored bytes"}`, "create")
+	var result storage.PlanWriteResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
 	}
-
-	var plan types.LegacyPlan
-	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
+	rev := base + "/" + result.Plan.ID + "/revisions/1"
+	rec = planRequest(
+		s.echo,
+		"POST",
+		rev+"/comments",
+		`{
+  "content": "feedback",
+  "anchor": {
+    "line_start": 1,
+    "line_end": 1,
+    "quoted_text": "anchored",
+    "occurrence": 0
+  }
+}`,
+		"",
+	)
+	if rec.Code != 201 {
+		t.Fatal(rec.Body.String())
 	}
-	if plan.Status != types.PlanStatusChangesRequested {
-		t.Errorf("expected status changes_requested, got %q", plan.Status)
+	var comment types.PlanComment
+	if err := json.Unmarshal(rec.Body.Bytes(), &comment); err != nil {
+		t.Fatal(err)
+	}
+	if comment.LineNumber == nil || *comment.LineNumber != 1 || comment.Version != 1 {
+		t.Fatalf("anchor: %+v", comment)
+	}
+	for _, body := range []string{`{"content":"updated"}`, `{"expected_version":null,"content":"updated"}`} {
+		rec = planRequest(s.echo, "PATCH", rev+"/comments/"+comment.ID, body, "")
+		if rec.Code != 428 {
+			t.Fatalf("missing version: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+	rec = planRequest(
+		s.echo,
+		"PATCH",
+		rev+"/comments/"+comment.ID,
+		`{"expected_version":1,"content":"updated"}`,
+		"",
+	)
+	if rec.Code != 200 {
+		t.Fatal(rec.Body.String())
+	}
+	rec = planRequest(
+		s.echo,
+		"PATCH",
+		rev+"/comments/"+comment.ID,
+		`{"expected_version":1,"content":"stale"}`,
+		"",
+	)
+	if rec.Code != 409 {
+		t.Fatal(rec.Body.String())
+	}
+	other := strings.Replace(rev, p, "other-project", 1)
+	for _, tc := range []struct{ method, suffix, body string }{
+		{"POST", "/comments", `{"content":"intrusion"}`},
+		{"PATCH", "/comments/" + comment.ID, `{"expected_version":2,"content":"intrusion"}`},
+		{"DELETE", "/comments/" + comment.ID, `{"expected_version":2}`},
+		{
+			"POST",
+			"/decisions",
+			`{"status":"in_review","expected_head":1,"expected_review_version":0,"expected_feedback_version":2}`,
+		},
+		{
+			"POST",
+			"/dispositions",
+			`{"comment_id":"` + comment.ID + `","expected_comment_version":2,` +
+				`"expected_feedback_version":2,"disposition":"addressed","reason":"intrusion"}`,
+		},
+	} {
+		rec = planRequest(s.echo, tc.method, other+tc.suffix, tc.body, "")
+		if rec.Code != 404 {
+			t.Fatalf("%s isolation: %d %s", tc.suffix, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestDurableUploadRejectsUnicodeReplacement(t *testing.T) {
+	s, cleanup := testServer(t)
+	defer cleanup()
+	p := createTestProject(t, s.echo)
+	base := "/api/v1/projects/" + p + "/plans"
+	for _, body := range []string{"{\"content\":\"\xff\"}", `{"content":"\ud800"}`, `{"content":"\udc00"}`} {
+		rec := planRequest(s.echo, "POST", base, body, "unicode")
+		if rec.Code != 400 {
+			t.Fatalf("accepted replacement for %q: %d %s", body, rec.Code, rec.Body.String())
+		}
+	}
+	rec := planRequest(s.echo, "POST", base, `{"content":"\ud800\udc00"}`, "unicode")
+	if rec.Code != 201 {
+		t.Fatalf("valid surrogate pair: %d %s", rec.Code, rec.Body.String())
+	}
+	var result storage.PlanWriteResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Revision.Content != "\U00010000" {
+		t.Fatalf("valid content transformed: %q", result.Revision.Content)
+	}
+}
+
+func TestDurableAPIZeroPreconditionsArePresentButInvalid(t *testing.T) {
+	s, cleanup := testServer(t)
+	defer cleanup()
+	p := createTestProject(t, s.echo)
+	base := "/api/v1/projects/" + p + "/plans"
+	rec := planRequest(s.echo, "POST", base, `{"content":"base"}`, "create")
+	var first storage.PlanWriteResult
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &first))
+	path := base + "/" + first.Plan.ID
+	for _, request := range []struct{ method, path, body, key string }{
+		{"PATCH", path, `{"expected_version":0,"lifecycle":"archived"}`, ""},
+		{"POST", path + "/revisions", `{"content":"next","expected_revision":0}`, "save"},
+	} {
+		rec = planRequest(s.echo, request.method, request.path, request.body, request.key)
+		if rec.Code != 400 {
+			t.Fatalf("explicit zero conflated with absence: %d %s", rec.Code, rec.Body.String())
+		}
 	}
 }

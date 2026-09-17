@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/sentiolabs/arc/internal/planfiles"
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 
@@ -21,9 +22,10 @@ const dirPermissions = 0o755
 
 // Store implements the storage.Storage interface using SQLite.
 type Store struct {
-	db      *sql.DB
-	queries *db.Queries
-	path    string
+	planFiles planfiles.Publisher
+	db        *sql.DB
+	queries   *db.Queries
+	path      string
 }
 
 // New creates a new SQLite store at the given path.
@@ -44,7 +46,10 @@ func New(path string) (*Store, error) {
 	}
 
 	// Open database
-	sqlDB, err := sql.Open("sqlite", path+"?_busy_timeout=5000&_journal_mode=WAL&_foreign_keys=on")
+	sqlDB, err := sql.Open(
+		"sqlite",
+		path+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_txlock=immediate",
+	)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -133,3 +138,6 @@ func (s *Store) Path() string {
 
 // Ensure Store implements storage.Storage
 var _ storage.Storage = (*Store)(nil)
+
+// SetPlanPublisher installs the immutable content store before serving requests.
+func (s *Store) SetPlanPublisher(p planfiles.Publisher) { s.planFiles = p }

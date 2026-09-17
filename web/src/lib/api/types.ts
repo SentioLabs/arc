@@ -674,7 +674,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register an ephemeral plan */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         post: operations["createPlan"];
         delete?: never;
         options?: never;
@@ -691,12 +695,24 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Get plan metadata and file content */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         get: operations["getPlan"];
-        /** Update plan file content */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         put: operations["updatePlanContent"];
         post?: never;
-        /** Delete plan and its comments */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         delete: operations["deletePlan"];
         options?: never;
         head?: never;
@@ -718,7 +734,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update plan status */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         patch: operations["updatePlanStatus"];
         trace?: never;
     };
@@ -731,10 +751,18 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** List plan review comments */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         get: operations["listPlanComments"];
         put?: never;
-        /** Add a review comment */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         post: operations["createPlanComment"];
         delete?: never;
         options?: never;
@@ -755,12 +783,191 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a plan review comment */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         delete: operations["deletePlanComment"];
         options?: never;
         head?: never;
-        /** Update a plan review comment (content, anchor, resolved state) */
+        /**
+         * Removed legacy path-based operation; upgrade required
+         * @deprecated
+         * @description Returns 400 with upgrade guidance. No submitted or retained client path is opened. Use the project-scoped durable API and archive instead of delete.
+         */
         patch: operations["updatePlanComment"];
+        trace?: never;
+    };
+    "/projects/{projectId}/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        /** List active or archived retained plans */
+        get: operations["listDurablePlans"];
+        put?: never;
+        /** Upload exact Markdown bytes as revision 1 */
+        post: operations["createDurablePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+            };
+            cookie?: never;
+        };
+        /** Read project-scoped plan metadata */
+        get: operations["getDurablePlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change title or archive/restore with expected plan version */
+        patch: operations["updateDurablePlan"];
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+            };
+            cookie?: never;
+        };
+        /** Read immutable revision history */
+        get: operations["listPlanRevisions"];
+        put?: never;
+        /** Publish a new draft against explicit head revision */
+        post: operations["savePlanRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}/revisions/{revision}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        /** Read and verify exact retained revision bytes */
+        get: operations["readPlanRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}/revisions/{revision}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit or decide current head with review and feedback preconditions */
+        post: operations["decidePlanRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}/revisions/{revision}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        /** Read original anchors, versioned comments, and audit tombstones */
+        get: operations["listRevisionComments"];
+        put?: never;
+        /** Add feedback on an exact revision */
+        post: operations["createRevisionComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Create audit tombstone; feedback remains an approval obligation */
+        delete: operations["deleteRevisionComment"];
+        options?: never;
+        head?: never;
+        /** Edit or reopen feedback, invalidating prior-version dispositions */
+        patch: operations["updateRevisionComment"];
+        trace?: never;
+    };
+    "/projects/{projectId}/plans/{planId}/revisions/{revision}/dispositions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        /** Read append-only dispositions through the requested revision */
+        get: operations["listPlanDispositions"];
+        put?: never;
+        /** Address or defer an exact feedback version with a reason */
+        post: operations["addPlanDisposition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -780,6 +987,8 @@ export interface components {
         /** @enum {string} */
         EventType: "created" | "updated" | "status_changed" | "commented" | "closed" | "reopened" | "dependency_added" | "dependency_removed" | "label_added" | "label_removed";
         Project: {
+            /** Format: int64 */
+            governance_generation: number;
             /** @description Unique project ID (e.g., "proj-a1b2") */
             id: string;
             /** @description Display name */
@@ -838,6 +1047,9 @@ export interface components {
             avg_lead_time_hours?: number;
         };
         Issue: {
+            /** Format: int64 */
+            contract_version: number;
+            governing_plan?: components["schemas"]["PlanReference"];
             /** @description Unique issue ID */
             id: string;
             project_id: string;
@@ -865,6 +1077,7 @@ export interface components {
             comments?: components["schemas"]["Comment"][];
         };
         IssueDetails: components["schemas"]["Issue"] & {
+            resolved_governance?: components["schemas"]["GoverningPlan"];
             dependents?: components["schemas"]["Dependency"][];
         };
         BlockedIssue: components["schemas"]["Issue"] & {
@@ -1116,20 +1329,24 @@ export interface components {
         /** @enum {string} */
         PlanStatus: "draft" | "in_review" | "approved" | "rejected" | "changes_requested";
         Plan: {
-            /** @description Unique plan ID (plan.xxxxx format) */
             id: string;
-            /** @description Relative path to the plan markdown file */
-            file_path: string;
-            status: components["schemas"]["PlanStatus"];
+            project_id: string;
+            title: string;
+            /** @enum {string} */
+            lifecycle: "active" | "archived";
+            /** Format: int64 */
+            head_revision: number;
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            feedback_version: number;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
         };
-        PlanWithContent: components["schemas"]["Plan"] & {
-            /** @description Markdown content read from the plan file */
-            content?: string;
-        };
+        /** @description Deprecated legacy compatibility alias. Use PlanRevisionWithContent for retained bytes. */
+        PlanWithContent: components["schemas"]["LegacyPlanWithContent"];
         /** @description Pins a comment to a quoted text range in the rendered document. */
         PlanCommentAnchor: {
             /** @description First source line of the selection's enclosing block span */
@@ -1160,6 +1377,15 @@ export interface components {
             updated_at?: string;
             /** Format: date-time */
             resolved_at?: string;
+            /**
+             * Format: int64
+             * @description Exact revision; null only for migrated legacy discussion with unknown provenance.
+             */
+            revision: number | null;
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            deleted_at?: string;
         };
         CreatePlanRequest: {
             file_path: string;
@@ -1180,6 +1406,188 @@ export interface components {
             content?: string;
             anchor?: components["schemas"]["PlanCommentAnchor"];
             resolved?: boolean;
+        };
+        /** @description Preserved legacy inventory metadata; status is unverified and paths are never dereferenced by HTTP. */
+        LegacyPlan: {
+            /** @description Unique plan ID (plan.xxxxx format) */
+            id: string;
+            /** @description Relative path to the plan markdown file */
+            file_path: string;
+            status: components["schemas"]["PlanStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        LegacyPlanWithContent: components["schemas"]["LegacyPlan"] & {
+            content: string;
+        };
+        PlanReference: {
+            plan_id: string;
+            /** Format: int64 */
+            revision: number;
+        };
+        PlanRevision: {
+            plan_id: string;
+            /** Format: int64 */
+            revision: number;
+            content_sha256: string;
+            /** Format: int64 */
+            content_bytes: number;
+            review_status: components["schemas"]["PlanStatus"];
+            /** Format: int64 */
+            review_version: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        PlanRevisionWithContent: components["schemas"]["PlanRevision"] & {
+            /** @description Exact retained UTF-8 upload, verified against content_sha256 and content_bytes. */
+            content: string;
+        };
+        GoverningPlan: {
+            container_id: string;
+            container_type: components["schemas"]["IssueType"];
+            reference: components["schemas"]["PlanReference"];
+            context: components["schemas"]["GoverningPlanContext"][];
+        };
+        GoverningPlanContext: {
+            container_id: string;
+            container_type: components["schemas"]["IssueType"];
+            reference: components["schemas"]["PlanReference"];
+        };
+        /** @description Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract. */
+        ExpectedGovernance: {
+            governing: components["schemas"]["GoverningPlan"] | null;
+            /** Format: int64 */
+            contract_version: number;
+        };
+        PlanReviewRequest: {
+            /** @enum {string} */
+            status: "in_review" | "approved" | "rejected" | "changes_requested";
+            /** Format: int64 */
+            expected_head: number;
+            /** Format: int64 */
+            expected_review_version: number;
+            /** Format: int64 */
+            expected_feedback_version: number;
+        };
+        PlanFeedbackDisposition: {
+            id: string;
+            plan_id: string;
+            /** Format: int64 */
+            target_revision: number;
+            comment_id: string;
+            /** Format: int64 */
+            comment_version: number;
+            disposition: string;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract. */
+        ExecutionEvidenceRequest: {
+            expected: components["schemas"]["ExpectedGovernance"] | null;
+            phase: string;
+            evidence: string;
+        };
+        ReconciledTask: {
+            issue_id: string;
+            expected: components["schemas"]["ExpectedGovernance"];
+            disposition: string;
+            reason: string;
+            title?: string;
+            description?: string;
+            follow_up_keys: string[];
+        };
+        ReconciliationFollowUp: {
+            key: string;
+            parent_id: string;
+            title: string;
+            description: string;
+            issue_type: components["schemas"]["IssueType"];
+            /** Format: int64 */
+            priority: number;
+        };
+        ReconciliationEdge: {
+            issue_id: string;
+            depends_on_id: string;
+            type: components["schemas"]["DependencyType"];
+            remove: boolean;
+        };
+        ReconciliationTypeChange: {
+            issue_id: string;
+            /** Format: int64 */
+            expected_contract_version: number;
+            issue_type: components["schemas"]["IssueType"];
+        };
+        ReconciledContainerPin: {
+            container_id: string;
+            /** Format: int64 */
+            expected_container_version: number;
+            expected_pin: components["schemas"]["PlanReference"] | null;
+            target_pin: components["schemas"]["PlanReference"] | null;
+            disposition: string;
+            reason: string;
+        };
+        /** @description Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract. */
+        PlanAdoptionRequest: {
+            /** Format: int64 */
+            expected_container_version: number;
+            /** Format: int64 */
+            expected_governance_generation: number;
+            expected_pin: components["schemas"]["PlanReference"] | null;
+            target_pin: components["schemas"]["PlanReference"] | null;
+            tasks: components["schemas"]["ReconciledTask"][];
+            container_pins: components["schemas"]["ReconciledContainerPin"][];
+            follow_ups: components["schemas"]["ReconciliationFollowUp"][];
+            edges: components["schemas"]["ReconciliationEdge"][];
+            type_changes: components["schemas"]["ReconciliationTypeChange"][];
+            dry_run: boolean;
+        };
+        PlanUpload: {
+            title?: string;
+            content: string;
+            source_name?: string;
+        };
+        PlanSave: {
+            content: string;
+            source_name?: string;
+            /** Format: int64 */
+            expected_revision: number;
+        };
+        PlanWriteResult: {
+            plan: components["schemas"]["Plan"];
+            revision: components["schemas"]["PlanRevisionWithContent"];
+            /** @description True returns the originally committed result, even after later saves or archive. */
+            replay: boolean;
+        };
+        PlanMetadataUpdate: {
+            title?: string;
+            /** @enum {string} */
+            lifecycle?: "active" | "archived";
+            /** Format: int64 */
+            expected_version: number;
+        };
+        PlanCommentUpdate: {
+            content?: string;
+            anchor?: components["schemas"]["PlanCommentAnchor"];
+            reopen?: boolean;
+            /** Format: int64 */
+            expected_version: number;
+        };
+        PlanCommentDelete: {
+            /** Format: int64 */
+            expected_version: number;
+        };
+        PlanDispositionRequest: {
+            comment_id: string;
+            /** Format: int64 */
+            expected_comment_version: number;
+            /** Format: int64 */
+            expected_feedback_version: number;
+            /** @enum {string} */
+            disposition: "addressed" | "deferred";
+            reason: string;
         };
     };
     responses: {
@@ -2603,17 +3011,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Plan created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Plan"];
-                };
-            };
             400: components["responses"]["BadRequest"];
-            500: components["responses"]["InternalError"];
         };
     };
     getPlan: {
@@ -2627,17 +3025,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Plan with content */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlanWithContent"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
+            400: components["responses"]["BadRequest"];
         };
     };
     updatePlanContent: {
@@ -2655,18 +3043,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Content updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlanWithContent"];
-                };
-            };
             400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
         };
     };
     deletePlan: {
@@ -2680,15 +3057,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Plan deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
+            400: components["responses"]["BadRequest"];
         };
     };
     updatePlanStatus: {
@@ -2706,18 +3075,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Status updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Plan"];
-                };
-            };
             400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
         };
     };
     listPlanComments: {
@@ -2731,16 +3089,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Comments list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlanComment"][];
-                };
-            };
-            500: components["responses"]["InternalError"];
+            400: components["responses"]["BadRequest"];
         };
     };
     createPlanComment: {
@@ -2758,18 +3107,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Comment created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlanComment"];
-                };
-            };
             400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
         };
     };
     deletePlanComment: {
@@ -2784,15 +3122,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Comment deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
+            400: components["responses"]["BadRequest"];
         };
     };
     updatePlanComment: {
@@ -2811,7 +3141,766 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated comment */
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    listDurablePlans: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                archived?: boolean;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"][];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDurablePlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Retained indefinitely, scoped by project and operation target. Identical payload replays original result; different payload conflicts. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanUpload"];
+            };
+        };
+        responses: {
+            /** @description Originally committed result with replay=true */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanWriteResult"];
+                };
+            };
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanWriteResult"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDurablePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateDurablePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanMetadataUpdate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPlanRevisions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanRevision"][];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    savePlanRevision: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Retained indefinitely, scoped by project and operation target. Identical payload replays original result; different payload conflicts. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                projectId: string;
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanSave"];
+            };
+        };
+        responses: {
+            /** @description Originally committed result with replay=true */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanWriteResult"];
+                };
+            };
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanWriteResult"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    readPlanRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanRevisionWithContent"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    decidePlanRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanRevision"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listRevisionComments: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                /** @description Include earlier revision feedback and unknown-provenance migrated discussion. */
+                include_prior?: boolean;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanComment"][];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRevisionComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePlanCommentRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanComment"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteRevisionComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanCommentDelete"];
+            };
+        };
+        responses: {
+            /** @description Success */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2820,9 +3909,270 @@ export interface operations {
                     "application/json": components["schemas"]["PlanComment"];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalError"];
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateRevisionComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanCommentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanComment"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPlanDispositions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanFeedbackDisposition"][];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addPlanDisposition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanDispositionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanFeedbackDisposition"];
+                };
+            };
+            /** @description Invalid input or legacy file_path request; upgrade and upload bytes. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unknown or out-of-project artifact. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale precondition, invalid lifecycle/transition, or unresolved feedback. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required precondition or Idempotency-Key is missing or null. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained content failed integrity verification. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

@@ -19,18 +19,6 @@ func intPtr(i int) *int {
 }
 
 // createTestPlanClient creates a plan for testing via client and returns its ID.
-func createTestPlanClient(t *testing.T, c *client.Client) string {
-	t.Helper()
-
-	filePath := filepath.Join(t.TempDir(), "plan.md")
-	plan, err := c.CreatePlan(filePath)
-	if err != nil {
-		t.Fatalf("failed to create plan: %v", err)
-	}
-	return plan.ID
-}
-
-// testClientServer creates a test server and client for testing.
 func testClientServer(t *testing.T) (*client.Client, func()) {
 	t.Helper()
 
@@ -356,55 +344,26 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	}
 }
 
-func TestClientUpdatePlanComment(t *testing.T) {
+func TestClientLegacyPlansRequireUpgrade(t *testing.T) {
 	c, cleanup := testClientServer(t)
 	defer cleanup()
-
-	planID := createTestPlanClient(t, c)
-	comment, err := c.CreatePlanComment(planID, nil, "original content")
-	if err != nil {
-		t.Fatalf("CreatePlanComment failed: %v", err)
+	cases := []func() error{
+		func() error { _, err := c.CreatePlan("/unavailable/client.md"); return err },
+		func() error { _, err := c.GetPlan("plan.old"); return err },
+		func() error { return c.UpdatePlanContent("plan.old", "content") },
+		func() error { return c.UpdatePlanStatus("plan.old", "approved") },
+		func() error { return c.DeletePlan("plan.old") },
+		func() error { _, err := c.ListPlanComments("plan.old"); return err },
+		func() error { _, err := c.CreatePlanComment("plan.old", nil, "feedback"); return err },
+		func() error {
+			_, err := c.UpdatePlanComment("plan.old", "pc.old", client.UpdatePlanCommentRequest{})
+			return err
+		},
+		func() error { return c.DeletePlanComment("plan.old", "pc.old") },
 	}
-
-	newContent := "updated content"
-	resolved := true
-	updated, err := c.UpdatePlanComment(planID, comment.ID, client.UpdatePlanCommentRequest{
-		Content:  &newContent,
-		Resolved: &resolved,
-	})
-	if err != nil {
-		t.Fatalf("UpdatePlanComment failed: %v", err)
-	}
-
-	if updated.Content != newContent {
-		t.Errorf("Content = %q, want %q", updated.Content, newContent)
-	}
-	if updated.ResolvedAt == nil {
-		t.Error("expected ResolvedAt to be set")
-	}
-}
-
-func TestClientDeletePlanComment(t *testing.T) {
-	c, cleanup := testClientServer(t)
-	defer cleanup()
-
-	planID := createTestPlanClient(t, c)
-	comment, err := c.CreatePlanComment(planID, nil, "to be deleted")
-	if err != nil {
-		t.Fatalf("CreatePlanComment failed: %v", err)
-	}
-
-	if err := c.DeletePlanComment(planID, comment.ID); err != nil {
-		t.Fatalf("DeletePlanComment failed: %v", err)
-	}
-
-	comments, err := c.ListPlanComments(planID)
-	if err != nil {
-		t.Fatalf("ListPlanComments failed: %v", err)
-	}
-	for _, cm := range comments {
-		if cm.ID == comment.ID {
-			t.Errorf("expected comment %q to be deleted, but it is still present", comment.ID)
+	for _, call := range cases {
+		if err := call(); !errors.Is(err, client.ErrPlanUpgrade) {
+			t.Fatalf("expected upgrade error: %v", err)
 		}
 	}
 }

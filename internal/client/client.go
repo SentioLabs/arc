@@ -5,6 +5,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -564,7 +565,11 @@ func (c *Client) DeleteIssue(projID, id string) error {
 // GetReadyWork returns issues ready to work on.
 // sortPolicy can be: "hybrid" (default), "priority", or "oldest".
 // under restricts results to descendants of that issue ID when non-empty.
-func (c *Client) GetReadyWork(projID string, limit int, sortPolicy, under string) ([]*types.ReadyIssue, error) {
+func (c *Client) GetReadyWork(
+	projID string,
+	limit int,
+	sortPolicy, under string,
+) ([]*types.ReadyIssue, error) {
 	path := fmt.Sprintf("/api/v1/projects/%s/ready", projID)
 
 	query := url.Values{}
@@ -662,115 +667,52 @@ func (c *Client) RemoveDependency(projID, issueID, dependsOnID string) error {
 	return nil
 }
 
-// --- Plan methods ---
+// ErrPlanUpgrade marks removed global path-based operations. Keeping these
+// signatures lets older consumers compile while requiring explicit migration.
+var ErrPlanUpgrade = errors.New(
+	"upgrade the Arc CLI/server together: legacy path-based plans were removed; upload bytes" +
+		" using the project-scoped durable plan API; use archive instead of deletion",
+)
+
+// --- Legacy plan transport compatibility ---
 
 // CreatePlan registers an ephemeral plan backed by a filesystem markdown file.
 func (c *Client) CreatePlan(filePath string) (*types.LegacyPlan, error) {
-	body := map[string]string{"file_path": filePath}
-	resp, err := c.post("/api/v1/plans", body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var plan types.LegacyPlan
-	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &plan, nil
+	return nil, ErrPlanUpgrade
 }
 
 // GetPlan retrieves a plan by ID, including file content.
 func (c *Client) GetPlan(planID string) (*types.LegacyPlanWithContent, error) {
-	path := "/api/v1/plans/" + planID
-
-	resp, err := c.get(path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var plan types.LegacyPlanWithContent
-	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &plan, nil
+	return nil, ErrPlanUpgrade
 }
 
 // UpdatePlanContent writes new content to the plan's file.
 func (c *Client) UpdatePlanContent(planID string, content string) error {
-	path := "/api/v1/plans/" + planID
-
-	body := map[string]string{"content": content}
-	resp, err := c.put(path, body)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+	return ErrPlanUpgrade
 }
 
 // UpdatePlanStatus updates the status of a plan.
 func (c *Client) UpdatePlanStatus(planID string, status string) error {
-	path := "/api/v1/plans/" + planID + "/status"
-
-	body := map[string]string{"status": status}
-	resp, err := c.patch(path, body)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+	return ErrPlanUpgrade
 }
 
 // DeletePlan deletes a plan and its comments.
 func (c *Client) DeletePlan(planID string) error {
-	path := "/api/v1/plans/" + planID
-
-	resp, err := c.delete(path)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+	return ErrPlanUpgrade
 }
 
 // ListPlanComments returns all comments for a plan.
 func (c *Client) ListPlanComments(planID string) ([]*types.PlanComment, error) {
-	path := "/api/v1/plans/" + planID + "/comments"
-
-	resp, err := c.get(path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var comments []*types.PlanComment
-	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return comments, nil
+	return nil, ErrPlanUpgrade
 }
 
 // CreatePlanComment adds a review comment to a plan.
-func (c *Client) CreatePlanComment(planID string, lineNumber *int, content string) (*types.PlanComment, error) {
-	path := "/api/v1/plans/" + planID + "/comments"
-
-	body := map[string]any{"content": content}
-	if lineNumber != nil {
-		body["line_number"] = *lineNumber
-	}
-	resp, err := c.post(path, body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var comment types.PlanComment
-	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &comment, nil
+func (c *Client) CreatePlanComment(
+	planID string,
+	lineNumber *int,
+	content string,
+) (*types.PlanComment, error) {
+	return nil, ErrPlanUpgrade
 }
 
 // UpdatePlanCommentRequest is a partial update for a plan comment.
@@ -782,32 +724,16 @@ type UpdatePlanCommentRequest struct {
 }
 
 // UpdatePlanComment applies a partial update to a plan review comment.
-func (c *Client) UpdatePlanComment(planID, commentID string, req UpdatePlanCommentRequest) (*types.PlanComment, error) {
-	path := "/api/v1/plans/" + planID + "/comments/" + commentID
-
-	resp, err := c.patch(path, req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var comment types.PlanComment
-	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &comment, nil
+func (c *Client) UpdatePlanComment(
+	planID, commentID string,
+	req UpdatePlanCommentRequest,
+) (*types.PlanComment, error) {
+	return nil, ErrPlanUpgrade
 }
 
 // DeletePlanComment removes a plan review comment.
 func (c *Client) DeletePlanComment(planID, commentID string) error {
-	path := "/api/v1/plans/" + planID + "/comments/" + commentID
-
-	resp, err := c.delete(path)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+	return ErrPlanUpgrade
 }
 
 // Workspace types and methods manage directory paths associated with projects.
@@ -1044,7 +970,12 @@ func (c *Client) GetAIAgent(projectID, sessionID, agentID string) (*types.AIAgen
 // GetAgentTranscript retrieves the transcript for an agent as a slice of
 // JSON objects. The transcript is read from the agent's JSONL file on the server.
 func (c *Client) GetAgentTranscript(projectID, sessionID, agentID string) ([]map[string]any, error) {
-	path := fmt.Sprintf("/api/v1/projects/%s/ai/sessions/%s/agents/%s/transcript", projectID, sessionID, agentID)
+	path := fmt.Sprintf(
+		"/api/v1/projects/%s/ai/sessions/%s/agents/%s/transcript",
+		projectID,
+		sessionID,
+		agentID,
+	)
 
 	resp, err := c.get(path)
 	if err != nil {

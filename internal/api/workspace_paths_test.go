@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/testutil/gittest"
 	"github.com/sentiolabs/arc/internal/types"
 )
@@ -26,8 +27,9 @@ const (
 // mockWPStore implements storage.Storage for workspace (directory path) tests.
 // Only workspace methods are implemented; all others panic.
 type mockWPStore struct {
-	workspaces []*types.Workspace
-	touched    string // last workspace ID touched
+	storage.DurablePlans // Durable operations are not part of workspace fixtures.
+	workspaces           []*types.Workspace
+	touched              string // last workspace ID touched
 }
 
 func newMockWPStore() *mockWPStore {

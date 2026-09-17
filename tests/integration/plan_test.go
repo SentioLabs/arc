@@ -3,11 +3,17 @@
 package integration
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/storage"
+	"github.com/sentiolabs/arc/internal/types"
 )
 
 // setupPlanEnv creates an isolated home + workdir with an initialized project
@@ -36,321 +42,178 @@ func writePlanFile(t *testing.T, workDir, filename, content string) string {
 	return path
 }
 
-// extractPlanID extracts a plan.xxxxx ID from command output.
-func extractPlanID(output string) (string, bool) {
-	for _, word := range strings.Fields(output) {
-		if strings.HasPrefix(word, "plan.") {
-			// Trim trailing punctuation
-			word = strings.TrimRight(word, "(),.")
-			return word, true
+// T6 introduces durable CLI commands; this coordinated server upgrade rejects
+// every path-only command explicitly while durable API lifecycle coverage below
+// exercises retained bytes in the disposable Docker server.
+func TestLegacyPlanCommandsRequireUpgrade(t *testing.T) {
+	home, dir := setupPlanEnv(t, "plan-upgrade")
+	file := writePlanFile(t, dir, "legacy.md", "# local draft")
+	for _, args := range [][]string{
+		{"create", file},
+		{"show", "plan.old"},
+		{"approve", "plan.old"},
+		{"reject", "plan.old"},
+		{"comments", "plan.old"},
+		{"wait", "plan.old"},
+	} {
+		command := append([]string{"plan"}, args...)
+		command = append(command, "--server", serverURL)
+		out, err := arcCmdInDir(t, home, dir, command...)
+		if err == nil || !strings.Contains(strings.ToLower(out), "upgrade") {
+			t.Fatalf("%v: %v %s", args, err, out)
 		}
 	}
-	return "", false
-}
-
-// --- Plan Create ---
-
-func TestPlanCreate(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-create")
-	planPath := writePlanFile(t, workDir, "test-create.md", "# Test Plan\n\nSome content.")
-
-	output := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--server", serverURL)
-
-	planID, ok := extractPlanID(output)
-	if !ok {
-		t.Fatalf("expected plan ID in output, got: %s", output)
-	}
-	if !strings.HasPrefix(planID, "plan.") {
-		t.Errorf("expected plan ID to start with 'plan.', got: %s", planID)
-	}
-	if !strings.Contains(strings.ToLower(output), "draft") {
-		t.Errorf("expected draft status in output, got: %s", output)
-	}
-}
-
-func TestPlanCreateJSON(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-create-json")
-	planPath := writePlanFile(t, workDir, "test-json.md", "# JSON Plan")
-
-	output := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-
-	var plan map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &plan); err != nil {
-		t.Fatalf("expected valid JSON, got: %s (error: %v)", output, err)
-	}
-	if plan["status"] != "draft" {
-		t.Errorf("expected status 'draft', got %v", plan["status"])
-	}
-	fp, _ := plan["file_path"].(string)
-	if !strings.HasSuffix(fp, planPath) {
-		t.Errorf("expected file_path ending with %q, got %v", planPath, fp)
-	}
-	if _, ok := plan["id"]; !ok {
-		t.Error("expected 'id' field in JSON output")
-	}
-}
-
-func TestPlanCreateMissingFile(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-create-nofile")
-
-	_, err := arcCmdInDir(t, home, workDir, "plan", "create", "docs/plans/nonexistent.md", "--server", serverURL)
-	// The create command registers the path; file existence is checked on GET.
-	// This test mainly verifies the command accepts the argument.
-	_ = err
-}
-
-func TestPlanCreateMissingArgs(t *testing.T) {
-	home := setupHome(t)
-
-	_, err := arcCmd(t, home, "plan", "create", "--server", serverURL)
-	if err == nil {
-		t.Error("expected error when no file path is given")
-	}
-}
-
-// --- Plan Show ---
-
-func TestPlanShow(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-show")
-	planPath := writePlanFile(t, workDir, "test-show.md", "# Show Plan\n\nLine 2\nLine 3")
-
-	createOut := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-	var created map[string]interface{}
-	if err := json.Unmarshal([]byte(createOut), &created); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	planID := created["id"].(string)
-
-	output := arcCmdInDirSuccess(t, home, workDir, "plan", "show", planID, "--server", serverURL)
-
-	if !strings.Contains(output, "Show Plan") {
-		t.Errorf("expected plan content in show output, got: %s", output)
-	}
-	if !strings.Contains(strings.ToLower(output), "draft") {
-		t.Errorf("expected draft status, got: %s", output)
-	}
-}
-
-func TestPlanShowJSON(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-show-json")
-	planPath := writePlanFile(t, workDir, "test-show-json.md", "# JSON Show Content")
-
-	createOut := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-	var created map[string]interface{}
-	if err := json.Unmarshal([]byte(createOut), &created); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	planID := created["id"].(string)
-
-	output := arcCmdInDirSuccess(t, home, workDir, "plan", "show", planID, "--json", "--server", serverURL)
-
-	var plan map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &plan); err != nil {
-		t.Fatalf("expected valid JSON, got: %s (error: %v)", output, err)
-	}
-
-	for _, field := range []string{"id", "file_path", "status", "content", "created_at", "updated_at"} {
-		if _, exists := plan[field]; !exists {
-			t.Errorf("expected field %q in JSON output", field)
+	for _, sub := range []string{"create", "show", "approve", "reject", "comments", "wait"} {
+		if _, err := arcCmd(t, home, "plan", sub, "--server", serverURL); err == nil {
+			t.Fatalf("%s accepted missing argument", sub)
 		}
 	}
-	if !strings.Contains(plan["content"].(string), "JSON Show Content") {
-		t.Errorf("expected content with 'JSON Show Content', got %v", plan["content"])
-	}
-}
-
-func TestPlanShowMissingArgs(t *testing.T) {
-	home := setupHome(t)
-
-	_, err := arcCmd(t, home, "plan", "show", "--server", serverURL)
-	if err == nil {
-		t.Error("expected error when no plan ID is given")
-	}
-}
-
-// --- Plan Approve ---
-
-func TestPlanApprove(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-approve")
-	planPath := writePlanFile(t, workDir, "test-approve.md", "# Approve Me")
-
-	createOut := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-	var created map[string]interface{}
-	if err := json.Unmarshal([]byte(createOut), &created); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	planID := created["id"].(string)
-
-	output := arcCmdInDirSuccess(t, home, workDir, "plan", "approve", planID, "--server", serverURL)
-	if !strings.Contains(strings.ToLower(output), "approved") {
-		t.Errorf("expected 'approved' in output, got: %s", output)
-	}
-
-	// Verify status changed
-	showOut := arcCmdInDirSuccess(t, home, workDir, "plan", "show", planID, "--json", "--server", serverURL)
-	var updated map[string]interface{}
-	if err := json.Unmarshal([]byte(showOut), &updated); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if updated["status"] != "approved" {
-		t.Errorf("expected status 'approved', got %v", updated["status"])
-	}
-}
-
-func TestPlanApproveMissingArgs(t *testing.T) {
-	home := setupHome(t)
-
-	_, err := arcCmd(t, home, "plan", "approve", "--server", serverURL)
-	if err == nil {
-		t.Error("expected error when no plan ID is given")
-	}
-}
-
-// --- Plan Reject ---
-
-func TestPlanReject(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-reject")
-	planPath := writePlanFile(t, workDir, "test-reject.md", "# Reject Me")
-
-	createOut := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-	var created map[string]interface{}
-	if err := json.Unmarshal([]byte(createOut), &created); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	planID := created["id"].(string)
-
-	output := arcCmdInDirSuccess(t, home, workDir, "plan", "reject", planID, "--server", serverURL)
-	if !strings.Contains(strings.ToLower(output), "rejected") {
-		t.Errorf("expected 'rejected' in output, got: %s", output)
-	}
-
-	// Verify status changed
-	showOut := arcCmdInDirSuccess(t, home, workDir, "plan", "show", planID, "--json", "--server", serverURL)
-	var updated map[string]interface{}
-	if err := json.Unmarshal([]byte(showOut), &updated); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if updated["status"] != "rejected" {
-		t.Errorf("expected status 'rejected', got %v", updated["status"])
-	}
-}
-
-func TestPlanRejectMissingArgs(t *testing.T) {
-	home := setupHome(t)
-
-	_, err := arcCmd(t, home, "plan", "reject", "--server", serverURL)
-	if err == nil {
-		t.Error("expected error when no plan ID is given")
-	}
-}
-
-// --- Plan Comments ---
-
-func TestPlanComments(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-comments")
-	planPath := writePlanFile(t, workDir, "test-comments.md", "# Plan\n\nLine 2")
-
-	createOut := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-	var created map[string]interface{}
-	if err := json.Unmarshal([]byte(createOut), &created); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	planID := created["id"].(string)
-
-	// No comments yet
-	output := arcCmdInDirSuccess(t, home, workDir, "plan", "comments", planID, "--server", serverURL)
-	if !strings.Contains(strings.ToLower(output), "no comments") {
-		t.Errorf("expected 'no comments' message, got: %s", output)
-	}
-}
-
-func TestPlanCommentsMissingArgs(t *testing.T) {
-	home := setupHome(t)
-
-	_, err := arcCmd(t, home, "plan", "comments", "--server", serverURL)
-	if err == nil {
-		t.Error("expected error when no plan ID is given")
-	}
-}
-
-// --- Command Help ---
-
-func TestPlanCommandHelp(t *testing.T) {
-	home := setupHome(t)
-
-	output := arcCmdSuccess(t, home, "plan", "--help")
-
-	for _, sub := range []string{"create", "show", "approve", "reject", "comments"} {
-		if !strings.Contains(output, sub) {
-			t.Errorf("expected %q subcommand in plan help, got: %s", sub, output)
+	out := arcCmdSuccess(t, home, "plan", "--help")
+	for _, sub := range []string{"create", "show", "approve", "reject", "comments", "wait"} {
+		if !strings.Contains(out, sub) {
+			t.Errorf("missing %s help", sub)
 		}
 	}
-}
-
-// --- Full Lifecycle ---
-
-func TestPlanFullLifecycle(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-lifecycle")
-
-	// 1. Create plan file and register it
-	planPath := writePlanFile(t, workDir, "lifecycle.md", "# Implementation Plan\n\n1. Build it\n2. Test it")
-	createOut := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-	var plan map[string]interface{}
-	if err := json.Unmarshal([]byte(createOut), &plan); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	planID := plan["id"].(string)
-	if plan["status"] != "draft" {
-		t.Errorf("expected draft status, got %v", plan["status"])
-	}
-
-	// 2. Show plan — should include file content
-	showOut := arcCmdInDirSuccess(t, home, workDir, "plan", "show", planID, "--server", serverURL)
-	if !strings.Contains(showOut, "Implementation Plan") {
-		t.Errorf("expected plan content in show, got: %s", showOut)
-	}
-
-	// 3. Comments — should be empty
-	commentsOut := arcCmdInDirSuccess(t, home, workDir, "plan", "comments", planID, "--server", serverURL)
-	if !strings.Contains(strings.ToLower(commentsOut), "no comments") {
-		t.Errorf("expected no comments initially, got: %s", commentsOut)
-	}
-
-	// 4. Approve the plan
-	arcCmdInDirSuccess(t, home, workDir, "plan", "approve", planID, "--server", serverURL)
-
-	// 5. Verify approved
-	showOut2 := arcCmdInDirSuccess(t, home, workDir, "plan", "show", planID, "--json", "--server", serverURL)
-	var approved map[string]interface{}
-	if err := json.Unmarshal([]byte(showOut2), &approved); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
-	if approved["status"] != "approved" {
-		t.Errorf("expected approved, got %v", approved["status"])
+	content, err := os.ReadFile(filepath.Join(dir, file))
+	if err != nil || string(content) != "# local draft" {
+		t.Fatalf("upgrade changed local draft: %q %v", content, err)
 	}
 }
 
-func TestPlanDraftRejectCycle(t *testing.T) {
-	home, workDir := setupPlanEnv(t, "plan-reject-cycle")
-
-	planPath := writePlanFile(t, workDir, "reject-cycle.md", "# Bad Plan")
-	createOut := arcCmdInDirSuccess(t, home, workDir, "plan", "create", planPath, "--json", "--server", serverURL)
-	var plan map[string]interface{}
-	if err := json.Unmarshal([]byte(createOut), &plan); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+func durableAPI(t *testing.T, method, path, key string, body any, want int) []byte {
+	t.Helper()
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
 	}
-	planID := plan["id"].(string)
-
-	// Reject
-	arcCmdInDirSuccess(t, home, workDir, "plan", "reject", planID, "--server", serverURL)
-
-	// Verify rejected
-	showOut := arcCmdInDirSuccess(t, home, workDir, "plan", "show", planID, "--json", "--server", serverURL)
-	var rejected map[string]interface{}
-	if err := json.Unmarshal([]byte(showOut), &rejected); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+	req, err := http.NewRequestWithContext(t.Context(), method, serverURL+path, bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if rejected["status"] != "rejected" {
-		t.Errorf("expected rejected, got %v", rejected["status"])
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", key)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
 	}
+	result := readBody(t, resp)
+	if resp.StatusCode != want {
+		t.Fatalf("%s %s: want %d got %d %s", method, path, want, resp.StatusCode, result)
+	}
+	return result
+}
+
+func TestDurablePlanAPILifecycle(t *testing.T) {
+	body := durableAPI(
+		t,
+		"POST",
+		"/api/v1/projects",
+		"",
+		map[string]string{"name": fmt.Sprintf("durable-%d", uniqueSuffix()), "prefix": "dp"},
+		201,
+	)
+	var p types.Project
+	if err := json.Unmarshal(body, &p); err != nil {
+		t.Fatal(err)
+	}
+	base := "/api/v1/projects/" + p.ID + "/plans"
+	source := filepath.Join(t.TempDir(), "client.md")
+	content := "# design\r\n\nExact Unicode: λ\n"
+	if err := os.WriteFile(source, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body = durableAPI(
+		t,
+		"POST",
+		base,
+		"create",
+		storage.PlanUpload{Title: "review", Content: content, SourceName: source},
+		201,
+	)
+	var first storage.PlanWriteResult
+	if err := json.Unmarshal(body, &first); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(source); err != nil {
+		t.Fatal(err)
+	}
+	plan := base + "/" + first.Plan.ID
+	rev := plan + "/revisions/1"
+	body = durableAPI(t, "GET", rev, "", nil, 200)
+	var read types.PlanRevisionWithContent
+	if err := json.Unmarshal(body, &read); err != nil {
+		t.Fatal(err)
+	}
+	if read.Content != content || read.ContentSHA256 != first.Revision.ContentSHA256 {
+		t.Fatal("server depended on deleted client source")
+	}
+	durableAPI(
+		t,
+		"POST",
+		rev+"/decisions",
+		"",
+		types.PlanReviewRequest{Status: "in_review", ExpectedHead: 1},
+		200,
+	)
+	durableAPI(
+		t,
+		"POST",
+		rev+"/decisions",
+		"",
+		types.PlanReviewRequest{Status: "approved", ExpectedHead: 1, ExpectedReviewVersion: 1},
+		200,
+	)
+	durableAPI(
+		t,
+		"POST",
+		plan+"/revisions",
+		"save",
+		storage.PlanSave{Content: "next", ExpectedRevision: 1},
+		201,
+	)
+	durableAPI(
+		t,
+		"POST",
+		rev+"/decisions",
+		"",
+		types.PlanReviewRequest{Status: "rejected", ExpectedHead: 1, ExpectedReviewVersion: 2},
+		409,
+	)
+	body = durableAPI(t, "GET", rev, "", nil, 200)
+	if err := json.Unmarshal(body, &read); err != nil {
+		t.Fatal(err)
+	}
+	if read.ReviewStatus != "approved" || read.Content != content {
+		t.Fatal("save rewrote approved history")
+	}
+	body = durableAPI(t, "GET", plan, "", nil, 200)
+	var meta types.Plan
+	if err := json.Unmarshal(body, &meta); err != nil {
+		t.Fatal(err)
+	}
+	durableAPI(
+		t,
+		"PATCH",
+		plan,
+		"",
+		storage.PlanMetadataUpdate{ExpectedVersion: meta.Version, Lifecycle: "archived"},
+		200,
+	)
+	body = durableAPI(
+		t,
+		"POST",
+		plan+"/revisions",
+		"save",
+		storage.PlanSave{Content: "next", ExpectedRevision: 1},
+		200,
+	)
+	var replay storage.PlanWriteResult
+	if err := json.Unmarshal(body, &replay); err != nil {
+		t.Fatal(err)
+	}
+	if !replay.Replay || replay.Revision.Revision != 2 {
+		t.Fatal("lost original replay")
+	}
+	durableAPI(t, "GET", rev, "", nil, 200)
+	durableAPI(t, "POST", "/api/v1/plans", "", map[string]string{"file_path": source}, 400)
 }
