@@ -20,12 +20,13 @@ const MaxPrefixLength = 15
 // Project represents a project that contains issues.
 // Previously named Workspace; renamed to clarify that this is the issue container.
 type Project struct {
-	ID          string    `json:"id"`   // Short hash ID (e.g., "proj-a1b2")
-	Name        string    `json:"name"` // Display name
-	Description string    `json:"description,omitempty"`
-	Prefix      string    `json:"prefix"` // Issue ID prefix (e.g., "bd")
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                   string    `json:"id"`   // Short hash ID (e.g., "proj-a1b2")
+	Name                 string    `json:"name"` // Display name
+	Description          string    `json:"description,omitempty"`
+	Prefix               string    `json:"prefix"` // Issue ID prefix (e.g., "bd")
+	GovernanceGeneration int64     `json:"governance_generation"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 // Validate checks if the project has valid field values.
@@ -61,6 +62,10 @@ type Issue struct {
 	Priority  int       `json:"priority"` // 0 (critical) - 4 (backlog)
 	Rank      int       `json:"rank"`     // 0 = unranked (sorts last), 1+ = lower rank = work on first
 	IssueType IssueType `json:"issue_type"`
+
+	// Governing Design
+	ContractVersion int64          `json:"contract_version"`
+	GoverningPlan   *PlanReference `json:"governing_plan,omitempty"`
 
 	// AI Session Tracking
 	AISessionID string `json:"ai_session_id,omitempty"` // Claude Code session UUID
@@ -412,10 +417,11 @@ type RoadmapNode struct {
 // IssueDetails extends Issue with full relational data.
 type IssueDetails struct {
 	Issue
-	Labels       []string      `json:"labels,omitempty"`
-	Dependencies []*Dependency `json:"dependencies,omitempty"`
-	Dependents   []*Dependency `json:"dependents,omitempty"`
-	Comments     []*Comment    `json:"comments,omitempty"`
+	ResolvedGovernance *GoverningPlan `json:"resolved_governance,omitempty"`
+	Labels             []string       `json:"labels,omitempty"`
+	Dependencies       []*Dependency  `json:"dependencies,omitempty"`
+	Dependents         []*Dependency  `json:"dependents,omitempty"`
+	Comments           []*Comment     `json:"comments,omitempty"`
 }
 
 // Plan status constants.
@@ -427,8 +433,8 @@ const (
 	PlanStatusChangesRequested = "changes_requested"
 )
 
-// Plan represents an ephemeral review artifact backed by a filesystem markdown file.
-type Plan struct {
+// LegacyPlan represents a filesystem-backed review artifact retained during migration.
+type LegacyPlan struct {
 	ID        string    `json:"id"`
 	FilePath  string    `json:"file_path"`
 	Status    string    `json:"status"`
@@ -456,17 +462,20 @@ type PlanCommentAnchor struct {
 type PlanComment struct {
 	ID         string             `json:"id"`
 	PlanID     string             `json:"plan_id"`
+	Revision   *int64             `json:"revision"`
+	Version    int64              `json:"version"`
 	LineNumber *int               `json:"line_number,omitempty"`
 	Content    string             `json:"content"`
 	Anchor     *PlanCommentAnchor `json:"anchor,omitempty"`
 	CreatedAt  time.Time          `json:"created_at"`
 	UpdatedAt  *time.Time         `json:"updated_at,omitempty"`
 	ResolvedAt *time.Time         `json:"resolved_at,omitempty"`
+	DeletedAt  *time.Time         `json:"deleted_at,omitempty"`
 }
 
-// PlanWithContent combines plan metadata with the file content read from disk.
-type PlanWithContent struct {
-	Plan
+// LegacyPlanWithContent combines plan metadata with the file content read from disk.
+type LegacyPlanWithContent struct {
+	LegacyPlan
 	Content string `json:"content"`
 }
 

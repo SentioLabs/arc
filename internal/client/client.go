@@ -665,7 +665,7 @@ func (c *Client) RemoveDependency(projID, issueID, dependsOnID string) error {
 // --- Plan methods ---
 
 // CreatePlan registers an ephemeral plan backed by a filesystem markdown file.
-func (c *Client) CreatePlan(filePath string) (*types.Plan, error) {
+func (c *Client) CreatePlan(filePath string) (*types.LegacyPlan, error) {
 	body := map[string]string{"file_path": filePath}
 	resp, err := c.post("/api/v1/plans", body)
 	if err != nil {
@@ -673,7 +673,7 @@ func (c *Client) CreatePlan(filePath string) (*types.Plan, error) {
 	}
 	defer resp.Body.Close()
 
-	var plan types.Plan
+	var plan types.LegacyPlan
 	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
@@ -681,7 +681,7 @@ func (c *Client) CreatePlan(filePath string) (*types.Plan, error) {
 }
 
 // GetPlan retrieves a plan by ID, including file content.
-func (c *Client) GetPlan(planID string) (*types.PlanWithContent, error) {
+func (c *Client) GetPlan(planID string) (*types.LegacyPlanWithContent, error) {
 	path := "/api/v1/plans/" + planID
 
 	resp, err := c.get(path)
@@ -690,7 +690,7 @@ func (c *Client) GetPlan(planID string) (*types.PlanWithContent, error) {
 	}
 	defer resp.Body.Close()
 
-	var plan types.PlanWithContent
+	var plan types.LegacyPlanWithContent
 	if err := json.NewDecoder(resp.Body).Decode(&plan); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}

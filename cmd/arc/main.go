@@ -1474,7 +1474,7 @@ func formatBlockedIssue(id, issueType string, priority int, title string, labels
 
 // formatPlanInfo returns a formatted string describing a plan.
 // Returns an empty string if the plan is nil.
-func formatPlanInfo(plan *types.Plan) string {
+func formatPlanInfo(plan *types.LegacyPlan) string {
 	if plan == nil {
 		return ""
 	}

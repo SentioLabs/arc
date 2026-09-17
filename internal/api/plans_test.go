@@ -100,7 +100,7 @@ func createTestPlan(t *testing.T, e *echo.Echo) string {
 		t.Fatalf("failed to create plan: %s", rec.Body.String())
 	}
 
-	var plan types.Plan
+	var plan types.LegacyPlan
 	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
 		t.Fatalf("failed to parse plan response: %v", err)
 	}
@@ -417,7 +417,7 @@ func TestUpdatePlanStatus_ChangesRequestedAccepted(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var plan types.Plan
+	var plan types.LegacyPlan
 	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}

@@ -275,7 +275,7 @@ func TestFTSPlanSearchNotIndexed(t *testing.T) {
 	setupTestIssue(t, store, ws, "Issue with plan")
 
 	// Create a plan (ephemeral, file-based — no content stored in DB)
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.zigzag1",
 		FilePath: "/tmp/plans/zigzag-plan.md",
 		Status:   types.PlanStatusDraft,

@@ -93,7 +93,7 @@ func (s *Server) createPlan(c echo.Context) error {
 	}
 
 	now := time.Now()
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:        project.GeneratePlanID(filepath.Base(req.FilePath)),
 		FilePath:  req.FilePath,
 		Status:    types.PlanStatusDraft,
@@ -126,9 +126,9 @@ func (s *Server) getPlan(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("reading plan file: %v", err))
 	}
 
-	result := types.PlanWithContent{
-		Plan:    *plan,
-		Content: string(content),
+	result := types.LegacyPlanWithContent{
+		LegacyPlan: *plan,
+		Content:    string(content),
 	}
 
 	return successJSON(c, result)
@@ -167,9 +167,9 @@ func (s *Server) updatePlanContent(c echo.Context) error {
 		return errorJSON(c, http.StatusInternalServerError, fmt.Sprintf("writing plan file: %v", err))
 	}
 
-	result := types.PlanWithContent{
-		Plan:    *plan,
-		Content: req.Content,
+	result := types.LegacyPlanWithContent{
+		LegacyPlan: *plan,
+		Content:    req.Content,
 	}
 
 	return successJSON(c, result)

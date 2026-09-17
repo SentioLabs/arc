@@ -8,7 +8,7 @@ import (
 )
 
 func TestFormatPlanInfo_DraftStatus(t *testing.T) {
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		FilePath: "plans/feature-x.md",
 		Status:   "draft",
 	}
@@ -21,7 +21,7 @@ func TestFormatPlanInfo_DraftStatus(t *testing.T) {
 }
 
 func TestFormatPlanInfo_ApprovedStatus(t *testing.T) {
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		FilePath: "plans/feature-x.md",
 		Status:   "approved",
 	}

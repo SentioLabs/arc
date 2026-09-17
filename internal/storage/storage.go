@@ -78,8 +78,8 @@ type Storage interface {
 	DeleteComment(ctx context.Context, commentID int64) error
 
 	// Plans
-	CreatePlan(ctx context.Context, plan *types.Plan) error
-	GetPlan(ctx context.Context, id string) (*types.Plan, error)
+	CreatePlan(ctx context.Context, plan *types.LegacyPlan) error
+	GetPlan(ctx context.Context, id string) (*types.LegacyPlan, error)
 	UpdatePlanStatus(ctx context.Context, id string, status string) error
 	DeletePlan(ctx context.Context, id string) error
 

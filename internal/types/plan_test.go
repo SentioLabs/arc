@@ -1,7 +1,10 @@
 package types_test
 
 import (
+	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/sentiolabs/arc/internal/types"
 )
@@ -27,8 +30,8 @@ func TestPlanStatusConstants(t *testing.T) {
 	}
 }
 
-func TestPlanHasFilePathField(t *testing.T) {
-	p := types.Plan{
+func TestLegacyPlanHasFilePathField(t *testing.T) {
+	p := types.LegacyPlan{
 		ID:       "plan.abc",
 		FilePath: "/tmp/plan.md",
 		Status:   types.PlanStatusDraft,
@@ -51,9 +54,9 @@ func TestPlanCommentLineNumber(t *testing.T) {
 	}
 }
 
-func TestPlanWithContent(t *testing.T) {
-	pwc := types.PlanWithContent{
-		Plan: types.Plan{
+func TestLegacyPlanWithContent(t *testing.T) {
+	pwc := types.LegacyPlanWithContent{
+		LegacyPlan: types.LegacyPlan{
 			ID:       "plan.abc",
 			FilePath: "/tmp/plan.md",
 			Status:   types.PlanStatusDraft,
@@ -79,4 +82,20 @@ func TestCommentTypePlanRemoved(t *testing.T) {
 	if ct.IsValid() {
 		t.Error("expected 'plan' comment type to no longer be valid")
 	}
+}
+
+func TestLegacyPlanWithContentFlatJSON(t *testing.T) {
+	source := types.LegacyPlanWithContent{
+		LegacyPlan: types.LegacyPlan{ID: "plan.abc", FilePath: "/tmp/plan.md", Status: types.PlanStatusDraft},
+		Content:    "# My Plan",
+	}
+	encoded, err := json.Marshal(source)
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+        "id":"plan.abc","file_path":"/tmp/plan.md","status":"draft",
+        "created_at":"0001-01-01T00:00:00Z","updated_at":"0001-01-01T00:00:00Z","content":"# My Plan"
+    }`, string(encoded))
+	var decoded types.LegacyPlanWithContent
+	require.NoError(t, json.Unmarshal(encoded, &decoded))
+	require.Equal(t, source, decoded)
 }

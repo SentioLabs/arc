@@ -69,7 +69,7 @@ func TestCreatePlan(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.abc123",
 		FilePath: "/tmp/plans/my-plan.md",
 		Status:   types.PlanStatusDraft,
@@ -128,7 +128,7 @@ func TestUpdatePlanStatus(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.status1",
 		FilePath: "/tmp/plans/status-test.md",
 		Status:   types.PlanStatusDraft,
@@ -173,7 +173,7 @@ func TestDeletePlan(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.todelete",
 		FilePath: "/tmp/plans/delete-me.md",
 		Status:   types.PlanStatusDraft,
@@ -200,7 +200,7 @@ func TestCreatePlanComment(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.comments1",
 		FilePath: "/tmp/plans/commented.md",
 		Status:   types.PlanStatusDraft,
@@ -272,7 +272,7 @@ func TestListPlanComments_Empty(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.nocomments",
 		FilePath: "/tmp/plans/empty-comments.md",
 		Status:   types.PlanStatusDraft,
@@ -296,7 +296,7 @@ func TestDeletePlan_CascadesComments(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.cascade1",
 		FilePath: "/tmp/plans/cascade-test.md",
 		Status:   types.PlanStatusDraft,
@@ -356,7 +356,7 @@ func TestPlanCommentAnchorRoundTrip(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.anchor1",
 		FilePath: "/tmp/plans/anchor.md",
 		Status:   types.PlanStatusDraft,
@@ -407,7 +407,7 @@ func TestPlanCommentAnchorNil(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.noanchor1",
 		FilePath: "/tmp/plans/no-anchor.md",
 		Status:   types.PlanStatusDraft,
@@ -451,7 +451,7 @@ func TestUpdatePlanComment(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.update1",
 		FilePath: "/tmp/plans/update.md",
 		Status:   types.PlanStatusDraft,
@@ -532,7 +532,7 @@ func TestDeletePlanComment(t *testing.T) {
 
 	ctx := context.Background()
 
-	plan := &types.Plan{
+	plan := &types.LegacyPlan{
 		ID:       "plan.deletecomment1",
 		FilePath: "/tmp/plans/delete-comment.md",
 		Status:   types.PlanStatusDraft,

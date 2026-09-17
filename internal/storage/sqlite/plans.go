@@ -14,7 +14,7 @@ import (
 )
 
 // CreatePlan persists a new plan. The caller must set plan.ID before calling.
-func (s *Store) CreatePlan(ctx context.Context, plan *types.Plan) error {
+func (s *Store) CreatePlan(ctx context.Context, plan *types.LegacyPlan) error {
 	now := time.Now()
 	plan.CreatedAt = now
 	plan.UpdatedAt = now
@@ -33,7 +33,7 @@ func (s *Store) CreatePlan(ctx context.Context, plan *types.Plan) error {
 }
 
 // GetPlan retrieves a plan by ID. Returns an error if not found.
-func (s *Store) GetPlan(ctx context.Context, id string) (*types.Plan, error) {
+func (s *Store) GetPlan(ctx context.Context, id string) (*types.LegacyPlan, error) {
 	row, err := s.queries.GetPlan(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -194,9 +194,9 @@ func planCommentAnchorParams(a *types.PlanCommentAnchor) (
 	return
 }
 
-// dbPlanToType converts a db.Plan to types.Plan.
-func dbPlanToType(row *db.Plan) *types.Plan {
-	return &types.Plan{
+// dbPlanToType converts a db.Plan to types.LegacyPlan.
+func dbPlanToType(row *db.Plan) *types.LegacyPlan {
+	return &types.LegacyPlan{
 		ID:        row.ID,
 		FilePath:  row.FilePath,
 		Status:    row.Status,

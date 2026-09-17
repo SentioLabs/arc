@@ -267,11 +267,11 @@ func (m *mockWPStore) UpdateComment(_ context.Context, _ int64, _ string) error 
 	panic("not implemented")
 }
 func (m *mockWPStore) DeleteComment(_ context.Context, _ int64) error { panic("not implemented") }
-func (m *mockWPStore) CreatePlan(_ context.Context, _ *types.Plan) error {
+func (m *mockWPStore) CreatePlan(_ context.Context, _ *types.LegacyPlan) error {
 	panic("not implemented")
 }
 
-func (m *mockWPStore) GetPlan(_ context.Context, _ string) (*types.Plan, error) {
+func (m *mockWPStore) GetPlan(_ context.Context, _ string) (*types.LegacyPlan, error) {
 	panic("not implemented")
 }
 
