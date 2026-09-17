@@ -83,20 +83,30 @@ type GlobalConfig struct {
 }
 
 type Issue struct {
-	ID          string         `json:"id"`
-	ProjectID   string         `json:"project_id"`
-	Title       string         `json:"title"`
-	Description sql.NullString `json:"description"`
-	Status      string         `json:"status"`
-	Priority    int64          `json:"priority"`
-	IssueType   string         `json:"issue_type"`
-	AiSessionID sql.NullString `json:"ai_session_id"`
-	ExternalRef sql.NullString `json:"external_ref"`
-	Rank        int64          `json:"rank"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	ClosedAt    sql.NullTime   `json:"closed_at"`
-	CloseReason sql.NullString `json:"close_reason"`
+	ID                    string         `json:"id"`
+	ProjectID             string         `json:"project_id"`
+	Title                 string         `json:"title"`
+	Description           sql.NullString `json:"description"`
+	Status                string         `json:"status"`
+	Priority              int64          `json:"priority"`
+	IssueType             string         `json:"issue_type"`
+	AiSessionID           sql.NullString `json:"ai_session_id"`
+	ExternalRef           sql.NullString `json:"external_ref"`
+	Rank                  int64          `json:"rank"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+	ClosedAt              sql.NullTime   `json:"closed_at"`
+	CloseReason           sql.NullString `json:"close_reason"`
+	ContractVersion       int64          `json:"contract_version"`
+	GoverningPlanID       sql.NullString `json:"governing_plan_id"`
+	GoverningPlanRevision sql.NullInt64  `json:"governing_plan_revision"`
+}
+
+type IssueGovernanceHistory struct {
+	ProjectID string `json:"project_id"`
+	IssueID   string `json:"issue_id"`
+	PlanID    string `json:"plan_id"`
+	Revision  int64  `json:"revision"`
 }
 
 type IssueLabel struct {
@@ -213,12 +223,13 @@ type PlanRevision struct {
 }
 
 type Project struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description sql.NullString `json:"description"`
-	Prefix      string         `json:"prefix"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID                   string         `json:"id"`
+	Name                 string         `json:"name"`
+	Description          sql.NullString `json:"description"`
+	Prefix               string         `json:"prefix"`
+	GovernanceGeneration int64          `json:"governance_generation"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
 }
 
 type Workspace struct {

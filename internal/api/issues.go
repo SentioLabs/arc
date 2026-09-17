@@ -1,11 +1,13 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -17,14 +19,16 @@ const (
 	// queryTrue is the string value for boolean query parameters.
 	queryTrue = "true"
 	// codeOpenChildren is the error code returned when an issue has open children.
-	codeOpenChildren = "open_children"
+	codeOpenChildren  = "open_children"
+	directPinGuidance = "governing_plan cannot be changed through issue writes; use plan adoption"
 )
 
 // createIssueRequest is the request body for creating an issue.
 type createIssueRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	Status      string `json:"status,omitempty"`
+	GoverningPlan json.RawMessage `json:"governing_plan"`
+	Title         string          `json:"title"`
+	Description   string          `json:"description,omitempty"`
+	Status        string          `json:"status,omitempty"`
 	// Priority is a pointer so absent (defaults to 2) can be told apart from
 	// an explicit 0 (critical).
 	Priority    *int   `json:"priority,omitempty"`
@@ -36,13 +40,14 @@ type createIssueRequest struct {
 
 // updateIssueRequest is the request body for updating an issue.
 type updateIssueRequest struct {
-	Title       *string `json:"title,omitempty"`
-	Description *string `json:"description,omitempty"`
-	Status      *string `json:"status,omitempty"`
-	Priority    *int    `json:"priority,omitempty"`
-	IssueType   *string `json:"issue_type,omitempty"`
-	AISessionID *string `json:"ai_session_id,omitempty"`
-	ExternalRef *string `json:"external_ref,omitempty"`
+	GoverningPlan json.RawMessage `json:"governing_plan"`
+	Title         *string         `json:"title,omitempty"`
+	Description   *string         `json:"description,omitempty"`
+	Status        *string         `json:"status,omitempty"`
+	Priority      *int            `json:"priority,omitempty"`
+	IssueType     *string         `json:"issue_type,omitempty"`
+	AISessionID   *string         `json:"ai_session_id,omitempty"`
+	ExternalRef   *string         `json:"external_ref,omitempty"`
 }
 
 // closeIssueRequest is the request body for closing an issue.
@@ -122,6 +127,9 @@ func (s *Server) createIssue(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
+	if len(req.GoverningPlan) > 0 {
+		return errorJSON(c, http.StatusBadRequest, directPinGuidance)
+	}
 
 	priority := defaultPriority
 	if req.Priority != nil {
@@ -156,7 +164,7 @@ func (s *Server) getIssueByID(c echo.Context) error {
 	if c.QueryParam("details") == queryTrue {
 		details, err := s.store.GetIssueDetails(ctx, id)
 		if err != nil {
-			return errorJSON(c, http.StatusNotFound, err.Error())
+			return issueMutationError(c, err)
 		}
 		return successJSON(c, details)
 	}
@@ -186,7 +194,7 @@ func (s *Server) getIssue(c echo.Context) error {
 	if c.QueryParam("details") == queryTrue {
 		details, err := s.store.GetIssueDetails(c.Request().Context(), id)
 		if err != nil {
-			return errorJSON(c, http.StatusNotFound, err.Error())
+			return issueMutationError(c, err)
 		}
 		return successJSON(c, details)
 	}
@@ -211,6 +219,9 @@ func (s *Server) updateIssue(c echo.Context) error {
 	var req updateIssueRequest
 	if err := c.Bind(&req); err != nil {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
+	}
+	if len(req.GoverningPlan) > 0 {
+		return errorJSON(c, http.StatusBadRequest, directPinGuidance)
 	}
 
 	// Build updates map
@@ -241,14 +252,9 @@ func (s *Server) updateIssue(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "no updates provided")
 	}
 
-	if err := s.store.UpdateIssue(c.Request().Context(), id, updates, actor); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
-	}
-
-	// Return updated issue
-	issue, err := s.store.GetIssue(c.Request().Context(), id)
+	issue, err := s.store.UpdateIssueAndGet(c.Request().Context(), id, updates, actor)
 	if err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return issueMutationError(c, err)
 	}
 
 	return successJSON(c, issue)
@@ -267,7 +273,7 @@ func (s *Server) deleteIssue(c echo.Context) error {
 	}
 
 	if err := s.store.DeleteIssue(c.Request().Context(), id); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return issueMutationError(c, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -292,15 +298,7 @@ func (s *Server) closeIssue(c echo.Context) error {
 	}
 
 	if err := s.store.CloseIssue(c.Request().Context(), id, req.Reason, req.Cascade, actor); err != nil {
-		var openChildrenErr *types.OpenChildrenError
-		if errors.As(err, &openChildrenErr) {
-			return c.JSON(http.StatusConflict, map[string]any{
-				"error":          openChildrenErr.Error(),
-				"code":           codeOpenChildren,
-				codeOpenChildren: openChildrenErr.Children,
-			})
-		}
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return issueMutationError(c, err)
 	}
 
 	// Return updated issue
@@ -415,4 +413,39 @@ func (s *Server) getBlockedIssues(c echo.Context) error {
 	}
 
 	return successJSON(c, issues)
+}
+
+func (s *Server) resolveGoverningPlan(c echo.Context) error {
+	governing, err := s.store.ResolveGoverningPlan(c.Request().Context(), c.Param("pid"), c.Param("id"))
+	if err != nil {
+		return issueMutationError(c, err)
+	}
+	return successJSON(c, governing)
+}
+
+const errorResponseKey = "error"
+
+func issueMutationError(c echo.Context, err error) error {
+	var code string
+	status := http.StatusConflict
+	switch {
+	case errors.Is(err, storage.ErrGovernanceCycle):
+		code = "governance_cycle"
+	case errors.Is(err, storage.ErrAmbiguousGovernance):
+		code = "ambiguous_governance"
+	case errors.Is(err, storage.ErrGovernanceReconciliation):
+		code = "governance_reconciliation_required"
+	case errors.Is(err, storage.ErrIssueNotFound):
+		code = "not_found"
+		status = http.StatusNotFound
+	default:
+		var openChildren *types.OpenChildrenError
+		if errors.As(err, &openChildren) {
+			return c.JSON(http.StatusConflict, map[string]any{
+				errorResponseKey: err.Error(), "code": codeOpenChildren, codeOpenChildren: openChildren.Children,
+			})
+		}
+		return errorJSON(c, http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(status, map[string]any{errorResponseKey: err.Error(), "code": code})
 }

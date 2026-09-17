@@ -41,10 +41,12 @@ type Storage interface {
 	UpdateWorkspaceLastAccessed(ctx context.Context, id string) error
 
 	// Issues
+	ResolveGoverningPlan(ctx context.Context, projectID, issueID string) (*types.GoverningPlan, error)
 	CreateIssue(ctx context.Context, issue *types.Issue, actor string) error
 	GetIssue(ctx context.Context, id string) (*types.Issue, error)
 	GetIssueByExternalRef(ctx context.Context, externalRef string) (*types.Issue, error)
 	ListIssues(ctx context.Context, filter types.IssueFilter) ([]*types.Issue, error)
+	UpdateIssueAndGet(ctx context.Context, id string, updates map[string]any, actor string) (*types.IssueDetails, error)
 	UpdateIssue(ctx context.Context, id string, updates map[string]any, actor string) error
 	CloseIssue(ctx context.Context, id string, reason string, cascade bool, actor string) error
 	ReopenIssue(ctx context.Context, id string, actor string) error
@@ -304,3 +306,11 @@ type LegacyPlanImport struct {
 	SourceFile string `json:"source_file"`
 	Content    string `json:"content"`
 }
+
+// Governance errors distinguish invalid ancestry from valid unlinked work.
+var (
+	ErrIssueNotFound            = errors.New("issue not found in project")
+	ErrAmbiguousGovernance      = errors.New("ambiguous_governance")
+	ErrGovernanceCycle          = errors.New("governance_cycle")
+	ErrGovernanceReconciliation = errors.New("governance change requires reconciliation")
+)

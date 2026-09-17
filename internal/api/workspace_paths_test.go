@@ -2,6 +2,7 @@ package api //nolint:testpackage // tests use internal mock store types
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -145,7 +146,12 @@ func (m *mockWPStore) DeleteProject(_ context.Context, _ string) error {
 	panic("not implemented")
 }
 
-func (m *mockWPStore) MergeProjects(_ context.Context, _ string, _ []string, _ string) (*types.MergeResult, error) {
+func (m *mockWPStore) MergeProjects(_ context.Context,
+	_ string,
+	_ []string,
+	_ string) (*types.MergeResult,
+	error,
+) {
 	panic("not implemented")
 }
 
@@ -461,7 +467,9 @@ func TestUpdateWorkspace(t *testing.T) {
 	})
 
 	body := `{"label":"updated-label","hostname":"new-host"}`
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/projects/proj-abc/workspaces/p-1", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPatch,
+		"/api/v1/projects/proj-abc/workspaces/p-1",
+		strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -609,7 +617,9 @@ func TestResolveProject_SymlinkedRoot(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/resolve?path="+url.QueryEscape(tc.path), nil)
+			req := httptest.NewRequest(http.MethodGet,
+				"/api/v1/projects/resolve?path="+url.QueryEscape(tc.path),
+				nil)
 			rec := httptest.NewRecorder()
 			srv.echo.ServeHTTP(rec, req)
 
@@ -629,4 +639,143 @@ func TestResolveProject_SymlinkedRoot(t *testing.T) {
 
 func (m *mockWPStore) ListLegacyPlans(context.Context, int, int) ([]storage.LegacyPlanInventory, error) {
 	panic("not implemented")
+}
+
+func (m *mockWPStore) ResolveGoverningPlan(context.Context, string, string) (*types.GoverningPlan, error) {
+	panic("not used in workspace fixtures")
+}
+
+func TestGovernanceExistingMutationRoutes(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	ctx := context.Background()
+	pID := createTestProject(t, server.echo)
+	epicID := createTestIssueWithType(t, server.echo, pID, "governing epic", "epic")
+	childID := createTestIssue(t, server.echo, pID, "worker task")
+	addTestDependency(t, server.echo, pID, testDep{childID, epicID, "parent-child"})
+	sqlDB := server.store.(interface{ DB() *sql.DB }).DB()
+	for _, stmt := range []string{
+		`INSERT INTO plans(id,project_id,title,head_revision,created_at,updated_at)
+ VALUES ('governance-fixture','` + pID + `','Fixture',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+		`
+INSERT INTO
+plan_revisions(plan_id,revision,content_path,content_sha256,content_bytes,review_status,created_at)
+VALUES ('governance-fixture',1,'fixture','hash',0,'approved',CURRENT_TIMESTAMP)
+`,
+		`UPDATE issues SET governing_plan_id='governance-fixture',governing_plan_revision=1 WHERE id='` + epicID + `'`,
+	} {
+		if _, err := sqlDB.Exec(stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, base := range []string{"/api/v1/issues/", "/api/v1/projects/" + pID + "/issues/"} {
+		req := httptest.NewRequest(http.MethodPut,
+			base+childID,
+			strings.NewReader(`{"status":"in_progress","ai_session_id":"worker"}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("claim: %d %s", rec.Code, rec.Body.String())
+		}
+		var got types.IssueDetails
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		current, err := server.store.GetIssue(ctx, childID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.ContractVersion != current.ContractVersion ||
+			got.ResolvedGovernance == nil ||
+			got.ResolvedGovernance.ContainerID != epicID {
+			t.Fatalf("claim omitted captured context: %s", rec.Body.String())
+		}
+		req = httptest.NewRequest(http.MethodDelete, base+childID+"/deps/"+epicID, nil)
+		rec = httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("hierarchy bypass: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pID+"/issues/"+childID+"/governing-plan", nil)
+	rec := httptest.NewRecorder()
+	server.echo.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), epicID) {
+		t.Fatalf("resolve: %d %s", rec.Code, rec.Body.String())
+	}
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/issues/"+childID+"?details=true", nil)
+	rec = httptest.NewRecorder()
+	server.echo.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "resolved_governance") {
+		t.Fatalf("detail: %d %s", rec.Code, rec.Body.String())
+	}
+	assertLegacyGovernanceReads(t, server, pID, epicID, childID)
+}
+
+func (m *mockWPStore) UpdateIssueAndGet(context.Context,
+	string,
+	map[string]any,
+	string) (*types.IssueDetails,
+	error,
+) {
+	panic("not used in workspace fixtures")
+}
+
+func assertLegacyGovernanceReads(t *testing.T, server *Server, pID, epicID, childID string) {
+	t.Helper()
+	sqlDB := server.store.(interface{ DB() *sql.DB }).DB()
+	// Legacy cycles remain readable through ordinary HTTP issue/edge endpoints.
+	if _, err := sqlDB.Exec(
+		`INSERT INTO dependencies(issue_id,depends_on_id,type) VALUES (?,?,'parent-child')`, epicID, childID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		path   string
+		status int
+	}{
+		{"/api/v1/issues/" + childID, http.StatusOK},
+		{"/api/v1/projects/" + pID + "/issues/" + childID + "/deps", http.StatusOK},
+		{"/api/v1/issues/" + childID + "?details=true", http.StatusConflict},
+		{"/api/v1/projects/" + pID + "/issues/" + childID + "/governing-plan", http.StatusConflict},
+	} {
+		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+		rec := httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+		if rec.Code != tc.status {
+			t.Fatalf("legacy graph %s: %d %s", tc.path, rec.Code, rec.Body.String())
+		}
+		if tc.status == http.StatusConflict && !strings.Contains(rec.Body.String(), "governance_cycle") {
+			t.Fatal("missing typed cycle error")
+		}
+	}
+}
+
+func TestGenericIssuePinsRejected(t *testing.T) {
+	server, cleanup := testServer(t)
+	defer cleanup()
+	pID := createTestProject(t, server.echo)
+	for _, typ := range []string{"task", "release", "epic"} {
+		body := `{"title":"unsupported pin","issue_type":"` + typ +
+			`","governing_plan":{"plan_id":"plan","revision":1}}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pID+"/issues", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("direct %s pin: %d %s", typ, rec.Code, rec.Body.String())
+		}
+	}
+	id := createTestIssue(t, server.echo, pID, "existing task")
+	for _, base := range []string{"/api/v1/issues/", "/api/v1/projects/" + pID + "/issues/"} {
+		req := httptest.NewRequest(http.MethodPut, base+id,
+			strings.NewReader(`{"title":"new title","governing_plan":null}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		server.echo.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("direct pin removal: %d %s", rec.Code, rec.Body.String())
+		}
+	}
 }

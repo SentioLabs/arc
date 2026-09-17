@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sentiolabs/arc/internal/project"
+	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/storage/sqlite/db"
 	"github.com/sentiolabs/arc/internal/types"
 )
@@ -124,6 +125,12 @@ func (s *Store) DeleteProject(ctx context.Context, idOrName string) error {
 	if err := guardDurableOwnership(ctx, q, p.ID); err != nil {
 		return err
 	}
+	// Remove search rows before the cascading project delete, in the same transaction.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM issues_fts WHERE id IN (SELECT id FROM issues WHERE project_id=?)`, p.ID,
+	); err != nil {
+		return err
+	}
 	if err := q.DeleteProject(ctx, p.ID); err != nil {
 		return fmt.Errorf("delete project: %w", err)
 	}
@@ -136,18 +143,6 @@ func (s *Store) DeleteProject(ctx context.Context, idOrName string) error {
 func (s *Store) MergeProjects(
 	ctx context.Context, targetID string, sourceIDs []string, actor string,
 ) (*types.MergeResult, error) {
-	// Collect issue IDs from source projects before the transaction (for FTS rebuild + audit).
-	// Must happen before BeginTx to avoid SQLite single-connection deadlock.
-	var movedIssueIDs []string
-	for _, srcID := range sourceIDs {
-		srcIssues, err := s.ListIssues(ctx, types.IssueFilter{ProjectID: srcID})
-		if err == nil {
-			for _, issue := range srcIssues {
-				movedIssueIDs = append(movedIssueIDs, issue.ID)
-			}
-		}
-	}
-
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -155,6 +150,7 @@ func (s *Store) MergeProjects(
 	defer tx.Rollback() //nolint:errcheck
 
 	qtx := s.queries.WithTx(tx)
+	mutation := &issueMutationTx{tx: tx, queries: qtx}
 
 	// Validate target exists
 	if _, err := qtx.GetProject(ctx, targetID); err != nil {
@@ -164,24 +160,28 @@ func (s *Store) MergeProjects(
 	var totalIssues int64
 	var deletedSources []string
 
+	// Enumerate every source issue under the write lock, without list pagination.
+	// Audit and FTS writes below must succeed before any source deletion commits.
 	for _, srcID := range sourceIDs {
+		movedIssueIDs, err := mutation.mergeSourceIssueIDs(ctx, srcID)
+		if err != nil {
+			return nil, err
+		}
+
 		issues, err := mergeOneSource(ctx, qtx, targetID, srcID)
 		if err != nil {
 			return nil, err
 		}
+		if err := mutation.recordMerge(ctx, targetID, movedIssueIDs, actor); err != nil {
+			return nil, err
+		}
+
 		totalIssues += issues
 		deletedSources = append(deletedSources, srcID)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit merge: %w", err)
-	}
-
-	// Best-effort post-commit work (outside transaction)
-	for _, issueID := range movedIssueIDs {
-		s.rebuildFTSForIssue(ctx, issueID)
-		newValue := "merged into " + targetID
-		s.recordEvent(ctx, issueID, types.EventMerged, actor, nil, &newValue)
 	}
 
 	target, err := s.GetProject(ctx, targetID)
@@ -233,12 +233,13 @@ func mergeOneSource(
 // It maps nullable SQL fields to their Go equivalents.
 func dbProjectToType(row *db.Project) *types.Project {
 	return &types.Project{
-		ID:          row.ID,
-		Name:        row.Name,
-		Description: fromNullString(row.Description),
-		Prefix:      row.Prefix,
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
+		GovernanceGeneration: row.GovernanceGeneration,
+		ID:                   row.ID,
+		Name:                 row.Name,
+		Description:          fromNullString(row.Description),
+		Prefix:               row.Prefix,
+		CreatedAt:            row.CreatedAt,
+		UpdatedAt:            row.UpdatedAt,
 	}
 }
 
@@ -283,6 +284,56 @@ func guardDurableOwnership(ctx context.Context, q *db.Queries, projectID string)
 				"deletion and source merge are unavailable",
 			ids,
 		)
+	}
+	return nil
+}
+
+// mergeSourceIssueIDs preserves the source's unlinked contract. A legacy cross-
+// project edge cannot silently become governing ancestry through a project merge.
+// Historical pin records are also protected by the project ownership guard/FKs.
+func (s *issueMutationTx) mergeSourceIssueIDs(ctx context.Context, projectID string) ([]string, error) {
+	if err := guardDurableOwnership(ctx, s.queries, projectID); err != nil {
+		return nil, err
+	}
+	graph, err := s.governanceGraph(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(graph.issues))
+	for id := range graph.issues {
+		governing, err := graph.resolve(id)
+		if err != nil {
+			return nil, err
+		}
+		if governing != nil {
+			return nil, fmt.Errorf("%w: source has governed work", storage.ErrGovernanceReconciliation)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// recordMerge keeps audit, index and membership generation atomic with ownership
+// transfer. There is no post-commit best-effort work or partial-page enumeration.
+func (s *issueMutationTx) recordMerge(
+	ctx context.Context, targetID string, movedIssueIDs []string, actor string,
+) error {
+	for _, id := range movedIssueIDs {
+		if err := s.rebuildFTSForIssue(ctx, id); err != nil {
+			return err
+		}
+		value := "merged into " + targetID
+		if err := s.recordEvent(ctx, id, types.EventMerged, actor, nil, &value); err != nil {
+			return err
+		}
+	}
+	if len(movedIssueIDs) > 0 {
+		if _, err := s.tx.ExecContext(ctx,
+			`UPDATE projects SET governance_generation=governance_generation+? WHERE id=?`,
+			len(movedIssueIDs), targetID,
+		); err != nil {
+			return err
+		}
 	}
 	return nil
 }

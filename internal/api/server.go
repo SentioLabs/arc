@@ -193,6 +193,7 @@ func (s *Server) registerProjectRoutes(v1 *echo.Group) {
 	proj.GET("/issues", s.listIssues)
 	proj.POST("/issues", s.createIssue)
 	proj.GET("/issues/:id", s.getIssue)
+	proj.GET("/issues/:id/governing-plan", s.resolveGoverningPlan)
 	proj.PUT("/issues/:id", s.updateIssue)
 	proj.DELETE("/issues/:id", s.deleteIssue)
 	proj.POST("/issues/:id/close", s.closeIssue)

@@ -143,7 +143,8 @@ export interface paths {
          * @description Retrieves an issue by its globally-unique ID without requiring project context. Use this endpoint when you have an issue ID but don't know or need the project.
          */
         get: operations["getIssueByID"];
-        put?: never;
+        /** Update issue by globally-unique ID */
+        put: operations["updateIssueByID"];
         post?: never;
         delete?: never;
         options?: never;
@@ -173,6 +174,31 @@ export interface paths {
         post?: never;
         /** Delete issue */
         delete: operations["deleteIssue"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/issues/{issueId}/governing-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Resolve the complete pinned governing design chain
+         * @description Returns null for a valid unlinked issue. Cyclic or incomparable ancestry returns a distinct conflict code. Pins never follow the plan head.
+         */
+        get: operations["resolveGoverningPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1026,6 +1052,8 @@ export interface components {
         Error: {
             /** @description Error message */
             error: string;
+            /** @description Machine-readable error code when supplied */
+            code?: string;
         };
         /** @enum {string} */
         Status: "open" | "in_progress" | "blocked" | "deferred" | "closed";
@@ -1170,6 +1198,7 @@ export interface components {
             /** @description IDs of issues this depends on */
             deps?: string[];
         };
+        /** @description Generic issue creation does not accept governing_plan. Attach pins through plan adoption. */
         CreateIssueRequest: {
             title: string;
             description?: string;
@@ -1181,6 +1210,7 @@ export interface components {
             ai_session_id?: string;
             external_ref?: string;
         };
+        /** @description Generic updates cannot attach, replace or remove governing_plan. Use plan adoption. */
         UpdateIssueRequest: {
             title?: string;
             description?: string;
@@ -2050,6 +2080,57 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description Governance is cyclic, ambiguous, or requires reconciliation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateIssueByID: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description User performing the action (defaults to "anonymous") */
+                "X-Actor"?: components["parameters"]["ActorHeader"];
+            };
+            path: {
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIssueRequest"];
+            };
+        };
+        responses: {
+            /** @description Issue updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueDetails"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Governance mutation requires reconciliation or children remain open */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };
@@ -2089,6 +2170,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description Governance is cyclic, ambiguous, or requires reconciliation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };
@@ -2119,11 +2209,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Issue"];
+                    "application/json": components["schemas"]["IssueDetails"];
                 };
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            /** @description Governance mutation requires reconciliation or children remain open */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };
@@ -2149,7 +2248,51 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
+            /** @description Governance is cyclic, ambiguous, or requires reconciliation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
+        };
+    };
+    resolveGoverningPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Governing chain, or null when unlinked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoverningPlan"] | null;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description ambiguous_governance or governance_cycle */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     closeIssue: {
@@ -2680,6 +2823,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            /** @description Governance is cyclic, ambiguous, or requires reconciliation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };
@@ -2710,6 +2862,15 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["NotFound"];
+            /** @description Governance is cyclic, ambiguous, or requires reconciliation */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };

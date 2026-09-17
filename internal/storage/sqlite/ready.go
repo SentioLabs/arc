@@ -54,6 +54,7 @@ func (s *Store) GetReadyWork(ctx context.Context, filter types.WorkFilter) ([]*t
 			&row.Status, &row.Priority, &row.IssueType,
 			&row.AiSessionID, &row.ExternalRef, &row.Rank,
 			&row.CreatedAt, &row.UpdatedAt, &row.ClosedAt, &row.CloseReason,
+			&row.ContractVersion, &row.GoverningPlanID, &row.GoverningPlanRevision,
 			&effectivePriority,
 		); err != nil {
 			return nil, fmt.Errorf("scan ready issue: %w", err)
@@ -148,6 +149,7 @@ eff AS (
 SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
        i.issue_type, i.ai_session_id, i.external_ref, i.rank,
        i.created_at, i.updated_at, i.closed_at, i.close_reason,
+ i.contract_version, i.governing_plan_id, i.governing_plan_revision,
        e.effective_priority
 FROM issues i
 JOIN eff e ON e.issue_id = i.id
@@ -237,18 +239,20 @@ func (s *Store) GetBlockedIssues(ctx context.Context, filter types.WorkFilter) (
 
 		blocked := &types.BlockedIssue{
 			Issue: types.Issue{
-				ID:          row.ID,
-				ProjectID:   row.ProjectID,
-				Title:       row.Title,
-				Description: fromNullString(row.Description),
-				Status:      types.Status(row.Status),
-				Priority:    int(row.Priority),
-				IssueType:   types.IssueType(row.IssueType),
-				ExternalRef: fromNullString(row.ExternalRef),
-				CreatedAt:   row.CreatedAt,
-				UpdatedAt:   row.UpdatedAt,
-				ClosedAt:    fromNullTime(row.ClosedAt),
-				CloseReason: fromNullString(row.CloseReason),
+				ContractVersion: row.ContractVersion,
+				GoverningPlan:   dbPlanReference(row.GoverningPlanID, row.GoverningPlanRevision),
+				ID:              row.ID,
+				ProjectID:       row.ProjectID,
+				Title:           row.Title,
+				Description:     fromNullString(row.Description),
+				Status:          types.Status(row.Status),
+				Priority:        int(row.Priority),
+				IssueType:       types.IssueType(row.IssueType),
+				ExternalRef:     fromNullString(row.ExternalRef),
+				CreatedAt:       row.CreatedAt,
+				UpdatedAt:       row.UpdatedAt,
+				ClosedAt:        fromNullTime(row.ClosedAt),
+				CloseReason:     fromNullString(row.CloseReason),
 			},
 			BlockedByCount: int(row.BlockedByCount),
 			BlockedBy:      blockingIDs,

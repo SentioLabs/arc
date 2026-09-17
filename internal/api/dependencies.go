@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
 )
 
@@ -67,6 +68,10 @@ func (s *Server) addDependency(c echo.Context) error {
 	}
 
 	if err := s.store.AddDependency(c.Request().Context(), dep, actor); err != nil {
+		// Governance conflicts have a distinct retry path: submit reconciliation.
+		if errors.Is(err, storage.ErrGovernanceReconciliation) {
+			return issueMutationError(c, err)
+		}
 		return errorJSON(c, http.StatusBadRequest, err.Error())
 	}
 
@@ -88,7 +93,7 @@ func (s *Server) removeDependency(c echo.Context) error {
 	}
 
 	if err := s.store.RemoveDependency(c.Request().Context(), id, depID, actor); err != nil {
-		return errorJSON(c, http.StatusInternalServerError, err.Error())
+		return issueMutationError(c, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)

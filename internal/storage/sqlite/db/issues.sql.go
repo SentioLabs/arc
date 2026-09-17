@@ -129,7 +129,7 @@ func (q *Queries) DeleteIssue(ctx context.Context, id string) error {
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, description, status, priority, issue_type, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE id = ?
+SELECT id, project_id, title, description, status, priority, issue_type, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason, contract_version, governing_plan_id, governing_plan_revision FROM issues WHERE id = ?
 `
 
 func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
@@ -150,12 +150,15 @@ func (q *Queries) GetIssue(ctx context.Context, id string) (*Issue, error) {
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.CloseReason,
+		&i.ContractVersion,
+		&i.GoverningPlanID,
+		&i.GoverningPlanRevision,
 	)
 	return &i, err
 }
 
 const getIssueByExternalRef = `-- name: GetIssueByExternalRef :one
-SELECT id, project_id, title, description, status, priority, issue_type, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues WHERE external_ref = ?
+SELECT id, project_id, title, description, status, priority, issue_type, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason, contract_version, governing_plan_id, governing_plan_revision FROM issues WHERE external_ref = ?
 `
 
 func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.NullString) (*Issue, error) {
@@ -176,12 +179,15 @@ func (q *Queries) GetIssueByExternalRef(ctx context.Context, externalRef sql.Nul
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.CloseReason,
+		&i.ContractVersion,
+		&i.GoverningPlanID,
+		&i.GoverningPlanRevision,
 	)
 	return &i, err
 }
 
 const getOpenNonBlockedIssues = `-- name: GetOpenNonBlockedIssues :many
-SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason FROM issues i
+SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority, i.issue_type, i.ai_session_id, i.external_ref, i.rank, i.created_at, i.updated_at, i.closed_at, i.close_reason, i.contract_version, i.governing_plan_id, i.governing_plan_revision FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'blocks'
 LEFT JOIN issues blocker ON d.depends_on_id = blocker.id AND blocker.status != 'closed'
 WHERE i.project_id = ?
@@ -221,6 +227,9 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.CloseReason,
+			&i.ContractVersion,
+			&i.GoverningPlanID,
+			&i.GoverningPlanRevision,
 		); err != nil {
 			return nil, err
 		}
@@ -238,7 +247,7 @@ func (q *Queries) GetOpenNonBlockedIssues(ctx context.Context, arg GetOpenNonBlo
 const listIssuesFiltered = `-- name: ListIssuesFiltered :many
 SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
        i.issue_type, i.ai_session_id, i.external_ref, i.rank,
-       i.created_at, i.updated_at, i.closed_at, i.close_reason
+       i.created_at, i.updated_at, i.closed_at, i.close_reason, i.contract_version, i.governing_plan_id, i.governing_plan_revision
 FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
 WHERE i.project_id = ?1
@@ -319,6 +328,9 @@ func (q *Queries) ListIssuesFiltered(ctx context.Context, arg ListIssuesFiltered
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.CloseReason,
+			&i.ContractVersion,
+			&i.GoverningPlanID,
+			&i.GoverningPlanRevision,
 		); err != nil {
 			return nil, err
 		}
@@ -353,7 +365,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, description, status, priority, issue_type, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason FROM issues
+SELECT id, project_id, title, description, status, priority, issue_type, ai_session_id, external_ref, rank, created_at, updated_at, closed_at, close_reason, contract_version, governing_plan_id, governing_plan_revision FROM issues
 WHERE project_id = ?
   AND (title LIKE ? OR description LIKE ?)
 ORDER BY priority ASC, updated_at DESC
@@ -398,6 +410,9 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]*
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.CloseReason,
+			&i.ContractVersion,
+			&i.GoverningPlanID,
+			&i.GoverningPlanRevision,
 		); err != nil {
 			return nil, err
 		}

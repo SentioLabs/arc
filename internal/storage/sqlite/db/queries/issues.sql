@@ -16,7 +16,7 @@ SELECT * FROM issues WHERE external_ref = ?;
 -- The LEFT JOIN on dependencies is only effective when parent_id is non-NULL.
 SELECT i.id, i.project_id, i.title, i.description, i.status, i.priority,
        i.issue_type, i.ai_session_id, i.external_ref, i.rank,
-       i.created_at, i.updated_at, i.closed_at, i.close_reason
+       i.created_at, i.updated_at, i.closed_at, i.close_reason, i.contract_version, i.governing_plan_id, i.governing_plan_revision
 FROM issues i
 LEFT JOIN dependencies d ON d.issue_id = i.id AND d.type = 'parent-child'
 WHERE i.project_id = sqlc.arg('project_id')

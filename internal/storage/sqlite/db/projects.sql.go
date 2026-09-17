@@ -78,7 +78,7 @@ func (q *Queries) DeleteProject(ctx context.Context, id string) error {
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, name, description, prefix, created_at, updated_at FROM projects WHERE id = ?
+SELECT id, name, description, prefix, governance_generation, created_at, updated_at FROM projects WHERE id = ?
 `
 
 func (q *Queries) GetProject(ctx context.Context, id string) (*Project, error) {
@@ -89,6 +89,7 @@ func (q *Queries) GetProject(ctx context.Context, id string) (*Project, error) {
 		&i.Name,
 		&i.Description,
 		&i.Prefix,
+		&i.GovernanceGeneration,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -96,7 +97,7 @@ func (q *Queries) GetProject(ctx context.Context, id string) (*Project, error) {
 }
 
 const getProjectByName = `-- name: GetProjectByName :one
-SELECT id, name, description, prefix, created_at, updated_at FROM projects WHERE name = ?
+SELECT id, name, description, prefix, governance_generation, created_at, updated_at FROM projects WHERE name = ?
 `
 
 func (q *Queries) GetProjectByName(ctx context.Context, name string) (*Project, error) {
@@ -107,6 +108,7 @@ func (q *Queries) GetProjectByName(ctx context.Context, name string) (*Project, 
 		&i.Name,
 		&i.Description,
 		&i.Prefix,
+		&i.GovernanceGeneration,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -114,7 +116,7 @@ func (q *Queries) GetProjectByName(ctx context.Context, name string) (*Project, 
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, name, description, prefix, created_at, updated_at FROM projects ORDER BY name
+SELECT id, name, description, prefix, governance_generation, created_at, updated_at FROM projects ORDER BY name
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]*Project, error) {
@@ -131,6 +133,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]*Project, error) {
 			&i.Name,
 			&i.Description,
 			&i.Prefix,
+			&i.GovernanceGeneration,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
