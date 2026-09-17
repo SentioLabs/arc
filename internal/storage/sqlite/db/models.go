@@ -9,6 +9,14 @@ import (
 	"time"
 )
 
+type AdoptionIdempotency struct {
+	ProjectID   string `json:"project_id"`
+	ContainerID string `json:"container_id"`
+	Key         string `json:"key"`
+	Fingerprint string `json:"fingerprint"`
+	AdoptionID  string `json:"adoption_id"`
+}
+
 type AiAgent struct {
 	ID           string         `json:"id"`
 	SessionID    string         `json:"session_id"`
@@ -75,6 +83,14 @@ type Event struct {
 	NewValue  sql.NullString `json:"new_value"`
 	Comment   sql.NullString `json:"comment"`
 	CreatedAt time.Time      `json:"created_at"`
+}
+
+type ExecutionEvidence struct {
+	ID        string    `json:"id"`
+	ProjectID string    `json:"project_id"`
+	IssueID   string    `json:"issue_id"`
+	Result    string    `json:"result"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type GlobalConfig struct {
@@ -156,6 +172,17 @@ type Plan struct {
 	LegacyStatusUnverified sql.NullString `json:"legacy_status_unverified"`
 	CreatedAt              time.Time      `json:"created_at"`
 	UpdatedAt              time.Time      `json:"updated_at"`
+}
+
+type PlanAdoption struct {
+	ID          string    `json:"id"`
+	ProjectID   string    `json:"project_id"`
+	ContainerID string    `json:"container_id"`
+	Request     string    `json:"request"`
+	Result      string    `json:"result"`
+	Actor       string    `json:"actor"`
+	SessionID   string    `json:"session_id"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type PlanComment struct {

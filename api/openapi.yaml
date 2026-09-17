@@ -402,6 +402,12 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "428":
+          description: Captured execution expectation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -480,6 +486,12 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "428":
+          description: Captured execution expectation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -500,6 +512,240 @@ paths:
                 $ref: "#/components/schemas/Error"
         "500":
           $ref: "#/components/responses/InternalError"
+
+  /projects/{projectId}/issues/{issueId}/plan-adoption:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/IssueId'
+    post:
+      operationId: adoptPlan
+      tags: [issues]
+      summary: Validate or atomically apply a staged governance adoption
+      parameters:
+        - $ref: '#/components/parameters/ActorHeader'
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema:
+            type: string
+          description: Required for apply. Dry-run never reserves a key. An identical replay returns the original result even after later adoption or archive.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanAdoptionRequest'
+      responses:
+        '200':
+          description: Proposal including missing/stale coverage errors for dry-run, or committed historical result for apply
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanAdoptionResult'
+        '400':
+          description: Invalid staged request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Issue or plan not found in project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale context, conflicting reconciliation or active affected work
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required captured precondition is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained plan content failed integrity verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /projects/{projectId}/issues/{issueId}/plan-adoptions:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/IssueId'
+    get:
+      operationId: listPlanAdoptions
+      tags: [issues]
+      summary: Read immutable adoption history
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Retained evidence
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanAdoptionResult'
+        '400':
+          description: Invalid staged request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Issue or plan not found in project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale context, conflicting reconciliation or active affected work
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required captured precondition is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained plan content failed integrity verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /projects/{projectId}/issues/{issueId}/execution-evidence:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/IssueId'
+    post:
+      operationId: recordExecutionEvidence
+      tags: [issues]
+      summary: Append phase evidence against captured governance
+      parameters:
+        - $ref: '#/components/parameters/ActorHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutionEvidenceRequest'
+      responses:
+        '201':
+          description: Retained evidence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionEvidence'
+        '400':
+          description: Invalid staged request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Issue or plan not found in project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale context, conflicting reconciliation or active affected work
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required captured precondition is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained plan content failed integrity verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      operationId: listExecutionEvidence
+      tags: [issues]
+      summary: Read retained execution evidence
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Retained evidence
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutionEvidence'
+        '400':
+          description: Invalid staged request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Issue or plan not found in project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale context, conflicting reconciliation or active affected work
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: Required captured precondition is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Retained plan content failed integrity verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /projects/{projectId}/issues/{issueId}/governing-plan:
     parameters:
@@ -528,6 +774,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /issues/{issueId}/close:
+    parameters:
+      - $ref: "#/components/parameters/IssueId"
+
+    post:
+      operationId: closeIssueByID
+      tags: [issues]
+      summary: Close an issue
+      parameters:
+        - $ref: "#/components/parameters/ActorHeader"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseIssueRequest"
+      responses:
+        "200":
+          description: Issue closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Issue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "428":
+          description: Captured execution expectation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /projects/{projectId}/issues/{issueId}/close:
     parameters:
       - $ref: "#/components/parameters/ProjectId"
@@ -555,6 +836,12 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "428":
+          description: Captured execution expectation required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -2998,6 +3285,11 @@ components:
       description: Generic updates cannot attach, replace or remove governing_plan. Use plan adoption.
       type: object
       properties:
+        expected:
+          allOf:
+            - $ref: '#/components/schemas/ExpectedGovernance'
+          nullable: true
+          description: Captured work context. Required for governed completion; omitted or null remains compatible only for unlinked legacy work. Supplied expectations are always enforced atomically.
         title:
           type: string
           maxLength: 500
@@ -3020,6 +3312,15 @@ components:
     CloseIssueRequest:
       type: object
       properties:
+        cascade:
+          type: boolean
+          default: false
+          description: Rejects any cascade that would close governed descendants; close them individually with captured expectations first.
+        expected:
+          allOf:
+            - $ref: '#/components/schemas/ExpectedGovernance'
+          nullable: true
+          description: Captured work context. Required for governed completion; omitted or null remains compatible only for unlinked legacy work. Supplied expectations are always enforced atomically.
         reason:
           type: string
           description: Reason for closing
@@ -3868,7 +4169,6 @@ components:
     ExecutionEvidenceRequest:
       type: object
       required:
-      - expected
       - phase
       - evidence
       properties:
@@ -3878,9 +4178,10 @@ components:
           nullable: true
         phase:
           type: string
+          enum: [build, review, verify]
         evidence:
           type: string
-      description: Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract.
+      description: Governed work requires expected. Omitted or null expected is compatible only for unlinked legacy work. Explicit governing null with a captured contract version detects first attachment.
     ReconciledTask:
       type: object
       required:
@@ -3904,6 +4205,7 @@ components:
           type: string
         follow_up_keys:
           type: array
+          nullable: true
           items:
             type: string
     ReconciliationFollowUp:
@@ -4021,22 +4323,27 @@ components:
           nullable: true
         tasks:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/ReconciledTask'
         container_pins:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/ReconciledContainerPin'
         follow_ups:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/ReconciliationFollowUp'
         edges:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/ReconciliationEdge'
         type_changes:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/ReconciliationTypeChange'
         dry_run:
@@ -4122,3 +4429,111 @@ components:
         reason:
           type: string
           minLength: 1
+
+    GovernanceSnapshot:
+      type: object
+      required: [issue_id, status, expected]
+      properties:
+        issue_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/Status'
+        expected:
+          $ref: '#/components/schemas/ExpectedGovernance'
+    ReconciliationChange:
+      type: object
+      required: [before, after]
+      properties:
+        before:
+          $ref: '#/components/schemas/GovernanceSnapshot'
+        after:
+          $ref: '#/components/schemas/GovernanceSnapshot'
+    AdoptionCoverageError:
+      type: object
+      required: [issue_id, code, message]
+      properties:
+        issue_id:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    PlanAdoptionResult:
+      type: object
+      required: [project_id, container_id, before, after, governance_generation, tasks, containers, request, container_pins, follow_up_ids, errors, dry_run, replay, actor, session_id, created_at]
+      description: Dry-run after versions are the captured pre-apply versions, not reserved counters. Apply returns committed after versions. Request and all snapshots are retained immutably for replay and audit.
+      properties:
+        id:
+          type: string
+          description: Present only for a committed adoption
+        project_id:
+          type: string
+        container_id:
+          type: string
+        before:
+          $ref: '#/components/schemas/GovernanceSnapshot'
+        after:
+          $ref: '#/components/schemas/GovernanceSnapshot'
+        governance_generation:
+          type: integer
+          format: int64
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciliationChange'
+        containers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReconciliationChange'
+        request:
+          $ref: '#/components/schemas/PlanAdoptionRequest'
+        container_pins:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ReconciledContainerPin'
+        follow_up_ids:
+          type: object
+          additionalProperties:
+            type: string
+          description: Apply-only map from proposal-local key to persisted issue ID
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdoptionCoverageError'
+        dry_run:
+          type: boolean
+        replay:
+          type: boolean
+        actor:
+          type: string
+        session_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ExecutionEvidence:
+      type: object
+      required: [id, project_id, issue_id, expected, phase, evidence, actor, session_id, created_at]
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+          description: Original project at capture; retained if unlinked legacy work is later merged
+        issue_id:
+          type: string
+        expected:
+          $ref: '#/components/schemas/ExpectedGovernance'
+        phase:
+          type: string
+          enum: [build, review, verify]
+        evidence:
+          type: string
+        actor:
+          type: string
+        session_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time

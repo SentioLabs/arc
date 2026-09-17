@@ -40,6 +40,7 @@ type createIssueRequest struct {
 
 // updateIssueRequest is the request body for updating an issue.
 type updateIssueRequest struct {
+	Expected      json.RawMessage `json:"expected"`
 	GoverningPlan json.RawMessage `json:"governing_plan"`
 	Title         *string         `json:"title,omitempty"`
 	Description   *string         `json:"description,omitempty"`
@@ -52,8 +53,9 @@ type updateIssueRequest struct {
 
 // closeIssueRequest is the request body for closing an issue.
 type closeIssueRequest struct {
-	Reason  string `json:"reason,omitempty"`
-	Cascade bool   `json:"cascade"`
+	Expected json.RawMessage `json:"expected"`
+	Reason   string          `json:"reason,omitempty"`
+	Cascade  bool            `json:"cascade"`
 }
 
 // listIssues returns issues for a project with optional filtering and pagination.
@@ -252,7 +254,17 @@ func (s *Server) updateIssue(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "no updates provided")
 	}
 
-	issue, err := s.store.UpdateIssueAndGet(c.Request().Context(), id, updates, actor)
+	expected, err := decodeExecutionExpected(req.Expected)
+	if err != nil {
+		return issueMutationError(c, err)
+	}
+	issue, err := s.store.UpdateIssueWithExpected(
+		c.Request().Context(),
+		id,
+		updates,
+		actor,
+		expected,
+	)
 	if err != nil {
 		return issueMutationError(c, err)
 	}
@@ -297,7 +309,13 @@ func (s *Server) closeIssue(c echo.Context) error {
 		return errorJSON(c, http.StatusBadRequest, "invalid request body")
 	}
 
-	if err := s.store.CloseIssue(c.Request().Context(), id, req.Reason, req.Cascade, actor); err != nil {
+	expected, err := decodeExecutionExpected(req.Expected)
+	if err != nil {
+		return issueMutationError(c, err)
+	}
+	if err := s.store.CloseIssueWithExpected(
+		c.Request().Context(), id, req.Reason, req.Cascade, actor, expected,
+	); err != nil {
 		return issueMutationError(c, err)
 	}
 
@@ -416,7 +434,11 @@ func (s *Server) getBlockedIssues(c echo.Context) error {
 }
 
 func (s *Server) resolveGoverningPlan(c echo.Context) error {
-	governing, err := s.store.ResolveGoverningPlan(c.Request().Context(), c.Param("pid"), c.Param("id"))
+	governing, err := s.store.ResolveGoverningPlan(
+		c.Request().Context(),
+		c.Param("pid"),
+		c.Param("id"),
+	)
 	if err != nil {
 		return issueMutationError(c, err)
 	}
@@ -429,6 +451,15 @@ func issueMutationError(c echo.Context, err error) error {
 	var code string
 	status := http.StatusConflict
 	switch {
+	case errors.Is(err, storage.ErrExecutionPrecondition),
+		errors.Is(err, storage.ErrPlanPrecondition):
+		code = "execution_precondition_required"
+		status = http.StatusPreconditionRequired
+	case errors.Is(err, storage.ErrExecutionConflict):
+		code = "execution_context_conflict"
+	case errors.Is(err, storage.ErrPlanInvalid):
+		code = "invalid_request"
+		status = http.StatusBadRequest
 	case errors.Is(err, storage.ErrGovernanceCycle):
 		code = "governance_cycle"
 	case errors.Is(err, storage.ErrAmbiguousGovernance):

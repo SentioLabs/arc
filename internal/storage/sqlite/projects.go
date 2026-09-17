@@ -174,6 +174,9 @@ func (s *Store) MergeProjects(
 			return nil, err
 		}
 
+		if err := mutation.moveUnlinkedEvidence(ctx, targetID, srcID); err != nil {
+			return nil, err
+		}
 		issues, err := mergeOneSource(ctx, qtx, targetID, srcID)
 		if err != nil {
 			return nil, err
@@ -297,7 +300,10 @@ func guardDurableOwnership(ctx context.Context, q *db.Queries, projectID string)
 // mergeSourceIssueIDs preserves the source's unlinked contract. A legacy cross-
 // project edge cannot silently become governing ancestry through a project merge.
 // Historical pin records are also protected by the project ownership guard/FKs.
-func (s *issueMutationTx) mergeSourceIssueIDs(ctx context.Context, projectID string) ([]string, error) {
+func (s *issueMutationTx) mergeSourceIssueIDs(
+	ctx context.Context,
+	projectID string,
+) ([]string, error) {
 	if err := guardDurableOwnership(ctx, s.queries, projectID); err != nil {
 		return nil, err
 	}
@@ -312,7 +318,10 @@ func (s *issueMutationTx) mergeSourceIssueIDs(ctx context.Context, projectID str
 			return nil, err
 		}
 		if governing != nil {
-			return nil, fmt.Errorf("%w: source has governed work", storage.ErrGovernanceReconciliation)
+			return nil, fmt.Errorf(
+				"%w: source has governed work",
+				storage.ErrGovernanceReconciliation,
+			)
 		}
 		ids = append(ids, id)
 	}
@@ -348,7 +357,11 @@ func (s *issueMutationTx) recordMerge(
 // merge participant. Incoming edges can change effective governance even when
 // every source node is unlinked, and third-project descendants must not be moved
 // indirectly to a different external ancestor. Non-governing blockers are valid.
-func (s *issueMutationTx) guardMergeAncestry(ctx context.Context, targetID string, sourceIDs []string) error {
+func (s *issueMutationTx) guardMergeAncestry(
+	ctx context.Context,
+	targetID string,
+	sourceIDs []string,
+) error {
 	for _, projectID := range append([]string{targetID}, sourceIDs...) {
 		var childID, parentID string
 		err := s.tx.QueryRowContext(ctx, `
@@ -369,4 +382,32 @@ func (s *issueMutationTx) guardMergeAncestry(ctx context.Context, targetID strin
 			storage.ErrGovernanceReconciliation, childID, parentID)
 	}
 	return nil
+}
+
+// moveUnlinkedEvidence preserves the captured record while rehoming its lookup
+// ownership with a plan-free source. Governed historical provenance cannot move.
+func (m *issueMutationTx) moveUnlinkedEvidence(ctx context.Context, target, source string) error {
+	var id string
+	err := m.tx.QueryRowContext(ctx, `
+SELECT issue_id FROM execution_evidence WHERE project_id=? AND
+json_extract(result,'$.expected.governing') IS NOT NULL LIMIT 1
+`, source).
+		Scan(&id)
+	if err == nil {
+		return fmt.Errorf(
+			"%w: source retains governed execution evidence for %s",
+			storage.ErrGovernanceReconciliation,
+			id,
+		)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	_, err = m.tx.ExecContext(
+		ctx,
+		`UPDATE execution_evidence SET project_id=? WHERE project_id=?`,
+		target,
+		source,
+	)
+	return err
 }

@@ -28,6 +28,7 @@ const (
 // mockWPStore implements storage.Storage for workspace (directory path) tests.
 // Only workspace methods are implemented; all others panic.
 type mockWPStore struct {
+	storage.GovernedWork
 	storage.DurablePlans // Durable operations are not part of workspace fixtures.
 	workspaces           []*types.Workspace
 	touched              string // last workspace ID touched

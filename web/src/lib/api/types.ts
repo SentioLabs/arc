@@ -179,6 +179,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/issues/{issueId}/plan-adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate or atomically apply a staged governance adoption */
+        post: operations["adoptPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/issues/{issueId}/plan-adoptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        /** Read immutable adoption history */
+        get: operations["listPlanAdoptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/issues/{issueId}/execution-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        /** Read retained execution evidence */
+        get: operations["listExecutionEvidence"];
+        put?: never;
+        /** Append phase evidence against captured governance */
+        post: operations["recordExecutionEvidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/issues/{issueId}/governing-plan": {
         parameters: {
             query?: never;
@@ -198,6 +265,26 @@ export interface paths {
         get: operations["resolveGoverningPlan"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{issueId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close an issue */
+        post: operations["closeIssueByID"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1212,6 +1299,8 @@ export interface components {
         };
         /** @description Generic updates cannot attach, replace or remove governing_plan. Use plan adoption. */
         UpdateIssueRequest: {
+            /** @description Captured work context. Required for governed completion; omitted or null remains compatible only for unlinked legacy work. Supplied expectations are always enforced atomically. */
+            expected?: components["schemas"]["ExpectedGovernance"] | null;
             title?: string;
             description?: string;
             status?: components["schemas"]["Status"];
@@ -1222,6 +1311,13 @@ export interface components {
             external_ref?: string;
         };
         CloseIssueRequest: {
+            /**
+             * @description Rejects any cascade that would close governed descendants; close them individually with captured expectations first.
+             * @default false
+             */
+            cascade: boolean;
+            /** @description Captured work context. Required for governed completion; omitted or null remains compatible only for unlinked legacy work. Supplied expectations are always enforced atomically. */
+            expected?: components["schemas"]["ExpectedGovernance"] | null;
             /** @description Reason for closing */
             reason?: string;
         };
@@ -1598,10 +1694,11 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /** @description Required keys distinguish absent/null from explicit unlinked state. Shared governed-work contract. */
+        /** @description Governed work requires expected. Omitted or null expected is compatible only for unlinked legacy work. Explicit governing null with a captured contract version detects first attachment. */
         ExecutionEvidenceRequest: {
-            expected: components["schemas"]["ExpectedGovernance"] | null;
-            phase: string;
+            expected?: components["schemas"]["ExpectedGovernance"] | null;
+            /** @enum {string} */
+            phase: "build" | "review" | "verify";
             evidence: string;
         };
         ReconciledTask: {
@@ -1611,7 +1708,7 @@ export interface components {
             reason: string;
             title?: string;
             description?: string;
-            follow_up_keys: string[];
+            follow_up_keys: string[] | null;
         };
         ReconciliationFollowUp: {
             key: string;
@@ -1651,11 +1748,11 @@ export interface components {
             expected_governance_generation: number;
             expected_pin: components["schemas"]["PlanReference"] | null;
             target_pin: components["schemas"]["PlanReference"] | null;
-            tasks: components["schemas"]["ReconciledTask"][];
-            container_pins: components["schemas"]["ReconciledContainerPin"][];
-            follow_ups: components["schemas"]["ReconciliationFollowUp"][];
-            edges: components["schemas"]["ReconciliationEdge"][];
-            type_changes: components["schemas"]["ReconciliationTypeChange"][];
+            tasks: components["schemas"]["ReconciledTask"][] | null;
+            container_pins: components["schemas"]["ReconciledContainerPin"][] | null;
+            follow_ups: components["schemas"]["ReconciliationFollowUp"][] | null;
+            edges: components["schemas"]["ReconciliationEdge"][] | null;
+            type_changes: components["schemas"]["ReconciliationTypeChange"][] | null;
             dry_run: boolean;
         };
         PlanUpload: {
@@ -1702,6 +1799,60 @@ export interface components {
             /** @enum {string} */
             disposition: "addressed" | "deferred";
             reason: string;
+        };
+        GovernanceSnapshot: {
+            issue_id: string;
+            status: components["schemas"]["Status"];
+            expected: components["schemas"]["ExpectedGovernance"];
+        };
+        ReconciliationChange: {
+            before: components["schemas"]["GovernanceSnapshot"];
+            after: components["schemas"]["GovernanceSnapshot"];
+        };
+        AdoptionCoverageError: {
+            issue_id: string;
+            code: string;
+            message: string;
+        };
+        /** @description Dry-run after versions are the captured pre-apply versions, not reserved counters. Apply returns committed after versions. Request and all snapshots are retained immutably for replay and audit. */
+        PlanAdoptionResult: {
+            /** @description Present only for a committed adoption */
+            id?: string;
+            project_id: string;
+            container_id: string;
+            before: components["schemas"]["GovernanceSnapshot"];
+            after: components["schemas"]["GovernanceSnapshot"];
+            /** Format: int64 */
+            governance_generation: number;
+            tasks: components["schemas"]["ReconciliationChange"][];
+            containers: components["schemas"]["ReconciliationChange"][];
+            request: components["schemas"]["PlanAdoptionRequest"];
+            container_pins: components["schemas"]["ReconciledContainerPin"][] | null;
+            /** @description Apply-only map from proposal-local key to persisted issue ID */
+            follow_up_ids: {
+                [key: string]: string;
+            };
+            errors: components["schemas"]["AdoptionCoverageError"][];
+            dry_run: boolean;
+            replay: boolean;
+            actor: string;
+            session_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ExecutionEvidence: {
+            id: string;
+            /** @description Original project at capture; retained if unlinked legacy work is later merged */
+            project_id: string;
+            issue_id: string;
+            expected: components["schemas"]["ExpectedGovernance"];
+            /** @enum {string} */
+            phase: "build" | "review" | "verify";
+            evidence: string;
+            actor: string;
+            session_id: string;
+            /** Format: date-time */
+            created_at: string;
         };
     };
     responses: {
@@ -2131,6 +2282,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Captured execution expectation required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };
@@ -2223,6 +2383,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Captured execution expectation required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };
@@ -2260,6 +2429,308 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    adoptPlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description User performing the action (defaults to "anonymous") */
+                "X-Actor"?: components["parameters"]["ActorHeader"];
+                /** @description Required for apply. Dry-run never reserves a key. An identical replay returns the original result even after later adoption or archive. */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanAdoptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Proposal including missing/stale coverage errors for dry-run, or committed historical result for apply */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanAdoptionResult"];
+                };
+            };
+            /** @description Invalid staged request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Issue or plan not found in project */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale context, conflicting reconciliation or active affected work */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required captured precondition is missing */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained plan content failed integrity verification */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPlanAdoptions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retained evidence */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanAdoptionResult"][];
+                };
+            };
+            /** @description Invalid staged request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Issue or plan not found in project */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale context, conflicting reconciliation or active affected work */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required captured precondition is missing */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained plan content failed integrity verification */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listExecutionEvidence: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retained evidence */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionEvidence"][];
+                };
+            };
+            /** @description Invalid staged request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Issue or plan not found in project */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale context, conflicting reconciliation or active affected work */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required captured precondition is missing */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained plan content failed integrity verification */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordExecutionEvidence: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description User performing the action (defaults to "anonymous") */
+                "X-Actor"?: components["parameters"]["ActorHeader"];
+            };
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectId"];
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecutionEvidenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Retained evidence */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionEvidence"];
+                };
+            };
+            /** @description Invalid staged request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Issue or plan not found in project */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Stale context, conflicting reconciliation or active affected work */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Required captured precondition is missing */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Retained plan content failed integrity verification */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     resolveGoverningPlan: {
         parameters: {
             query?: never;
@@ -2295,6 +2766,48 @@ export interface operations {
             };
         };
     };
+    closeIssueByID: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description User performing the action (defaults to "anonymous") */
+                "X-Actor"?: components["parameters"]["ActorHeader"];
+            };
+            path: {
+                /** @description Issue ID */
+                issueId: components["parameters"]["IssueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CloseIssueRequest"];
+            };
+        };
+        responses: {
+            /** @description Issue closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Captured execution expectation required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
     closeIssue: {
         parameters: {
             query?: never;
@@ -2327,6 +2840,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            /** @description Captured execution expectation required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };

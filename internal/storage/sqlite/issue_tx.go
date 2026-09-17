@@ -16,8 +16,10 @@ import (
 // issueMutationTx is the shared executor for issue mutations and staged adoption.
 // Its helpers never acquire another connection or begin a nested transaction.
 type issueMutationTx struct {
-	tx      *sql.Tx
-	queries *db.Queries
+	tx                *sql.Tx
+	queries           *db.Queries
+	expected          *types.ExpectedGovernance
+	completionChecked string
 }
 
 // withIssueMutation owns the sole commit boundary. SQLite uses immediate
@@ -76,7 +78,9 @@ func (s *issueMutationTx) recordEvent(
 ) error {
 	return s.queries.CreateEvent(ctx, db.CreateEventParams{
 		IssueID: id, EventType: string(event), Actor: actor,
-		OldValue: toNullString(ptrToString(oldValue)), NewValue: toNullString(ptrToString(newValue)), CreatedAt: time.Now(),
+		OldValue: toNullString(
+			ptrToString(oldValue),
+		), NewValue: toNullString(ptrToString(newValue)), CreatedAt: time.Now(),
 	})
 }
 
@@ -184,8 +188,12 @@ func (s *issueMutationTx) CreateIssue(ctx context.Context, issue *types.Issue, a
 		if err := s.insertDependency(ctx, dep, actor); err != nil {
 			return err
 		}
-		if _, err := s.resolveGoverningPlan(ctx, issue.ProjectID, issue.ID); err != nil {
+		governing, err := s.resolveGoverningPlan(ctx, issue.ProjectID, issue.ID)
+		if err != nil {
 			return err
+		}
+		if issue.Status == types.StatusClosed && governing != nil {
+			return storage.ErrExecutionPrecondition
 		}
 	}
 
@@ -281,6 +289,11 @@ func (s *issueMutationTx) CloseIssue(ctx context.Context,
 	cascade bool,
 	actor string,
 ) error {
+	if s.completionChecked != id {
+		if _, err := s.checkExecutionExpected(ctx, id, s.expected); err != nil {
+			return err
+		}
+	}
 	// Check for open children
 	openChildren, err := s.GetOpenChildIssues(ctx, id)
 	if err != nil {
@@ -500,6 +513,12 @@ func (s *issueMutationTx) UpdateIssue(ctx context.Context, id string, updates ma
 	if err != nil {
 		return err
 	}
+	if updates["status"] == string(types.StatusClosed) {
+		if _, err := s.checkExecutionExpected(ctx, id, s.expected); err != nil {
+			return err
+		}
+		s.completionChecked = id
+	}
 	apply := func() error { return s.writeIssueFields(ctx, id, updates, actor) }
 	if typ, ok := updates["issue_type"]; ok {
 		if issue.GoverningPlan != nil && typ != string(issue.IssueType) {
@@ -642,8 +661,18 @@ func (s *issueMutationTx) validateCascadeGraph(ctx context.Context, id string) e
 		return err
 	}
 	for descendant := range graph.descendants(id) {
-		if _, err := graph.resolve(descendant); err != nil {
+		governing, err := graph.resolve(descendant)
+		if err != nil {
 			return err
+		}
+		if descendant != id && governing != nil {
+			child, err := s.GetIssue(ctx, descendant)
+			if err != nil {
+				return err
+			}
+			if child.Status != types.StatusClosed {
+				return fmt.Errorf("%w: close governed descendants individually", storage.ErrExecutionConflict)
+			}
 		}
 	}
 	return nil

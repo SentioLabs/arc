@@ -12,6 +12,7 @@ import (
 //nolint:interfacebloat // Storage interface intentionally covers all operations as a single contract
 type Storage interface {
 	DurablePlans
+	GovernedWork
 	// Projects
 	CreateProject(ctx context.Context, project *types.Project) error
 	GetProject(ctx context.Context, id string) (*types.Project, error)
@@ -41,12 +42,20 @@ type Storage interface {
 	UpdateWorkspaceLastAccessed(ctx context.Context, id string) error
 
 	// Issues
-	ResolveGoverningPlan(ctx context.Context, projectID, issueID string) (*types.GoverningPlan, error)
+	ResolveGoverningPlan(
+		ctx context.Context,
+		projectID, issueID string,
+	) (*types.GoverningPlan, error)
 	CreateIssue(ctx context.Context, issue *types.Issue, actor string) error
 	GetIssue(ctx context.Context, id string) (*types.Issue, error)
 	GetIssueByExternalRef(ctx context.Context, externalRef string) (*types.Issue, error)
 	ListIssues(ctx context.Context, filter types.IssueFilter) ([]*types.Issue, error)
-	UpdateIssueAndGet(ctx context.Context, id string, updates map[string]any, actor string) (*types.IssueDetails, error)
+	UpdateIssueAndGet(
+		ctx context.Context,
+		id string,
+		updates map[string]any,
+		actor string,
+	) (*types.IssueDetails, error)
 	UpdateIssue(ctx context.Context, id string, updates map[string]any, actor string) error
 	CloseIssue(ctx context.Context, id string, reason string, cascade bool, actor string) error
 	ReopenIssue(ctx context.Context, id string, actor string) error
@@ -245,7 +254,15 @@ type DurablePlans interface {
 		string,
 		PlanCommentUpdate,
 	) (*types.PlanComment, error)
-	ListRevisionComments(context.Context, string, string, int64, bool, int, int) ([]*types.PlanComment, error)
+	ListRevisionComments(
+		context.Context,
+		string,
+		string,
+		int64,
+		bool,
+		int,
+		int,
+	) ([]*types.PlanComment, error)
 	AddPlanDisposition(
 		context.Context,
 		string,
@@ -282,7 +299,11 @@ type planProvenanceKey struct{}
 
 // WithPlanProvenance records available request attribution for append-only events.
 func WithPlanProvenance(ctx context.Context, actor, sessionID string) context.Context {
-	return context.WithValue(ctx, planProvenanceKey{}, PlanProvenance{Actor: actor, SessionID: sessionID})
+	return context.WithValue(
+		ctx,
+		planProvenanceKey{},
+		PlanProvenance{Actor: actor, SessionID: sessionID},
+	)
 }
 
 // PlanProvenanceFromContext returns optional caller-supplied attribution.
@@ -313,4 +334,88 @@ var (
 	ErrAmbiguousGovernance      = errors.New("ambiguous_governance")
 	ErrGovernanceCycle          = errors.New("governance_cycle")
 	ErrGovernanceReconciliation = errors.New("governance change requires reconciliation")
+)
+
+// GovernedWork owns atomic adoption and completion against captured work context.
+type GovernedWork interface {
+	AdoptPlan(
+		context.Context,
+		string,
+		string,
+		string,
+		types.PlanAdoptionRequest,
+	) (*PlanAdoptionResult, error)
+	RecordExecutionEvidence(
+		context.Context,
+		string,
+		string,
+		types.ExecutionEvidenceRequest,
+	) (*ExecutionEvidence, error)
+	ListExecutionEvidence(context.Context, string, string, int, int) ([]ExecutionEvidence, error)
+	ListPlanAdoptions(context.Context, string, string, int, int) ([]PlanAdoptionResult, error)
+	UpdateIssueWithExpected(
+		context.Context,
+		string,
+		map[string]any,
+		string,
+		*types.ExpectedGovernance,
+	) (*types.IssueDetails, error)
+	CloseIssueWithExpected(
+		context.Context,
+		string,
+		string,
+		bool,
+		string,
+		*types.ExpectedGovernance,
+	) error
+}
+
+type GovernanceSnapshot struct {
+	IssueID  string                   `json:"issue_id"`
+	Status   types.Status             `json:"status"`
+	Expected types.ExpectedGovernance `json:"expected"`
+}
+type ReconciliationChange struct {
+	Before GovernanceSnapshot `json:"before"`
+	After  GovernanceSnapshot `json:"after"`
+}
+type AdoptionCoverageError struct {
+	IssueID string `json:"issue_id"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+type PlanAdoptionResult struct {
+	Request              types.PlanAdoptionRequest      `json:"request"`
+	Containers           []ReconciliationChange         `json:"containers"`
+	Actor                string                         `json:"actor"`
+	SessionID            string                         `json:"session_id"`
+	ID                   string                         `json:"id,omitempty"`
+	ProjectID            string                         `json:"project_id"`
+	ContainerID          string                         `json:"container_id"`
+	Before               GovernanceSnapshot             `json:"before"`
+	After                GovernanceSnapshot             `json:"after"`
+	GovernanceGeneration int64                          `json:"governance_generation"`
+	Tasks                []ReconciliationChange         `json:"tasks"`
+	ContainerPins        []types.ReconciledContainerPin `json:"container_pins"`
+	FollowUpIDs          map[string]string              `json:"follow_up_ids"`
+	Errors               []AdoptionCoverageError        `json:"errors"`
+	DryRun               bool                           `json:"dry_run"`
+	Replay               bool                           `json:"replay"`
+	CreatedAt            time.Time                      `json:"created_at"`
+}
+type ExecutionEvidence struct {
+	ID        string                   `json:"id"`
+	ProjectID string                   `json:"project_id"`
+	IssueID   string                   `json:"issue_id"`
+	Expected  types.ExpectedGovernance `json:"expected"`
+	Phase     string                   `json:"phase"`
+	Evidence  string                   `json:"evidence"`
+	Actor     string                   `json:"actor"`
+	SessionID string                   `json:"session_id"`
+	CreatedAt time.Time                `json:"created_at"`
+}
+
+var (
+	ErrExecutionPrecondition = errors.New("execution expectation required")
+	ErrExecutionConflict     = errors.New("execution context conflict")
 )
