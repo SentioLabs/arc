@@ -144,6 +144,29 @@ func (s *issueMutationTx) GetNextChildID(ctx context.Context, parentID string) (
 // CreateIssue creates a new issue.
 // If ParentID is set, generates a hierarchical child ID (e.g., parent.1) and
 func (s *issueMutationTx) CreateIssue(ctx context.Context, issue *types.Issue, actor string) error {
+	if err := s.createIssueRecord(ctx, issue, actor); err != nil {
+		return err
+	}
+	if issue.ParentID != "" {
+		governing, err := s.resolveGoverningPlan(ctx, issue.ProjectID, issue.ID)
+		if err != nil {
+			return err
+		}
+		if issue.Status == types.StatusClosed && governing != nil {
+			return storage.ErrExecutionPrecondition
+		}
+	}
+	return nil
+}
+
+// createIssueRecord persists validated fields, counters, parent edges, audit and
+// indexing. Ordinary creation resolves governance in CreateIssue; adoption checks
+// the completed staged graph before commit, after all edge replacements and pins.
+func (s *issueMutationTx) createIssueRecord(
+	ctx context.Context,
+	issue *types.Issue,
+	actor string,
+) error {
 	if err := s.prepareIssue(ctx, issue); err != nil {
 		return err
 	}
@@ -187,13 +210,6 @@ func (s *issueMutationTx) CreateIssue(ctx context.Context, issue *types.Issue, a
 		}
 		if err := s.insertDependency(ctx, dep, actor); err != nil {
 			return err
-		}
-		governing, err := s.resolveGoverningPlan(ctx, issue.ProjectID, issue.ID)
-		if err != nil {
-			return err
-		}
-		if issue.Status == types.StatusClosed && governing != nil {
-			return storage.ErrExecutionPrecondition
 		}
 	}
 

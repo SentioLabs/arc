@@ -311,6 +311,9 @@ func (p *adoptionProposal) stageAdoption(
 	if err := p.stageTypes(req); err != nil {
 		return err
 	}
+	if err := p.validateContainerEligibility(req); err != nil {
+		return err
+	}
 	if err := p.stageFollowUps(req); err != nil {
 		return err
 	}
@@ -579,6 +582,28 @@ func (p *adoptionProposal) stageTypes(req types.PlanAdoptionRequest) error {
 	return nil
 }
 
+// validateContainerEligibility runs after type staging so attach/detach can
+// accompany eligibility changes. A tactical record must concern an epic or
+// milestone in its source or destination state; null pins do not exempt it.
+func (p *adoptionProposal) validateContainerEligibility(req types.PlanAdoptionRequest) error {
+	for _, pin := range req.ContainerPins {
+		before, after := p.before.issues[pin.ContainerID], p.after.issues[pin.ContainerID]
+		sourceEligible := before.IssueType == types.TypeEpic ||
+			before.IssueType == types.TypeMilestone
+		targetEligible := after.IssueType == types.TypeEpic ||
+			after.IssueType == types.TypeMilestone
+		if (!sourceEligible && !targetEligible) || (pin.ExpectedPin != nil && !sourceEligible) ||
+			(pin.TargetPin != nil && !targetEligible) {
+			return fmt.Errorf(
+				"%w: ineligible container pin %s",
+				storage.ErrPlanInvalid,
+				pin.ContainerID,
+			)
+		}
+	}
+	return nil
+}
+
 // stageFollowUps uses only proposal-local identities; it never reserves counters.
 // The parent edge is part of the proposed graph from the outset, so governance
 // and cycles are validated before CreateIssue allocates an actual ID.
@@ -592,12 +617,18 @@ func (p *adoptionProposal) stageFollowUps(req types.PlanAdoptionRequest) error {
 			f.Priority > 4 {
 			return fmt.Errorf("%w: invalid or duplicate follow-up", storage.ErrPlanInvalid)
 		}
-		if p.after.issues[f.ParentID] == nil {
+		if strings.HasPrefix(f.ParentID, "new:") {
+			return fmt.Errorf(
+				"%w: follow-up parent must be a persisted issue",
+				storage.ErrPlanInvalid,
+			)
+		}
+		if p.before.issues[f.ParentID] == nil {
 			return storage.ErrIssueNotFound
 		}
 		followKeys[f.Key] = true
 		id := "new:" + f.Key
-		p.after.issues[id] = &types.Issue{
+		issue := &types.Issue{
 			ID:          id,
 			ProjectID:   p.result.ProjectID,
 			Title:       f.Title,
@@ -606,6 +637,10 @@ func (p *adoptionProposal) stageFollowUps(req types.PlanAdoptionRequest) error {
 			IssueType:   f.IssueType,
 			Priority:    f.Priority,
 		}
+		if err := issue.Validate(); err != nil {
+			return fmt.Errorf("%w: %w", storage.ErrPlanInvalid, err)
+		}
+		p.after.issues[id] = issue
 		p.after.parents[id] = []string{f.ParentID}
 	}
 
@@ -723,27 +758,25 @@ func (p *adoptionProposal) checkTaskCoverage(
 			)
 		}
 	}
+	if changed {
+		p.affected[id] = true
+	}
 	if i.IssueType.IsContainer() && j.IssueType.IsContainer() {
 		return
 	}
-	{
-		if changed {
-			p.affected[id] = true
+	if p.affected[id] {
+		p.result.Tasks = append(
+			p.result.Tasks,
+			storage.ReconciliationChange{Before: old, After: next},
+		)
+		t, exists := tasks[id]
+		if !exists {
+			p.coverage(id, "missing_task", "affected task requires reconciliation")
+		} else if !sameExpected(t.Expected, old.Expected) {
+			p.coverage(id, "stale_task", "task governance or contract version changed")
 		}
-		if p.affected[id] {
-			p.result.Tasks = append(
-				p.result.Tasks,
-				storage.ReconciliationChange{Before: old, After: next},
-			)
-			t, exists := tasks[id]
-			if !exists {
-				p.coverage(id, "missing_task", "affected task requires reconciliation")
-			} else if !sameExpected(t.Expected, old.Expected) {
-				p.coverage(id, "stale_task", "task governance or contract version changed")
-			}
-			if i.Status == types.StatusInProgress {
-				p.coverage(id, "task_in_progress", "affected execution must pause before adoption")
-			}
+		if i.Status == types.StatusInProgress {
+			p.coverage(id, "task_in_progress", "affected execution must pause before adoption")
 		}
 	}
 }
@@ -817,7 +850,7 @@ func (m *issueMutationTx) applyAdoptionFollowUps(
 			IssueType:   f.IssueType,
 			Priority:    f.Priority,
 		}
-		if err := m.CreateIssue(ctx, i, actor); err != nil {
+		if err := m.createIssueRecord(ctx, i, actor); err != nil {
 			return err
 		}
 		p.result.FollowUpIDs[f.Key] = i.ID
@@ -912,6 +945,13 @@ func validateReconciledTask(t types.ReconciledTask, i *types.Issue) error {
 	if t.Title != nil && strings.TrimSpace(*t.Title) == "" {
 		return storage.ErrPlanInvalid
 	}
+	if t.Title != nil {
+		staged := *i
+		staged.Title = *t.Title
+		if err := staged.Validate(); err != nil {
+			return fmt.Errorf("%w: %w", storage.ErrPlanInvalid, err)
+		}
+	}
 	if (len(t.FollowUpKeys) > 0) != (t.Disposition == adoptionFollowUp) {
 		return fmt.Errorf(
 			"%w: follow-up disposition must reference follow-ups",
@@ -987,12 +1027,43 @@ func (p *adoptionProposal) validateStagedScope(
 	return scope, nil
 }
 
+// verifyAppliedGovernance checks the completed persisted graph, including every
+// allocated follow-up, before recording success. Individual inserts intentionally
+// do not resolve transient topology while staged edge replacements are underway.
+func (p *adoptionProposal) verifyAppliedGovernance(after *governanceGraph) error {
+	for id := range p.after.issues {
+		actualID := id
+		if strings.HasPrefix(id, "new:") {
+			actualID = p.result.FollowUpIDs[strings.TrimPrefix(id, "new:")]
+		}
+		proposed, err := p.after.resolve(id)
+		if err != nil {
+			return err
+		}
+		actual, err := after.resolve(actualID)
+		if err != nil {
+			return err
+		}
+		if !sameGovernance(proposed, actual) {
+			return fmt.Errorf(
+				"%w: applied governance differs from proposal for %s",
+				storage.ErrPlanConflict,
+				id,
+			)
+		}
+	}
+	return nil
+}
+
 // refreshAdoptionResult reads authoritative after versions before commit. Trigger
 // increments may differ by the number of changed fields and pins; clients compare
 // captured values rather than infer version arithmetic from the request.
 func (m *issueMutationTx) refreshAdoptionResult(ctx context.Context, p *adoptionProposal) error {
 	after, err := m.adoptionGraph(ctx, p.result.ProjectID)
 	if err != nil {
+		return err
+	}
+	if err := p.verifyAppliedGovernance(after); err != nil {
 		return err
 	}
 	p.result.After, err = snapshotGovernance(after, p.result.ContainerID)

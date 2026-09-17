@@ -3,6 +3,7 @@ package sqlite_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/sentiolabs/arc/internal/storage"
@@ -248,13 +249,18 @@ func TestAdoptionStagedSourceIdentityAndVersionUnion(t *testing.T) {
 	a := adoptionIssue(t, s, p, "a", root.ID, types.TypeEpic)
 	b := adoptionIssue(t, s, p, "b", root.ID, types.TypeEpic)
 	middle := adoptionIssue(t, s, p, "middle", a.ID, types.TypeEpic)
-	task := adoptionIssue(t, s, p, "task", middle.ID, types.TypeTask)
+	lower := adoptionIssue(t, s, p, "lower", middle.ID, types.TypeEpic)
+	task := adoptionIssue(t, s, p, "task", lower.ID, types.TypeTask)
 	pin := approvedAdoptionPin(t, s, p, "same bytes")
 	_, err := s.AdoptPlan(ctx, p, a.ID, "a", adoptionRequest(t, s, p, a.ID, pin))
 	require.NoError(t, err)
 	_, err = s.AdoptPlan(ctx, p, b.ID, "b", adoptionRequest(t, s, p, b.ID, pin))
 	require.NoError(t, err)
 	before := captured(t, s, p, task.ID)
+	containers := map[string]types.ExpectedGovernance{
+		middle.ID: captured(t, s, p, middle.ID),
+		lower.ID:  captured(t, s, p, lower.ID),
+	}
 	req := adoptionRequest(t, s, p, root.ID, nil)
 	req.Edges = []types.ReconciliationEdge{
 		{IssueID: middle.ID, DependsOnID: a.ID, Type: types.DepParentChild, Remove: true},
@@ -280,6 +286,11 @@ func TestAdoptionStagedSourceIdentityAndVersionUnion(t *testing.T) {
 	require.Greater(t, after.ContractVersion, before.ContractVersion)
 	require.Equal(t, b.ID, after.Governing.ContainerID)
 	require.Equal(t, before.Governing.Reference, after.Governing.Reference)
+	for id, old := range containers {
+		current := captured(t, s, p, id)
+		require.Equal(t, b.ID, current.Governing.ContainerID)
+		require.Greater(t, current.ContractVersion, old.ContractVersion, "changed container %s", id)
+	}
 }
 
 func TestAdoptionRollbackAtAuditIndexCounterAndHistory(t *testing.T) {
@@ -521,6 +532,8 @@ func TestAdoptionValidationMatrix(t *testing.T) {
 				req.Tasks[0].Title = &title
 			case "closed_type":
 				require.NoError(t, s.CloseIssue(ctx, task.ID, "done", false, "actor"))
+				req.Tasks[0].Expected = captured(t, s, p, task.ID)
+				req.Tasks[0].Disposition = "updated"
 				req.TypeChanges = []types.ReconciliationTypeChange{
 					{
 						IssueID:                 task.ID,
@@ -530,6 +543,8 @@ func TestAdoptionValidationMatrix(t *testing.T) {
 				}
 			case "closed_edge":
 				require.NoError(t, s.CloseIssue(ctx, task.ID, "done", false, "actor"))
+				req.Tasks[0].Expected = captured(t, s, p, task.ID)
+				req.Tasks[0].Disposition = "updated"
 				req.Edges = []types.ReconciliationEdge{
 					{
 						IssueID:     task.ID,
@@ -556,6 +571,8 @@ func TestAdoptionValidationMatrix(t *testing.T) {
 				}
 				req.FollowUps = []types.ReconciliationFollowUp{f}
 				if kind == "duplicate_new" {
+					req.Tasks[0].Disposition = "follow_up"
+					req.Tasks[0].FollowUpKeys = []string{"a"}
 					req.FollowUps = append(req.FollowUps, f)
 				}
 			case "cross_project":
@@ -587,7 +604,34 @@ func TestAdoptionValidationMatrix(t *testing.T) {
 			before := adoptionDBSnapshot(t, s)
 			_, err := s.AdoptPlan(ctx, p, root.ID, "invalid", req)
 			require.Error(t, err)
+			causes := map[string]string{
+				"closed_type":   "closed contract type edit",
+				"closed_edge":   "closed contract dependency edit",
+				"duplicate_new": "invalid or duplicate follow-up",
+			}
+			if cause := causes[kind]; cause != "" {
+				require.ErrorIs(t, err, storage.ErrPlanInvalid)
+				require.ErrorContains(t, err, cause)
+				assertAdoptionInvalidParity(t, s, root.ID, req, cause)
+			}
 			require.Equal(t, before, adoptionDBSnapshot(t, s))
+			switch kind {
+			case "closed_type", "closed_edge":
+				require.NoError(
+					t,
+					s.UpdateIssue(ctx, task.ID, map[string]any{"status": "open"}, "actor"),
+				)
+				req.Tasks[0].Expected = captured(t, s, p, task.ID)
+				if kind == "closed_type" {
+					req.TypeChanges[0].ExpectedContractVersion = req.Tasks[0].Expected.ContractVersion
+				}
+				_, err = s.AdoptPlan(ctx, p, root.ID, "valid-control", req)
+				require.NoError(t, err)
+			case "duplicate_new":
+				req.FollowUps = req.FollowUps[:1]
+				_, err = s.AdoptPlan(ctx, p, root.ID, "valid-control", req)
+				require.NoError(t, err)
+			}
 		})
 	}
 }
@@ -779,4 +823,264 @@ func TestAdoptionValidatesNewFollowUpGovernance(t *testing.T) {
 	_, err = s.AdoptPlan(ctx, p, root.ID, "follow", req)
 	require.Error(t, err)
 	require.Equal(t, snapshot, adoptionDBSnapshot(t, s))
+}
+
+// Rejected previews and applies must preserve every persisted side effect and
+// leave the idempotency key available for a corrected request.
+func assertAdoptionInvalidParity(
+	t *testing.T,
+	s *sqlite.Store,
+	root string,
+	req types.PlanAdoptionRequest,
+	cause string,
+) {
+	t.Helper()
+	ctx := context.Background()
+	issue, err := s.GetIssue(ctx, root)
+	require.NoError(t, err)
+	before := adoptionDBSnapshot(t, s)
+	for _, dry := range []bool{true, false} {
+		req.DryRun = dry
+		_, err := s.AdoptPlan(ctx, issue.ProjectID, root, "correctable", req)
+		require.ErrorIs(t, err, storage.ErrPlanInvalid)
+		require.ErrorContains(t, err, cause)
+		require.Equal(t, before, adoptionDBSnapshot(t, s))
+	}
+}
+
+func TestAdoptionRejectsIneligibleNullPins(t *testing.T) {
+	for _, typ := range []types.IssueType{types.TypeTask, types.TypeRelease} {
+		t.Run(string(typ), func(t *testing.T) {
+			s, p := durableStore(t)
+			root := adoptionIssue(t, s, p, "root", "", types.TypeMilestone)
+			child := adoptionIssue(t, s, p, "child", root.ID, typ)
+			pin := approvedAdoptionPin(t, s, p, "design")
+			req := adoptionRequest(t, s, p, root.ID, pin)
+			req.ContainerPins = []types.ReconciledContainerPin{
+				{
+					ContainerID:              child.ID,
+					ExpectedContainerVersion: child.ContractVersion,
+					Disposition:              "compatible",
+					Reason:                   "unchanged",
+				},
+			}
+			assertAdoptionInvalidParity(t, s, root.ID, req, "ineligible container pin")
+			req.ContainerPins = nil
+			_, err := s.AdoptPlan(context.Background(), p, root.ID, "correctable", req)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestAdoptionTitleDomainParity(t *testing.T) {
+	for _, follow := range []bool{false, true} {
+		t.Run(map[bool]string{false: "task", true: "follow_up"}[follow], func(t *testing.T) {
+			s, p := durableStore(t)
+			root := adoptionIssue(t, s, p, "root", "", types.TypeEpic)
+			task := adoptionIssue(t, s, p, "task", root.ID, types.TypeTask)
+			req := adoptionRequest(t, s, p, root.ID, approvedAdoptionPin(t, s, p, "design"))
+			title := strings.Repeat("é", 250) + "x"
+			if follow {
+				req.Tasks[0].Disposition = "follow_up"
+				req.Tasks[0].FollowUpKeys = []string{"follow"}
+				req.FollowUps = []types.ReconciliationFollowUp{
+					{
+						Key:       "follow",
+						ParentID:  root.ID,
+						Title:     title,
+						IssueType: types.TypeTask,
+						Priority:  2,
+					},
+				}
+			} else {
+				req.Tasks[0].Disposition = "updated"
+				req.Tasks[0].Title = &title
+			}
+			assertAdoptionInvalidParity(t, s, root.ID, req, "title must be 500")
+			title = strings.Repeat("é", 250)
+			if follow {
+				req.FollowUps[0].Title = title
+			}
+			req.DryRun = true
+			before := adoptionDBSnapshot(t, s)
+			preview, err := s.AdoptPlan(context.Background(), p, root.ID, "correctable", req)
+			require.NoError(t, err)
+			require.Empty(t, preview.Errors)
+			require.Equal(t, before, adoptionDBSnapshot(t, s))
+			req.DryRun = false
+			result, err := s.AdoptPlan(context.Background(), p, root.ID, "correctable", req)
+			require.NoError(t, err)
+			id := task.ID
+			if follow {
+				id = result.FollowUpIDs["follow"]
+			}
+			saved, err := s.GetIssue(context.Background(), id)
+			require.NoError(t, err)
+			require.Equal(t, title, saved.Title)
+		})
+	}
+}
+
+func TestAdoptionRejectsSymbolicParentBeforeApply(t *testing.T) {
+	s, p := durableStore(t)
+	root := adoptionIssue(t, s, p, "root", "", types.TypeEpic)
+	adoptionIssue(t, s, p, "task", root.ID, types.TypeTask)
+	req := adoptionRequest(t, s, p, root.ID, approvedAdoptionPin(t, s, p, "design"))
+	req.Tasks[0].Disposition = "follow_up"
+	req.Tasks[0].FollowUpKeys = []string{"first", "second"}
+	req.FollowUps = []types.ReconciliationFollowUp{
+		{Key: "first", ParentID: root.ID, Title: "first", IssueType: types.TypeTask, Priority: 2},
+		{
+			Key:       "second",
+			ParentID:  "new:first",
+			Title:     "second",
+			IssueType: types.TypeTask,
+			Priority:  2,
+		},
+	}
+	assertAdoptionInvalidParity(t, s, root.ID, req, "follow-up parent must be a persisted issue")
+	req.FollowUps[1].ParentID = root.ID
+	req.DryRun = true
+	preview, err := s.AdoptPlan(context.Background(), p, root.ID, "correctable", req)
+	require.NoError(t, err)
+	require.Empty(t, preview.Errors)
+	req.DryRun = false
+	result, err := s.AdoptPlan(context.Background(), p, root.ID, "correctable", req)
+	require.NoError(t, err)
+	require.Len(t, result.FollowUpIDs, 2)
+}
+
+// Existing pins stay installed while B moves beneath a bridge. The temporary
+// removal of B's old parent must not veto the validated final A/B/C chain.
+func TestAdoptionFinalTopologyWithUnchangedExistingPins(t *testing.T) {
+	s, p := durableStore(t)
+	ctx := context.Background()
+	a := adoptionIssue(t, s, p, "a", "", types.TypeMilestone)
+	b := adoptionIssue(t, s, p, "b", a.ID, types.TypeEpic)
+	bridge := adoptionIssue(t, s, p, "bridge", a.ID, types.TypeEpic)
+	c := adoptionIssue(t, s, p, "c", b.ID, types.TypeEpic)
+	require.NoError(
+		t,
+		s.AddDependency(
+			ctx,
+			&types.Dependency{IssueID: c.ID, DependsOnID: a.ID, Type: types.DepParentChild},
+			"fixture",
+		),
+	)
+	task := adoptionIssue(t, s, p, "task", c.ID, types.TypeTask)
+	ap := approvedAdoptionPin(t, s, p, "architecture")
+	bp := approvedAdoptionPin(t, s, p, "implementation")
+	cp := approvedAdoptionPin(t, s, p, "tactical")
+	_, err := s.AdoptPlan(ctx, p, a.ID, "a", adoptionRequest(t, s, p, a.ID, ap))
+	require.NoError(t, err)
+	_, err = s.AdoptPlan(ctx, p, b.ID, "b", adoptionRequest(t, s, p, b.ID, bp))
+	require.NoError(t, err)
+	req := adoptionRequest(t, s, p, a.ID, ap)
+	req.ContainerPins = []types.ReconciledContainerPin{
+		{
+			ContainerID:              c.ID,
+			ExpectedContainerVersion: captured(t, s, p, c.ID).ContractVersion,
+			TargetPin:                cp,
+			Disposition:              "updated",
+			Reason:                   "tactical refinement",
+		},
+	}
+	req.Edges = []types.ReconciliationEdge{
+		{IssueID: b.ID, DependsOnID: a.ID, Type: types.DepParentChild, Remove: true},
+		{IssueID: b.ID, DependsOnID: bridge.ID, Type: types.DepParentChild},
+	}
+	req.Tasks = []types.ReconciledTask{
+		{
+			IssueID:      task.ID,
+			Expected:     captured(t, s, p, task.ID),
+			Disposition:  "follow_up",
+			Reason:       "additional work",
+			FollowUpKeys: []string{"follow"},
+		},
+	}
+	req.FollowUps = []types.ReconciliationFollowUp{
+		{Key: "follow", ParentID: c.ID, Title: "follow", IssueType: types.TypeTask, Priority: 2},
+	}
+	before := adoptionDBSnapshot(t, s)
+	req.DryRun = true
+	preview, err := s.AdoptPlan(ctx, p, a.ID, "topology", req)
+	require.NoError(t, err)
+	require.Empty(t, preview.Errors)
+	require.Equal(t, before, adoptionDBSnapshot(t, s))
+	req.DryRun = false
+	result, err := s.AdoptPlan(ctx, p, a.ID, "topology", req)
+	require.NoError(t, err)
+	for _, id := range []string{task.ID, result.FollowUpIDs["follow"]} {
+		g := captured(t, s, p, id).Governing
+		require.Equal(t, c.ID, g.ContainerID)
+		require.Equal(
+			t,
+			[]types.GoverningPlanContext{
+				{ContainerID: a.ID, ContainerType: types.TypeMilestone, Reference: *ap},
+				{ContainerID: b.ID, ContainerType: types.TypeEpic, Reference: *bp},
+			},
+			g.Context,
+		)
+	}
+}
+
+// Tactical records can attach and detach while changing eligibility, including
+// task-to-container and container-to-task transitions in the same transaction.
+func TestAdoptionTacticalPinEligibilityTransitions(t *testing.T) {
+	for _, eligible := range []types.IssueType{types.TypeEpic, types.TypeMilestone} {
+		t.Run(string(eligible), func(t *testing.T) {
+			s, p := durableStore(t)
+			ctx := context.Background()
+			root := adoptionIssue(t, s, p, "root", "", types.TypeMilestone)
+			child := adoptionIssue(t, s, p, "child", root.ID, types.TypeTask)
+			pin := approvedAdoptionPin(t, s, p, "tactical")
+			for _, attach := range []bool{true, false} {
+				req := adoptionRequest(t, s, p, root.ID, nil)
+				current, err := s.GetIssue(ctx, child.ID)
+				require.NoError(t, err)
+				targetType := types.TypeTask
+				var targetPin *types.PlanReference
+				if attach {
+					targetType = eligible
+					targetPin = pin
+				}
+				req.ContainerPins = []types.ReconciledContainerPin{
+					{
+						ContainerID:              child.ID,
+						ExpectedContainerVersion: current.ContractVersion,
+						ExpectedPin:              current.GoverningPlan,
+						TargetPin:                targetPin,
+						Disposition:              "updated",
+						Reason:                   "explicit eligibility transition",
+					},
+				}
+				req.TypeChanges = []types.ReconciliationTypeChange{
+					{
+						IssueID:                 child.ID,
+						ExpectedContractVersion: current.ContractVersion,
+						IssueType:               targetType,
+					},
+				}
+				req.Tasks = []types.ReconciledTask{
+					{
+						IssueID:     child.ID,
+						Expected:    captured(t, s, p, child.ID),
+						Disposition: "updated",
+						Reason:      "reclassify contract",
+					},
+				}
+				req.DryRun = true
+				preview, err := s.AdoptPlan(ctx, p, root.ID, "", req)
+				require.NoError(t, err)
+				require.Empty(t, preview.Errors)
+				req.DryRun = false
+				_, err = s.AdoptPlan(ctx, p, root.ID, string(targetType), req)
+				require.NoError(t, err)
+				saved, err := s.GetIssue(ctx, child.ID)
+				require.NoError(t, err)
+				require.Equal(t, targetType, saved.IssueType)
+				require.Equal(t, targetPin, saved.GoverningPlan)
+			}
+		})
+	}
 }

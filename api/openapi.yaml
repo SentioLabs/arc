@@ -800,6 +800,12 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Captured execution context is stale or cascade would close governed work
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "428":
           description: Captured execution expectation required
           content:
@@ -836,6 +842,12 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Captured execution context is stale or cascade would close governed work
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "428":
           description: Captured execution expectation required
           content:

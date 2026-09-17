@@ -212,3 +212,18 @@ func TestAdoptionNestedPreconditionPresence(t *testing.T) {
 		require.Equal(t, http.StatusPreconditionRequired, response.Code, response.Body.String())
 	}
 }
+
+func TestCloseOpenAPIConflictResponses(t *testing.T) {
+	schema, err := GetSwagger()
+	require.NoError(t, err)
+	for _, path := range []string{"/issues/{issueId}/close", "/projects/{projectId}/issues/{issueId}/close"} {
+		response := schema.Paths.Value(path).Post.Responses.Value("409")
+		require.NotNil(t, response, path)
+		require.NotNil(t, response.Value)
+		require.Equal(
+			t,
+			"#/components/schemas/Error",
+			response.Value.Content["application/json"].Schema.Ref,
+		)
+	}
+}
