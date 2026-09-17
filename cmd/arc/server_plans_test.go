@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sentiolabs/arc/internal/planfiles"
@@ -100,4 +101,53 @@ func verifyPlansCLIBackup(t *testing.T, base string, run func(...string) (string
 	out, err := run("verify-backup", "--directory", backup)
 	require.NoError(t, err)
 	require.Contains(t, out, "verified")
+}
+
+func TestServerPlansDryRunDoesNotWriteConfig(t *testing.T) {
+	for _, mode := range []string{"missing-default", "missing-explicit", "legacy-default", "legacy-explicit"} {
+		t.Run(mode, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			selected := filepath.Join(home, ".arc", "config.toml")
+			old := configPath
+			configPath = ""
+			t.Cleanup(func() { configPath = old })
+			if strings.HasSuffix(mode, "explicit") {
+				selected = filepath.Join(home, "selected", "config.toml")
+				configPath = selected
+			}
+			legacy := filepath.Join(filepath.Dir(selected), "cli-config.json")
+			var original []byte
+			if strings.HasPrefix(mode, "legacy") {
+				require.NoError(t, os.MkdirAll(filepath.Dir(legacy), 0o700))
+				original = []byte(`{"server_url":"http://localhost:12345","channel":"stable"}`)
+				require.NoError(t, os.WriteFile(legacy, original, 0o600))
+			}
+			manifest := filepath.Join(t.TempDir(), "manifest.json")
+			require.NoError(t, os.WriteFile(manifest, []byte(`{"entries":[
+ {"legacy_id":"plan.test","project_id":"project","source_file":"/explicit/source"}
+ ]}`), 0o600))
+			command := newServerPlansCommand()
+			var output bytes.Buffer
+			command.SetOut(&output)
+			command.SetErr(&output)
+			command.SetArgs([]string{"migrate", "--manifest", manifest, "--dry-run"})
+			require.Error(t, command.Execute()) // No DB exists in the temporary home.
+			_, err := os.Stat(selected)
+			require.ErrorIs(t, err, os.ErrNotExist)
+			_, err = os.Stat(legacy + ".bak")
+			require.ErrorIs(t, err, os.ErrNotExist)
+			if original != nil {
+				retained, err := os.ReadFile(legacy)
+				require.NoError(t, err)
+				require.Equal(t, original, retained)
+				entries, err := os.ReadDir(filepath.Dir(legacy))
+				require.NoError(t, err)
+				require.Len(t, entries, 1)
+			} else {
+				_, err = os.Stat(filepath.Dir(selected))
+				require.ErrorIs(t, err, os.ErrNotExist)
+			}
+		})
+	}
 }

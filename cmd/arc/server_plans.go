@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sentiolabs/arc/internal/config"
 	"github.com/sentiolabs/arc/internal/planfiles"
 	"github.com/sentiolabs/arc/internal/planmigration"
 	"github.com/spf13/cobra"
@@ -29,6 +30,8 @@ Reports are JSON, including partial migration failures (nonzero exit).
 Read-only SQLite opens can create transient WAL/shared-index lock sidecars;
 dry-run never changes database records, retained content, IDs or counters.
 
+Integrity, cleanup and backup refuse roots containing the configured database
+or its SQLite sidecars, including paths through aliases.
 Offline cleanup and backup require all publishers to be stopped. The upgraded
 server holds a kernel exclusion lock through publication and database commit.
 First run integrity and retain its dry-run JSON report; select orphan entries
@@ -95,9 +98,10 @@ func plansDryRun(cmd *cobra.Command) (bool, error) {
 	return dryRun, nil
 }
 
-// plansOperatorPaths deliberately reads only the server configuration section.
+// plansOperatorPaths reads only server settings and never initializes or migrates
+// config files. In particular, an unsuccessful preview leaves configuration intact.
 func plansOperatorPaths() (dbPath, plansRoot string, err error) {
-	cfg, err := loadConfig()
+	cfg, err := config.LoadReadOnly(configPath)
 	if err != nil {
 		return "", "", err
 	}

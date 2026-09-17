@@ -48,6 +48,19 @@ func expandHome(p string) string {
 // Missing fields are filled from Default(). The returned Config is
 // validated; an invalid file returns a non-nil error.
 func Load(path string) (*Config, error) {
+	return loadConfiguration(path, true)
+}
+
+// LoadReadOnly resolves the same defaults, TOML and legacy JSON as Load, without
+// creating directories, writing defaults, renaming legacy files or migrating
+// configuration on disk. Local previews and inspection use this read path.
+func LoadReadOnly(path string) (*Config, error) {
+	return loadConfiguration(path, false)
+}
+
+// loadConfiguration keeps normal first-use/migration behavior behind an explicit write mode.
+// Both modes share decoding, precedence and existing TOML validation.
+func loadConfiguration(path string, persist bool) (*Config, error) {
 	if path == "" {
 		path = DefaultPath()
 	}
@@ -72,6 +85,9 @@ func Load(path string) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
+		if !persist {
+			return cfg, nil
+		}
 		// Fix 1: rename legacy → .bak FIRST, then save TOML.
 		// If rename fails, return error before touching the TOML path.
 		backup := legacy + ".bak"
@@ -87,6 +103,9 @@ func Load(path string) (*Config, error) {
 
 	// No config anywhere — write defaults.
 	cfg := Default()
+	if !persist {
+		return cfg, nil
+	}
 	if err := Save(path, cfg); err != nil {
 		return nil, err
 	}

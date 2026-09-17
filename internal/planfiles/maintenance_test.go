@@ -87,11 +87,9 @@ func TestMaintenanceRejectsSymlinkRootAndNestedBackup(t *testing.T) {
 	m, err := OpenMaintenance(root)
 	require.NoError(t, err)
 	defer m.Close()
-	// Use a canceled context to bound the currently unsafe recursive copy in RED.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
 	destination := filepath.Join(link, "nested")
-	require.Error(t, m.CopyTo(ctx, destination))
+	require.EqualError(t, m.CheckDestination(destination), "backup destination must be outside the plan root")
+	require.EqualError(t, m.CopyTo(t.Context(), destination), "backup destination must be outside the plan root")
 	_, err = os.Stat(destination)
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
@@ -141,4 +139,21 @@ func TestMaintenanceProcessHelper(t *testing.T) {
 	}
 	require.NoError(t, err)
 	require.NoError(t, closer.Close())
+}
+
+func TestMaintenanceCopyCancellationDoesNotCreateOutput(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "root")
+	p, err := New(root)
+	require.NoError(t, err)
+	require.NoError(t, p.Close())
+	m, err := OpenMaintenance(root)
+	require.NoError(t, err)
+	defer m.Close()
+	destination := filepath.Join(t.TempDir(), "backup")
+	require.NoError(t, m.CheckDestination(destination))
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	require.ErrorIs(t, m.CopyTo(ctx, destination), context.Canceled)
+	_, err = os.Stat(destination)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }

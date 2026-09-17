@@ -32,6 +32,10 @@ type BackupManifest struct {
 // Backup keeps publisher exclusion across SQLite snapshot, full root copy and
 // staging verification. It never restores or modifies the source database.
 func Backup(ctx context.Context, dbPath, root, destination string) (*BackupManifest, error) {
+	// The full root copy must not absorb database files already captured by SQLite.
+	if err := checkDatabaseRootSeparation(dbPath, root); err != nil {
+		return nil, err
+	}
 	maintenance, err := planfiles.OpenMaintenance(root)
 	if err != nil {
 		return nil, err
@@ -162,6 +166,10 @@ func hashFile(path string) (string, error) {
 // Inspect holds exclusive maintenance access for a stable referenced inventory.
 // A server is never stopped automatically to obtain this access.
 func Inspect(ctx context.Context, dbPath, root string) ([]planfiles.Inspection, error) {
+	// Never offer database metadata as a disposable blob candidate.
+	if err := checkDatabaseRootSeparation(dbPath, root); err != nil {
+		return nil, err
+	}
 	maintenance, err := planfiles.OpenMaintenance(root)
 	if err != nil {
 		return nil, err
@@ -182,6 +190,10 @@ func Inspect(ctx context.Context, dbPath, root string) ([]planfiles.Inspection, 
 
 // Cleanup revalidates a selected prior dry-run report while holding exclusion.
 func Cleanup(ctx context.Context, dbPath, root string, selected []string, dryRun bool) error {
+	// Recheck even when the selected report predates this safety guard.
+	if err := checkDatabaseRootSeparation(dbPath, root); err != nil {
+		return err
+	}
 	maintenance, err := planfiles.OpenMaintenance(root)
 	if err != nil {
 		return err

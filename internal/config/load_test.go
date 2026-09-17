@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/sentiolabs/arc/internal/config"
 )
 
@@ -49,5 +51,38 @@ func TestLoadSavePreservesTildeInDBPath(t *testing.T) {
 	}
 	if got2.Server.DBPath != tildeDBPath {
 		t.Errorf("db_path after round-trip = %q, want preserved tilde", got2.Server.DBPath)
+	}
+}
+
+func TestLoadReadOnlyPreservesMissingAndLegacyConfig(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		t.Run(map[bool]string{false: "missing", true: "legacy"}[legacy], func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "nested", "config.toml")
+			original := []byte(`{"server_url":"http://localhost:12345","channel":"stable"}`)
+			legacyPath := filepath.Join(filepath.Dir(path), "cli-config.json")
+			if legacy {
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+				require.NoError(t, os.WriteFile(legacyPath, original, 0o600))
+			}
+			cfg, err := config.LoadReadOnly(path)
+			require.NoError(t, err)
+			if legacy {
+				require.Equal(t, "http://localhost:12345", cfg.CLI.Server)
+			} else {
+				require.Equal(t, config.Default(), cfg)
+			}
+			_, err = os.Stat(path)
+			require.ErrorIs(t, err, os.ErrNotExist)
+			_, err = os.Stat(legacyPath + ".bak")
+			require.ErrorIs(t, err, os.ErrNotExist)
+			if legacy {
+				contents, err := os.ReadFile(legacyPath)
+				require.NoError(t, err)
+				require.Equal(t, original, contents)
+			} else {
+				_, err = os.Stat(filepath.Dir(path))
+				require.ErrorIs(t, err, os.ErrNotExist)
+			}
+		})
 	}
 }
