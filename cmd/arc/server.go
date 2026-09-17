@@ -134,6 +134,11 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	}
 
 	cmdArgs := []string{"server", cmdStart, "--foreground", "--port", strconv.Itoa(port)}
+	// The child reloads runtime settings, including server.plans_dir. Preserve
+	// the operator's selected document instead of silently loading the default.
+	if configPath != "" {
+		cmdArgs = append(cmdArgs, "--config", configPath)
+	}
 	if dbPath != "" {
 		cmdArgs = append(cmdArgs, "--db", dbPath)
 	}
