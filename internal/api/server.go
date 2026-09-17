@@ -129,6 +129,7 @@ func (s *Server) registerRoutes() {
 	v1.DELETE("/projects/:id/workspaces/:pathId", s.deleteWorkspace)
 
 	// Old clients receive explicit upgrade guidance without dereferencing paths.
+	v1.GET("/plans/legacy", s.listLegacyPlans)
 	v1.Any("/plans", s.legacyPlanUpgrade)
 	v1.Any("/plans/*", s.legacyPlanUpgrade)
 	plans := v1.Group("/projects/:projectId/plans")

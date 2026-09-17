@@ -25,9 +25,9 @@ const (
 
 // Blob is private storage metadata, never a client-selected filesystem path.
 type Blob struct {
-	RelativePath string
-	SHA256       string
-	Bytes        int64
+	RelativePath string `json:"relative_path"`
+	SHA256       string `json:"sha256"`
+	Bytes        int64  `json:"bytes"`
 }
 
 // Publisher makes bytes durable before callers commit their database reference.
@@ -53,6 +53,7 @@ type Store struct {
 	root  *os.Root
 	fs    fileSystem
 	newID func() string
+	lock  *os.File
 }
 
 var _ Publisher = (*Store)(nil)
@@ -70,15 +71,19 @@ func New(path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open plan root: %w", err)
 	}
-	p := &Store{root: root, fs: rootFS{root}, newID: rand.Text}
+	lock, err := lockRoot(root, false, true)
+	if err != nil {
+		return nil, errors.Join(err, root.Close())
+	}
+	p := &Store{root: root, fs: rootFS{root}, newID: rand.Text, lock: lock}
 	if err := p.checkWritable(); err != nil {
-		return nil, errors.Join(fmt.Errorf("unusable plan root %q: %w", path, err), root.Close())
+		return nil, errors.Join(fmt.Errorf("unusable plan root %q: %w", path, err), p.Close())
 	}
 	return p, nil
 }
 
 // Close releases the root capability after all requests have finished.
-func (p *Store) Close() error { return p.root.Close() }
+func (p *Store) Close() error { return errors.Join(p.root.Close(), p.lock.Close()) }
 
 // createRoot flushes ancestry from the first existing directory downward.
 // Opening the root afterward anchors all publication operations to this tree.

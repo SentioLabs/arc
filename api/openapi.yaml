@@ -1290,6 +1290,39 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   # Durable project-scoped plans and explicit legacy upgrade errors.
+  /plans/legacy:
+    get:
+      operationId: listLegacyPlans
+      tags: [plans]
+      summary: List preserved legacy metadata and unknown-revision discussion
+      description: Unassigned legacy records have no project ownership. This bounded inventory never opens source paths. Imported status remains unverified provenance; imported_project_id identifies the durable owner when present.
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Preserved legacy metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LegacyPlanInventory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /plans:
     post:
       operationId: createPlan
@@ -3548,6 +3581,20 @@ components:
           type: string
           format: date-time
       description: Preserved legacy inventory metadata; status is unverified and paths are never dereferenced by HTTP.
+    LegacyPlanInventory:
+      allOf:
+      - $ref: '#/components/schemas/LegacyPlan'
+      - type: object
+        required: [comments]
+        properties:
+          imported_project_id:
+            type: string
+            description: Durable project assignment after explicit import, absent while pending
+          comments:
+            type: array
+            description: Preserved legacy discussion; revision is null and original anchors do not prove reviewed bytes
+            items:
+              $ref: '#/components/schemas/PlanComment'
     LegacyPlanWithContent:
       allOf:
       - $ref: '#/components/schemas/LegacyPlan'

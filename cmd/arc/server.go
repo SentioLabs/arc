@@ -59,6 +59,7 @@ var serverCmd = &cobra.Command{
 }
 
 func init() {
+	serverCmd.AddCommand(newServerPlansCommand())
 	serverCmd.AddCommand(serverStartCmd)
 	serverCmd.AddCommand(serverStopCmd)
 	serverCmd.AddCommand(serverStatusCmd)

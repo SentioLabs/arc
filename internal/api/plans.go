@@ -530,3 +530,17 @@ func (s *Server) listPlanCommentVersions(c echo.Context) error {
 	}
 	return successJSON(c, result)
 }
+
+// listLegacyPlans exposes retained metadata with explicitly unknown comment
+// revision provenance. No legacy source path is opened by the server.
+func (s *Server) listLegacyPlans(c echo.Context) error {
+	limit, offset, err := planPage(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	inventory, err := s.store.ListLegacyPlans(c.Request().Context(), limit, offset)
+	if err != nil {
+		return planError(c, err)
+	}
+	return c.JSON(http.StatusOK, inventory)
+}

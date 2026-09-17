@@ -86,6 +86,7 @@ type Storage interface {
 	DeleteComment(ctx context.Context, commentID int64) error
 
 	// Plans
+	ListLegacyPlans(context.Context, int, int) ([]LegacyPlanInventory, error)
 	CreatePlan(ctx context.Context, plan *types.LegacyPlan) error
 	GetPlan(ctx context.Context, id string) (*types.LegacyPlan, error)
 	UpdatePlanStatus(ctx context.Context, id string, status string) error
@@ -286,4 +287,20 @@ func WithPlanProvenance(ctx context.Context, actor, sessionID string) context.Co
 func PlanProvenanceFromContext(ctx context.Context) PlanProvenance {
 	value, _ := ctx.Value(planProvenanceKey{}).(PlanProvenance)
 	return value
+}
+
+// LegacyPlanInventory is metadata only: paths are never dereferenced by HTTP.
+// Comments have unknown content revision even when the preserved plan is imported.
+type LegacyPlanInventory struct {
+	types.LegacyPlan
+	Comments          []*types.PlanComment `json:"comments"`
+	ImportedProjectID string               `json:"imported_project_id,omitempty"`
+}
+
+// LegacyPlanImport is a local operator request, never an HTTP path request.
+type LegacyPlanImport struct {
+	LegacyID   string `json:"legacy_id"`
+	ProjectID  string `json:"project_id"`
+	SourceFile string `json:"source_file"`
+	Content    string `json:"content"`
 }

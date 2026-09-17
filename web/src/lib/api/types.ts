@@ -665,6 +665,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plans/legacy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List preserved legacy metadata and unknown-revision discussion
+         * @description Unassigned legacy records have no project ownership. This bounded inventory never opens source paths. Imported status remains unverified provenance; imported_project_id identifies the durable owner when present.
+         */
+        get: operations["listLegacyPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plans": {
         parameters: {
             query?: never;
@@ -1476,6 +1496,12 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        LegacyPlanInventory: components["schemas"]["LegacyPlan"] & {
+            /** @description Durable project assignment after explicit import, absent while pending */
+            imported_project_id?: string;
+            /** @description Preserved legacy discussion; revision is null and original anchors do not prove reviewed bytes */
+            comments: components["schemas"]["PlanComment"][];
         };
         LegacyPlanWithContent: components["schemas"]["LegacyPlan"] & {
             content: string;
@@ -3053,6 +3079,31 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listLegacyPlans: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preserved legacy metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegacyPlanInventory"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             500: components["responses"]["InternalError"];
         };
     };

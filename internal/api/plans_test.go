@@ -651,3 +651,30 @@ func mutateReviewedAPIHistory(
 	require.Equal(t, 200, rec.Code, rec.Body.String())
 	return events[0]
 }
+
+func TestLegacyInventoryIsMetadataOnly(t *testing.T) {
+	s, cleanup := testServer(t)
+	defer cleanup()
+	ctx := t.Context()
+	legacy := &types.LegacyPlan{ID: "plan.inventory", FilePath: "/never/open/this/path.md", Status: "approved"}
+	require.NoError(t, s.store.CreatePlan(ctx, legacy))
+	comment := &types.PlanComment{ID: "comment.inventory", PlanID: legacy.ID, Content: "unknown revision\r\n"}
+	require.NoError(t, s.store.CreatePlanComment(ctx, comment))
+	rec := httptest.NewRecorder()
+	s.echo.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/plans/legacy?limit=1", nil))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var inventory []storage.LegacyPlanInventory
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &inventory))
+	require.Len(t, inventory, 1)
+	require.Equal(t, legacy.FilePath, inventory[0].FilePath)
+	require.Equal(t, "approved", inventory[0].Status)
+	require.Equal(t, comment.Content, inventory[0].Comments[0].Content)
+	require.Nil(t, inventory[0].Comments[0].Revision)
+	rec = httptest.NewRecorder()
+	s.echo.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/plans/legacy?limit=0", nil))
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	rec = httptest.NewRecorder()
+	s.echo.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/plans/legacy?offset=1", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.JSONEq(t, "[]", rec.Body.String())
+}

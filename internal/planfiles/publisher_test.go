@@ -60,7 +60,8 @@ func TestPublishRejectsInvalidInputBeforeCreatingDirectories(t *testing.T) {
 			require.Empty(t, blob)
 			entries, err := os.ReadDir(root)
 			require.NoError(t, err)
-			require.Empty(t, entries)
+			require.Len(t, entries, 1)
+			require.Equal(t, lockName, entries[0].Name())
 		})
 	}
 	for _, bad := range []string{"", ".", "..", "../escape", "/tmp/escape", "a/b", `a\b`, "a\x00b", "a b"} {
@@ -78,7 +79,8 @@ func TestPublishRejectsInvalidInputBeforeCreatingDirectories(t *testing.T) {
 			require.Empty(t, blob)
 			entries, err := os.ReadDir(root)
 			require.NoError(t, err)
-			require.Empty(t, entries)
+			require.Len(t, entries, 1)
+			require.Equal(t, lockName, entries[0].Name())
 		}
 	}
 }
@@ -263,7 +265,7 @@ func TestPublicationFailuresNeverReturnBlob(t *testing.T) {
 			require.Empty(t, blob)
 			require.NoError(t, filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 				require.NoError(t, err)
-				if !d.IsDir() {
+				if !d.IsDir() && d.Name() != lockName {
 					require.True(t, strings.HasSuffix(path, ".tmp") || strings.HasSuffix(path, ".md"))
 					require.Zero(t, d.Type()&os.ModeSymlink)
 				}

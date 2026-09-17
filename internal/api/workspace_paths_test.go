@@ -626,3 +626,7 @@ func TestResolveProject_SymlinkedRoot(t *testing.T) {
 		})
 	}
 }
+
+func (m *mockWPStore) ListLegacyPlans(context.Context, int, int) ([]storage.LegacyPlanInventory, error) {
+	panic("not implemented")
+}
