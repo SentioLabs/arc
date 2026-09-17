@@ -98,3 +98,81 @@ func TestCleanupRejectsSidecarAliasIntoRoot(t *testing.T) {
 		})
 	}
 }
+
+func TestCaseAliasedRootRejectsMetadata(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "PlanRoot")
+	require.NoError(t, os.Mkdir(root, 0o700))
+	alias := filepath.Join(filepath.Dir(root), "planroot")
+	requireCaseAlias(t, root, alias)
+	publisher, err := planfiles.New(alias)
+	require.NoError(t, err)
+	require.NoError(t, publisher.Close())
+	database := filepath.Join(root, "configured.db")
+	store, err := sqlite.New(database)
+	require.NoError(t, err)
+	defer store.Close()
+	project := &types.Project{ID: "keep", Name: "case alias metadata", Prefix: "safe"}
+	require.NoError(t, store.CreateProject(t.Context(), project))
+	before := snapshotRegularFiles(t, root)
+	for _, name := range []string{"configured.db", "configured.db-wal", "configured.db-shm"} {
+		cleanupErr := planmigration.Cleanup(t.Context(), database, alias, []string{name}, false)
+		_, statErr := os.Stat(filepath.Join(root, name))
+		t.Logf("selected=%s cleanup_error=%v file_present=%v", name, cleanupErr, statErr == nil)
+		require.ErrorContains(t, cleanupErr, "database and SQLite sidecars must be outside the plan root")
+		require.NoError(t, statErr)
+		require.Equal(t, before, snapshotRegularFiles(t, root))
+	}
+	reports, err := planmigration.Inspect(t.Context(), database, alias)
+	require.ErrorContains(t, err, "database and SQLite sidecars must be outside the plan root")
+	require.Empty(t, reports)
+	require.Equal(t, before, snapshotRegularFiles(t, root))
+	got, err := store.GetProject(t.Context(), project.ID)
+	require.NoError(t, err)
+	require.Equal(t, project.Name, got.Name)
+	require.NoError(t, store.Close())
+	reopened, err := sqlite.OpenPlanOperator(database, false)
+	require.NoError(t, err)
+	defer reopened.Close()
+	got, err = reopened.GetProject(t.Context(), project.ID)
+	require.NoError(t, err)
+	require.Equal(t, project.Name, got.Name)
+}
+
+func TestBackupRejectsCaseAliasedNestedDestination(t *testing.T) {
+	store, root, _ := fixture(t)
+	upper := filepath.Join(filepath.Dir(root), "PlanRoot")
+	require.NoError(t, os.Rename(root, upper))
+	alias := filepath.Join(filepath.Dir(root), "planroot")
+	requireCaseAlias(t, upper, alias)
+	nested := filepath.Join(upper, "new-backup")
+	maintenance, err := planfiles.OpenMaintenance(alias)
+	require.NoError(t, err)
+	// Assert the live containment check before invoking copy, so RED cannot recurse.
+	checkErr := maintenance.CheckDestination(nested)
+	require.NoError(t, maintenance.Close())
+	require.EqualError(t, checkErr, "backup destination must be outside the plan root")
+	_, err = planmigration.Backup(t.Context(), store.Path(), alias, nested)
+	require.EqualError(t, err, "backup destination must be outside the plan root")
+	_, err = os.Stat(nested)
+	require.ErrorIs(t, err, os.ErrNotExist)
+	// A similar-spelled sibling is physically separate and remains a valid backup.
+	sibling := filepath.Join(filepath.Dir(root), "PlanRootSibling")
+	_, err = planmigration.Backup(t.Context(), store.Path(), alias, sibling)
+	require.NoError(t, err)
+	require.NoError(t, planmigration.VerifyBackup(t.Context(), sibling))
+}
+
+func requireCaseAlias(t *testing.T, original, alias string) {
+	t.Helper()
+	originalInfo, err := os.Stat(original)
+	require.NoError(t, err)
+	aliasInfo, err := os.Stat(alias)
+	if os.IsNotExist(err) {
+		t.Skip("fixture filesystem does not resolve differently cased paths to one directory")
+	}
+	require.NoError(t, err)
+	if !os.SameFile(originalInfo, aliasInfo) {
+		t.Skip("fixture filesystem treats these case variants as distinct directories")
+	}
+	t.Logf("case-insensitive fixture proven by os.SameFile: %s == %s", original, alias)
+}

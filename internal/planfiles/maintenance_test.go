@@ -157,3 +157,32 @@ func TestMaintenanceCopyCancellationDoesNotCreateOutput(t *testing.T) {
 	_, err = os.Stat(destination)
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
+
+func TestMaintenanceCaseAliasedDestination(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "PlanRoot")
+	p, err := New(root)
+	require.NoError(t, err)
+	require.NoError(t, p.Close())
+	alias := filepath.Join(filepath.Dir(root), "planroot")
+	originalInfo, err := os.Stat(root)
+	require.NoError(t, err)
+	aliasInfo, err := os.Stat(alias)
+	if os.IsNotExist(err) {
+		t.Skip("fixture filesystem has no case-insensitive directory aliases")
+	}
+	require.NoError(t, err)
+	if !os.SameFile(originalInfo, aliasInfo) {
+		t.Skip("case variants are distinct on this fixture filesystem")
+	}
+	t.Log("case-insensitive directory identity confirmed")
+	maintenance, err := OpenMaintenance(alias)
+	require.NoError(t, err)
+	defer maintenance.Close()
+	nested := filepath.Join(root, "new-backup")
+	require.EqualError(t, maintenance.CheckDestination(nested), "backup destination must be outside the plan root")
+	require.EqualError(t, maintenance.CopyTo(t.Context(), nested), "backup destination must be outside the plan root")
+	_, err = os.Stat(nested)
+	require.ErrorIs(t, err, os.ErrNotExist)
+	sibling := filepath.Join(filepath.Dir(root), "PlanRootSibling")
+	require.NoError(t, maintenance.CopyTo(t.Context(), sibling))
+}

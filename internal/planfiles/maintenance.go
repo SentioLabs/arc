@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"syscall"
 )
 
@@ -237,17 +236,17 @@ func (m *Maintenance) CheckDestination(destination string) error {
 	if !filepath.IsAbs(destination) {
 		return errors.New("backup destination must be absolute")
 	}
-	// Resolve aliases in the output parent before checking source containment.
+	// Resolve aliases, then compare physical ancestors; case spelling is not identity.
 	parent, err := filepath.EvalSymlinks(filepath.Dir(destination))
 	if err != nil {
 		return err
 	}
 	target := filepath.Join(parent, filepath.Base(destination))
-	rel, err := filepath.Rel(m.path, target)
+	inside, err := PathWithinRoot(m.path, target)
 	if err != nil {
 		return err
 	}
-	if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
+	if inside {
 		return errors.New("backup destination must be outside the plan root")
 	}
 	return nil

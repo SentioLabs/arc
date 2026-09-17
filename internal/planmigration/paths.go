@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/sentiolabs/arc/internal/planfiles"
 )
 
 var errDatabaseRootOverlap = errors.New("database and SQLite sidecars must be outside the plan root")
@@ -59,14 +60,14 @@ func checkProtectedPath(root, path string) error {
 	return rejectPathInRoot(root, resolved)
 }
 
-// rejectPathInRoot compares complete path components, not string prefixes.
-// A root itself cannot be protected metadata either. Sibling names are safe.
+// rejectPathInRoot compares physical ancestor identities, not path spelling.
+// This also protects absent sidecars under a differently cased root alias.
 func rejectPathInRoot(root, path string) error {
-	relative, err := filepath.Rel(root, path)
+	inside, err := planfiles.PathWithinRoot(root, path)
 	if err != nil {
 		return err
 	}
-	if relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
+	if inside {
 		return fmt.Errorf("%w: %s", errDatabaseRootOverlap, path)
 	}
 	return nil
