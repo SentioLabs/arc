@@ -157,6 +157,12 @@ func (s *Store) MergeProjects(
 		return nil, fmt.Errorf("target project not found: %s", targetID)
 	}
 
+	// Check both ends of every incident ancestry edge before moving any source.
+	// Looking only at source children misses target/third-project descendants.
+	if err := mutation.guardMergeAncestry(ctx, targetID, sourceIDs); err != nil {
+		return nil, err
+	}
+
 	var totalIssues int64
 	var deletedSources []string
 
@@ -334,6 +340,33 @@ func (s *issueMutationTx) recordMerge(
 		); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// guardMergeAncestry rejects malformed cross-project hierarchy touching any
+// merge participant. Incoming edges can change effective governance even when
+// every source node is unlinked, and third-project descendants must not be moved
+// indirectly to a different external ancestor. Non-governing blockers are valid.
+func (s *issueMutationTx) guardMergeAncestry(ctx context.Context, targetID string, sourceIDs []string) error {
+	for _, projectID := range append([]string{targetID}, sourceIDs...) {
+		var childID, parentID string
+		err := s.tx.QueryRowContext(ctx, `
+ SELECT d.issue_id,d.depends_on_id
+ FROM dependencies d
+ JOIN issues child ON child.id=d.issue_id
+ JOIN issues parent ON parent.id=d.depends_on_id
+ WHERE d.type='parent-child' AND child.project_id<>parent.project_id
+ AND (child.project_id=? OR parent.project_id=?)
+ LIMIT 1`, projectID, projectID).Scan(&childID, &parentID)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("%w: cross-project parent-child edge %s -> %s",
+			storage.ErrGovernanceReconciliation, childID, parentID)
 	}
 	return nil
 }
