@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/sentiolabs/arc/internal/api"
+	"github.com/sentiolabs/arc/internal/config"
+	"github.com/sentiolabs/arc/internal/planfiles"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 )
 
@@ -23,8 +25,9 @@ const (
 
 // Config holds server configuration.
 type Config struct {
-	Address string // Server address (e.g., ":7432")
-	DBPath  string // Database path (empty for default)
+	Address  string // Server address (e.g., ":7432")
+	DBPath   string // Database path (empty for default)
+	PlansDir string // Server-owned Markdown root (empty for default)
 }
 
 // DefaultDataDir returns the default data directory (~/.arc).
@@ -56,6 +59,21 @@ func Run(cfg Config) error {
 		cfg.Address = ":7432"
 	}
 
+	// Resolve and verify content storage before opening the database or listener.
+	plansConfig := config.Default().Server
+	if cfg.PlansDir != "" {
+		plansConfig.PlansDir = cfg.PlansDir
+	}
+	plansDir, err := plansConfig.ResolvedPlansDir()
+	if err != nil {
+		return err
+	}
+	publisher, err := planfiles.New(plansDir)
+	if err != nil {
+		return fmt.Errorf("initialize plan files: %w", err)
+	}
+	defer publisher.Close()
+
 	// Initialize storage
 	store, err := sqlite.New(cfg.DBPath)
 	if err != nil {
@@ -65,8 +83,9 @@ func Run(cfg Config) error {
 
 	// Create API server
 	server := api.New(api.ServerOptions{
-		Address: cfg.Address,
-		Store:   store,
+		Address:   cfg.Address,
+		Store:     store,
+		PlanFiles: publisher,
 	})
 
 	// Start server in goroutine

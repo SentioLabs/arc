@@ -101,13 +101,19 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 		dbPath, _ = cmd.Flags().GetString("db")
 	}
 
+	plansDir, err := cfg.Server.ResolvedPlansDir()
+	if err != nil {
+		return err
+	}
+
 	addr := fmt.Sprintf(":%d", port)
 
 	if foreground {
 		// Run server directly (blocking)
 		return server.Run(server.Config{
-			Address: addr,
-			DBPath:  dbPath,
+			Address:  addr,
+			DBPath:   dbPath,
+			PlansDir: plansDir,
 		})
 	}
 

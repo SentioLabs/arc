@@ -2,6 +2,14 @@
 // Settings are stored in TOML format at ~/.arc/config.toml.
 package config
 
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
 // Config is the full arc configuration document.
 type Config struct {
 	CLI     CLIConfig     `toml:"cli"     json:"cli"`
@@ -17,8 +25,9 @@ type CLIConfig struct {
 
 // ServerConfig holds settings the arc server uses for its own runtime.
 type ServerConfig struct {
-	Port   int    `toml:"port"    json:"port"`
-	DBPath string `toml:"db_path" json:"db_path"`
+	Port     int    `toml:"port"    json:"port"`
+	DBPath   string `toml:"db_path" json:"db_path"`
+	PlansDir string `toml:"plans_dir" json:"plans_dir"`
 }
 
 // ResolvedDBPath returns DBPath with a leading ~ expanded to the user's home
@@ -27,6 +36,32 @@ type ServerConfig struct {
 // raw value (which may contain ~) should be stored as-is for portability.
 func (s ServerConfig) ResolvedDBPath() string {
 	return expandHome(s.DBPath)
+}
+
+// ResolvedPlansDir expands the server root at startup without changing the
+// stored TOML value. Client draft settings never participate in this resolution.
+func (s ServerConfig) ResolvedPlansDir() (string, error) {
+	path := s.PlansDir
+	if path == "" {
+		return "", errors.New("server.plans_dir must not be empty")
+	}
+	if path == "~" || strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve server.plans_dir: %w", err)
+		}
+		path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
+		if s.PlansDir == "~" {
+			path = home
+		}
+	} else if strings.HasPrefix(path, "~") {
+		return "", errors.New("server.plans_dir only supports current-user home expansion")
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve server.plans_dir: %w", err)
+	}
+	return absolute, nil
 }
 
 // UpdatesConfig holds update-channel settings for `arc self`.
@@ -47,7 +82,7 @@ const DefaultServerPort = 7432
 func Default() *Config {
 	return &Config{
 		CLI:     CLIConfig{Server: "http://localhost:7432"},
-		Server:  ServerConfig{Port: DefaultServerPort, DBPath: "~/.arc/data.db"},
+		Server:  ServerConfig{Port: DefaultServerPort, DBPath: "~/.arc/data.db", PlansDir: "~/.arc/plans"},
 		Updates: UpdatesConfig{Channel: "stable"},
 		Plans:   PlansConfig{Dir: "docs/plans", Type: PlansTypeMarkdown},
 	}
@@ -57,5 +92,5 @@ func Default() *Config {
 // running arc-server until the server restarts. Used by the API + web UI to
 // surface a "requires restart" warning.
 func RequiresRestart() []string {
-	return []string{"server.port", "server.db_path"}
+	return []string{"server.port", "server.db_path", "server.plans_dir"}
 }

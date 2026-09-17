@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/sentiolabs/arc/internal/planfiles"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHealthCheck(t *testing.T) {
@@ -41,4 +44,12 @@ func TestHealthCheck(t *testing.T) {
 	if health.WebUIURL != "" {
 		t.Errorf("webui_url = %q, want empty (port is 0 and webui not compiled)", health.WebUIURL)
 	}
+}
+
+func TestServerReceivesPlanPublisher(t *testing.T) {
+	publisher, err := planfiles.New(t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, publisher.Close()) })
+	s := New(ServerOptions{PlanFiles: publisher})
+	require.Same(t, publisher, s.planFiles)
 }

@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/sentiolabs/arc/internal/config"
@@ -31,7 +32,7 @@ func TestDefaultIsUsable(t *testing.T) {
 
 func TestRequiresRestartContainsServerKeys(t *testing.T) {
 	got := config.RequiresRestart()
-	want := map[string]bool{"server.port": true, "server.db_path": true}
+	want := map[string]bool{"server.port": true, "server.db_path": true, "server.plans_dir": true}
 	if len(got) != len(want) {
 		t.Fatalf("RequiresRestart() = %v, want keys %v", got, want)
 	}
@@ -55,5 +56,54 @@ func TestStoreSwap(t *testing.T) {
 	}
 	if got := s.Load(); got != b {
 		t.Fatalf("Load() after swap = %p, want %p", got, b)
+	}
+}
+
+func TestServerPlansRootIndependentAndRoundTrips(t *testing.T) {
+	cfg := config.Default()
+	if cfg.Server.PlansDir != "~/.arc/plans" {
+		t.Fatalf("server default = %q", cfg.Server.PlansDir)
+	}
+	cfg.Plans.Dir = "/unrelated/client/drafts"
+	cfg.Plans.Type = config.PlansTypeObsidian
+	if cfg.Server.PlansDir != "~/.arc/plans" {
+		t.Fatal("client plans changed server root")
+	}
+	cfg.Server.PlansDir = "/operator/content"
+	path := t.TempDir() + "/config.toml"
+	if err := config.Save(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Server.PlansDir != cfg.Server.PlansDir {
+		t.Fatalf("got %q", loaded.Server.PlansDir)
+	}
+}
+
+func TestResolvedServerPlansDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cfg := config.Default()
+	got, err := cfg.Server.ResolvedPlansDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != filepath.Join(home, ".arc", "plans") {
+		t.Fatalf("resolved root = %q", got)
+	}
+	if cfg.Server.PlansDir != "~/.arc/plans" {
+		t.Fatal("resolution mutated stored config")
+	}
+	cfg.Server.PlansDir = "relative-plans"
+	got, err = cfg.Server.ResolvedPlansDir()
+	if err != nil || !filepath.IsAbs(got) {
+		t.Fatalf("root = %q, error = %v", got, err)
+	}
+	cfg.Server.PlansDir = ""
+	if _, err := cfg.Server.ResolvedPlansDir(); err == nil {
+		t.Fatal("empty configured root must fail")
 	}
 }

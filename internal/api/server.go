@@ -15,6 +15,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/sentiolabs/arc/internal/planfiles"
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/sentiolabs/arc/internal/version"
@@ -25,14 +26,16 @@ import (
 type Server struct {
 	echo      *echo.Echo
 	store     storage.Storage
+	planFiles planfiles.Publisher
 	address   string
 	startTime time.Time
 }
 
 // ServerOptions holds the configuration needed to create a new API server.
 type ServerOptions struct {
-	Address string // e.g., ":7432" or "localhost:7432"
-	Store   storage.Storage
+	Address   string // e.g., ":7432" or "localhost:7432"
+	Store     storage.Storage
+	PlanFiles planfiles.Publisher
 }
 
 // New creates a new API server.
@@ -58,6 +61,7 @@ func New(cfg ServerOptions) *Server {
 	s := &Server{
 		echo:      e,
 		store:     cfg.Store,
+		planFiles: cfg.PlanFiles,
 		address:   cfg.Address,
 		startTime: time.Now(),
 	}
