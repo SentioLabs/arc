@@ -5,7 +5,6 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -367,52 +366,7 @@ func (c *Client) UpdateIssueByID(id string, updates map[string]any) (*types.Issu
 
 // CloseIssueByID closes an issue by its globally-unique ID without requiring project context.
 func (c *Client) CloseIssueByID(id, reason string, cascade bool) (*types.Issue, error) {
-	path := fmt.Sprintf("/api/v1/issues/%s/close", id)
-
-	body := map[string]any{"reason": reason, "cascade": cascade}
-	jsonBody, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("marshal body: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", c.baseURL+path, bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Actor", c.actor)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusConflict {
-		respBody, _ := io.ReadAll(resp.Body)
-		var conflictResp struct {
-			Error        string        `json:"error"`
-			Code         string        `json:"code"`
-			OpenChildren []types.Issue `json:"open_children"`
-		}
-		if json.Unmarshal(respBody, &conflictResp) == nil && conflictResp.Code == "open_children" {
-			return nil, &types.OpenChildrenError{
-				IssueID:  id,
-				Children: conflictResp.OpenChildren,
-			}
-		}
-		return nil, fmt.Errorf("%s", string(respBody))
-	}
-
-	if err := c.checkError(resp); err != nil {
-		return nil, err
-	}
-
-	var issue types.Issue
-	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return &issue, nil
+	return c.CloseIssueWithContext(id, reason, cascade, nil)
 }
 
 // AddDependencyByID adds a dependency between two issues by globally-unique IDs.
@@ -665,75 +619,6 @@ func (c *Client) RemoveDependency(projID, issueID, dependsOnID string) error {
 	}
 	defer resp.Body.Close()
 	return nil
-}
-
-// ErrPlanUpgrade marks removed global path-based operations. Keeping these
-// signatures lets older consumers compile while requiring explicit migration.
-var ErrPlanUpgrade = errors.New(
-	"upgrade the Arc CLI/server together: legacy path-based plans were removed; upload bytes" +
-		" using the project-scoped durable plan API; use archive instead of deletion",
-)
-
-// --- Legacy plan transport compatibility ---
-
-// CreatePlan registers an ephemeral plan backed by a filesystem markdown file.
-func (c *Client) CreatePlan(filePath string) (*types.LegacyPlan, error) {
-	return nil, ErrPlanUpgrade
-}
-
-// GetPlan retrieves a plan by ID, including file content.
-func (c *Client) GetPlan(planID string) (*types.LegacyPlanWithContent, error) {
-	return nil, ErrPlanUpgrade
-}
-
-// UpdatePlanContent writes new content to the plan's file.
-func (c *Client) UpdatePlanContent(planID string, content string) error {
-	return ErrPlanUpgrade
-}
-
-// UpdatePlanStatus updates the status of a plan.
-func (c *Client) UpdatePlanStatus(planID string, status string) error {
-	return ErrPlanUpgrade
-}
-
-// DeletePlan deletes a plan and its comments.
-func (c *Client) DeletePlan(planID string) error {
-	return ErrPlanUpgrade
-}
-
-// ListPlanComments returns all comments for a plan.
-func (c *Client) ListPlanComments(planID string) ([]*types.PlanComment, error) {
-	return nil, ErrPlanUpgrade
-}
-
-// CreatePlanComment adds a review comment to a plan.
-func (c *Client) CreatePlanComment(
-	planID string,
-	lineNumber *int,
-	content string,
-) (*types.PlanComment, error) {
-	return nil, ErrPlanUpgrade
-}
-
-// UpdatePlanCommentRequest is a partial update for a plan comment.
-// Nil fields are omitted from the request body (unchanged server-side).
-type UpdatePlanCommentRequest struct {
-	Content  *string                  `json:"content,omitempty"`
-	Anchor   *types.PlanCommentAnchor `json:"anchor,omitempty"`
-	Resolved *bool                    `json:"resolved,omitempty"`
-}
-
-// UpdatePlanComment applies a partial update to a plan review comment.
-func (c *Client) UpdatePlanComment(
-	planID, commentID string,
-	req UpdatePlanCommentRequest,
-) (*types.PlanComment, error) {
-	return nil, ErrPlanUpgrade
-}
-
-// DeletePlanComment removes a plan review comment.
-func (c *Client) DeletePlanComment(planID, commentID string) error {
-	return ErrPlanUpgrade
 }
 
 // Workspace types and methods manage directory paths associated with projects.
@@ -1087,12 +972,7 @@ func (c *Client) checkError(resp *http.Response) error {
 
 	body, _ := io.ReadAll(resp.Body)
 
-	var errResp struct {
-		Error string `json:"error"`
-	}
-	if json.Unmarshal(body, &errResp) == nil && errResp.Error != "" {
-		return fmt.Errorf("%s", errResp.Error)
-	}
-
-	return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+	apiErr := &APIError{StatusCode: resp.StatusCode, Body: append(json.RawMessage(nil), body...)}
+	_ = json.Unmarshal(body, apiErr)
+	return apiErr
 }

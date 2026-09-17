@@ -8,6 +8,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/api"
 	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/planfiles"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
 )
@@ -30,9 +31,15 @@ func testClientServer(t *testing.T) (*client.Client, func()) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
+	publisher, err := planfiles.New(filepath.Join(t.TempDir(), "server-plans"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = publisher.Close() })
 	server := api.New(api.ServerOptions{
-		Address: ":0",
-		Store:   store,
+		PlanFiles: publisher,
+		Address:   ":0",
+		Store:     store,
 	})
 
 	ts := httptest.NewServer(server.Echo())
@@ -341,30 +348,6 @@ func TestClientListIssuesParentFilter(t *testing.T) {
 	}
 	if len(allIssues) < 2 {
 		t.Errorf("expected at least 2 issues without parent filter, got %d", len(allIssues))
-	}
-}
-
-func TestClientLegacyPlansRequireUpgrade(t *testing.T) {
-	c, cleanup := testClientServer(t)
-	defer cleanup()
-	cases := []func() error{
-		func() error { _, err := c.CreatePlan("/unavailable/client.md"); return err },
-		func() error { _, err := c.GetPlan("plan.old"); return err },
-		func() error { return c.UpdatePlanContent("plan.old", "content") },
-		func() error { return c.UpdatePlanStatus("plan.old", "approved") },
-		func() error { return c.DeletePlan("plan.old") },
-		func() error { _, err := c.ListPlanComments("plan.old"); return err },
-		func() error { _, err := c.CreatePlanComment("plan.old", nil, "feedback"); return err },
-		func() error {
-			_, err := c.UpdatePlanComment("plan.old", "pc.old", client.UpdatePlanCommentRequest{})
-			return err
-		},
-		func() error { return c.DeletePlanComment("plan.old", "pc.old") },
-	}
-	for _, call := range cases {
-		if err := call(); !errors.Is(err, client.ErrPlanUpgrade) {
-			t.Fatalf("expected upgrade error: %v", err)
-		}
 	}
 }
 

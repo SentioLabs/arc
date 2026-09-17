@@ -971,6 +971,21 @@ var showCmd = &cobra.Command{
 			return nil
 		}
 
+		if err := printGoverningSources(c, details.ProjectID, details.ResolvedGovernance); err != nil {
+			return err
+		}
+		evidence, err := c.ListExecutionEvidence(details.ProjectID, details.ID, planPageLimit, 0)
+		if err != nil {
+			return err
+		}
+		for _, record := range evidence {
+			fmt.Printf(
+				"Evidence phase: %s (contract %d)\n",
+				record.Phase,
+				record.Expected.ContractVersion,
+			)
+			outputResult(record.Expected)
+		}
 		fmt.Printf("ID:       %s\n", details.ID)
 		fmt.Printf("Title:    %s\n", details.Title)
 		fmt.Printf("Status:   %s\n", details.Status)
@@ -1081,29 +1096,77 @@ var updateCmd = &cobra.Command{
 			return errors.New("no updates specified")
 		}
 
-		// Apply field updates first (if any)
+		contextPath, _ := cmd.Flags().GetString("context")
+		if contextPath != "" {
+			if updates["status"] != string(types.StatusClosed) {
+				return errors.New("--context requires --status closed")
+			}
+			expected, contextErr := readWorkContext(contextPath)
+			if contextErr != nil {
+				return contextErr
+			}
+			updates["expected"] = expected
+		}
+		contextOutput, _ := cmd.Flags().GetString("context-output")
+		starting := take || updates["status"] == string(types.StatusInProgress)
+		if contextOutput != "" && !starting {
+			return errors.New("--context-output requires --take or --status in_progress")
+		}
+		// Preserve the full transactional claim response even if labels change.
 		var issue *types.Issue
+		var claimed *types.IssueDetails
 		if len(updates) > 0 {
-			issue, err = c.UpdateIssueByID(args[0], updates)
+			claimed, err = c.UpdateIssueWithContext(args[0], updates)
 			if err != nil {
 				return err
+			}
+			issue = &claimed.Issue
+		}
+		if starting && claimed != nil {
+			captured, captureErr := captureWorkContext(claimed, contextOutput)
+			if captureErr != nil {
+				outputResult(captured)
+				return captureErr
+			}
+			if !outputJSON {
+				fmt.Println("Work context:")
+				outputResult(captured)
 			}
 		}
 
 		// Apply label additions
 		for _, lbl := range labelsAdd {
 			if labelErr := c.AddLabelToIssueByID(args[0], lbl); labelErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to add label %q: %v\n", lbl, labelErr)
+				_, _ = fmt.Fprintf(
+					os.Stderr,
+					"Warning: failed to add label %q: %v\n",
+					lbl,
+					labelErr,
+				)
 			}
 		}
 
 		// Apply label removals
 		for _, lbl := range labelsRemove {
 			if labelErr := c.RemoveLabelFromIssueByID(args[0], lbl); labelErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to remove label %q: %v\n", lbl, labelErr)
+				_, _ = fmt.Fprintf(
+					os.Stderr,
+					"Warning: failed to remove label %q: %v\n",
+					lbl,
+					labelErr,
+				)
 			}
 		}
 
+		if outputJSON && starting && claimed != nil {
+			outputResult(struct {
+				*types.IssueDetails
+				WorkContext types.ExpectedGovernance `json:"work_context"`
+			}{claimed, types.ExpectedGovernance{
+				ContractVersion: claimed.ContractVersion, Governing: claimed.ResolvedGovernance,
+			}})
+			return nil
+		}
 		if outputJSON {
 			// If labels were changed or issue is nil, re-fetch with details
 			if len(labelsAdd) > 0 || len(labelsRemove) > 0 || issue == nil {
@@ -1134,7 +1197,11 @@ func init() {
 	updateCmd.Flags().Bool("stdin", false, "Read description from stdin")
 	updateCmd.Flags().Bool("take", false,
 		"Take this issue (session: --session-id > ARC_SESSION_ID; status=in_progress)")
-	updateCmd.Flags().String("session-id", "", "Explicit AI session ID (requires --take; overrides ARC_SESSION_ID)")
+	updateCmd.Flags().
+		String("session-id", "", "Explicit AI session ID (requires --take; overrides ARC_SESSION_ID)")
+	updateCmd.Flags().String("context", "", "Original captured work context for --status closed")
+	updateCmd.Flags().
+		String("context-output", "", "Atomically capture post-claim work context (no overwrite)")
 	updateCmd.Flags().StringSlice("label-add", nil, "Label to add (repeatable)")
 	updateCmd.Flags().StringSlice("label-remove", nil, "Label to remove (repeatable)")
 }
@@ -1154,9 +1221,21 @@ var closeCmd = &cobra.Command{
 		reason, _ := cmd.Flags().GetString("reason")
 		cascade, _ := cmd.Flags().GetBool("cascade")
 
+		contextPath, _ := cmd.Flags().GetString("context")
+		var expected *types.ExpectedGovernance
+		if contextPath != "" {
+			if len(args) != 1 {
+				return errors.New("--context applies to exactly one issue")
+			}
+			expected, err = readWorkContext(contextPath)
+			if err != nil {
+				return err
+			}
+		}
+
 		failed := 0
 		for _, id := range args {
-			issue, err := c.CloseIssueByID(id, reason, cascade)
+			issue, err := c.CloseIssueWithContext(id, reason, cascade, expected)
 			if err != nil {
 				var openChildrenErr *types.OpenChildrenError
 				if errors.As(err, &openChildrenErr) {
@@ -1178,6 +1257,7 @@ var closeCmd = &cobra.Command{
 }
 
 func init() {
+	closeCmd.Flags().String("context", "", "Original captured work context")
 	closeCmd.Flags().StringP("reason", "r", "", "Close reason")
 	closeCmd.Flags().Bool("cascade", false, "Close all open child issues recursively")
 }
@@ -1472,19 +1552,23 @@ func formatBlockedIssue(id, issueType string, priority int, title string, labels
 		icon, id, priorityStr, issueType, labelStr, title, blockedByCount)
 }
 
-// formatPlanInfo returns a formatted string describing a plan.
-// Returns an empty string if the plan is nil.
-func formatPlanInfo(plan *types.LegacyPlan) string {
-	if plan == nil {
-		return ""
-	}
-	var sb strings.Builder
-	_, _ = fmt.Fprintf(&sb, "Plan [%s]:\n", plan.Status)
-	_, _ = fmt.Fprintf(&sb, "  %s\n", plan.FilePath)
-	if plan.Status == "draft" {
-		_, _ = sb.WriteString("  (pending review)\n")
-	}
-	return sb.String()
+// formatPlanInfo describes the pinned revision and retained lifecycle together.
+// The mutable head never replaces the revision actually governing this source.
+func formatPlanInfo(
+	plan *types.Plan,
+	revision *types.PlanRevisionWithContent,
+	source types.GoverningPlanContext,
+) string {
+	return fmt.Sprintf(
+		"Governing %s %s: %s (%s) revision %d, %s, %s\n",
+		source.ContainerType,
+		source.ContainerID,
+		plan.Title,
+		plan.ID,
+		revision.Revision,
+		revision.ReviewStatus,
+		plan.Lifecycle,
+	)
 }
 
 // formatPendingPlanNotice returns a notice string for pending plan reviews.

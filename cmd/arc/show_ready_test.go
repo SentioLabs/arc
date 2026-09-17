@@ -7,35 +7,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFormatPlanInfo_DraftStatus(t *testing.T) {
-	plan := &types.LegacyPlan{
-		FilePath: "plans/feature-x.md",
-		Status:   "draft",
+func TestFormatPlanInfoRetainsPinnedStatus(t *testing.T) {
+	plan := &types.Plan{ID: "plan.one", Title: "Architecture", HeadRevision: 9, Lifecycle: "archived"}
+	revision := &types.PlanRevisionWithContent{
+		PlanRevision: types.PlanRevision{Revision: 2, ReviewStatus: "approved"},
 	}
-
-	result := formatPlanInfo(plan)
-
-	assert.Contains(t, result, "Plan [draft]:")
-	assert.Contains(t, result, "  plans/feature-x.md")
-	assert.Contains(t, result, "  (pending review)")
-}
-
-func TestFormatPlanInfo_ApprovedStatus(t *testing.T) {
-	plan := &types.LegacyPlan{
-		FilePath: "plans/feature-x.md",
-		Status:   "approved",
+	source := types.GoverningPlanContext{ContainerID: "milestone", ContainerType: types.TypeMilestone}
+	result := formatPlanInfo(plan, revision, source)
+	for _, want := range []string{"Architecture", "plan.one", "revision 2", "approved", "archived", "milestone"} {
+		assert.Contains(t, result, want)
 	}
-
-	result := formatPlanInfo(plan)
-
-	assert.Contains(t, result, "Plan [approved]:")
-	assert.Contains(t, result, "  plans/feature-x.md")
-	assert.NotContains(t, result, "(pending review)")
-}
-
-func TestFormatPlanInfo_NilPlan(t *testing.T) {
-	result := formatPlanInfo(nil)
-	assert.Empty(t, result)
+	assert.NotContains(t, result, "revision 9")
 }
 
 func TestFormatPendingPlanNotice_WithPending(t *testing.T) {

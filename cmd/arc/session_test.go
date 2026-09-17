@@ -12,6 +12,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/api"
 	"github.com/sentiolabs/arc/internal/client"
+	"github.com/sentiolabs/arc/internal/planfiles"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
@@ -32,7 +33,12 @@ func setupSessionTest(t *testing.T) (*client.Client, string) {
 	store, err := sqlite.New(filepath.Join(workDir, "test.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
-	server := api.New(api.ServerOptions{Address: ":0", Store: store})
+	publisher, err := planfiles.New(filepath.Join(t.TempDir(), "server-plans"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = publisher.Close() })
+	server := api.New(api.ServerOptions{PlanFiles: publisher, Address: ":0", Store: store})
 	ts := httptest.NewServer(server.Echo())
 	t.Cleanup(ts.Close)
 	c := client.New(ts.URL)

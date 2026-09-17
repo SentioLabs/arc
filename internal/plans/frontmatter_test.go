@@ -139,7 +139,10 @@ func TestReadFrontmatterDashesBeforeExactCloser(t *testing.T) {
 	// Body must start at "----", NOT at "---\n" (which would mean the closer
 	// was missed and body contains the closing delimiter line).
 	if strings.HasPrefix(string(body), "---\n") {
-		t.Errorf("body starts with '---\\n' suggesting the real closer was not recognized; got: %q", body)
+		t.Errorf(
+			"body starts with '---\\n' suggesting the real closer was not recognized; got: %q",
+			body,
+		)
 	}
 }
 
@@ -190,7 +193,10 @@ func TestEnsureFrontmatterPreservesUnknownKeys(t *testing.T) {
 	}
 	meta := plans.Frontmatter{
 		Title: "T", Date: "2026-08-14", Project: "p", Status: "in_review",
-		Tags: []string{"arc", "design-spec"}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"},
+		Tags: []string{
+			"arc",
+			"design-spec",
+		}, ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.x"},
 	}
 	if err := plans.EnsureFrontmatter(path, meta); err != nil {
 		t.Fatal(err)
@@ -236,7 +242,11 @@ func TestEnsureFrontmatterNoExistingFrontmatter(t *testing.T) {
 	if err := os.WriteFile(path, []byte("# Just a body\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	meta := plans.Frontmatter{Title: "T", Status: "in_review", ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.9"}}
+	meta := plans.Frontmatter{
+		Title:     "T",
+		Status:    "in_review",
+		ArcReview: plans.ArcReview{Kind: "legacy", ID: "plan.9"},
+	}
 	if err := plans.EnsureFrontmatter(path, meta); err != nil {
 		t.Fatal(err)
 	}
@@ -512,6 +522,45 @@ func TestEnsureFrontmatterUnionsNonStringTags(t *testing.T) {
 	for tag, seen := range want {
 		if !seen {
 			t.Errorf("tag %q missing from union; got tags: %v", tag, fm.Tags)
+		}
+	}
+}
+
+func TestDurableFrontmatterIdentity(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "draft.md")
+	original := "---\ncustom: preserve\ntags: [mine]\narc_review:\n  note: keep\n---\n# content\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := plans.EnsureFrontmatter(
+		path,
+		plans.Frontmatter{
+			ArcReview: plans.ArcReview{
+				Kind:      "durable",
+				ID:        "plan.one",
+				ProjectID: "proj.one",
+				Revision:  3,
+				Server:    "https://arc.example",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"custom: preserve",
+		"mine",
+		"note: keep",
+		"revision: 3",
+		"server: https://arc.example",
+		"project_id: proj.one",
+	} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("missing %q in %s", want, b)
 		}
 	}
 }

@@ -42,42 +42,126 @@ func writePlanFile(t *testing.T, workDir, filename, content string) string {
 	return path
 }
 
-// T6 introduces durable CLI commands; this coordinated server upgrade rejects
-// every path-only command explicitly while durable API lifecycle coverage below
-// exercises retained bytes in the disposable Docker server.
-func TestLegacyPlanCommandsRequireUpgrade(t *testing.T) {
-	home, dir := setupPlanEnv(t, "plan-upgrade")
-	file := writePlanFile(t, dir, "legacy.md", "# local draft")
-	for _, args := range [][]string{
-		{"create", file},
-		{"show", "plan.old"},
-		{"approve", "plan.old"},
-		{"reject", "plan.old"},
-		{"comments", "plan.old"},
-		{"wait", "plan.old"},
-	} {
-		command := append([]string{"plan"}, args...)
-		command = append(command, "--server", serverURL)
-		out, err := arcCmdInDir(t, home, dir, command...)
-		if err == nil || !strings.Contains(strings.ToLower(out), "upgrade") {
-			t.Fatalf("%v: %v %s", args, err, out)
-		}
+// The CLI reads a source under the disposable client home; that directory is
+// unavailable inside the server container. Retained reads survive its removal.
+func TestDurablePlanCLITransition(t *testing.T) {
+	home, dir := setupPlanEnv(t, "durable-cli")
+	exact := "# local draft\r\n\nUnicode λ\n"
+	file := writePlanFile(t, dir, "durable.md", exact)
+	out := arcCmdInDirSuccess(
+		t,
+		home,
+		dir,
+		"plan",
+		"create",
+		file,
+		"--no-frontmatter",
+		"--json",
+		"--server",
+		serverURL,
+	)
+	var created storage.PlanWriteResult
+	if err := json.Unmarshal([]byte(out), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Revision.Content != exact || created.Revision.Revision != 1 {
+		t.Fatalf("upload changed bytes: %s", out)
+	}
+	if err := os.Remove(filepath.Join(dir, file)); err != nil {
+		t.Fatal(err)
+	}
+	out = arcCmdInDirSuccess(
+		t,
+		home,
+		dir,
+		"plan",
+		"show",
+		created.Plan.ID,
+		"--revision",
+		"1",
+		"--json",
+		"--server",
+		serverURL,
+	)
+	var shown struct {
+		Revision types.PlanRevisionWithContent `json:"revision"`
+	}
+	if err := json.Unmarshal([]byte(out), &shown); err != nil {
+		t.Fatal(err)
+	}
+	if shown.Revision.Content != exact {
+		t.Fatalf("retained bytes differ: %q", shown.Revision.Content)
+	}
+	destination := filepath.Join(dir, "export.md")
+	arcCmdInDirSuccess(
+		t,
+		home,
+		dir,
+		"plan",
+		"export",
+		created.Plan.ID,
+		"--revision",
+		"1",
+		"--output",
+		destination,
+		"--server",
+		serverURL,
+	)
+	exported, err := os.ReadFile(destination)
+	if err != nil || string(exported) != exact {
+		t.Fatalf("export differs: %q %v", exported, err)
+	}
+	if out, err := arcCmdInDir(t, home, dir, "plan", "export", created.Plan.ID, "--revision", "1", "--output", destination, "--server", serverURL); err == nil {
+		t.Fatalf("overwrite succeeded: %s", out)
+	}
+	for _, decision := range []struct{ name, version string }{{"submit", "0"}, {"approve", "1"}} {
+		arcCmdInDirSuccess(
+			t,
+			home,
+			dir,
+			"plan",
+			decision.name,
+			created.Plan.ID,
+			"--revision",
+			"1",
+			"--expected-head",
+			"1",
+			"--expected-review-version",
+			decision.version,
+			"--expected-feedback-version",
+			"0",
+			"--server",
+			serverURL,
+		)
+	}
+	out = arcCmdInDirSuccess(
+		t,
+		home,
+		dir,
+		"plan",
+		"wait",
+		created.Plan.ID,
+		"--revision",
+		"1",
+		"--json",
+		"--server",
+		serverURL,
+	)
+	if !strings.Contains(out, "approved") {
+		t.Fatalf("missing decision: %s", out)
 	}
 	for _, sub := range []string{"create", "show", "approve", "reject", "comments", "wait"} {
 		if _, err := arcCmd(t, home, "plan", sub, "--server", serverURL); err == nil {
 			t.Fatalf("%s accepted missing argument", sub)
 		}
 	}
-	out := arcCmdSuccess(t, home, "plan", "--help")
+	out = arcCmdSuccess(t, home, "plan", "--help")
 	for _, sub := range []string{"create", "show", "approve", "reject", "comments", "wait"} {
 		if !strings.Contains(out, sub) {
 			t.Errorf("missing %s help", sub)
 		}
 	}
-	content, err := os.ReadFile(filepath.Join(dir, file))
-	if err != nil || string(content) != "# local draft" {
-		t.Fatalf("upgrade changed local draft: %q %v", content, err)
-	}
+
 }
 
 func durableAPI(t *testing.T, method, path, key string, body any, want int) []byte {

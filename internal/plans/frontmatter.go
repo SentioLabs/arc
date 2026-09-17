@@ -6,14 +6,18 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type ArcReview struct {
-	Kind string `yaml:"kind"` // always "legacy" going forward
-	ID   string `yaml:"id"`
+	Kind      string `yaml:"kind"`
+	ID        string `yaml:"id"`
+	ProjectID string `yaml:"project_id,omitempty"`
+	Revision  int64  `yaml:"revision,omitempty"`
+	Server    string `yaml:"server,omitempty"`
 }
 
 type Frontmatter struct {
@@ -127,11 +131,20 @@ func EnsureFrontmatter(path string, meta Frontmatter) error {
 		return err
 	}
 
+	content, err := WithFrontmatter(raw, meta)
+	if err != nil {
+		return err
+	}
+	return atomicWrite(path, content)
+}
+
+// WithFrontmatter enriches exported bytes without changing retained server content.
+func WithFrontmatter(raw []byte, meta Frontmatter) ([]byte, error) {
 	body := raw
 	var doc yaml.Node
 	if fm, rest, ok := readRawFrontmatter(raw); ok {
 		if uerr := yaml.Unmarshal(fm, &doc); uerr != nil {
-			return uerr
+			return nil, uerr
 		}
 		body = rest
 	}
@@ -141,21 +154,22 @@ func EnsureFrontmatter(path string, meta Frontmatter) error {
 
 	y, err := yaml.Marshal(&doc)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var buf bytes.Buffer
 	_, _ = buf.Write(fmDelim)
 	_, _ = buf.Write(y)
 	_, _ = buf.WriteString("---\n")
 	_, _ = buf.Write(body)
-	return atomicWrite(path, buf.Bytes())
+	return buf.Bytes(), nil
 }
 
 // rootMappingNode returns the mapping node holding the frontmatter key/value
 // pairs, initializing doc into a well-formed DocumentNode wrapping an empty
 // mapping when the frontmatter was absent, empty, or not a mapping.
 func rootMappingNode(doc *yaml.Node) *yaml.Node {
-	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 && doc.Content[0].Kind == yaml.MappingNode {
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 &&
+		doc.Content[0].Kind == yaml.MappingNode {
 		return doc.Content[0]
 	}
 	root := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
@@ -213,10 +227,28 @@ func mergeFrontmatterNode(root *yaml.Node, meta Frontmatter) {
 		setMapEntry(root, "status", scalarNode(meta.Status))
 	}
 	if meta.ArcReview.Kind != "" || meta.ArcReview.ID != "" {
-		nested := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
-			scalarNode("kind"), scalarNode(meta.ArcReview.Kind),
-			scalarNode("id"), scalarNode(meta.ArcReview.ID),
-		}}
+		nested := findMapValue(root, "arc_review")
+		if nested == nil || nested.Kind != yaml.MappingNode {
+			nested = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		}
+		for _, entry := range []struct{ key, value string }{
+			{"kind", meta.ArcReview.Kind},
+			{"id", meta.ArcReview.ID},
+			{"project_id", meta.ArcReview.ProjectID},
+			{"server", meta.ArcReview.Server},
+		} {
+			if entry.value != "" {
+				setMapEntry(nested, entry.key, scalarNode(entry.value))
+			}
+		}
+		if meta.ArcReview.Revision > 0 {
+			revision := &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!int",
+				Value: strconv.FormatInt(meta.ArcReview.Revision, 10),
+			}
+			setMapEntry(nested, "revision", revision)
+		}
 		setMapEntry(root, "arc_review", nested)
 	}
 	setMapEntry(root, "tags", unionTagsNode(findMapValue(root, "tags"), meta.Tags))
