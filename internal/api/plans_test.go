@@ -433,17 +433,14 @@ func TestDurableAPICommentAnchorContract(t *testing.T) {
 	} {
 		for _, method := range []string{"POST", "PATCH"} {
 			target := comments
+			body := `{"content":"invalid","anchor":` + anchor + `}`
 			if method == "PATCH" {
 				target += "/" + original.ID
+				body = `{"content":"invalid","expected_version":1,"anchor":` + anchor + `}`
 			}
-			rec := planRequest(
-				s.echo,
-				method,
-				target,
-				`{"content":"invalid","expected_version":1,"anchor":`+anchor+`}`,
-				"",
-			)
+			rec := planRequest(s.echo, method, target, body, "")
 			require.Equal(t, 400, rec.Code, rec.Body.String())
+			require.Regexp(t, `invalid comment anchor|line_number must be positive`, rec.Body.String())
 		}
 	}
 	rec := planRequest(
