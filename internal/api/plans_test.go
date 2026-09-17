@@ -390,3 +390,267 @@ func TestDurableAPIZeroPreconditionsArePresentButInvalid(t *testing.T) {
 		}
 	}
 }
+
+// durableCommentFixture gives ownership tests two real parents and an anchored comment.
+func durableCommentFixture(
+	t *testing.T,
+	s *Server,
+) (path, other string, comment types.PlanComment) {
+	t.Helper()
+	project := createTestProject(t, s.echo)
+	base := "/api/v1/projects/" + project + "/plans"
+	paths := make([]string, 0, 2)
+	for _, key := range []string{"one", "two"} {
+		rec := planRequest(s.echo, "POST", base, `{"content":"design"}`, key)
+		require.Equal(t, 201, rec.Code, rec.Body.String())
+		var result storage.PlanWriteResult
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &result))
+		paths = append(paths, base+"/"+result.Plan.ID)
+	}
+	rec := planRequest(
+		s.echo,
+		"POST",
+		paths[0]+"/revisions/1/comments",
+		`{"content":"question","anchor":{"line_start":2,"line_end":4,"quoted_text":"quote",
+ "occurrence":1,"heading_slug":"heading","context_before":"before","context_after":"after"}}`,
+		"",
+	)
+	require.Equal(t, 201, rec.Code, rec.Body.String())
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &comment))
+	return paths[0], paths[1], comment
+}
+
+func TestDurableAPICommentAnchorContract(t *testing.T) {
+	s, cleanup := testServer(t)
+	defer cleanup()
+	path, _, original := durableCommentFixture(t, s)
+	comments := path + "/revisions/1/comments"
+	for _, anchor := range []string{
+		`{"line_start":0,"line_end":1,"quoted_text":"q","occurrence":0}`,
+		`{"line_start":1,"line_end":1,"quoted_text":"","occurrence":0}`,
+		`{"line_start":3,"line_end":2,"quoted_text":"q","occurrence":0}`,
+		`{"line_start":1,"line_end":1,"quoted_text":"q","occurrence":-1}`,
+	} {
+		for _, method := range []string{"POST", "PATCH"} {
+			target := comments
+			if method == "PATCH" {
+				target += "/" + original.ID
+			}
+			rec := planRequest(
+				s.echo,
+				method,
+				target,
+				`{"content":"invalid","expected_version":1,"anchor":`+anchor+`}`,
+				"",
+			)
+			require.Equal(t, 400, rec.Code, rec.Body.String())
+		}
+	}
+	rec := planRequest(
+		s.echo,
+		"PATCH",
+		comments+"/"+original.ID,
+		`{"expected_version":1,"content":"edited"}`,
+		"",
+	)
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	var edited types.PlanComment
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &edited))
+	require.Equal(t, original.Anchor, edited.Anchor)
+	require.Equal(t, original.LineNumber, edited.LineNumber)
+	require.Equal(t, original.CreatedAt, edited.CreatedAt)
+	require.Equal(t, "edited", edited.Content)
+	require.EqualValues(t, 2, edited.Version)
+	require.NotNil(t, edited.UpdatedAt)
+	rec = planRequest(
+		s.echo,
+		"PATCH",
+		comments+"/"+original.ID,
+		`{"expected_version":2,"anchor":{"line_start":7,"line_end":8,"quoted_text":"new quote","occurrence":0}}`,
+		"",
+	)
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	edited = types.PlanComment{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &edited))
+	require.Equal(
+		t,
+		&types.PlanCommentAnchor{LineStart: 7, LineEnd: 8, QuotedText: "new quote"},
+		edited.Anchor,
+	)
+	require.Equal(t, 7, *edited.LineNumber)
+	require.Equal(t, "edited", edited.Content)
+	require.EqualValues(t, 3, edited.Version)
+}
+
+func TestDurableAPICommentMutationOwnership(t *testing.T) {
+	s, cleanup := testServer(t)
+	defer cleanup()
+	path, other, original := durableCommentFixture(t, s)
+	rec := planRequest(
+		s.echo,
+		"POST",
+		path+"/revisions",
+		`{"expected_revision":1,"content":"second"}`,
+		"second",
+	)
+	require.Equal(t, 201, rec.Code, rec.Body.String())
+	for _, target := range []string{
+		other + "/revisions/1/comments/" + original.ID,
+		path + "/revisions/2/comments/" + original.ID,
+		path + "/revisions/99/comments/" + original.ID,
+		path + "/revisions/1/comments/missing",
+		path + "-missing/revisions/1/comments/" + original.ID,
+	} {
+		for _, method := range []string{"PATCH", "DELETE"} {
+			rec = planRequest(
+				s.echo,
+				method,
+				target,
+				`{"expected_version":1,"content":"intrusion"}`,
+				"",
+			)
+			require.Equal(t, 404, rec.Code, rec.Body.String())
+		}
+	}
+	rec = planRequest(s.echo, "GET", path+"/revisions/1/comments", "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	var retained []types.PlanComment
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &retained))
+	require.Equal(t, []types.PlanComment{original}, retained)
+}
+
+func TestDurableAPIHistoryReaders(t *testing.T) {
+	s, cleanup := testServer(t)
+	defer cleanup()
+	path, other, comment := durableCommentFixture(t, s)
+	rev := path + "/revisions/1"
+	rec := planRequest(
+		s.echo,
+		"POST",
+		rev+"/decisions",
+		`{"status":"in_review","expected_head":1,"expected_review_version":0,"expected_feedback_version":1}`,
+		"",
+	)
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	rec = planRequest(s.echo, "GET", rev+"/decisions", "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	var events []storage.PlanReviewEvent
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &events))
+	require.Len(t, events, 1)
+	require.Equal(t, "in_review", events[0].Status)
+	require.EqualValues(t, 1, events[0].ReviewVersion)
+	require.EqualValues(t, 1, events[0].FeedbackVersion)
+	require.Equal(t, "anonymous", events[0].Actor)
+	require.Empty(t, events[0].SessionID)
+	require.Empty(t, events[0].Dispositions)
+	require.False(t, events[0].CreatedAt.IsZero())
+	versions := rev + "/comments/" + comment.ID + "/versions"
+	rec = planRequest(s.echo, "GET", versions, "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	var snapshots []storage.PlanCommentVersion
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &snapshots))
+	require.Len(t, snapshots, 1)
+	require.Equal(t, comment, snapshots[0].Comment)
+
+	approval := mutateReviewedAPIHistory(t, s, path, comment.ID)
+	rec = planRequest(s.echo, "GET", rev+"/decisions?limit=1&offset=1", "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &events))
+	require.Equal(t, []storage.PlanReviewEvent{approval}, events)
+	rec = planRequest(s.echo, "GET", versions, "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &snapshots))
+	require.Len(t, snapshots, 4)
+	require.Equal(t, comment, snapshots[0].Comment)
+	require.Equal(t, "edited after approval", snapshots[1].Comment.Content)
+	require.EqualValues(t, 3, snapshots[2].Comment.Version)
+	require.NotNil(t, snapshots[3].Comment.DeletedAt)
+	rec = planRequest(s.echo, "GET", versions+"?limit=1&offset=1", "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	var page []storage.PlanCommentVersion
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &page))
+	require.Equal(t, snapshots[1:2], page)
+	for _, endpoint := range []string{rev + "/decisions", versions} {
+		rec = planRequest(s.echo, "GET", endpoint+"?limit=1&offset=200", "", "")
+		require.Equal(t, 200, rec.Code, rec.Body.String())
+		require.JSONEq(t, `[]`, rec.Body.String())
+		for _, query := range []string{"?limit=0", "?limit=201", "?offset=-1"} {
+			rec = planRequest(s.echo, "GET", endpoint+query, "", "")
+			require.Equal(t, 400, rec.Code, rec.Body.String())
+		}
+	}
+	for _, endpoint := range []string{
+		other + "/revisions/1/comments/" + comment.ID + "/versions",
+		rev + "/comments/missing/versions",
+		path + "/revisions/99/decisions",
+		path + "/revisions/2/comments/" + comment.ID + "/versions",
+		path + "/revisions/99/comments/" + comment.ID + "/versions",
+		strings.Replace(versions, "/projects/", "/projects/missing-", 1),
+		strings.Replace(rev+"/decisions", "/projects/", "/projects/missing-", 1),
+	} {
+		rec = planRequest(s.echo, "GET", endpoint, "", "")
+		require.Equal(t, 404, rec.Code, rec.Body.String())
+	}
+}
+
+// mutateReviewedAPIHistory changes every mutable surface after capturing approval.
+// Returning the original HTTP event protects the exact evidence from later changes.
+func mutateReviewedAPIHistory(
+	t *testing.T,
+	s *Server,
+	path, commentID string,
+) storage.PlanReviewEvent {
+	t.Helper()
+	rev := path + "/revisions/1"
+	rec := planRequest(
+		s.echo,
+		"POST",
+		rev+"/dispositions",
+		`{"comment_id":"`+commentID+`","expected_comment_version":1,
+ "expected_feedback_version":1,"disposition":"addressed","reason":"original answer"}`,
+		"",
+	)
+	require.Equal(t, 201, rec.Code, rec.Body.String())
+	var disposition types.PlanFeedbackDisposition
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &disposition))
+	rec = planRequest(
+		s.echo,
+		"POST",
+		rev+"/decisions",
+		`{"status":"approved","expected_head":1,"expected_review_version":1,"expected_feedback_version":2}`,
+		"",
+	)
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	rec = planRequest(s.echo, "GET", rev+"/decisions?limit=1&offset=1", "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	var events []storage.PlanReviewEvent
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &events))
+	require.Len(t, events, 1)
+	require.Equal(t, []*types.PlanFeedbackDisposition{&disposition}, events[0].Dispositions)
+	require.Equal(t, "approved", events[0].Status)
+	require.EqualValues(t, 2, events[0].ReviewVersion)
+	require.EqualValues(t, 2, events[0].FeedbackVersion)
+	for _, change := range []struct {
+		method, endpoint, body, key string
+		status                      int
+	}{
+		{"PATCH", rev + "/comments/" + commentID, `{"expected_version":1,"content":"edited after approval"}`, "", 200},
+		{"PATCH", rev + "/comments/" + commentID, `{"expected_version":2,"reopen":true}`, "", 200},
+		{"POST", path + "/revisions", `{"expected_revision":1,"content":"second revision"}`, "second", 201},
+		{"DELETE", rev + "/comments/" + commentID, `{"expected_version":3}`, "", 200},
+	} {
+		rec = planRequest(s.echo, change.method, change.endpoint, change.body, change.key)
+		require.Equal(t, change.status, rec.Code, rec.Body.String())
+	}
+	rec = planRequest(s.echo, "GET", path, "", "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	var plan types.Plan
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &plan))
+	body, err := json.Marshal(
+		storage.PlanMetadataUpdate{ExpectedVersion: plan.Version, Lifecycle: "archived"},
+	)
+	require.NoError(t, err)
+	rec = planRequest(s.echo, "PATCH", path, string(body), "")
+	require.Equal(t, 200, rec.Code, rec.Body.String())
+	return events[0]
+}

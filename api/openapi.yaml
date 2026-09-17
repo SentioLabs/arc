@@ -1876,7 +1876,99 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId}/versions:
+    parameters:
+    - name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: planId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: revision
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    - name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+    get:
+      operationId: listPlanCommentVersions
+      tags:
+      - plans
+      summary: List exact retained comment versions and anchors
+      description: Available after edits, reopening, tombstoning, later plan revisions and archive. The revision must
+        match the comment original revision.
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Immutable evidence in ascending version order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanCommentVersion'
+        '400':
+          description: Invalid revision or pagination.
+        '404':
+          description: Unknown artifact or mismatched project, plan, revision, or comment ownership.
   /projects/{projectId}/plans/{planId}/revisions/{revision}/decisions:
+    get:
+      operationId: listPlanReviewEvents
+      tags:
+      - plans
+      summary: List immutable review decisions for an exact revision
+      description: Available after later revisions and archive. Each event expands its originally stored disposition
+        IDs, preserving the exact comment versions and reasons used in that decision.
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Immutable evidence in ascending version order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanReviewEvent'
+        '400':
+          description: Invalid revision or pagination.
+        '404':
+          description: Unknown artifact or mismatched project, plan, revision, or comment ownership.
     parameters:
     - name: projectId
       in: path
@@ -3276,6 +3368,73 @@ components:
         context_after:
           type: string
           description: Up to 64 rendered chars immediately after the selection
+    PlanReviewEvent:
+      type: object
+      required:
+      - id
+      - plan_id
+      - revision
+      - status
+      - review_version
+      - feedback_version
+      - dispositions
+      - created_at
+      - actor
+      - session_id
+      properties:
+        id:
+          type: string
+        plan_id:
+          type: string
+        revision:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - in_review
+          - approved
+          - rejected
+          - changes_requested
+        review_version:
+          type: integer
+          format: int64
+        feedback_version:
+          type: integer
+          format: int64
+        dispositions:
+          type: array
+          description: Exact immutable dispositions referenced by this decision, in retained order.
+          items:
+            $ref: '#/components/schemas/PlanFeedbackDisposition'
+        created_at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+          description: Caller-supplied attribution, not authenticated identity; empty when unavailable.
+        session_id:
+          type: string
+          description: Caller-supplied attribution, not authenticated identity; empty when unavailable.
+    PlanCommentVersion:
+      type: object
+      required:
+      - comment
+      - created_at
+      - actor
+      - session_id
+      properties:
+        comment:
+          $ref: '#/components/schemas/PlanComment'
+        created_at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+          description: Caller-supplied attribution, not authenticated identity; empty when unavailable.
+        session_id:
+          type: string
+          description: Caller-supplied attribution, not authenticated identity; empty when unavailable.
     PlanComment:
       type: object
       required:

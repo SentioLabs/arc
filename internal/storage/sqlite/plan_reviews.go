@@ -576,6 +576,161 @@ func (s *Store) ListPlanDispositions(
 		return nil, err
 	}
 	defer rows.Close()
+	return scanPlanDispositions(rows)
+}
+
+// validReviewTransition keeps terminal decisions immutable and requires submission
+// before any decision. A changes-requested revision can be resubmitted unchanged.
+func validReviewTransition(from, to string) bool {
+	switch from {
+	case types.PlanStatusDraft, types.PlanStatusChangesRequested:
+		return to == types.PlanStatusInReview
+	case types.PlanStatusInReview:
+		return to == types.PlanStatusApproved || to == types.PlanStatusRejected ||
+			to == types.PlanStatusChangesRequested
+	default:
+		return false
+	}
+}
+
+// retainedReviewEvent holds the original ID set while the event cursor is open.
+// Disposition reads happen after that cursor closes to respect the single pool connection.
+type retainedReviewEvent struct {
+	event          *storage.PlanReviewEvent
+	dispositionIDs string
+}
+
+// ListPlanReviewEvents exposes exact historical decisions for one retained revision.
+// It deliberately ignores current head/lifecycle and current feedback obligations.
+// Paging selects events before expanding the disposition set captured at decision time.
+//
+//revive:disable-next-line:argument-limit // Explicit project, plan, revision and pagination scope.
+func (s *Store) ListPlanReviewEvents(
+	ctx context.Context, projectID, id string, revision int64, limit, offset int,
+) ([]*storage.PlanReviewEvent, error) {
+	if err := checkPage(limit, offset); err != nil {
+		return nil, err
+	}
+	if _, err := s.GetDurablePlan(ctx, projectID, id); err != nil {
+		return nil, err
+	}
+	if _, err := getRevision(ctx, s.queries, id, revision); err != nil {
+		return nil, err
+	}
+	records, err := s.readPlanReviewEvents(ctx, id, revision, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*storage.PlanReviewEvent, 0, len(records))
+	for _, record := range records {
+		// Resolve immutable IDs, never infer the approved set from today's comments.
+		dispositions, err := s.readReviewEventDispositions(ctx, id, record.dispositionIDs)
+		if err != nil {
+			return nil, err
+		}
+		record.event.Dispositions = dispositions
+		result = append(result, record.event)
+	}
+	return result, nil
+}
+
+// readPlanReviewEvents collects rows and closes them before dependent queries.
+// Public callers establish ownership and revision existence before this read.
+func (s *Store) readPlanReviewEvents(
+	ctx context.Context, id string, revision int64, limit, offset int,
+) ([]retainedReviewEvent, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id,plan_id,revision,status,review_version,
+ feedback_version,disposition_ids,created_at,actor,session_id FROM plan_review_events
+ WHERE plan_id=? AND revision=? ORDER BY review_version,id LIMIT ? OFFSET ?`, id, revision, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []retainedReviewEvent{}
+	for rows.Next() {
+		var event storage.PlanReviewEvent
+		var ids string
+		if err := rows.Scan(&event.ID, &event.PlanID, &event.Revision, &event.Status, &event.ReviewVersion,
+			&event.FeedbackVersion, &ids, &event.CreatedAt, &event.Actor, &event.SessionID); err != nil {
+			return nil, err
+		}
+		result = append(result, retainedReviewEvent{event: &event, dispositionIDs: ids})
+	}
+	return result, rows.Err()
+}
+
+// readReviewEventDispositions uses the append-only ID array stored with the event.
+// Ordering follows that array, including addressed dispositions from prior revisions.
+func (s *Store) readReviewEventDispositions(
+	ctx context.Context, id, encodedIDs string,
+) ([]*types.PlanFeedbackDisposition, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT d.id,d.plan_id,d.target_revision,d.comment_id,
+ d.comment_version,d.disposition,d.reason,d.created_at FROM json_each(?) selected
+ JOIN plan_dispositions d ON d.id=selected.value AND d.plan_id=?
+ ORDER BY CAST(selected.key AS INTEGER)`, encodedIDs, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPlanDispositions(rows)
+}
+
+// ListPlanCommentVersions returns original snapshots, including pre-edit anchors.
+// A comment must belong to both the requested plan and the exact requested revision.
+// Archive and tombstones preserve this read path; neither rewrites event snapshots.
+//
+//revive:disable-next-line:argument-limit // Explicit project, plan, revision, comment and pagination scope.
+func (s *Store) ListPlanCommentVersions(
+	ctx context.Context, projectID, id string, revision int64, commentID string, limit, offset int,
+) ([]*storage.PlanCommentVersion, error) {
+	if err := checkPage(limit, offset); err != nil {
+		return nil, err
+	}
+	if _, err := s.GetDurablePlan(ctx, projectID, id); err != nil {
+		return nil, err
+	}
+	if _, err := getRevision(ctx, s.queries, id, revision); err != nil {
+		return nil, err
+	}
+	var found string
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM plan_comments
+ WHERE id=? AND plan_id=? AND revision=?`, commentID, id, revision).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, storage.ErrPlanNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT body,created_at,actor,session_id FROM plan_comment_events
+ WHERE comment_id=? ORDER BY version LIMIT ? OFFSET ?`,
+		commentID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := []*storage.PlanCommentVersion{}
+	for rows.Next() {
+		var version storage.PlanCommentVersion
+		var body string
+		if err := rows.Scan(&body, &version.CreatedAt, &version.Actor, &version.SessionID); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(body), &version.Comment); err != nil {
+			return nil, err
+		}
+		result = append(result, &version)
+	}
+	return result, rows.Err()
+}
+
+// scanPlanDispositions shares the immutable disposition mapping across history readers.
+// The caller owns closing its row cursor.
+func scanPlanDispositions(rows *sql.Rows) ([]*types.PlanFeedbackDisposition, error) {
 	result := []*types.PlanFeedbackDisposition{}
 	for rows.Next() {
 		var d types.PlanFeedbackDisposition
@@ -594,18 +749,4 @@ func (s *Store) ListPlanDispositions(
 		result = append(result, &d)
 	}
 	return result, rows.Err()
-}
-
-// validReviewTransition keeps terminal decisions immutable and requires submission
-// before any decision. A changes-requested revision can be resubmitted unchanged.
-func validReviewTransition(from, to string) bool {
-	switch from {
-	case types.PlanStatusDraft, types.PlanStatusChangesRequested:
-		return to == types.PlanStatusInReview
-	case types.PlanStatusInReview:
-		return to == types.PlanStatusApproved || to == types.PlanStatusRejected ||
-			to == types.PlanStatusChangesRequested
-	default:
-		return false
-	}
 }

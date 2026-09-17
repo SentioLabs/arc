@@ -4,6 +4,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/sentiolabs/arc/internal/types"
 )
@@ -167,10 +168,51 @@ type PlanDispositionRequest struct {
 	Reason                  string `json:"reason"`
 }
 
+// PlanReviewEvent exposes immutable decision evidence, including the exact
+// dispositions retained by that event rather than the current feedback state.
+type PlanReviewEvent struct {
+	ID              string                           `json:"id"`
+	PlanID          string                           `json:"plan_id"`
+	Revision        int64                            `json:"revision"`
+	Status          string                           `json:"status"`
+	ReviewVersion   int64                            `json:"review_version"`
+	FeedbackVersion int64                            `json:"feedback_version"`
+	Dispositions    []*types.PlanFeedbackDisposition `json:"dispositions"`
+	CreatedAt       time.Time                        `json:"created_at"`
+	Actor           string                           `json:"actor"`
+	SessionID       string                           `json:"session_id"`
+}
+
+// PlanCommentVersion exposes an original comment snapshot with event attribution.
+// Its nested comment preserves the public anchor and unknown-revision contracts.
+type PlanCommentVersion struct {
+	Comment   types.PlanComment `json:"comment"`
+	CreatedAt time.Time         `json:"created_at"`
+	Actor     string            `json:"actor"`
+	SessionID string            `json:"session_id"`
+}
+
 // DurablePlans is the project-scoped service contract for retained plan history.
 //
 //nolint:interfacebloat // One transactional plan service shared by API and storage consumers.
 type DurablePlans interface {
+	ListPlanReviewEvents(
+		context.Context,
+		string,
+		string,
+		int64,
+		int,
+		int,
+	) ([]*PlanReviewEvent, error)
+	ListPlanCommentVersions(
+		context.Context,
+		string,
+		string,
+		int64,
+		string,
+		int,
+		int,
+	) ([]*PlanCommentVersion, error)
 	CreateDurablePlan(context.Context, string, string, PlanUpload) (*PlanWriteResult, error)
 	SavePlanRevision(context.Context, string, string, string, PlanSave) (*PlanWriteResult, error)
 	GetDurablePlan(context.Context, string, string) (*types.Plan, error)

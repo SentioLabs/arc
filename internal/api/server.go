@@ -152,6 +152,8 @@ func (s *Server) registerRoutes() {
 	plans.POST("/:planId/revisions", s.savePlanRevision)
 	plans.GET("/:planId/revisions/:revision", s.readPlanRevision)
 	plans.POST("/:planId/revisions/:revision/decisions", s.decidePlanRevision)
+	plans.GET("/:planId/revisions/:revision/decisions", s.listPlanReviewEvents)
+	plans.GET("/:planId/revisions/:revision/comments/:commentId/versions", s.listPlanCommentVersions)
 	plans.GET("/:planId/revisions/:revision/comments", s.listRevisionComments)
 	plans.POST("/:planId/revisions/:revision/comments", s.createRevisionComment)
 	plans.PATCH("/:planId/revisions/:revision/comments/:commentId", s.updateRevisionComment)

@@ -882,6 +882,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/plans/{planId}/revisions/{revision}/comments/{commentId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * List exact retained comment versions and anchors
+         * @description Available after edits, reopening, tombstoning, later plan revisions and archive. The revision must match the comment original revision.
+         */
+        get: operations["listPlanCommentVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/plans/{planId}/revisions/{revision}/decisions": {
         parameters: {
             query?: never;
@@ -893,7 +918,11 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List immutable review decisions for an exact revision
+         * @description Available after later revisions and archive. Each event expands its originally stored disposition IDs, preserving the exact comment versions and reasons used in that decision.
+         */
+        get: operations["listPlanReviewEvents"];
         put?: never;
         /** Submit or decide current head with review and feedback preconditions */
         post: operations["decidePlanRevision"];
@@ -1363,6 +1392,35 @@ export interface components {
             context_before?: string;
             /** @description Up to 64 rendered chars immediately after the selection */
             context_after?: string;
+        };
+        PlanReviewEvent: {
+            id: string;
+            plan_id: string;
+            /** Format: int64 */
+            revision: number;
+            /** @enum {string} */
+            status: "in_review" | "approved" | "rejected" | "changes_requested";
+            /** Format: int64 */
+            review_version: number;
+            /** Format: int64 */
+            feedback_version: number;
+            /** @description Exact immutable dispositions referenced by this decision, in retained order. */
+            dispositions: components["schemas"]["PlanFeedbackDisposition"][];
+            /** Format: date-time */
+            created_at: string;
+            /** @description Caller-supplied attribution, not authenticated identity; empty when unavailable. */
+            actor: string;
+            /** @description Caller-supplied attribution, not authenticated identity; empty when unavailable. */
+            session_id: string;
+        };
+        PlanCommentVersion: {
+            comment: components["schemas"]["PlanComment"];
+            /** Format: date-time */
+            created_at: string;
+            /** @description Caller-supplied attribution, not authenticated identity; empty when unavailable. */
+            actor: string;
+            /** @description Caller-supplied attribution, not authenticated identity; empty when unavailable. */
+            session_id: string;
         };
         PlanComment: {
             id: string;
@@ -3659,6 +3717,89 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Error"];
                 };
+            };
+        };
+    };
+    listPlanCommentVersions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+                commentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Immutable evidence in ascending version order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCommentVersion"][];
+                };
+            };
+            /** @description Invalid revision or pagination. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown artifact or mismatched project, plan, revision, or comment ownership. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPlanReviewEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+                planId: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Immutable evidence in ascending version order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanReviewEvent"][];
+                };
+            };
+            /** @description Invalid revision or pagination. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown artifact or mismatched project, plan, revision, or comment ownership. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -479,3 +479,54 @@ func planJSONUnicodeEscape(body []byte, offset int) (int, bool) {
 	low, err := strconv.ParseUint(string(body[last+3:last+7]), 16, 16)
 	return last + escapedUnitBytes, err == nil && low >= 0xdc00 && low <= 0xdfff
 }
+
+// listPlanReviewEvents reads the immutable decisions for one owned revision.
+// Archived plans retain the same evidence and pagination contract.
+func (s *Server) listPlanReviewEvents(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	limit, offset, err := planPage(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	result, err := s.store.ListPlanReviewEvents(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return successJSON(c, result)
+}
+
+// listPlanCommentVersions exposes exact snapshots without replacing old anchors.
+// Ownership includes the comment's original revision, including after tombstoning.
+func (s *Server) listPlanCommentVersions(c echo.Context) error {
+	revision, err := planRevisionParam(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	limit, offset, err := planPage(c)
+	if err != nil {
+		return planError(c, err)
+	}
+	result, err := s.store.ListPlanCommentVersions(
+		c.Request().Context(),
+		c.Param("projectId"),
+		c.Param("planId"),
+		revision,
+		c.Param("commentId"),
+		limit,
+		offset,
+	)
+	if err != nil {
+		return planError(c, err)
+	}
+	return successJSON(c, result)
+}
