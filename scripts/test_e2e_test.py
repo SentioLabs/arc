@@ -1,6 +1,8 @@
 """Lifecycle contract tests; real Docker isolation is tested by `isolation`."""
 import importlib.util
 import pathlib
+import json
+import os
 import subprocess
 import tempfile
 import sys
@@ -86,6 +88,82 @@ class LifecycleTests(unittest.TestCase):
             self.assertIn((first, down), calls)
             self.assertIn((second, down), calls)
             self.assertEqual((second / 'server.log').read_text(), 'second stack log')
+
+    def test_failed_build_and_browser_diagnostics_survive_owned_cleanup(self):
+        for mode, failure_code in [('start', 73), ('playwright', 79)]:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temp:
+                root = pathlib.Path(temp)
+                run = harness.new_run(root)
+                (run / 'url').write_text('http://127.0.0.1:32100')
+                calls = root / 'calls.jsonl'
+                program = f'''#!{sys.executable}
+import json, sys
+with open({str(calls)!r}, 'a') as output:
+    output.write(json.dumps(sys.argv[1:]) + '\\n')
+if 'up' in sys.argv or 'test' in sys.argv:
+    print('INJECTED_COMMAND_FAILURE', file=sys.stderr, flush=True)
+    sys.exit(73 if 'up' in sys.argv else 79)
+'''
+                for name in ['docker', 'bun']:
+                    command = root / name
+                    command.write_text(program)
+                    command.chmod(0o755)
+                with patch.dict(os.environ, {'PATH': str(root) + os.pathsep + os.environ['PATH']}), \
+                     patch.object(harness, 'new_run', return_value=run):
+                    if mode == 'start':
+                        with self.assertRaises(subprocess.CalledProcessError) as failure:
+                            harness.main([mode])
+                    else:
+                        with patch.object(harness, 'start'), \
+                             self.assertRaises(subprocess.CalledProcessError) as failure:
+                            harness.main([mode])
+                self.assertEqual(failure.exception.returncode, failure_code)
+                commands = [json.loads(line) for line in calls.read_text().splitlines()]
+                docker_calls = [args for args in commands if 'compose' in args]
+                self.assertIn('down', docker_calls[-1])
+                for args in docker_calls:
+                    self.assertEqual(args[args.index('--project-name') + 1], harness.identity(run))
+                self.assertIn('INJECTED_COMMAND_FAILURE', (run / 'commands.log').read_text())
+
+    def test_captured_discovery_stdout_excludes_retained_stderr(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run = harness.new_run(pathlib.Path(temp))
+            result = harness.run_logged(run, [sys.executable, '-c',
+                "import sys; print('127.0.0.1:32100'); print('diagnostic', file=sys.stderr)"],
+                capture_output=True)
+            self.assertEqual(result.stdout, '127.0.0.1:32100\n')
+            self.assertEqual(result.stderr, 'diagnostic\n')
+            self.assertIn('diagnostic', (run / 'commands.log').read_text())
+
+    def test_progress_is_displayed_before_command_completes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run = harness.new_run(pathlib.Path(temp))
+            acknowledged = run / 'progress-acknowledged'
+            program = f'''import pathlib, time, sys
+print('BUILD_PROGRESS', flush=True)
+marker = pathlib.Path({str(acknowledged)!r})
+deadline = time.monotonic() + 3
+while not marker.exists() and time.monotonic() < deadline:
+    time.sleep(0.01)
+sys.exit(0 if marker.exists() else 1)
+'''
+            def progress(line, **kwargs):
+                if line == 'BUILD_PROGRESS\n':
+                    acknowledged.write_text('displayed while command was running')
+
+            with patch('builtins.print', side_effect=progress):
+                harness.run_logged(run, [sys.executable, '-c', program])
+            self.assertTrue(acknowledged.exists())
+
+    def test_log_write_failure_does_not_prevent_command_execution(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run = harness.new_run(pathlib.Path(temp))
+            (run / 'commands.log').mkdir()
+            executed = run / 'command-executed'
+            with self.assertRaises(IsADirectoryError):
+                harness.run_logged(run, [sys.executable, '-c',
+                    f"from pathlib import Path; Path({str(executed)!r}).touch()"])
+            self.assertTrue(executed.exists())
 
     def test_repeated_stop_preserves_failure_logs(self):
         with tempfile.TemporaryDirectory() as temp:

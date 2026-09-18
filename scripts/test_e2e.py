@@ -33,12 +33,40 @@ def identity(state):
     return project
 
 
+def run_logged(state, command, capture_output=False, **kwargs):
+    output = []
+    try:
+        if capture_output:
+            # Discovery needs clean stdout, separate from Docker's diagnostics.
+            result = subprocess.run(command, capture_output=True, text=True, **kwargs)
+            output.extend([result.stdout, result.stderr])
+        else:
+            with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  text=True, **kwargs) as process:
+                try:
+                    for line in process.stdout:
+                        output.append(line)
+                        print(line, end='', flush=True)
+                    result = subprocess.CompletedProcess(command, process.wait())
+                except BaseException:
+                    process.kill()
+                    process.wait()
+                    raise
+    finally:
+        # Run the command before writing logs: a log write failure must never
+        # prevent a teardown command from attempting to remove owned resources.
+        with (state / 'commands.log').open('a') as log:
+            log.write(json.dumps(command) + '\n')
+            log.writelines(output)
+    result.check_returncode()
+    return result
+
+
 def compose(state, *args, **kwargs):
     project = identity(state)
-    return subprocess.run(
+    return run_logged(state,
         ['docker', 'compose', '-f', str(COMPOSE), '--project-name', project,
-         '--profile', 'integration', '--profile', 'playwright', *args],
-        check=True, text=True, **kwargs)
+         '--profile', 'integration', '--profile', 'playwright', *args], **kwargs)
 
 
 def stop(state):
@@ -76,9 +104,9 @@ def browser_tests(state):
     base = (state / 'url').read_text()
     env = dict(os.environ, ARC_TEST_BASE_URL=base,
                PLAYWRIGHT_HTML_OUTPUT_DIR=str(state / 'playwright-report'))
-    subprocess.run(['bun', 'x', 'playwright', 'install', 'chromium'], cwd=ROOT / 'web', env=env, check=True)
-    subprocess.run(['bun', 'x', 'playwright', 'test', '--config', 'playwright.e2e.config.ts',
-                    '--output', str(state / 'test-results')], cwd=ROOT / 'web', env=env, check=True)
+    run_logged(state, ['bun', 'x', 'playwright', 'install', 'chromium'], cwd=ROOT / 'web', env=env)
+    run_logged(state, ['bun', 'x', 'playwright', 'test', '--config', 'playwright.e2e.config.ts',
+                    '--output', str(state / 'test-results')], cwd=ROOT / 'web', env=env)
 
 
 def request(base, path, body=None):
