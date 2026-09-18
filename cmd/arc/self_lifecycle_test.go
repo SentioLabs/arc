@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/sentiolabs/selfupdate-go"
 	"github.com/stretchr/testify/assert"
@@ -93,6 +94,41 @@ func TestUpdateLifecycle(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) { runLifecycleScenario(t, scenario) })
 	}
+}
+
+func TestUpdateLifecycleCancellationDuringStop(t *testing.T) {
+	var events []string
+	running := true
+	shutdownFinished := false
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	l := fixtureLifecycle(t, lifecycleScenario{}, &running, &events, cancel)
+	l.stop = func(stopCtx context.Context) error {
+		events = append(events, "stop")
+		// SIGTERM has been sent, but the daemon is still shutting down when
+		// the user cancels. CommandContext would kill the stop helper here.
+		cancel()
+		if err := stopCtx.Err(); err != nil {
+			return err
+		}
+		deadline, ok := stopCtx.Deadline()
+		require.True(t, ok, "shutdown must still have a timeout")
+		assert.InDelta(t, updateRecoveryTimeout.Seconds(), time.Until(deadline).Seconds(), 1)
+		running = false
+		shutdownFinished = true
+		return nil
+	}
+	u := fixtureUpdater(l, fakeSource{tag: "v1.1.0"})
+	err := u.Update(ctx, selfupdate.UpdateOptions{Yes: true})
+	// If the stop helper was cancelled, the daemon exits after recovery has
+	// already observed it running and skipped the restart.
+	if !shutdownFinished {
+		running = false
+	}
+	require.ErrorIs(t, err, context.Canceled)
+	assert.True(t, shutdownFinished, "wait for shutdown before recovering")
+	assert.True(t, running, "restore the server after cancelling the update")
+	assert.Equal(t, []string{"sweep", "prepare", "backup", "stop", "start", "close"}, events)
 }
 
 func runLifecycleScenario(t *testing.T, scenario lifecycleScenario) {

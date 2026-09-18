@@ -99,9 +99,13 @@ func (l *updateLifecycle) preInstall(ctx context.Context, current, latest string
 	if !l.running() {
 		return nil
 	}
-	// Arm recovery before stopping: cancellation can arrive after the daemon exits.
+	// Let the stop helper finish waiting for shutdown even if the update is
+	// cancelled. Killing it after SIGTERM can leave recovery observing a live
+	// daemon that is about to exit, causing it to skip the restart.
 	l.restart = true
-	if err := l.stop(ctx); err != nil {
+	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), updateRecoveryTimeout)
+	defer cancel()
+	if err := l.stop(stopCtx); err != nil {
 		return fmt.Errorf("stop server: %w", err)
 	}
 	if l.running() {
