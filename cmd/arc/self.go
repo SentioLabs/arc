@@ -1,5 +1,5 @@
 // Package main provides the self-management commands for the arc CLI,
-// delegating update and channel logic to github.com/sentiolabs/go-selfupdate.
+// delegating update and channel logic to github.com/sentiolabs/selfupdate-go.
 package main
 
 import (
@@ -11,31 +11,30 @@ import (
 	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/version"
-	"github.com/sentiolabs/go-selfupdate"
-	"github.com/sentiolabs/go-selfupdate/cobracmd"
+	"github.com/sentiolabs/selfupdate-go"
+	"github.com/sentiolabs/selfupdate-go/cobracmd"
 	"golang.org/x/mod/semver"
 )
 
 // cliName is the binary name, which is also arc's GitHub repository name.
 const cliName = "arc"
 
-// installScriptURL is arc's install script, run with --force --tag=<tag>.
-const installScriptURL = "https://raw.githubusercontent.com/sentiolabs/arc/main/scripts/install.sh"
-
-// selfCmd is registered by main.go. It is the go-selfupdate command tree with
+// selfCmd is registered by main.go. It is the selfupdate-go command tree with
 // arc's wiring: GitHub releases of sentiolabs/arc, the channel from
 // ~/.arc/config.toml, and a database backup before a major or minor bump.
 var selfCmd = cobracmd.New(newSelfUpdater(), cobracmd.WithCheckShorthand("c"))
 
 // newSelfUpdater builds arc's updater.
 func newSelfUpdater() *selfupdate.Updater {
+	lifecycle := newUpdateLifecycle()
 	return &selfupdate.Updater{
-		Name:       cliName,
-		Version:    version.Short(),
-		Source:     &selfupdate.GitHubSource{Owner: "sentiolabs", Repo: cliName},
-		Store:      arcChannelStore(),
-		Installer:  &selfupdate.ScriptInstaller{ScriptURL: installScriptURL},
-		PreInstall: preInstallBackup(backupArcDatabase),
+		Name:        cliName,
+		Version:     version.Short(),
+		Source:      &selfupdate.GitHubSource{Owner: "sentiolabs", Repo: cliName},
+		Store:       arcChannelStore(),
+		Installer:   lifecycle,
+		PreInstall:  lifecycle.preInstall,
+		PostInstall: lifecycle.postInstall,
 	}
 }
 
