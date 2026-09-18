@@ -507,7 +507,7 @@ release tag is preserved for downloads. Older Arc binaries may need a one-time
 `arc self update --force` when switching from undotted to dotted RC tags.
 
 `arc self update` asks for confirmation before installing. Pass `-y` or `--yes`
-to skip the prompt in scripts. Updates use `selfupdate-go` v0.2.0 to download
+to skip the prompt in scripts. Updates use `selfupdate-go` v0.2.1 to download
 and verify the release archive, then atomically replace the current executable.
 No shell installer, curl, or wget is needed for self-updates. A running local
 server is stopped only after verification and restarted using the installed
