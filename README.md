@@ -17,7 +17,7 @@ Key Differences:
 - **REST API**: Clean JSON API for all operations
 - **Projects**: First-class project management (replaces per-repo concept)
 - **Full Issue Tracking**: Create, update, close, dependencies, labels, comments
-- **Plans**: Inline plans on issues, shared plans linkable to multiple issues
+- **Plans**: Inline plans on issues, durable Markdown revisions pinned by epics and milestones
 - **Ready Work**: Find issues with no blockers
 - **Agent Teams**: Coordinate multi-agent workflows with `teammate:*` labels and team context
 - **Statistics**: Aggregate metrics per project
@@ -380,8 +380,11 @@ flowchart TB
 
 ### Plan (Shared)
 
-- ID (e.g., "plan.xxxxx"), title, content
-- Scoped to project, linkable to multiple issues
+- Stable project-owned ID (e.g., "plan.xxxxx"), title, lifecycle and head revision
+- Immutable revisions retain exact Markdown bytes, SHA-256, review decisions and discussion
+- Approved revisions govern epics and milestones through independent pins; tasks inherit the full design chain
+- Pin changes require paused work and atomic reconciliation, not direct task links
+- Archive retains content, pins, discussion and execution evidence; there is no permanent plan deletion
 
 ## Configuration
 
@@ -493,13 +496,31 @@ task docker:up
 
 ### Shared Plans
 
-- `GET /api/v1/projects/:id/plans` - List shared plans
-- `POST /api/v1/projects/:id/plans` - Create shared plan
-- `GET /api/v1/projects/:id/plans/:pid` - Get shared plan
-- `PUT /api/v1/projects/:id/plans/:pid` - Update shared plan
-- `DELETE /api/v1/projects/:id/plans/:pid` - Delete shared plan
-- `POST /api/v1/projects/:id/plans/:pid/link` - Link issues to plan
-- `DELETE /api/v1/projects/:id/plans/:pid/link/:iid` - Unlink issue from plan
+Durable plans are project-owned immutable revisions. Writes require the relevant
+captured versions; upload, save and adoption use idempotency keys. Archive retains
+history and does not permit deleting its owning project. See `arc docs plans` for
+review snapshots, feedback obligations and paused reconciliation.
+
+- `GET /api/v1/projects/:id/plans` - List active or archived plan metadata
+- `POST /api/v1/projects/:id/plans` - Upload exact content as revision 1
+- `GET /api/v1/projects/:id/plans/:pid` - Read metadata and concurrency versions
+- `PATCH /api/v1/projects/:id/plans/:pid` - Change title or archive/restore with an expected version
+- `GET /api/v1/projects/:id/plans/:pid/revisions` - List immutable revision history
+- `POST /api/v1/projects/:id/plans/:pid/revisions` - Save a new revision with an expected head
+- `GET /api/v1/projects/:id/plans/:pid/revisions/:revision` - Read exact retained bytes and digest
+- `GET /api/v1/projects/:id/plans/:pid/revisions/:revision/decisions` - Read review evidence
+- `POST /api/v1/projects/:id/plans/:pid/revisions/:revision/decisions` - Submit or decide a captured revision
+- `GET /api/v1/projects/:id/plans/:pid/revisions/:revision/comments` - Read current and prior discussion
+- `POST /api/v1/projects/:id/plans/:pid/revisions/:revision/comments` - Add feedback to that revision
+- `PATCH /api/v1/projects/:id/plans/:pid/revisions/:revision/comments/:cid` - Edit with an expected comment version
+- `DELETE /api/v1/projects/:id/plans/:pid/revisions/:revision/comments/:cid` - Retain a versioned comment tombstone
+- `GET /api/v1/projects/:id/plans/:pid/revisions/:revision/dispositions` - Read disposition history
+- `POST /api/v1/projects/:id/plans/:pid/revisions/:revision/dispositions` - Record addressed/deferred feedback with a reason
+- `POST /api/v1/projects/:id/issues/:iid/plan-adoption` - Preview or atomically reconcile an epic/milestone pin
+- `GET /api/v1/projects/:id/issues/:iid/plan-adoptions` - Read retained reconciliation evidence
+- `GET /api/v1/projects/:id/issues/:iid/governing-plan` - Resolve the full pinned design chain
+- `POST /api/v1/projects/:id/issues/:iid/execution-evidence` - Record a phase against captured work context
+- `GET /api/v1/projects/:id/issues/:iid/execution-evidence` - Read retained execution provenance
 
 ### Events
 

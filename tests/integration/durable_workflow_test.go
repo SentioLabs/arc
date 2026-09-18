@@ -293,7 +293,30 @@ func TestDurableLayeredCLIWorkflow(t *testing.T) {
 	f.cli("plan", "update", tactical.Plan.ID, tacticalNext, "--expected-revision", "1", "--idempotency-key", "tactical-v2", "--json")
 	f.review(tactical.Plan.ID, 2)
 	preview = f.proposal(milestone.ID, meta.Plan.ID, 2)
-	require.NotEmpty(t, preview.Errors, "in-progress task must block adoption")
+	var runningTasks []string
+	for _, problem := range preview.Errors {
+		if problem.Code == "task_in_progress" {
+			runningTasks = append(runningTasks, problem.IssueID)
+		}
+	}
+	require.Contains(t, runningTasks, task.ID, "preview must identify the affected running task")
+	runningManifest := f.file("running-reconciliation.json", preview.Request)
+	var runningPreview storage.PlanAdoptionResult
+	decodeDurable(t, f.cli("plan", "adopt", milestone.ID, meta.Plan.ID, "--revision", "2",
+		"--reconciliation", runningManifest, "--dry-run", "--json"), &runningPreview)
+	require.Len(t, runningPreview.Errors, 1, "complete coverage must leave only the pause violation")
+	require.Equal(t, "task_in_progress", runningPreview.Errors[0].Code)
+	require.Equal(t, task.ID, runningPreview.Errors[0].IssueID)
+	beforeRejectedApply := []types.IssueDetails{f.show(task.ID), f.show(epic.ID), f.show(milestone.ID)}
+	require.Contains(t, f.failure("plan", "adopt", milestone.ID, meta.Plan.ID, "--revision", "2",
+		"--reconciliation", runningManifest, "--idempotency-key", "reject-running"), "409")
+	for _, before := range beforeRejectedApply {
+		after := f.show(before.ID)
+		require.Equal(t, before.ContractVersion, after.ContractVersion)
+		require.Equal(t, before.GoverningPlan, after.GoverningPlan)
+		require.Equal(t, before.Status, after.Status)
+		require.Equal(t, before.Description, after.Description)
+	}
 	// Pause actual execution before changing status. The fixture has no worker thread.
 	f.cli("update", task.ID, "--status", "open", "--json")
 	preview = f.proposal(milestone.ID, meta.Plan.ID, 2)
@@ -393,4 +416,63 @@ func TestDurableLayeredCLIWorkflow(t *testing.T) {
 	decodeDurable(t, f.cli("plan", "show", meta.Plan.ID, "--revision", "1", "--json"), &shown)
 	require.Equal(t, "approved", shown.Revision.ReviewStatus)
 	t.Logf("project=%s meta=%s@1/%s@2 tactical=%s@1/@2 original_sha256=%s old_evidence=%s adoption=%s", f.project, meta.Plan.ID, meta.Plan.ID, tactical.Plan.ID, meta.Revision.ContentSHA256, originalEvidence.ID, adoption.ID)
+}
+
+// A lost SAVE response must replay its original result even after another save,
+// adoption and archive change all the mutable state checked for new requests.
+func TestDurableSaveReplayAfterLaterSaveAdoptionAndArchive(t *testing.T) {
+	f := newDurableFixture(t)
+	created := f.createPlan("replay-design", "# Revision one\n")
+	originalBytes := "\ufeff# Saved revision two\r\nRetain these exact bytes.\n"
+	originalFile := f.file("saved-two.md", originalBytes)
+	originalArgs := []string{
+		"plan", "update", created.Plan.ID, originalFile,
+		"--expected-revision", "1", "--idempotency-key", "original-save", "--json",
+	}
+	var saved storage.PlanWriteResult
+	decodeDurable(t, f.cli(originalArgs...), &saved)
+	require.False(t, saved.Replay)
+	require.Equal(t, int64(2), saved.Revision.Revision)
+	require.Equal(t, originalBytes, saved.Revision.Content)
+	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256([]byte(originalBytes))), saved.Revision.ContentSHA256)
+	laterFile := f.file("saved-three.md", "# Later revision three\n")
+	var later storage.PlanWriteResult
+	decodeDurable(t, f.cli("plan", "update", created.Plan.ID, laterFile,
+		"--expected-revision", "2", "--idempotency-key", "later-save", "--json"), &later)
+	require.Equal(t, int64(3), later.Revision.Revision)
+	f.review(created.Plan.ID, 3)
+	milestone := f.issue("Replay milestone", "milestone", "")
+	proposal := f.proposal(milestone.ID, created.Plan.ID, 3)
+	f.apply(milestone.ID, created.Plan.ID, 3, proposal.Request, "adopt-later-save")
+	var current struct {
+		Plan types.Plan `json:"plan"`
+	}
+	decodeDurable(t, f.cli("plan", "show", created.Plan.ID, "--revision", "3", "--json"), &current)
+	f.cli("plan", "archive", created.Plan.ID, "--expected-version", strconv.FormatInt(current.Plan.Version, 10), "--json")
+	decodeDurable(t, f.cli("plan", "show", created.Plan.ID, "--revision", "3", "--json"), &current)
+	require.Equal(t, int64(3), current.Plan.HeadRevision)
+	require.Equal(t, "archived", current.Plan.Lifecycle)
+	pinBefore := f.show(milestone.ID)
+	require.Equal(t, &types.PlanReference{PlanID: created.Plan.ID, Revision: 3}, pinBefore.GoverningPlan)
+	var historyBefore []types.PlanRevision
+	decodeDurable(t, f.cli("plan", "history", created.Plan.ID, "--json"), &historyBefore)
+	require.Len(t, historyBefore, 3)
+	var replay storage.PlanWriteResult
+	decodeDurable(t, f.cli(originalArgs...), &replay)
+	require.True(t, replay.Replay)
+	replay.Replay = false
+	require.Equal(t, saved, replay, "SAVE replay must return the original revision, bytes, digest and metadata")
+	var after struct {
+		Plan types.Plan `json:"plan"`
+	}
+	decodeDurable(t, f.cli("plan", "show", created.Plan.ID, "--revision", "3", "--json"), &after)
+	require.Equal(t, current.Plan, after.Plan, "SAVE replay must not advance the current head or change lifecycle")
+	pinAfter := f.show(milestone.ID)
+	require.Equal(t, pinBefore.GoverningPlan, pinAfter.GoverningPlan)
+	require.Equal(t, pinBefore.ContractVersion, pinAfter.ContractVersion)
+	var historyAfter []types.PlanRevision
+	decodeDurable(t, f.cli("plan", "history", created.Plan.ID, "--json"), &historyAfter)
+	require.Equal(t, historyBefore, historyAfter, "SAVE replay must not duplicate a revision")
+	t.Logf("SAVE key original-save replays %s@2 SHA256=%s after SAVE/adoption@3/archive; head/pin/history unchanged",
+		created.Plan.ID, saved.Revision.ContentSHA256)
 }
