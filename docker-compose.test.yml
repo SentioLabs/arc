@@ -5,13 +5,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.integration
-    container_name: arc-integration-tests
     tmpfs:
       - /tmp
       - /data
     environment:
       - TZ=UTC
       - ARC_SERVER=http://127.0.0.1:7432
+      - HOME=/tmp/arc-home
+      - XDG_CONFIG_HOME=/tmp/arc-home/config
     profiles:
       - integration
 
@@ -20,13 +21,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: arc-test-server
     ports:
-      - "7433:7432"
+      - "127.0.0.1::7432"
     tmpfs:
       - /data:uid=1000,gid=1000
+      - /home/arc:uid=1000,gid=1000
     environment:
       - TZ=UTC
+      - HOME=/home/arc
+      - XDG_CONFIG_HOME=/home/arc/config
+    command: ["--port", "7432", "--db", "/data/arc.db"]
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:7432/health"]
       interval: 2s

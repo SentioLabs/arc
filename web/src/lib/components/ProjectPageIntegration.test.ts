@@ -1,10 +1,10 @@
 // @ts-nocheck
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const pageSource = readFileSync(
-	resolve(import.meta.dir, '../../routes/[projectId]/+page.svelte'),
+	resolve(import.meta.dirname, '../../routes/[projectId]/+page.svelte'),
 	'utf-8'
 );
 

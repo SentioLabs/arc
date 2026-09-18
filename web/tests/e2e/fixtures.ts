@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 
-const API_BASE = 'http://localhost:7433/api/v1';
+import { API_BASE } from '../base-url';
 
 /** Generate a unique name with a prefix for test isolation. */
 export function uniqueName(prefix = 'test'): string {

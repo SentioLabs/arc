@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { uniqueName, createTestWorkspace } from './fixtures';
 
-const API_BASE = 'http://localhost:7433/api/v1';
+import { API_BASE } from '../base-url';
 
 /** Rendered document root (PlanRenderer). */
 const DOC = 'article.doc';
@@ -142,6 +142,20 @@ async function openPlan(page: Page, planId: string): Promise<void> {
  * renderer listens on — is dispatched explicitly.
  */
 async function selectText(page: Page, text: string, occurrence = 0): Promise<void> {
+	// Wait for font reflow and scroll before finding fresh text nodes. The renderer
+	// may replace nodes while layout settles; a detached Range is not a selection.
+	await page.evaluate(() => document.fonts.ready.then(() => undefined));
+	await page
+		.locator(DOC)
+		.getByText(text, { exact: false })
+		.nth(occurrence)
+		.scrollIntoViewIfNeeded();
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+			)
+	);
 	await page.evaluate(
 		({ containerSel, text, occurrence }) => {
 			const root = document.querySelector(containerSel);

@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const componentSource = readFileSync(resolve(import.meta.dir, 'TypeBadge.svelte'), 'utf-8');
+const componentSource = readFileSync(resolve(import.meta.dirname, 'TypeBadge.svelte'), 'utf-8');
 
 describe('TypeBadge component', () => {
 	test('defines a release entry in typeConfig with a distinct color', () => {

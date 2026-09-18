@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { createTestWorkspace, uniqueName } from './fixtures';
-const base = 'http://localhost:7433/api/v1';
+import { API_BASE as base } from '../base-url';
 async function request(path: string, body?: unknown, method = 'POST') {
 	const response = await fetch(
 		base + path,
@@ -509,11 +509,19 @@ test('approval sends the displayed exact revision and a disposition race leaves 
 	await page.getByRole('button', { name: 'Submit for review' }).click();
 	await page.getByRole('button', { name: 'Assess feedback' }).click();
 	await page.getByLabel('Disposition reason').fill('Verified captured restart evidence');
-	await request(
-		`${path}/revisions/1/comments/${comment.id}`,
-		{ content: 'Check revised restart evidence', expected_version: comment.version },
-		'PATCH'
-	);
+	// Inject the concurrent edit only after the browser has captured its payload.
+	// Racing an unfinished submit-for-review refresh can legitimately read v2.
+	await page.route(`**/api/v1${path}/revisions/1/dispositions`, async (route) => {
+		if (route.request().method() === 'POST') {
+			expect(route.request().postDataJSON().expected_comment_version).toBe(comment.version);
+			await request(
+				`${path}/revisions/1/comments/${comment.id}`,
+				{ content: 'Check revised restart evidence', expected_version: comment.version },
+				'PATCH'
+			);
+		}
+		await route.continue();
+	});
 	await page.getByRole('button', { name: 'Record disposition' }).click();
 	await expect(page.getByRole('alert')).toBeVisible();
 	await expect(page.getByLabel('Disposition reason')).toHaveValue(

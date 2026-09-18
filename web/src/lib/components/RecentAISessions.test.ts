@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const componentSource = readFileSync(resolve(import.meta.dir, 'RecentAISessions.svelte'), 'utf-8');
+const componentSource = readFileSync(resolve(import.meta.dirname, 'RecentAISessions.svelte'), 'utf-8');
 
 describe('RecentAISessions component', () => {
 	test('uses Svelte 5 runes for props', () => {

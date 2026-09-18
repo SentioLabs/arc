@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const apiSource = readFileSync(resolve(import.meta.dir, 'ai.ts'), 'utf-8');
+const apiSource = readFileSync(resolve(import.meta.dirname, 'ai.ts'), 'utf-8');
 
 describe('AI API client - project-scoped paths', () => {
 	test('listAISessions accepts projectId as first parameter', () => {

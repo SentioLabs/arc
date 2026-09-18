@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const dir = resolve(import.meta.dir);
+const dir = resolve(import.meta.dirname);
 
 describe('AI sessions list page', () => {
 	test('+page.ts loader file exists', () => {

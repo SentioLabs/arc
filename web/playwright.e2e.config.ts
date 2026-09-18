@@ -1,16 +1,18 @@
+import { BASE_URL } from './tests/base-url';
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-	testDir: './tests/e2e',
+	testDir: './tests',
+	testMatch: '**/*.spec.ts',
 	timeout: 30000,
 	expect: { timeout: 10000 },
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
+	workers: process.env.CI ? 1 : 4,
 	reporter: [['html', { open: 'never' }]],
 	use: {
-		baseURL: 'http://localhost:7433',
+		baseURL: BASE_URL,
 		trace: 'on-first-retry'
 	},
 	projects: [

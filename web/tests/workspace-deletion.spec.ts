@@ -102,7 +102,7 @@ test.describe('Project Deletion', () => {
 		await page.getByRole('button', { name: 'Edit' }).click();
 
 		// Click on the first project card to select it
-		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.getByRole('heading', { name: 'Test Project 1', exact: true }).click();
 
 		// Should show "1 selected" text
 		await expect(page.getByText('1 selected')).toBeVisible();
@@ -120,8 +120,8 @@ test.describe('Project Deletion', () => {
 		await page.getByRole('button', { name: 'Edit' }).click();
 
 		// Click on multiple project cards
-		await page.getByRole('button', { name: /Test Project 1/i }).click();
-		await page.getByRole('button', { name: /Test Project 2/i }).click();
+		await page.getByRole('heading', { name: 'Test Project 1', exact: true }).click();
+		await page.getByRole('heading', { name: 'Test Project 2', exact: true }).click();
 
 		// Should show "2 selected" text
 		await expect(page.getByText('2 selected')).toBeVisible();
@@ -150,7 +150,7 @@ test.describe('Project Deletion', () => {
 		await page.getByRole('button', { name: 'Edit' }).click();
 
 		// Select a project
-		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.getByRole('heading', { name: 'Test Project 1', exact: true }).click();
 
 		// Click batch delete button
 		await page.locator('button.btn-danger').filter({ hasText: 'Delete project' }).click();
@@ -166,7 +166,7 @@ test.describe('Project Deletion', () => {
 
 		// Enter edit mode and select project
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.getByRole('heading', { name: 'Test Project 1', exact: true }).click();
 		await page.locator('button.btn-danger').filter({ hasText: 'Delete project' }).click();
 
 		// Click cancel
@@ -184,7 +184,7 @@ test.describe('Project Deletion', () => {
 
 		// Enter edit mode and select project
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.getByRole('heading', { name: 'Test Project 1', exact: true }).click();
 		await page.locator('button.btn-danger').filter({ hasText: 'Delete project' }).click();
 
 		// Confirm deletion (target the button inside the dialog)
@@ -207,8 +207,8 @@ test.describe('Project Deletion', () => {
 
 		// Enter edit mode and select projects
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Project 1/i }).click();
-		await page.getByRole('button', { name: /Test Project 2/i }).click();
+		await page.getByRole('heading', { name: 'Test Project 1', exact: true }).click();
+		await page.getByRole('heading', { name: 'Test Project 2', exact: true }).click();
 		await page.getByRole('button', { name: 'Delete 2 projects' }).click();
 
 		// Confirm deletion (target the button inside the dialog)
@@ -248,7 +248,7 @@ test.describe('Project Deletion', () => {
 
 		// Enter edit mode and select projects
 		await page.getByRole('button', { name: 'Edit' }).click();
-		await page.getByRole('button', { name: /Test Project 1/i }).click();
+		await page.getByRole('heading', { name: 'Test Project 1', exact: true }).click();
 		await expect(page.getByText('1 selected')).toBeVisible();
 
 		// Exit edit mode

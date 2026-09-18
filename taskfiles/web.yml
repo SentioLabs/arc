@@ -33,6 +33,13 @@ tasks:
     cmds:
       - '{{.PM}} run dev'
 
+  test:
+    desc: Run all frontend units (planner, components, API, routes)
+    dir: '{{.WEB_DIR}}'
+    cmds:
+      - task: install
+      - '{{.PM}} run test:unit'
+
   check:
     desc: Run frontend type and a11y checks (svelte-check)
     dir: '{{.WEB_DIR}}'

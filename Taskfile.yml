@@ -81,6 +81,8 @@ tasks:
       - task: 'test:taskfile'
       - task: 'deps'
       - task: 'test'
+      - task: 'web:test'
+      - task: 'test:harness'
       - task: 'lint'
 
   ci:all:
@@ -99,3 +101,5 @@ tasks:
       - task: 'lint'
       - task: 'web:check'
       - task: 'test'
+      - task: 'web:test'
+      - task: 'test:harness'

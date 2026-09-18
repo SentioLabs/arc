@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const pageSource = readFileSync(resolve(import.meta.dir, '+page.svelte'), 'utf-8');
+const pageSource = readFileSync(resolve(import.meta.dirname, '+page.svelte'), 'utf-8');
 
 describe('New issue page type select', () => {
 	test('issueType state accepts release and milestone', () => {

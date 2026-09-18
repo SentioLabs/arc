@@ -546,3 +546,64 @@ release. The update channel logic always prefers a newer stable release.
 ## License
 
 MIT
+
+### Isolated testing and manual sandbox
+
+`task test:full` runs Go units with race detection and coverage, **all** web unit
+suites, harness lifecycle tests, Docker CLI/API integration, and Playwright against
+the built Svelte UI. `task review` and `task ci` include web units and harness tests;
+`task ci:all` adds integration and browser tests. Prerequisites are the toolchains
+in `mise.toml`, Node 24 for Vite/jsdom, Python 3, and Docker Compose v2.
+
+```bash
+task test:full                  # Complete layered test gate
+task test:isolation             # Two live stacks: distinct ports/DBs, selective stop
+task test:sandbox               # Leave a clean manual test sandbox running
+# The start command prints its loopback URL, state directory and exact stop command:
+scripts/test-e2e.sh stop /path/to/arc-test-xxxxxxxx
+```
+
+Each invocation uses a unique `arc-test-*` Compose project and a dynamically
+allocated **127.0.0.1-only** port. Database, HOME, config, server plan files and
+network belong to that stack; there are no host data mounts. The server's default
+plan root is inside its private HOME (`/home/arc/.arc/plans` for the web sandbox).
+Tests neither install Arc nor restart an existing service. Automated runs clean
+only their own containers, networks, volumes and image tags, including on failure;
+manual sandboxes remain until explicitly stopped. Keep the printed state directory
+until stopping its sandbox. Server logs, Playwright HTML reports and failure
+artifacts remain in that directory after automated cleanup.
+
+Both Playwright configurations run all browser specs against the same required
+`ARC_TEST_BASE_URL` used by API seed helpers. The harness discovers and supplies
+that endpoint; there is no default endpoint or reusable development server.
+Browser fixtures create disposable projects in the test database. For focused
+browser work, start a sandbox, then use its printed URL:
+
+```bash
+cd web
+ARC_TEST_BASE_URL=http://127.0.0.1:PORT bun x playwright test --grep 'exact revision'
+```
+
+The frontend units now share Vitest, including the formerly Bun-only API, route
+and component suites. Existing assertions remain except obsolete implementation
+checks: TranscriptViewer role/tool checks now mount the component and inspect
+rendered styling and expand/collapse behavior. The removed filesystem FileTree
+has no supported UI; its path tooltip/truncation/scroll assertions are retired.
+`DesignContext.component.test.ts` instead exercises current pinned revision links
+and governance error/retry behavior. `CommentPopover.component.test.ts` exercises
+actual draft cancellation, scroll retention, keyboard save, async duplicate
+prevention and listener cleanup alongside the existing planner logic tests.
+
+| Layer | Meaningful coverage | Command |
+| --- | --- | --- |
+| Go storage/files/migration | Immutable revisions, concurrent saves, tamper detection, atomic adoption/rollback, flush ordering, retry and backup boundaries (`durable_plans_test.go`, `plan_adoption_test.go`, `publisher_test.go`, `migration_test.go`) | `task test` |
+| Go API/client/CLI | Project isolation, typed missing/stale conflicts, captured execution context, idempotent retry, no-clobber output and wait cancellation (`plans_test.go`, `execution_evidence_test.go`, `work_context_test.go`) | `task test` |
+| Real CLI/API | Durable upload/review/adoption and worker workflow, configuration, project/issue/dependency operations (`tests/integration`) | `task test:integration` |
+| Frontend | Anchors, positioning, inline marks, plan API requests; all prior route/API/component contracts; mounted transcript/composer/design navigation interactions | `task web:test` |
+| Built UI | Real issue/project/label workflows, exact revision and comment review, stale snapshots, concurrent feedback, immutable history, plus isolated mocked deletion/inline-edit interactions | `task test:playwright` |
+| Harness | Invalid mode, unique ownership, failed startup/test exit propagation, retained failure logs, refusal to stop unowned state; two live databases and selective teardown | `task test:harness`, `task test:isolation` |
+
+The browser gate currently targets Chromium. Existing Go coverage is substantial
+but not exhaustive, and some legacy frontend contract tests still inspect source;
+mounted tests and real browser workflows provide interaction coverage without
+claiming a blanket coverage percentage.

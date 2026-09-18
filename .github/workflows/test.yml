@@ -63,8 +63,16 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
-      - name: Run tests
-        run: task test
+      - name: Install Node for Vite and jsdom
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run Go, frontend and harness unit tests
+        run: |
+          task test
+          task web:test
+          task test:harness
 
   integration-tests:
     needs: lint

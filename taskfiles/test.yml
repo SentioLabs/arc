@@ -6,6 +6,29 @@ tasks:
     cmds:
       - '{{.GO}} test -race -cover ./...'
 
+  full:
+    desc: Run Go race/coverage, all web units, harness regression, CLI integration and built UI Playwright
+    cmds:
+      - task: default
+      - task: ':web:test'
+      - task: harness
+      - task: e2e
+
+  harness:
+    desc: Test isolated harness ownership, cleanup and failure propagation
+    cmds:
+      - python3 scripts/test_e2e_test.py
+
+  isolation:
+    desc: Prove two real test servers have isolated databases and selective cleanup
+    cmds:
+      - scripts/test-e2e.sh isolation
+
+  sandbox:
+    desc: Start a private manual Arc sandbox (prints URL and stop command)
+    cmds:
+      - scripts/test-e2e.sh start
+
   verbose:
     desc: Run unit tests with verbose output
     cmds:
@@ -40,7 +63,7 @@ tasks:
           [
             'gen', 'gen:api', 'gen:sqlc', 'gen:types', 'gen:mocks', 'gen:drift',
             'web:install', 'web:build', 'web:check', 'web:lint', 'web:format',
-            'web:clean', 'build', 'build:bin', 'build:quick', 'release',
+            'web:test', 'test:full', 'test:harness', 'test:isolation', 'test:sandbox', 'web:clean', 'build', 'build:bin', 'build:quick', 'release',
             'release:snapshot', 'test', 'test:verbose', 'test:coverage',
             'test:integration', 'test:playwright', 'test:e2e', 'lint', 'lint:go',
             'lint:fix', 'docker:build', 'docker:up', 'docker:down', 'docker:logs',
