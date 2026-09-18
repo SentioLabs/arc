@@ -1,12 +1,15 @@
 package api //nolint:testpackage // Tests exercise project routes and real storage.
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/labstack/echo/v4"
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/stretchr/testify/require"
@@ -90,6 +93,116 @@ func jsonBody(t *testing.T, value any) string {
 	b, err := json.Marshal(value)
 	require.NoError(t, err)
 	return string(b)
+}
+
+type planRequestProvenance struct {
+	key       string
+	actor     string
+	sessionID string
+}
+
+func planRequestWithProvenance(
+	e *echo.Echo,
+	method, path, body string,
+	provenance planRequestProvenance,
+) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	if provenance.key != "" {
+		req.Header.Set("Idempotency-Key", provenance.key)
+	}
+	if provenance.actor != "" {
+		req.Header.Set("X-Actor", provenance.actor)
+	}
+	if provenance.sessionID != "" {
+		req.Header.Set("X-AI-Session-ID", provenance.sessionID)
+	}
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestAdoptionRoutePersistsRequestProvenanceAndOriginalReplay(t *testing.T) {
+	s, p, root, task, pin := adoptionRouteFixture(t)
+	require.NoError(t, s.store.UpdateIssue(
+		context.Background(), root, map[string]any{"ai_session_id": "claimant-session"}, "claimant",
+	))
+	path := "/api/v1/projects/" + p + "/issues/" + root + "/plan-adoption"
+	request := apiAdoption(t, s, p, root, task, pin)
+	request.Tasks[0].Disposition = "follow_up"
+	request.Tasks[0].FollowUpKeys = []string{"repair"}
+	request.FollowUps = []types.ReconciliationFollowUp{{
+		Key:       "repair",
+		ParentID:  root,
+		Title:     "repair",
+		IssueType: types.TypeTask,
+		Priority:  2,
+	}}
+
+	response := planRequestWithProvenance(
+		s.echo,
+		http.MethodPost,
+		path,
+		jsonBody(t, request),
+		planRequestProvenance{key: "adopt-key", actor: "caller", sessionID: "caller-session"},
+	)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var created storage.PlanAdoptionResult
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
+	require.Equal(t, "caller", created.Actor)
+	require.Equal(t, "caller-session", created.SessionID)
+	require.Len(t, created.FollowUpIDs, 1)
+
+	replay := planRequestWithProvenance(
+		s.echo,
+		http.MethodPost,
+		path,
+		jsonBody(t, request),
+		planRequestProvenance{key: "adopt-key", actor: "later-caller", sessionID: "later-session"},
+	)
+	require.Equal(t, http.StatusOK, replay.Code, replay.Body.String())
+	var replayed storage.PlanAdoptionResult
+	require.NoError(t, json.Unmarshal(replay.Body.Bytes(), &replayed))
+	require.True(t, replayed.Replay)
+	require.Equal(t, "caller", replayed.Actor)
+	require.Equal(t, "caller-session", replayed.SessionID)
+	require.Equal(t, created.FollowUpIDs, replayed.FollowUpIDs)
+
+	stale := planRequestWithProvenance(
+		s.echo,
+		http.MethodPost,
+		path,
+		jsonBody(t, request),
+		planRequestProvenance{key: "stale-key", actor: "later-caller", sessionID: "later-session"},
+	)
+	require.Equal(t, http.StatusBadRequest, stale.Code, stale.Body.String())
+	history := planRequest(s.echo, http.MethodGet, "/api/v1/projects/"+p+"/issues/"+root+"/plan-adoptions", "", "")
+	require.Equal(t, http.StatusOK, history.Code, history.Body.String())
+	var records []storage.PlanAdoptionResult
+	require.NoError(t, json.Unmarshal(history.Body.Bytes(), &records))
+	require.Len(t, records, 1)
+	require.Equal(t, "caller", records[0].Actor)
+	require.Equal(t, "caller-session", records[0].SessionID)
+	issues, err := s.store.ListIssues(context.Background(), types.IssueFilter{ProjectID: p})
+	require.NoError(t, err)
+	require.Len(t, issues, 3)
+
+	anonymousServer, anonymousProject, anonymousRoot, anonymousTask, anonymousPin := adoptionRouteFixture(t)
+	anonymousRequest := apiAdoption(
+		t, anonymousServer, anonymousProject, anonymousRoot, anonymousTask, anonymousPin,
+	)
+	anonymous := planRequestWithProvenance(
+		anonymousServer.echo,
+		http.MethodPost,
+		"/api/v1/projects/"+anonymousProject+"/issues/"+anonymousRoot+"/plan-adoption",
+		jsonBody(t, anonymousRequest),
+		planRequestProvenance{key: "anonymous-key"},
+	)
+	require.Equal(t, http.StatusOK, anonymous.Code, anonymous.Body.String())
+	var anonymousResult storage.PlanAdoptionResult
+	require.NoError(t, json.Unmarshal(anonymous.Body.Bytes(), &anonymousResult))
+	require.Equal(t, "anonymous", anonymousResult.Actor)
+	require.Empty(t, anonymousResult.SessionID)
 }
 
 func TestAdoptionRouteRequiredPinsDryRunAndReplay(t *testing.T) {

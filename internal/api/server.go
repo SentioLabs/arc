@@ -133,17 +133,7 @@ func (s *Server) registerRoutes() {
 	v1.Any("/plans", s.legacyPlanUpgrade)
 	v1.Any("/plans/*", s.legacyPlanUpgrade)
 	plans := v1.Group("/projects/:projectId/plans")
-	plans.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			ctx := storage.WithPlanProvenance(
-				c.Request().Context(),
-				getActor(c),
-				c.Request().Header.Get("X-AI-Session-ID"),
-			)
-			c.SetRequest(c.Request().WithContext(ctx))
-			return next(c)
-		}
-	})
+	plans.Use(withPlanProvenance)
 	plans.POST("", s.createDurablePlan)
 	plans.GET("", s.listDurablePlans)
 	plans.GET("/:planId", s.getDurablePlan)
@@ -194,9 +184,9 @@ func (s *Server) registerProjectRoutes(v1 *echo.Group) {
 	proj.POST("/issues", s.createIssue)
 	proj.GET("/issues/:id", s.getIssue)
 	proj.GET("/issues/:id/governing-plan", s.resolveGoverningPlan)
-	proj.POST("/issues/:id/plan-adoption", s.adoptPlan)
+	proj.POST("/issues/:id/plan-adoption", s.adoptPlan, withPlanProvenance)
 	proj.GET("/issues/:id/plan-adoptions", s.listPlanAdoptions)
-	proj.POST("/issues/:id/execution-evidence", s.recordExecutionEvidence)
+	proj.POST("/issues/:id/execution-evidence", s.recordExecutionEvidence, withPlanProvenance)
 	proj.GET("/issues/:id/execution-evidence", s.listExecutionEvidence)
 	proj.PUT("/issues/:id", s.updateIssue)
 	proj.DELETE("/issues/:id", s.deleteIssue)
@@ -216,6 +206,18 @@ func (s *Server) registerProjectRoutes(v1 *echo.Group) {
 	proj.PUT("/issues/:id/comments/:cid", s.updateComment)
 	proj.DELETE("/issues/:id/comments/:cid", s.deleteComment)
 	proj.GET("/issues/:id/events", s.getEvents)
+}
+
+func withPlanProvenance(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := storage.WithPlanProvenance(
+			c.Request().Context(),
+			getActor(c),
+			c.Request().Header.Get("X-AI-Session-ID"),
+		)
+		c.SetRequest(c.Request().WithContext(ctx))
+		return next(c)
+	}
 }
 
 // registerProjectAIRoutes sets up project-scoped AI session routes.

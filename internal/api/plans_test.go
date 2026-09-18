@@ -521,12 +521,12 @@ func TestDurableAPIHistoryReaders(t *testing.T) {
 	defer cleanup()
 	path, other, comment := durableCommentFixture(t, s)
 	rev := path + "/revisions/1"
-	rec := planRequest(
+	rec := planRequestWithProvenance(
 		s.echo,
 		"POST",
 		rev+"/decisions",
 		`{"status":"in_review","expected_head":1,"expected_review_version":0,"expected_feedback_version":1}`,
-		"",
+		planRequestProvenance{actor: "plan-caller", sessionID: "plan-session"},
 	)
 	require.Equal(t, 200, rec.Code, rec.Body.String())
 	rec = planRequest(s.echo, "GET", rev+"/decisions", "", "")
@@ -537,8 +537,8 @@ func TestDurableAPIHistoryReaders(t *testing.T) {
 	require.Equal(t, "in_review", events[0].Status)
 	require.EqualValues(t, 1, events[0].ReviewVersion)
 	require.EqualValues(t, 1, events[0].FeedbackVersion)
-	require.Equal(t, "anonymous", events[0].Actor)
-	require.Empty(t, events[0].SessionID)
+	require.Equal(t, "plan-caller", events[0].Actor)
+	require.Equal(t, "plan-session", events[0].SessionID)
 	require.Empty(t, events[0].Dispositions)
 	require.False(t, events[0].CreatedAt.IsZero())
 	versions := rev + "/comments/" + comment.ID + "/versions"
