@@ -57,6 +57,7 @@
 	let captured = $state<ReturnType<typeof reviewContext> | null>(null);
 	let stale = $state(false);
 	let editBase = $state(0);
+	let comparedBase = $state<Revision | null>(null);
 	let editInitialized = false;
 	let saveAttempt: { content: string; expected_revision: number; key: string } | null = null;
 	let dispositionId = $state<string | null>(null);
@@ -165,7 +166,11 @@
 		});
 	});
 
-	const unresolvedCount = $derived(comments.filter((c) => !c.resolved_at).length);
+	const unresolvedCount = $derived(
+		allComments.filter(
+			(c) => feedbackDisposition(c, dispositions, revisionNumber)?.disposition !== 'addressed'
+		).length
+	);
 
 	$effect(() => {
 		if (planId && projectId && revisionNumber) loadData();
@@ -533,6 +538,27 @@
 				await failed(err);
 			}
 		}
+	}
+
+	async function compareCurrentHead() {
+		if (statusBusy) return;
+		statusBusy = true;
+		comparedBase = null;
+		try {
+			const latest = await getMetadata(projectId, planId);
+			comparedBase = await getRevision(projectId, planId, latest.head_revision);
+		} catch (err) {
+			await failed(err);
+		} finally {
+			statusBusy = false;
+		}
+	}
+
+	function useComparedBase() {
+		if (!comparedBase || readOnly || statusBusy) return;
+		// Explicit editor reconciliation never changes the selected review or its preconditions.
+		editBase = comparedBase.revision;
+		saveAttempt = null;
 	}
 
 	async function handleSaveEdit() {
@@ -951,6 +977,31 @@
 		<!-- Edit Mode: Raw markdown editor -->
 		{#if viewMode === 'edit'}
 			<div class="card p-4 space-y-3">
+				<p>
+					Draft save base: revision {editBase}. The selected review remains revision {revisionNumber}.
+				</p>
+				<button class="btn" disabled={statusBusy || readOnly} onclick={compareCurrentHead}
+					>Compare with current head</button
+				>
+				{#if comparedBase}
+					<section
+						class="space-y-2 border border-border rounded p-3"
+						aria-label="Remote plan revision"
+					>
+						<h3>Revision {comparedBase.revision} — remote content for comparison</h3>
+						<p class="break-all font-mono text-xs">SHA-256 {comparedBase.content_sha256}</p>
+						<pre class="whitespace-pre-wrap max-h-96 overflow-auto">{comparedBase.content}</pre>
+						<p>
+							Reconcile your draft below, then explicitly select this revision as its save base.
+							Save creates a new revision and does not approve it.
+						</p>
+						<button
+							class="btn"
+							disabled={statusBusy || readOnly || editBase === comparedBase.revision}
+							onclick={useComparedBase}>Use revision {comparedBase.revision} as save base</button
+						>
+					</section>
+				{/if}
 				<textarea
 					aria-label="Plan content"
 					bind:value={editContent}

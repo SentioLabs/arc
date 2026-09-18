@@ -85,6 +85,29 @@ test('head conflict preserves the draft and stale approval never follows a new h
 	await expect(page).toHaveURL(new RegExp(`${url}/1$`));
 	await expect(page.locator('article.doc')).toContainText('Original bytes');
 	expect((await request(`${path}/revisions/2`)).review_status).toBe('draft');
+	await other.getByRole('button', { name: 'Compare with current head' }).click();
+	const remote = other.getByRole('region', { name: 'Remote plan revision' });
+	await expect(remote).toContainText('Revision 2');
+	await expect(remote).toContainText('# Concurrent head');
+	await expect(other.getByLabel('Plan content')).toHaveValue('# Retained local draft');
+	await expect(other).toHaveURL(new RegExp(`${url}/1$`));
+	expect((await request(path)).head_revision).toBe(2);
+	await other
+		.getByLabel('Plan content')
+		.fill('# Reconciled content\n\nRetained local draft and Concurrent head.');
+	await other.getByRole('button', { name: 'Use revision 2 as save base' }).click();
+	expect((await request(path)).head_revision).toBe(2);
+	await other.getByRole('button', { name: 'Save', exact: true }).click();
+	await expect(other).toHaveURL(new RegExp(`${url}/3$`));
+	await expect(other.locator('article.doc')).toContainText(
+		'Retained local draft and Concurrent head.'
+	);
+	expect((await request(`${path}/revisions/3`)).content).toBe(
+		'# Reconciled content\n\nRetained local draft and Concurrent head.'
+	);
+	expect((await request(`${path}/revisions/2`)).content).toBe('# Concurrent head');
+	expect((await request(`${path}/revisions/3`)).review_status).toBe('draft');
+	await expect(page.getByRole('button', { name: 'Approve', exact: true })).toBeDisabled();
 	await other.close();
 });
 test('missing legacy plan explains explicit migration', async ({ page }) => {
@@ -120,6 +143,37 @@ test('earlier anchors remain original, deferral expires, and stale comment draft
 		.click();
 	await expect(page.getByRole('alert')).toBeVisible();
 	await expect(page.locator('[data-comment-id] textarea')).toHaveValue('My retained comment draft');
+	const card = page.locator('[data-comment-id]');
+	const remoteComment = card.getByRole('region', { name: 'Remote comment version' });
+	await expect(remoteComment).toContainText('Version 2');
+	await expect(remoteComment).toContainText('Concurrent edit');
+	await expect(remoteComment).toContainText('Concurrent remote anchor');
+	await card.getByRole('button', { name: 'Use comment version 2 and keep its anchor' }).click();
+	await expect(card.locator('textarea')).toHaveValue('My retained comment draft');
+	// Another remote write after the user selects v2 must still conflict.
+	await request(
+		`${path}/revisions/1/comments/${comment.id}`,
+		{ content: 'Second remote edit', expected_version: 2 },
+		'PATCH'
+	);
+	await card.getByRole('button', { name: 'Save', exact: true }).click();
+	await expect(card.locator('textarea')).toHaveValue('My retained comment draft');
+	await expect(remoteComment).toContainText('Version 3');
+	await expect(remoteComment).toContainText('Second remote edit');
+	await card
+		.locator('textarea')
+		.fill('My retained comment draft reconciled with Second remote edit');
+	await card.getByRole('button', { name: 'Use comment version 3 and keep its anchor' }).click();
+	await card.getByRole('button', { name: 'Save', exact: true }).click();
+	await expect(card.locator('textarea')).toHaveCount(0);
+	await expect(card).toContainText('My retained comment draft reconciled with Second remote edit');
+	const stored = (await request(`${path}/revisions/1/comments`)).find(
+		(c: { id: string }) => c.id === comment.id
+	);
+	expect(stored.version).toBe(4);
+	expect(stored.anchor.quoted_text).toBe('Concurrent remote anchor');
+	expect(stored.content).toBe('My retained comment draft reconciled with Second remote edit');
+
 	await request(`${path}/revisions`, {
 		content: '# Second content\n\nNo old phrase here.',
 		expected_revision: 1
@@ -419,4 +473,25 @@ test('outstanding feedback beyond the first page stays visible', async ({ page }
 	for (const comment of [comments[0], comments[50]])
 		await expect(page.locator(`[data-feedback-id="${comment.id}"]`)).toContainText(comment.content);
 	expect(queried.some((url) => url.includes('offset=50'))).toBeTruthy();
+});
+
+test('prior-only outstanding feedback enables Request changes', async ({ page }) => {
+	const { path, url } = await seed();
+	await request(`${path}/revisions/1/comments`, { content: 'Prior rollout concern' });
+	await request(`${path}/revisions`, {
+		content: '# New content with prior feedback',
+		expected_revision: 1
+	});
+	await page.goto(`${url}/2`);
+	await expect(page.locator('article.doc')).toContainText('New content with prior feedback');
+	await expect(page.locator('[data-comment-id]')).toHaveCount(0);
+	await expect(page.getByRole('region', { name: 'Feedback obligations' })).toContainText(
+		'Prior rollout concern'
+	);
+	await page.getByRole('button', { name: 'Submit for review' }).click();
+	await expect(page.getByRole('button', { name: 'Request changes', exact: true })).toBeEnabled();
+	await page.getByRole('button', { name: 'Request changes', exact: true }).click();
+	await expect(page.getByTestId('revision-metadata')).toContainText('changes_requested');
+	expect((await request(`${path}/revisions/2`)).review_status).toBe('changes_requested');
+	expect(await request(`${path}/revisions/2/comments?include_prior=false`)).toHaveLength(0);
 });

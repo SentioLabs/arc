@@ -109,6 +109,31 @@
 	{#if comment.deleted_at}<p>Deleted comment — tombstone retained</p>{/if}
 	{#if editor.editing}
 		<div class="mt-2 space-y-2">
+			{#if comment.version !== editor.version}
+				<section
+					aria-label="Remote comment version"
+					class="space-y-2 rounded border border-[var(--ink-rule)] p-2"
+				>
+					<p>Version {comment.version} — remote comment for comparison</p>
+					<pre class="whitespace-pre-wrap">{comment.content}</pre>
+					<p>Remote anchor:</p>
+					<pre class="whitespace-pre-wrap text-xs">{JSON.stringify(
+							comment.anchor ?? { line_number: comment.line_number ?? null },
+							null,
+							2
+						)}</pre>
+					<p>
+						Reconcile your draft below. Selecting this version preserves your text and keeps the
+						displayed remote anchor when you save.
+					</p>
+					<button
+						type="button"
+						disabled={busy || readOnly || !!comment.deleted_at}
+						onclick={() => (editor.version = comment.version)}
+						>Use comment version {comment.version} and keep its anchor</button
+					>
+				</section>
+			{/if}
 			<textarea
 				bind:value={editor.content}
 				rows="3"
