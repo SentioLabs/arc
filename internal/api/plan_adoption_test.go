@@ -168,14 +168,38 @@ func TestAdoptionRoutePersistsRequestProvenanceAndOriginalReplay(t *testing.T) {
 	require.Equal(t, "caller-session", replayed.SessionID)
 	require.Equal(t, created.FollowUpIDs, replayed.FollowUpIDs)
 
+	detach := apiAdoption(t, s, p, root, task, nil)
+	followUpID := created.FollowUpIDs["repair"]
+	detach.Tasks = append(detach.Tasks, types.ReconciledTask{
+		IssueID:     followUpID,
+		Expected:    apiCaptured(t, s, p, followUpID),
+		Disposition: "unchanged",
+		Reason:      "consistent",
+	})
+	dryRun := detach
+	dryRun.DryRun = true
+	valid := planRequestWithProvenance(
+		s.echo,
+		http.MethodPost,
+		path,
+		jsonBody(t, dryRun),
+		planRequestProvenance{actor: "later-caller", sessionID: "later-session"},
+	)
+	require.Equal(t, http.StatusOK, valid.Code, valid.Body.String())
+	var proposal storage.PlanAdoptionResult
+	require.NoError(t, json.Unmarshal(valid.Body.Bytes(), &proposal))
+	require.Empty(t, proposal.Errors)
+	require.NoError(t, s.store.UpdateIssue(
+		context.Background(), task, map[string]any{"ai_session_id": "changed-claimant-session"}, "changed-claimant",
+	))
 	stale := planRequestWithProvenance(
 		s.echo,
 		http.MethodPost,
 		path,
-		jsonBody(t, request),
-		planRequestProvenance{key: "stale-key", actor: "later-caller", sessionID: "later-session"},
+		jsonBody(t, detach),
+		planRequestProvenance{key: "stale-detach-key", actor: "later-caller", sessionID: "later-session"},
 	)
-	require.Equal(t, http.StatusBadRequest, stale.Code, stale.Body.String())
+	require.Equal(t, http.StatusConflict, stale.Code, stale.Body.String())
 	history := planRequest(s.echo, http.MethodGet, "/api/v1/projects/"+p+"/issues/"+root+"/plan-adoptions", "", "")
 	require.Equal(t, http.StatusOK, history.Code, history.Body.String())
 	var records []storage.PlanAdoptionResult
