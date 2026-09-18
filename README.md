@@ -179,20 +179,33 @@ arc team context                # All teammate-labeled issues
 arc prime --role backend        # Filtered context for backend agent
 ```
 
-#### Plans
+#### Durable plans
+
+The CLI uploads exact Markdown bytes to a server-owned revision. Client
+`plans.dir` selects drafts; `server.plans_dir` independently selects retained
+content. Approved milestone and epic revisions form a complete governing design
+chain. Tasks retain their captured chain through build, review, verification and
+completion; adoption requires paused workers and atomic reconciliation.
 
 ```bash
-# Register a plan for review (from a markdown file)
-arc plan create --file docs/plans/2026-03-14-auth-system.md
-
-# View plan content, status, and comments
-arc plan show <plan-id>
-
-# Review workflow
-arc plan approve <plan-id>
-arc plan reject <plan-id>
-arc plan comments <plan-id>
+arc plan create design.md
+arc plan show PLAN --revision 1 --review-context-output submit.json
+arc plan submit PLAN --revision 1 --review-context submit.json
+arc plan show PLAN --revision 1 --review-context-output approval.json
+# Review the exact bytes and feedback before deciding.
+arc plan approve PLAN --revision 1 --review-context approval.json
+arc plan comments PLAN --revision 1
+arc plan resolve TASK
+arc update TASK --take --context-output work.json
+arc close TASK --context work.json
+arc docs plans  # Feedback dispositions, adoption, export and operator recovery
 ```
+
+Upgrade CLI/server/plugins together: old path-only requests are rejected with
+upgrade guidance. Draft edits require explicit saves; newer revisions do not erase
+prior approval or discussion. Archive retains history and does not permit project
+deletion. See [the operator runbook](internal/docs/PLANS.md#operator-runbook-staging-and-coordinated-upgrade)
+for isolated legacy import, integrity inspection and paired DB/content recovery.
 
 #### Documentation & Help
 

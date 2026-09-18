@@ -495,3 +495,59 @@ test('prior-only outstanding feedback enables Request changes', async ({ page })
 	expect((await request(`${path}/revisions/2`)).review_status).toBe('changes_requested');
 	expect(await request(`${path}/revisions/2/comments?include_prior=false`)).toHaveLength(0);
 });
+
+test('approval sends the displayed exact revision and a disposition race leaves no record', async ({
+	page
+}) => {
+	const { path, url } = await seed();
+	const comment = await request(`${path}/revisions/1/comments`, {
+		content: 'Check restart evidence'
+	});
+	await page.goto(`${url}/1`);
+	await expect(page.locator('article.doc')).toContainText('Original bytes');
+	await expect(page.getByTestId('revision-metadata')).toContainText('Revision 1');
+	await page.getByRole('button', { name: 'Submit for review' }).click();
+	await page.getByRole('button', { name: 'Assess feedback' }).click();
+	await page.getByLabel('Disposition reason').fill('Verified captured restart evidence');
+	await request(
+		`${path}/revisions/1/comments/${comment.id}`,
+		{ content: 'Check revised restart evidence', expected_version: comment.version },
+		'PATCH'
+	);
+	await page.getByRole('button', { name: 'Record disposition' }).click();
+	await expect(page.getByRole('alert')).toBeVisible();
+	await expect(page.getByLabel('Disposition reason')).toHaveValue(
+		'Verified captured restart evidence'
+	);
+	expect(await request(`${path}/revisions/1/dispositions`)).toEqual([]);
+	expect((await request(`${path}/revisions/1`)).review_status).toBe('in_review');
+	const metadata = await request(path);
+	await request(`${path}/revisions/1/dispositions`, {
+		comment_id: comment.id,
+		expected_comment_version: 2,
+		expected_feedback_version: metadata.feedback_version,
+		disposition: 'addressed',
+		reason: 'Rechecked the revised restart evidence'
+	});
+	await page.reload();
+	await expect(page.locator('article.doc')).toContainText('Original bytes');
+	await expect(page.getByTestId('revision-metadata')).toContainText('Revision 1');
+	const snapshot = await request(path);
+	const revision = await request(`${path}/revisions/1`);
+	const approval = page.waitForRequest(
+		(req) => req.url().endsWith(`${path}/revisions/1/decisions`) && req.method() === 'POST'
+	);
+	await page.getByRole('button', { name: 'Approve', exact: true }).click();
+	expect((await approval).postDataJSON()).toEqual({
+		status: 'approved',
+		expected_head: snapshot.head_revision,
+		expected_review_version: revision.review_version,
+		expected_feedback_version: snapshot.feedback_version
+	});
+	await expect(page.getByTestId('revision-metadata')).toContainText('approved');
+	const decisions = await request(`${path}/revisions/1/decisions`);
+	expect(decisions.at(-1).revision).toBe(1);
+	expect(decisions.at(-1).dispositions).toHaveLength(1);
+	expect(decisions.at(-1).dispositions[0].comment_version).toBe(2);
+	expect(decisions.at(-1).dispositions[0].reason).toBe('Rechecked the revised restart evidence');
+});

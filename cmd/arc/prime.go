@@ -393,8 +393,9 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
   (sets session ID + in_progress)
 - ` + "`arc update <id> --title=\"new title\"`" + ` - Update fields
 - ` + "`arc update <id> --stdin <<'EOF'`" + ` - Update description via stdin heredoc
-- ` + "`arc close <id>`" + ` - Mark complete
-- ` + "`arc close <id1> <id2> ...`" + ` - Close multiple issues at once
+- ` + "`arc close <id>`" + ` - Mark complete (governed work requires --context captured.json)
+- ` + "`arc close <id1> <id2> ...`" + ` - Close multiple unlinked issues
+  Governed issues need individual captured contexts.
 
 ### Labels
 - ` + "`arc label list`" + ` - List all labels
@@ -409,12 +410,33 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 - ` + "`arc blocked`" + ` - Show all blocked issues
 - ` + "`arc show <id>`" + ` - See what's blocking/blocked by this issue
 
-### Plans
-- ` + "`arc plan create <file-path>`" + ` - Register ephemeral plan for review
-- ` + "`arc plan show <plan-id>`" + ` - Show plan content, status, and comments
-- ` + "`arc plan approve <plan-id>`" + ` - Approve plan
-- ` + "`arc plan reject <plan-id>`" + ` - Reject plan
-- ` + "`arc plan comments <plan-id>`" + ` - List review comments
+### Plans and governed work
+- Plans are server-owned immutable Markdown revisions. Client plans.dir selects drafts;
+  server.plans_dir selects the independent retained root. Upload does not sync files.
+- ` + "`" + `arc plan create FILE` + "`" + ` uploads exact bytes;
+  ` + "`" + `arc plan update PLAN FILE --expected-revision N` + "`" + `
+  creates a new draft. Upgrade old path-based clients with the server.
+- ` + "`" + `arc plan show PLAN --revision N --review-context-output review.json` + "`" + ` captures a review.
+  Submit/approve/reject with ` + "`" + `--revision N --review-context review.json` + "`" + `; capture a new
+  snapshot after each transition and review the exact bytes and feedback before approval.
+- ` + "`" + `arc plan comments PLAN --revision N` + "`" + ` includes prior outstanding feedback. Approval
+  needs an addressed/deferred disposition with reason for each obligation; races conflict.
+- ` + "`" + `arc plan resolve TASK` + "`" + ` shows the primary epic/milestone pin and every higher-level
+  design. Read the full chain; task/epic prose cannot override it. Contradictions require
+  reconciliation. ` + "`" + `arc docs plans` + "`" + ` describes the complete workflow and operator runbook.
+- Stop affected workers before ` + "`" + `arc plan adopt CONTAINER PLAN --revision N --dry-run` + "`" + `.
+  Stage complete task dispositions, edits and descendant compatibility/pin records in a
+  reconciliation manifest; validate then apply atomically. Never pre-edit live contracts.
+- ` + "`" + `arc update TASK --take --context-output work.json` + "`" + ` captures the actual work-start chain
+  and contract version, including explicit unlinked state. Keep that artifact unchanged.
+- ` + "`" + `arc evidence TASK --phase build --context work.json --stdin` + "`" + ` records captured provenance;
+  use review/verify phases too. ` + "`" + `arc close TASK --context work.json` + "`" + ` rejects stale work.
+  Do not refresh context at completion. Close governed tasks individually, never by cascade.
+- ` + "`" + `arc plan export PLAN --revision N --output FILE` + "`" + ` exports exact bytes without overwrite;
+  frontmatter enrichment is opt-in. Explicit archive retains content, discussion and pins;
+  archive does not permit project deletion or source merges with retained governance.
+- Actor/session records are provenance, not authenticated identity. Keyed replay preserves
+  the original record. Use ARC_SESSION_ID for the current caller's session.
 
 ### Project Health
 - ` + "`arc stats`" + ` - Project statistics (open/closed/blocked counts)
@@ -425,12 +447,12 @@ var tmplCLI = template.Must(template.New("cli").Parse(`# Arc Workflow Context
 ` + "```bash" + `
 arc ready           # Find available work
 arc show <id>       # Review issue details
-arc update <id> --take --session-id <session-id>  # Take it (sets session ID + in_progress)
+arc update <id> --take --session-id <session-id> --context-output work.json
 ` + "```" + `
 
 **Completing work:**
 ` + "```bash" + `
-arc close <id1> <id2> ...   # Close all completed issues at once
+arc close <id> --context work.json   # Use the original captured work context
 git add . && git commit -m "..."  # Commit your changes
 git push                    # Push to remote
 ` + "```" + `

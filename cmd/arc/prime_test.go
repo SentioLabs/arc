@@ -102,3 +102,21 @@ func TestPrimeSessionIDFlag(t *testing.T) {
 		t.Fatal("prime must expose --session-id")
 	}
 }
+
+func TestPrimeDurableGovernance(t *testing.T) {
+	var output strings.Builder
+	if err := outputCLIContext(&output, "worker-session"); err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"server-owned", "server.plans_dir", "--review-context", "--context-output",
+		"--context work.json", "higher-level", "reconciliation", "disposition", "archive",
+	} {
+		if !strings.Contains(output.String(), required) {
+			t.Errorf("missing durable guidance %q", required)
+		}
+	}
+	if strings.Contains(output.String(), "ephemeral") {
+		t.Error("plans must be durable")
+	}
+}

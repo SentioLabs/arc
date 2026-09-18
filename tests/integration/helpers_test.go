@@ -21,7 +21,7 @@ import (
 
 // serverURL is the address of the test server used for health checks
 // in TestMain. The arc CLI reads ARC_SERVER from the environment directly.
-const serverURL = "http://127.0.0.1:7432"
+var serverURL = "http://127.0.0.1:7432"
 
 // arcBinary holds the path to the arc CLI binary, set from ARC_BINARY env var.
 var arcBinary string
@@ -29,6 +29,10 @@ var arcBinary string
 // TestMain sets up the integration test environment. It reads ARC_BINARY,
 // waits for the test server to be reachable, and then runs the tests.
 func TestMain(m *testing.M) {
+	// Docker uses the default; host runs must explicitly select a disposable server.
+	if selected := os.Getenv("ARC_INTEGRATION_SERVER"); selected != "" {
+		serverURL = selected
+	}
 	arcBinary = os.Getenv("ARC_BINARY")
 	if arcBinary == "" {
 		fmt.Fprintln(os.Stderr, "ARC_BINARY not set; skipping integration tests")
@@ -128,12 +132,20 @@ func arcCmdSuccessWithEnv(t *testing.T, home string, env []string, args ...strin
 // the combined output and any error.
 func arcCmdWithStdin(t *testing.T, homeDir string, stdin string, args ...string) (string, error) {
 	t.Helper()
+	return arcCmdInDirWithStdin(t, homeDir, "", stdin, args...)
+}
 
+func arcCmdInDirWithStdin(t *testing.T, homeDir, workDir, stdin string, args ...string) (string, error) {
+	t.Helper()
 	cmd := exec.Command(arcBinary, args...)
+	cmd.Dir = workDir
 	cmd.Env = append(os.Environ(),
 		"HOME="+homeDir,
 		"ARC_SERVER="+serverURL,
 	)
+	if workDir != "" {
+		cmd.Env = append(cmd.Env, "PWD="+workDir)
+	}
 	cmd.Stdin = strings.NewReader(stdin)
 
 	out, err := cmd.CombinedOutput()
@@ -229,4 +241,3 @@ func setupAIProject(t *testing.T) (home string, projectID string, workDir string
 
 	return home, projectID, workDir
 }
-

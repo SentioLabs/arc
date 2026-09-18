@@ -185,6 +185,41 @@ Issue Lifecycle:
 
 ---
 
+## Durable design and execution contracts
+
+Use `arc docs plans` for the complete commands and operator runbook. Draft files
+are uploaded as immutable, server-owned Markdown revisions; client `plans.dir`
+does not select `server.plans_dir`. Explicit saves create new unapproved revisions.
+Brainstorm submits and waits for an exact revision, never silently following a new
+head. Review uses a captured revision/head/review/feedback snapshot; current and
+prior feedback need addressed/deferred dispositions with reasons.
+
+Plan from the approved tactical revision and every pinned higher-level design.
+A milestone architecture pin and descendant epic tactical pin form one governing
+chain; task prose refines that chain and cannot override it. Attach approved pins
+through `arc plan adopt`, including complete task reconciliation and tactical
+compatibility evidence. A contradiction requires revising the design and reconciling
+before execution resumes; the server cannot judge semantic compatibility.
+
+Build/review/verify start with `arc plan resolve TASK` and read each exact revision.
+Claim using `arc update TASK --take --context-output work.json`. Keep the original
+capture for `arc evidence TASK --phase build --context work.json --stdin` (and
+review/verify) and `arc close TASK --context work.json`. Explicit unlinked captures
+also detect later attachment. Never refresh expectations at completion to bypass a
+conflict. Provenance records actor/session and the full chain, not authenticated
+identity. Retrying a keyed adoption retains its original provenance.
+
+Stop affected workers and move in-progress tasks to a non-running status before
+adoption. Prepare task edits, follow-ups, dependencies and descendant pin changes
+in a reconciliation manifest, validate with `--dry-run`, then apply atomically.
+Do not pre-edit live tasks. Concurrent claims, scope edits or membership changes
+invalidate the proposal. Newly resumed work needs a new capture; closed evidence
+retains the old chain. Close governed tasks individually before containers.
+
+Finish archives plans only on explicit request. Archive and closed epics retain
+approved content, discussion and work evidence. Project deletion and source merges
+with retained plans/governance remain blocked even after archive.
+
 ## Epic Planning {#epic-planning}
 
 **For complex multi-step features, think in Ready Fronts, not phases.**

@@ -39,11 +39,14 @@ Arc is a central issue tracking system for AI-assisted coding workflows.
   arc create "title"    - Create new issue
   arc show <id>         - View issue details
   arc close <id>        - Complete an issue
-  arc plan create --file <path> - Register plan for review
-  arc plan show <plan-id>       - View plan content and status
-  arc plan approve <plan-id>    - Approve plan
-  arc plan reject <plan-id>     - Reject plan
-  arc plan comments <plan-id>   - List review comments
+  arc plan create FILE               - Upload durable Markdown revision 1
+  arc plan show PLAN --revision N     - Read exact retained revision
+  arc plan show PLAN --revision N --review-context-output review.json
+  arc plan submit PLAN --revision N --review-context review.json
+  arc plan approve PLAN --revision N --review-context approval.json
+  arc plan comments PLAN --revision N - Read current and prior feedback
+  arc plan resolve ISSUE              - Inspect complete pinned design chain
+  arc docs plans                      - Capture review/work context and reconcile
   arc which             - Show active project
   arc paths             - Manage workspace path registrations
   arc project list      - List all projects
