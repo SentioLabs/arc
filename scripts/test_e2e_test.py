@@ -61,6 +61,32 @@ class LifecycleTests(unittest.TestCase):
                 self.assertEqual(failure.exception.returncode, 31)
                 stop.assert_called_once_with(run)
 
+    def test_isolation_cleans_second_stack_when_first_log_collection_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first = harness.new_run(pathlib.Path(temp))
+            second = harness.new_run(pathlib.Path(temp))
+            (first / 'url').write_text('http://127.0.0.1:32100')
+            (second / 'url').write_text('http://127.0.0.1:32101')
+            calls = []
+
+            def compose(state, *args, **kwargs):
+                calls.append((state, args))
+                if state == first and args[0] == 'logs':
+                    raise OSError('first stack log collection failed')
+                return subprocess.CompletedProcess(args, 0, stdout='second stack log')
+
+            with patch.object(harness, 'new_run', side_effect=[first, second]), \
+                 patch.object(harness, 'start') as start, \
+                 patch.object(harness, 'request', side_effect=[{'id': 'sentinel'}, [], [{'id': 'sentinel'}]]), \
+                 patch.object(harness, 'compose', side_effect=compose):
+                with self.assertRaisesRegex(OSError, 'first stack log collection failed'):
+                    harness.isolation()
+            self.assertEqual(start.call_count, 2)
+            down = ('down', '--volumes', '--remove-orphans', '--rmi', 'local')
+            self.assertIn((first, down), calls)
+            self.assertIn((second, down), calls)
+            self.assertEqual((second / 'server.log').read_text(), 'second stack log')
+
     def test_repeated_stop_preserves_failure_logs(self):
         with tempfile.TemporaryDirectory() as temp:
             run = harness.new_run(pathlib.Path(temp))

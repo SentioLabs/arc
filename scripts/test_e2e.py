@@ -104,8 +104,10 @@ def isolation():
         assert request(b, '/api/v1/projects') == []
         print(f'PASS: distinct projects and ports, private databases, selective teardown: {a}, {b}')
     finally:
-        stop(first)
-        stop(second)
+        try:
+            stop(first)
+        finally:
+            stop(second)
 
 
 def main(argv=None):
