@@ -206,3 +206,12 @@ func printWorkContext(expected types.ExpectedGovernance) {
 		source.Reference.Revision,
 	)
 }
+
+// writeDurableResult retains complete nested records in a readable, reusable form.
+// These durable workflow results use indented JSON in both output modes; unrelated
+// CLI commands keep their existing global formatting behavior.
+func writeDurableResult(value any) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
+}

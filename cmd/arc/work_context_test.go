@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/sentiolabs/arc/internal/client"
@@ -340,4 +343,82 @@ func TestEvidenceHumanOutputNamesEveryCapturedSource(t *testing.T) {
 		require.Contains(t, out, want)
 	}
 	require.NotContains(t, out, "0x")
+}
+
+func TestFailedCaptureOutputRetainsTransactionalContext(t *testing.T) {
+	for _, take := range []bool{true, false} {
+		for _, linked := range []bool{true, false} {
+			for _, asJSON := range []bool{false, true} {
+				t.Run(
+					fmt.Sprintf("take=%t/linked=%t/json=%t", take, linked, asJSON),
+					func(t *testing.T) {
+						runFailedCaptureOutputCase(t, take, linked, asJSON)
+					},
+				)
+			}
+		}
+	}
+}
+
+func runFailedCaptureOutputCase(t *testing.T, take, linked, asJSON bool) {
+	t.Helper()
+	_, p := setupSessionTest(t)
+	outputJSON = asJSON
+	t.Setenv("ARC_SESSION_ID", "capture-worker")
+	expected := defaultOutputAdoption(linked).After.Expected
+	var writes, afterClaimReads atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			writes.Add(1)
+			_ = json.NewEncoder(w).Encode(types.IssueDetails{
+				Issue: types.Issue{
+					ID:              "capture-task",
+					ProjectID:       p,
+					ContractVersion: expected.ContractVersion,
+				},
+				ResolvedGovernance: expected.Governing,
+			})
+			return
+		}
+		if writes.Load() != 0 {
+			afterClaimReads.Add(1)
+			http.Error(w, "must preserve original claim response", http.StatusConflict)
+			return
+		}
+		if strings.Contains(r.URL.Path, "/ai/sessions/") {
+			_ = json.NewEncoder(w).Encode(types.AISession{ID: "capture-worker", ProjectID: p})
+			return
+		}
+		_ = json.NewEncoder(w).
+			Encode(types.Issue{ID: "capture-task", ProjectID: p, ContractVersion: 1})
+	}))
+	defer ts.Close()
+	serverURL = ts.URL
+	path := filepath.Join(t.TempDir(), "original-context.json")
+	require.NoError(t, os.WriteFile(path, []byte("preserve existing artifact"), 0o600))
+	command := takeTestCommand()
+	command.Flags().String("context-output", path, "")
+	if !take {
+		require.NoError(t, command.Flags().Set("take", "false"))
+		require.NoError(t, command.Flags().Set("status", "in_progress"))
+	}
+	var commandErr error
+	out := captureStdout(
+		t,
+		func() { commandErr = updateCmd.RunE(command, []string{"capture-task"}) },
+	)
+	require.ErrorContains(
+		t,
+		commandErr,
+		"issue capture-task updated; captured context could not be written",
+	)
+	require.EqualValues(t, 1, writes.Load())
+	require.Zero(t, afterClaimReads.Load())
+	retained, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "preserve existing artifact", string(retained))
+	// Recovery output is itself the exact artifact; it can be saved and reused.
+	captured, err := decodeWorkContext([]byte(out))
+	require.NoError(t, err, out)
+	require.Equal(t, expected, *captured)
 }

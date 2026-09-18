@@ -55,6 +55,7 @@ var datePrefixRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-`)
 
 const (
 	planUpdateName               = "update"
+	planDeleteName               = "delete"
 	planHistoryName              = "history"
 	planArchived                 = "archived"
 	planDispositionsName         = "dispositions"
@@ -679,8 +680,7 @@ func runPlanList(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	outputResult(result)
-	return nil
+	return writeDurableResult(result)
 }
 
 // newPlanCommentCommand exposes creation and version-checked feedback changes.
@@ -690,7 +690,7 @@ func newPlanCommentCommand() *cobra.Command {
 		Use:   planCommentName,
 		Short: "Create, edit, reopen, or tombstone revision feedback",
 	}
-	for _, name := range []string{planCreateName, planUpdateName, "delete"} {
+	for _, name := range []string{planCreateName, planUpdateName, planDeleteName} {
 		child := &cobra.Command{
 			Use:   name + " PLAN [COMMENT]",
 			Short: name + " revision feedback",
@@ -748,8 +748,7 @@ func runPlanComment(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		outputResult(result)
-		return nil
+		return writeDurableResult(result)
 	}
 	{
 		if err := requirePlanFlags(cmd, "expected-comment-version"); err != nil {
@@ -764,7 +763,7 @@ func runPlanComment(cmd *cobra.Command, args []string) error {
 			content := stringFlag(cmd, "content")
 			req.Content = &content
 		}
-		if cmd.Name() == "delete" {
+		if cmd.Name() == planDeleteName {
 			result, err = c.DeletePlanComment(p, args[0], n, args[1], req.ExpectedVersion)
 		} else {
 			result, err = c.UpdatePlanComment(p, args[0], n, args[1], req)
@@ -773,8 +772,7 @@ func runPlanComment(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	outputResult(result)
-	return nil
+	return writeDurableResult(result)
 }
 
 // newPlanFeedbackCommand binds a reason to a target and exact comment version.
@@ -964,16 +962,23 @@ func runPlanWait(cmd *cobra.Command, args []string) error {
 			failures = 0
 		}
 		if err == nil && result.Status != "" {
-			outputResult(result)
-			if result.Status == planSuperseded {
-				return fmt.Errorf("revision %d superseded by head %d", n, result.HeadRevision)
-			}
-			return nil
+			return renderPlanWait(result)
 		}
 		if !sleepOrCancel(ctx, planWaitPollInterval) {
 			return planWaitCancelled(args[0], ctx.Err())
 		}
 	}
+}
+
+// renderPlanWait includes original feedback provenance and preserves supersession errors.
+func renderPlanWait(result planWaitResult) error {
+	if err := writeDurableResult(result); err != nil {
+		return err
+	}
+	if result.Status == planSuperseded {
+		return fmt.Errorf("revision %d superseded by head %d", result.Revision, result.HeadRevision)
+	}
+	return nil
 }
 
 // pollPlanWait gives historical decisions precedence over derived supersession.
@@ -1090,8 +1095,7 @@ func runPlanAdopt(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	outputResult(result)
-	return nil
+	return writeDurableResult(result)
 }
 
 // Presence is validated before decoding so absent expectations cannot turn into

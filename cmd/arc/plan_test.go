@@ -18,6 +18,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/storage"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/sentiolabs/arc/internal/types"
@@ -852,4 +853,346 @@ func runWaitCancellationCase(t *testing.T, endpoint, mode string) {
 		t.Error("wait did not stop its in-flight HTTP request")
 	}
 	require.Zero(t, writes.Load())
+}
+
+// These command tests exercise the real client decoding and default CLI output.
+// Complete JSON equality checks semantic values at every nested pointer boundary.
+func TestDurableDefaultCollectionAndCommentOutput(t *testing.T) {
+	prior, current := defaultOutputComments()
+	deleted := *current
+	deletedAt := time.Date(2026, 9, 17, 12, 34, 56, 0, time.UTC)
+	deleted.DeletedAt = &deletedAt
+	cases := []struct {
+		name   string
+		args   []string
+		result any
+	}{
+		{
+			"plan collection",
+			[]string{"list"},
+			[]*types.Plan{
+				{
+					ID:           "visible-plan",
+					Title:        "Retained design",
+					HeadRevision: 7,
+					Lifecycle:    "active",
+					Version:      9,
+				},
+			},
+		},
+		{
+			"history",
+			[]string{"history", testWaitPlanID},
+			[]*types.PlanRevision{
+				{
+					PlanID:        testWaitPlanID,
+					Revision:      7,
+					ReviewStatus:  "changes_requested",
+					ReviewVersion: 3,
+				},
+			},
+		},
+		{
+			"comments",
+			[]string{"comments", testWaitPlanID, "--revision", "7"},
+			[]*types.PlanComment{prior, current},
+		},
+		{
+			"dispositions",
+			[]string{"dispositions", testWaitPlanID, "--revision", "7"},
+			[]*types.PlanFeedbackDisposition{
+				{
+					ID:             "addressed-record",
+					PlanID:         testWaitPlanID,
+					TargetRevision: 7,
+					CommentID:      prior.ID,
+					CommentVersion: prior.Version,
+					Disposition:    "addressed",
+					Reason:         "Recovery now preserves the original contract",
+				},
+				{
+					ID:             "deferred-record",
+					PlanID:         testWaitPlanID,
+					TargetRevision: 7,
+					CommentID:      current.ID,
+					CommentVersion: current.Version,
+					Disposition:    "deferred",
+					Reason:         "Deferred with explicit follow-up",
+				},
+			},
+		},
+		{"empty plans", []string{"list"}, []*types.Plan{}},
+		{"empty history", []string{"history", testWaitPlanID}, []*types.PlanRevision{}},
+		{
+			"empty comments",
+			[]string{"comments", testWaitPlanID, "--revision", "7"},
+			[]*types.PlanComment{},
+		},
+		{
+			"empty dispositions",
+			[]string{"dispositions", testWaitPlanID, "--revision", "7"},
+			[]*types.PlanFeedbackDisposition{},
+		},
+		{
+			"create comment",
+			[]string{
+				"comment",
+				"create",
+				testWaitPlanID,
+				"--revision",
+				"7",
+				"--content",
+				current.Content,
+			},
+			current,
+		},
+		{
+			"update comment",
+			[]string{
+				"comment",
+				"update",
+				testWaitPlanID,
+				current.ID,
+				"--revision",
+				"7",
+				"--expected-comment-version",
+				"4",
+				"--content",
+				current.Content,
+			},
+			current,
+		},
+		{
+			"delete comment",
+			[]string{
+				"comment",
+				planDeleteName,
+				testWaitPlanID,
+				current.ID,
+				"--revision",
+				"7",
+				"--expected-comment-version",
+				"5",
+			},
+			&deleted,
+		},
+		{
+			"legacy unanchored comment",
+			[]string{"comments", testWaitPlanID, "--revision", "7"},
+			[]*types.PlanComment{
+				{
+					ID:      "legacy-comment",
+					PlanID:  testWaitPlanID,
+					Content: "Unknown original revision",
+					Version: 1,
+				},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			response, err := json.Marshal(tc.result)
+			require.NoError(t, err)
+			setupDefaultOutputServer(
+				t,
+				func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(response) },
+			)
+			out, err := runPlanTest(t, tc.args...)
+			require.NoError(t, err)
+			require.JSONEq(t, string(response), out)
+		})
+	}
+}
+
+func defaultOutputComments() (prior, current *types.PlanComment) {
+	priorRevision, currentRevision, line := int64(3), int64(7), 42
+	prior = &types.PlanComment{
+		ID: "prior-feedback", PlanID: testWaitPlanID, Revision: &priorRevision, Version: 2,
+		Content: "Clarify recovery behavior", LineNumber: &line,
+		Anchor: &types.PlanCommentAnchor{
+			LineStart: 42, LineEnd: 44, QuotedText: "original recovery text", Occurrence: 2,
+			HeadingSlug: "recovery", ContextBefore: "before quoted span", ContextAfter: "after quoted span",
+		},
+	}
+	current = new(types.PlanComment)
+	*current = *prior
+	current.ID, current.Revision = "current-feedback", &currentRevision
+	current.Version, current.Content = 5, "Current revision feedback"
+	return prior, current
+}
+
+func setupDefaultOutputServer(t *testing.T, handler http.HandlerFunc) {
+	t.Helper()
+	_, p := setupSessionTest(t)
+	originalProject := projectID
+	projectID = p
+	t.Cleanup(func() { projectID = originalProject })
+	ts := httptest.NewServer(handler)
+	t.Cleanup(ts.Close)
+	serverURL = ts.URL
+	require.False(t, outputJSON)
+}
+
+func TestDurableDefaultWaitFeedbackOutput(t *testing.T) {
+	prior, current := defaultOutputComments()
+	for _, comments := range [][]*types.PlanComment{{prior, current}, {}} {
+		t.Run(fmt.Sprintf("comments=%d", len(comments)), func(t *testing.T) {
+			setupDefaultOutputServer(t, func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/comments"):
+					_ = json.NewEncoder(w).Encode(comments)
+				case strings.Contains(r.URL.Path, "/revisions/"):
+					_ = json.NewEncoder(w).
+						Encode(types.PlanRevisionWithContent{PlanRevision: types.PlanRevision{
+							PlanID: testWaitPlanID, Revision: 7, ReviewStatus: "changes_requested",
+						}})
+				default:
+					_ = json.NewEncoder(w).Encode(types.Plan{ID: testWaitPlanID, HeadRevision: 7})
+				}
+			})
+			out, err := runPlanTest(t, "wait", testWaitPlanID, "--revision", "7")
+			require.NoError(t, err)
+			expected, err := json.Marshal(
+				planWaitResult{
+					Status:       "changes_requested",
+					Revision:     7,
+					HeadRevision: 7,
+					Comments:     comments,
+				},
+			)
+			require.NoError(t, err)
+			require.JSONEq(t, string(expected), out)
+		})
+	}
+}
+
+func TestDurableDefaultAdoptionOutput(t *testing.T) {
+	for _, linked := range []bool{true, false} {
+		for _, dryRun := range []bool{true, false} {
+			t.Run(fmt.Sprintf("linked=%t/dry=%t", linked, dryRun), func(t *testing.T) {
+				runDefaultAdoptionOutputCase(t, linked, dryRun)
+			})
+		}
+	}
+}
+
+func defaultOutputAdoption(linked bool) storage.PlanAdoptionResult {
+	title, description := "Staged title value", "Staged description value"
+	oldRoot := &types.PlanReference{PlanID: "old-root-plan", Revision: 2}
+	newRoot := &types.PlanReference{PlanID: "new-root-plan", Revision: 8}
+	oldChild := &types.PlanReference{PlanID: "old-child-plan", Revision: 4}
+	newChild := &types.PlanReference{PlanID: "new-child-plan", Revision: 6}
+	before := types.ExpectedGovernance{ContractVersion: 11}
+	after := types.ExpectedGovernance{ContractVersion: 12}
+	if linked {
+		before.Governing = &types.GoverningPlan{
+			ContainerID: "tactical-container", ContainerType: types.TypeEpic, Reference: *oldChild,
+			Context: []types.GoverningPlanContext{
+				{
+					ContainerID:   "root-container",
+					ContainerType: types.TypeMilestone,
+					Reference:     *oldRoot,
+				},
+			},
+		}
+		after.Governing = &types.GoverningPlan{
+			ContainerID: "tactical-container", ContainerType: types.TypeEpic, Reference: *newChild,
+			Context: []types.GoverningPlanContext{
+				{
+					ContainerID:   "root-container",
+					ContainerType: types.TypeMilestone,
+					Reference:     *newRoot,
+				},
+			},
+		}
+	} else {
+		oldRoot, newRoot, oldChild, newChild = nil, nil, nil, nil
+	}
+	pin := types.ReconciledContainerPin{
+		ContainerID: "tactical-container", ExpectedContainerVersion: 13, ExpectedPin: oldChild, TargetPin: newChild,
+		Disposition: "updated", Reason: "Tactical changes preserve higher-level requirements",
+	}
+	change := storage.ReconciliationChange{
+		Before: storage.GovernanceSnapshot{
+			IssueID:  "affected-task",
+			Status:   types.StatusOpen,
+			Expected: before,
+		},
+		After: storage.GovernanceSnapshot{
+			IssueID:  "affected-task",
+			Status:   types.StatusOpen,
+			Expected: after,
+		},
+	}
+	container := change
+	container.Before.IssueID, container.After.IssueID = "tactical-container", "tactical-container"
+	return storage.PlanAdoptionResult{
+		ContainerID: "root-container", Before: change.Before, After: change.After,
+		Request: types.PlanAdoptionRequest{
+			ExpectedContainerVersion: 9, ExpectedGovernanceGeneration: 23, ExpectedPin: oldRoot, TargetPin: newRoot,
+			Tasks: []types.ReconciledTask{
+				{
+					IssueID:      "affected-task",
+					Expected:     before,
+					Disposition:  "updated",
+					Reason:       "Complete scope reconciliation",
+					Title:        &title,
+					Description:  &description,
+					FollowUpKeys: []string{"follow-up"},
+				},
+			},
+			ContainerPins: []types.ReconciledContainerPin{pin},
+		},
+		Containers: []storage.ReconciliationChange{
+			container,
+		}, Tasks: []storage.ReconciliationChange{change},
+		ContainerPins: []types.ReconciledContainerPin{
+			pin,
+		}, FollowUpIDs: map[string]string{"follow-up": "created-task"},
+		Errors: []storage.AdoptionCoverageError{
+			{
+				IssueID: "missing-task",
+				Code:    "missing_coverage",
+				Message: "A task still needs reconciliation",
+			},
+		},
+	}
+}
+
+func runDefaultAdoptionOutputCase(t *testing.T, linked, dryRun bool) {
+	t.Helper()
+	result := defaultOutputAdoption(linked)
+	result.DryRun, result.Request.DryRun = dryRun, dryRun
+	setupDefaultOutputServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var actual types.PlanAdoptionRequest
+		if err := json.NewDecoder(r.Body).Decode(&actual); err != nil {
+			t.Error(err)
+			return
+		}
+		assert.Equal(t, result.Request, actual)
+		_ = json.NewEncoder(w).Encode(result)
+	})
+	manifest := filepath.Join(t.TempDir(), "proposal.json")
+	require.NoError(t, writeContextJSON(manifest, result.Request))
+	target := "-"
+	if linked {
+		target = result.Request.TargetPin.PlanID
+	}
+	args := []string{
+		"adopt",
+		"root-container",
+		target,
+		"--revision",
+		"8",
+		"--reconciliation",
+		manifest,
+	}
+	if dryRun {
+		args = append(args, "--dry-run")
+	}
+	out, err := runPlanTest(t, args...)
+	require.NoError(t, err)
+	expected, err := json.Marshal(result)
+	require.NoError(t, err)
+	require.JSONEq(t, string(expected), out)
 }

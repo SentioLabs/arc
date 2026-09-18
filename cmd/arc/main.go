@@ -1128,8 +1128,7 @@ var updateCmd = &cobra.Command{
 		if starting && claimed != nil {
 			captured, captureErr := captureWorkContext(claimed, contextOutput)
 			if captureErr != nil {
-				outputResult(captured)
-				return captureErr
+				return errors.Join(captureErr, writeDurableResult(captured))
 			}
 			if !outputJSON {
 				fmt.Println("Work context:")
