@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DesignContext from '$lib/planner/DesignContext.svelte';
 	import {
 		Header,
 		StatusBadge,
@@ -189,6 +190,12 @@
 				<div class="grid lg:grid-cols-3 gap-6">
 					<!-- Main content -->
 					<div class="lg:col-span-2 space-y-6">
+						<DesignContext
+							projectId={projectId!}
+							issueId={issueId!}
+							explicitPin={issue.governing_plan}
+						/>
+
 						<!-- Description -->
 						<section class="card p-6">
 							<h2 class="text-sm font-medium text-text-muted uppercase tracking-wider mb-3">

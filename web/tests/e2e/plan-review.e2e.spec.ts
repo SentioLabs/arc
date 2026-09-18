@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { uniqueName } from './fixtures';
+import { uniqueName, createTestWorkspace } from './fixtures';
 
 const API_BASE = 'http://localhost:7433/api/v1';
 
@@ -86,7 +86,7 @@ function repeatedAnchor(): SeedAnchor {
 async function postJson<T>(path: string, body: unknown, method = 'POST'): Promise<T> {
 	const res = await fetch(`${API_BASE}${path}`, {
 		method,
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', 'Idempotency-Key': uniqueName('write') },
 		body: JSON.stringify(body)
 	});
 	if (!res.ok) {
@@ -95,44 +95,42 @@ async function postJson<T>(path: string, body: unknown, method = 'POST'): Promis
 	return res.json();
 }
 
-/** Write plan content. The server creates the file (and its parent dirs) on PUT. */
-async function writePlanContent(planId: string, content: string): Promise<void> {
-	await postJson(`/plans/${planId}`, { content }, 'PUT');
+// Each plan owns a disposable project in the Docker test database.
+const projects = new Map<string, string>();
+function planPath(planId: string) {
+	return `/projects/${projects.get(planId)}/plans/${planId}`;
 }
-
-/**
- * Register a plan under the server's writable volume and write `content` to it.
- * The file need not exist beforehand — PUT creates it.
- */
 async function seedPlan(content: string): Promise<string> {
-	const plan = await postJson<{ id: string }>('/plans', {
-		file_path: `/data/e2e-plans/${uniqueName('plan')}.md`
+	const project = await createTestWorkspace();
+	const result = await postJson<{ plan: { id: string } }>(`/projects/${project.id}/plans`, {
+		title: 'Rollout Plan',
+		content
 	});
-	await writePlanContent(plan.id, content);
-	return plan.id;
+	projects.set(result.plan.id, project.id);
+	return result.plan.id;
 }
 
 async function seedComment(
 	planId: string,
 	body: { content: string; line_number?: number; anchor?: SeedAnchor }
 ): Promise<SeedComment> {
-	return postJson<SeedComment>(`/plans/${planId}/comments`, body);
+	return postJson<SeedComment>(`${planPath(planId)}/revisions/1/comments`, body);
 }
 
 async function listComments(planId: string): Promise<SeedComment[]> {
-	const res = await fetch(`${API_BASE}/plans/${planId}/comments`);
+	const res = await fetch(`${API_BASE}${planPath(planId)}/revisions/1/comments`);
 	if (!res.ok) throw new Error(`listComments failed: ${res.status} ${await res.text()}`);
 	return res.json();
 }
 
 async function getPlanStatus(planId: string): Promise<string> {
-	const res = await fetch(`${API_BASE}/plans/${planId}`);
+	const res = await fetch(`${API_BASE}${planPath(planId)}/revisions/1`);
 	if (!res.ok) throw new Error(`getPlan failed: ${res.status} ${await res.text()}`);
-	return (await res.json()).status;
+	return (await res.json()).review_status;
 }
 
 async function openPlan(page: Page, planId: string): Promise<void> {
-	await page.goto(`/planner/${planId}`);
+	await page.goto(`/${projects.get(planId)}/plans/${planId}/1`);
 	// Markdown rendering is async (shiki); the heading is the readiness signal.
 	await expect(page.locator(DOC).getByRole('heading', { name: 'Rollout Plan' })).toBeVisible();
 }
@@ -281,6 +279,12 @@ test.describe('Plan review — unified review flow', () => {
 
 		await page.reload();
 		await expect(page.locator(MARK)).toHaveText(UNIQUE);
+		await page.getByRole('button', { name: 'Comment history' }).click();
+		const history = page.getByRole('region', { name: 'Comment history' });
+		await expect(history).toContainText('Version 1:');
+		await expect(history).toContainText('Version 2:');
+		await expect(history).toContainText(REPEATED);
+		await expect(history).toContainText(UNIQUE);
 	});
 
 	test('resolving hides the card behind the toggle and unresolving restores it', async ({
@@ -291,6 +295,8 @@ test.describe('Plan review — unified review flow', () => {
 		await openPlan(page, planId);
 
 		await page.locator(CARD).getByRole('button', { name: 'Resolve comment' }).click();
+		await page.getByLabel('Disposition reason').fill('Confirmed cohort is safe.');
+		await page.getByRole('button', { name: 'Record disposition' }).click();
 		await expect(page.locator(CARD)).toHaveCount(0);
 
 		const toggle = page.getByRole('button', { name: 'Show resolved (1)' });
@@ -307,9 +313,7 @@ test.describe('Plan review — unified review flow', () => {
 		await expect(page.getByRole('button', { name: /resolved \(/ })).toHaveCount(0);
 	});
 
-	test('deleting a comment removes the card, the highlight, and the stored record', async ({
-		page
-	}) => {
+	test('deleting a comment retains a tombstone and its feedback obligation', async ({ page }) => {
 		const planId = await seedPlan(PLAN_MD);
 		await seedComment(planId, { content: 'Drop this one', anchor: uniqueAnchor() });
 		await openPlan(page, planId);
@@ -318,9 +322,11 @@ test.describe('Plan review — unified review flow', () => {
 		await card.getByRole('button', { name: 'Delete comment' }).click();
 		await card.getByRole('button', { name: 'Yes' }).click();
 
-		await expect(page.locator(CARD)).toHaveCount(0);
+		await expect(page.locator(CARD)).toContainText('Deleted comment');
 		await expect(page.locator(MARK)).toHaveCount(0);
-		expect(await listComments(planId)).toHaveLength(0);
+		const retained = await listComments(planId);
+		expect(retained).toHaveLength(1);
+		expect(retained[0]).toHaveProperty('deleted_at');
 	});
 
 	test('overall feedback creates a pinned card with no highlight', async ({ page }) => {
@@ -363,6 +369,7 @@ test.describe('Plan review — unified review flow', () => {
 		const planId = await seedPlan(PLAN_MD);
 		await openPlan(page, planId);
 
+		await page.getByRole('button', { name: 'Submit for review' }).click();
 		const request = page.locator('.btn-request');
 		const approve = page.locator('.btn-approve');
 		await expect(request).toBeDisabled();
@@ -376,6 +383,10 @@ test.describe('Plan review — unified review flow', () => {
 		await expect(page.getByText('changes_requested', { exact: true })).toBeVisible();
 		expect(await getPlanStatus(planId)).toBe('changes_requested');
 
+		await page.locator(CARD).getByRole('button', { name: 'Resolve comment' }).click();
+		await page.getByLabel('Disposition reason').fill('Rollback section reviewed separately.');
+		await page.getByRole('button', { name: 'Record disposition' }).click();
+		await page.getByRole('button', { name: 'Submit for review' }).click();
 		await approve.click();
 		await expect(page.getByText('approved', { exact: true })).toBeVisible();
 		await expect(approve).toBeDisabled();
@@ -383,14 +394,13 @@ test.describe('Plan review — unified review flow', () => {
 	});
 
 	test('moved text keeps the highlight; removed text orphans the comment', async ({ page }) => {
-		const planId = await seedPlan(PLAN_MD);
+		const planId = await seedPlan(MOVED_MD);
 		await seedComment(planId, { content: 'Check the cohort size', anchor: uniqueAnchor() });
 		await openPlan(page, planId);
 		await expect(page.locator(MARK)).toHaveText(UNIQUE);
 
 		// The phrase moves from line 3 to line 7 — still found, but drifted.
-		await writePlanContent(planId, MOVED_MD);
-		await page.reload();
+		// A same-revision stale anchor exercises drift without rewriting immutable bytes.
 		const mark = page.locator(MARK);
 		await expect(mark).toHaveCount(1);
 		await expect(mark).toHaveText(UNIQUE);
@@ -398,8 +408,9 @@ test.describe('Plan review — unified review flow', () => {
 		await expect(page.locator(CARD).locator('.badge-drifted')).toHaveText('moved');
 
 		// The phrase disappears — no highlight to render, card reports the orphan.
-		await writePlanContent(planId, ORPHAN_MD);
-		await page.reload();
+		const orphanId = await seedPlan(ORPHAN_MD);
+		await seedComment(orphanId, { content: 'Check the cohort size', anchor: uniqueAnchor() });
+		await openPlan(page, orphanId);
 		await expect(page.locator(MARK)).toHaveCount(0);
 		await expect(page.locator(CARD)).toContainText('original text no longer in document');
 	});

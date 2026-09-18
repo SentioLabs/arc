@@ -16,6 +16,7 @@
 <script lang="ts">
 	import { computeCardTops } from './positioning';
 	import CommentCard from './CommentCard.svelte';
+	import type { CommentEditor } from './types';
 
 	let {
 		entries,
@@ -26,17 +27,21 @@
 		onSaveContent,
 		onReanchor,
 		onToggleResolve,
-		onDelete
+		onDelete,
+		readOnly = false,
+		editors = $bindable()
 	}: {
 		entries: RailEntry[];
 		activeId: string | null;
 		showResolved?: boolean;
 		onToggleShowResolved: () => void;
 		onActivate: (id: string) => void;
-		onSaveContent: (id: string, content: string) => Promise<void>;
+		onSaveContent: (id: string, content: string, expectedVersion: number) => Promise<boolean>;
 		onReanchor: (id: string) => void;
 		onToggleResolve: (id: string) => Promise<void>;
 		onDelete: (id: string) => Promise<void>;
+		readOnly?: boolean;
+		editors: Record<string, CommentEditor>;
 	} = $props();
 
 	const resolvedCount = $derived(entries.filter((e) => !!e.comment.resolved_at).length);
@@ -78,10 +83,12 @@
 		{#each pinned as entry (entry.comment.id)}
 			<div bind:clientHeight={heights[entry.comment.id]}>
 				<CommentCard
+					bind:editor={editors[entry.comment.id]}
+					{readOnly}
 					{entry}
 					active={entry.comment.id === activeId}
 					onActivate={() => onActivate(entry.comment.id)}
-					onSaveContent={(c) => onSaveContent(entry.comment.id, c)}
+					onSaveContent={(c, version) => onSaveContent(entry.comment.id, c, version)}
 					onReanchor={() => onReanchor(entry.comment.id)}
 					onToggleResolve={() => onToggleResolve(entry.comment.id)}
 					onDelete={() => onDelete(entry.comment.id)}
@@ -94,10 +101,12 @@
 		{#each positioned as entry, i (entry.comment.id)}
 			<div class="rail-slot" style="top: {tops[i]}px" bind:clientHeight={heights[entry.comment.id]}>
 				<CommentCard
+					bind:editor={editors[entry.comment.id]}
+					{readOnly}
 					{entry}
 					active={entry.comment.id === activeId}
 					onActivate={() => onActivate(entry.comment.id)}
-					onSaveContent={(c) => onSaveContent(entry.comment.id, c)}
+					onSaveContent={(c, version) => onSaveContent(entry.comment.id, c, version)}
 					onReanchor={() => onReanchor(entry.comment.id)}
 					onToggleResolve={() => onToggleResolve(entry.comment.id)}
 					onDelete={() => onDelete(entry.comment.id)}

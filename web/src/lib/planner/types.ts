@@ -47,3 +47,6 @@ export type InlineMark = {
 	resolved: boolean;
 	drifted: boolean;
 };
+
+/** Retained above moving rail cards so a server anchor conflict cannot discard a draft. */
+export type CommentEditor = { editing: boolean; content: string; version: number };

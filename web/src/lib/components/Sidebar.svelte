@@ -35,6 +35,7 @@
 	// Navigation items for project context
 	const navItems = [
 		{ label: 'Issues', href: 'issues', icon: 'issues' },
+		{ label: 'Plans', href: 'plans', icon: 'issues' },
 		{ label: 'Ready', href: 'ready', icon: 'ready' },
 		{ label: 'Blocked', href: 'blocked', icon: 'blocked' },
 		{ label: 'Teams', href: 'teams', icon: 'teams' },

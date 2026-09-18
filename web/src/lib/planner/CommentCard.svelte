@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatRelativeTime } from '$lib/utils';
 	import type { RailEntry } from './CommentRail.svelte';
+	import type { CommentEditor } from './types';
 
 	let {
 		entry,
@@ -9,36 +10,38 @@
 		onSaveContent,
 		onReanchor,
 		onToggleResolve,
-		onDelete
+		onDelete,
+		readOnly = false,
+		editor = $bindable()
 	}: {
 		entry: RailEntry;
 		active: boolean;
 		onActivate: () => void;
-		onSaveContent: (content: string) => Promise<void>;
+		onSaveContent: (content: string, expectedVersion: number) => Promise<boolean>;
 		onReanchor: () => void;
 		onToggleResolve: () => Promise<void>;
 		onDelete: () => Promise<void>;
+		readOnly?: boolean;
+		editor: CommentEditor;
 	} = $props();
 
 	const comment = $derived(entry.comment);
 	const resolved = $derived(!!comment.resolved_at);
 
-	let editing = $state(false);
-	let draft = $state('');
 	let confirmingDelete = $state(false);
 	let busy = $state(false);
 
 	function startEdit() {
-		draft = comment.content;
-		editing = true;
+		editor.content = comment.content;
+		editor.version = comment.version;
+		editor.editing = true;
 	}
 
 	async function saveEdit() {
-		if (!draft.trim() || busy) return;
+		if (!editor.content.trim() || busy) return;
 		busy = true;
 		try {
-			await onSaveContent(draft.trim());
-			editing = false;
+			if (await onSaveContent(editor.content.trim(), editor.version)) editor.editing = false;
 		} finally {
 			busy = false;
 		}
@@ -103,10 +106,11 @@
 		</div>
 	{/if}
 
-	{#if editing}
+	{#if comment.deleted_at}<p>Deleted comment — tombstone retained</p>{/if}
+	{#if editor.editing}
 		<div class="mt-2 space-y-2">
 			<textarea
-				bind:value={draft}
+				bind:value={editor.content}
 				rows="3"
 				class="w-full rounded-md border border-[var(--ink-rule)] bg-[var(--ink-paper)] p-2 text-[13px] text-[var(--ink-text)] focus:border-[var(--ink-comment-edge)] focus:outline-none"
 			></textarea>
@@ -114,13 +118,13 @@
 				<button
 					type="button"
 					class="rounded-md px-2 py-1 text-[11px] text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-					onclick={() => (editing = false)}
+					onclick={() => (editor.editing = false)}
 				>
 					Cancel
 				</button>
 				<button
 					type="button"
-					disabled={!draft.trim() || busy}
+					disabled={!editor.content.trim() || busy}
 					class="rounded-md border border-[var(--ink-comment-edge)] bg-[var(--ink-comment-bg)] px-2 py-1 text-[11px] font-medium text-[var(--ink-comment)] disabled:cursor-not-allowed disabled:opacity-50"
 					onclick={saveEdit}
 				>
@@ -136,61 +140,63 @@
 				<span title={comment.updated_at}>edited</span>
 			{/if}
 			<span class="grow"></span>
-			<button
-				type="button"
-				class="rounded-md px-2 py-1 text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-				aria-label="Edit comment"
-				onclick={startEdit}
-			>
-				Edit
-			</button>
-			{#if !entry.orphaned}
+			{#if !readOnly && !comment.deleted_at}
 				<button
 					type="button"
 					class="rounded-md px-2 py-1 text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-					aria-label="Change highlighted text"
-					onclick={onReanchor}
+					aria-label="Edit comment"
+					onclick={startEdit}
 				>
-					Change highlight
+					Edit
 				</button>
-			{/if}
-			<button
-				type="button"
-				class="rounded-md px-2 py-1 text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-				aria-label={resolved ? 'Unresolve comment' : 'Resolve comment'}
-				disabled={busy}
-				onclick={toggleResolve}
-			>
-				{resolved ? 'Unresolve' : 'Resolve'}
-			</button>
-			{#if confirmingDelete}
-				<span class="flex items-center gap-1">
-					Delete?
-					<button
-						type="button"
-						class="rounded-md px-2 py-1 font-medium text-[var(--ink-comment)] hover:bg-[var(--ink-comment-bg)]"
-						disabled={busy}
-						onclick={doDelete}
-					>
-						Yes
-					</button>
+				{#if !entry.orphaned}
 					<button
 						type="button"
 						class="rounded-md px-2 py-1 text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-						onclick={() => (confirmingDelete = false)}
+						aria-label="Change highlighted text"
+						onclick={onReanchor}
 					>
-						No
+						Change highlight
 					</button>
-				</span>
-			{:else}
+				{/if}
 				<button
 					type="button"
 					class="rounded-md px-2 py-1 text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
-					aria-label="Delete comment"
-					onclick={() => (confirmingDelete = true)}
+					aria-label={resolved ? 'Unresolve comment' : 'Resolve comment'}
+					disabled={busy}
+					onclick={toggleResolve}
 				>
-					Delete
+					{resolved ? 'Unresolve' : 'Resolve'}
 				</button>
+				{#if confirmingDelete}
+					<span class="flex items-center gap-1">
+						Delete?
+						<button
+							type="button"
+							class="rounded-md px-2 py-1 font-medium text-[var(--ink-comment)] hover:bg-[var(--ink-comment-bg)]"
+							disabled={busy}
+							onclick={doDelete}
+						>
+							Yes
+						</button>
+						<button
+							type="button"
+							class="rounded-md px-2 py-1 text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
+							onclick={() => (confirmingDelete = false)}
+						>
+							No
+						</button>
+					</span>
+				{:else}
+					<button
+						type="button"
+						class="rounded-md px-2 py-1 text-[var(--ink-text-muted)] hover:bg-[var(--ink-paper)]"
+						aria-label="Delete comment"
+						onclick={() => (confirmingDelete = true)}
+					>
+						Delete
+					</button>
+				{/if}
 			{/if}
 		</footer>
 	{/if}
