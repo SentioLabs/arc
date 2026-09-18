@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -288,4 +291,53 @@ func TestCLICompletionRejectsUnlinkedAttachmentAndStaleHigherRevision(t *testing
 	original, err := readWorkContext(path)
 	require.NoError(t, err)
 	require.Equal(t, *expected, *original)
+}
+
+func TestEvidenceHumanOutputNamesEveryCapturedSource(t *testing.T) {
+	_, _ = setupSessionTest(t)
+	expected := types.ExpectedGovernance{
+		ContractVersion: 6,
+		Governing: &types.GoverningPlan{
+			ContainerID:   "epic-source",
+			ContainerType: types.TypeEpic,
+			Reference:     types.PlanReference{PlanID: "tactical-plan", Revision: 3},
+			Context: []types.GoverningPlanContext{
+				{
+					ContainerID:   "milestone-source",
+					ContainerType: types.TypeMilestone,
+					Reference:     types.PlanReference{PlanID: "architecture-plan", Revision: 2},
+				},
+			},
+		},
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request types.ExecutionEvidenceRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+			return
+		}
+		assert.Equal(t, expected, *request.Expected)
+		_ = json.NewEncoder(w).
+			Encode(storage.ExecutionEvidence{ID: "evidence", Expected: expected, Phase: "review"})
+	}))
+	defer ts.Close()
+	serverURL = ts.URL
+	originalProject := projectID
+	projectID = cmdProject
+	t.Cleanup(func() { projectID = originalProject })
+	path := filepath.Join(t.TempDir(), "work.json")
+	require.NoError(t, writeContextJSON(path, expected))
+	sessionTestStdin(t, "reviewed")
+	cmd := newEvidenceCommand()
+	cmd.SetArgs([]string{"task", "--phase", "review", "--context", path, "--stdin"})
+	var commandErr error
+	out := captureStdout(t, func() { commandErr = cmd.Execute() })
+	require.NoError(t, commandErr)
+	for _, want := range []string{
+		"phase review", "contract version 6", "epic-source", "tactical-plan",
+		"revision 3", "milestone-source", "architecture-plan", "revision 2",
+	} {
+		require.Contains(t, out, want)
+	}
+	require.NotContains(t, out, "0x")
 }

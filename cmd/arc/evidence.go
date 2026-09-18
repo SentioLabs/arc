@@ -68,7 +68,7 @@ func runEvidence(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Evidence: %s phase %s, contract version %d\n",
 			record.ID, record.Phase, record.Expected.ContractVersion,
 		)
-		outputResult(record.Expected)
+		printWorkContext(record.Expected)
 	}
 	return nil
 }

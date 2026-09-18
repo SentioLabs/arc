@@ -13,6 +13,7 @@ import (
 	"github.com/sentiolabs/arc/internal/api"
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/planfiles"
+	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/storage/sqlite"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
@@ -389,4 +390,39 @@ func TestPrimeSessionIdentity(t *testing.T) {
 			require.Empty(t, sessions, "prime must not lazily register sessions")
 		})
 	}
+}
+
+func TestPlanReviewRecordsCallerSession(t *testing.T) {
+	c, p := setupSessionTest(t)
+	t.Setenv("ARC_SESSION_ID", "current-caller")
+	issue, err := c.CreateIssue(p, client.CreateIssueRequest{Title: "unrelated claimant"})
+	require.NoError(t, err)
+	_, err = c.UpdateIssueByID(issue.ID, map[string]any{"ai_session_id": "previous-worker"})
+	require.NoError(t, err)
+	plan, err := c.CreatePlan(p, "provenance", storage.PlanUpload{Content: "design"})
+	require.NoError(t, err)
+	_, err = runPlanTest(
+		t,
+		"submit",
+		plan.Plan.ID,
+		"--revision",
+		"1",
+		"--expected-head",
+		"1",
+		"--expected-review-version",
+		"0",
+		"--expected-feedback-version",
+		"0",
+	)
+	require.NoError(t, err)
+	response, err := http.Get(
+		c.BaseURL() + "/api/v1/projects/" + p + "/plans/" + plan.Plan.ID + "/revisions/1/decisions",
+	)
+	require.NoError(t, err)
+	defer response.Body.Close()
+	var events []storage.PlanReviewEvent
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&events))
+	require.Len(t, events, 1)
+	require.Equal(t, "current-caller", events[0].SessionID)
+	require.Equal(t, "cli", events[0].Actor)
 }

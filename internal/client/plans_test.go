@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/sentiolabs/arc/internal/client"
@@ -267,4 +268,93 @@ func TestInterruptedUploadReportsSameRetryKey(t *testing.T) {
 	_, err := client.New(ts.URL).CreatePlan("project", "retry-original", storage.PlanUpload{Content: "exact"})
 	require.ErrorContains(t, err, "--idempotency-key retry-original")
 	require.Equal(t, []string{"retry-original", "retry-original"}, []string{<-keys, <-keys})
+}
+
+func TestKeyedLossThenHTTPErrorKeepsRecoveryIdentity(t *testing.T) {
+	backend, cleanup := testClientServer(t)
+	defer cleanup()
+	project := createTestProjectClient(t, backend)
+	var calls atomic.Int32
+	keys := make(chan string, 2)
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		keys <- r.Header.Get("Idempotency-Key")
+		if calls.Add(1) == 1 {
+			var upload storage.PlanUpload
+			if err := json.NewDecoder(r.Body).Decode(&upload); err != nil {
+				t.Error(err)
+				return
+			}
+			if _, err := backend.CreatePlan(project.ID, r.Header.Get("Idempotency-Key"), upload); err != nil {
+				t.Error(err)
+				return
+			}
+			connection, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = connection.Close()
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write(
+			[]byte(`{"error":"gateway unavailable","code":"temporarily_unavailable","retry_after":5}`),
+		)
+	}))
+	defer proxy.Close()
+	upload := storage.PlanUpload{Title: "retained once", Content: "exact"}
+	_, err := client.New(proxy.URL).CreatePlan(project.ID, "", upload)
+	firstKey, secondKey := <-keys, <-keys
+	require.NotEmpty(t, firstKey)
+	require.Equal(t, firstKey, secondKey)
+	require.ErrorContains(t, err, "outcome uncertain")
+	require.ErrorContains(t, err, "--idempotency-key "+firstKey)
+	var apiErr *client.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, 503, apiErr.StatusCode)
+	require.Equal(t, "temporarily_unavailable", apiErr.Code)
+	require.Contains(t, string(apiErr.Body), "retry_after")
+	replay, err := backend.CreatePlan(project.ID, firstKey, upload)
+	require.NoError(t, err)
+	require.True(t, replay.Replay)
+	retained, err := backend.ListPlans(project.ID, false, 50, 0)
+	require.NoError(t, err)
+	require.Len(t, retained, 1)
+}
+
+func TestDurableCallerSessionHeaders(t *testing.T) {
+	for _, session := range []string{"caller-session", ""} {
+		t.Run(session, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, session, r.Header.Get("X-AI-Session-ID"))
+				assert.Equal(t, "caller-actor", r.Header.Get("X-Actor"))
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer ts.Close()
+			c := client.New(ts.URL)
+			c.SetActor("caller-actor")
+			c.SetSessionID(session)
+			_, err := c.CreatePlan("p", "upload", storage.PlanUpload{Content: "exact"})
+			require.NoError(t, err)
+			_, err = c.DecidePlanRevision(
+				"p",
+				"plan",
+				1,
+				types.PlanReviewRequest{Status: "in_review", ExpectedHead: 1},
+			)
+			require.NoError(t, err)
+			_, err = c.AdoptPlan("p", "issue", "adopt", types.PlanAdoptionRequest{})
+			require.NoError(t, err)
+			_, err = c.RecordExecutionEvidence(
+				"p",
+				"issue",
+				types.ExecutionEvidenceRequest{
+					Expected: &types.ExpectedGovernance{ContractVersion: 1},
+					Phase:    "build",
+					Evidence: "caller",
+				},
+			)
+			require.NoError(t, err)
+		})
+	}
 }

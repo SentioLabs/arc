@@ -45,6 +45,7 @@ import (
 
 	"github.com/sentiolabs/arc/internal/client"
 	"github.com/sentiolabs/arc/internal/plans"
+	"github.com/sentiolabs/arc/internal/project"
 	"github.com/sentiolabs/arc/internal/storage"
 	"github.com/sentiolabs/arc/internal/types"
 	"github.com/spf13/cobra"
@@ -58,6 +59,7 @@ const (
 	planArchived                 = "archived"
 	planDispositionsName         = "dispositions"
 	planWaitName                 = "wait"
+	planSuperseded               = "superseded"
 	planCommentsName             = "comments"
 	planCommentName              = "comment"
 	planCreateName               = "create"
@@ -201,6 +203,48 @@ func planClient() (*client.Client, string, error) {
 	return c, p, err
 }
 
+// planWaitClient resolves the same explicit, server-path, and legacy sources
+// under the wait deadline. Legacy validation is read-only: waiting never needs
+// to register workspace paths or remove local configuration to observe a review.
+func planWaitClient(ctx context.Context) (*client.Client, string, error) {
+	c, err := getClient()
+	if err != nil {
+		return nil, "", err
+	}
+	if projectID != "" {
+		return c, projectID, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, "", err
+	}
+	paths := []string{cwd}
+	if canonical := project.NormalizePath(cwd); canonical != cwd {
+		paths = append(paths, canonical)
+	}
+	for _, path := range paths {
+		resolved, resolveErr := c.ResolveProjectByPathContext(ctx, path)
+		if ctx.Err() != nil {
+			return nil, "", ctx.Err()
+		}
+		if resolveErr == nil && resolved.ProjectID != "" {
+			return c, resolved.ProjectID, nil
+		}
+	}
+	cfg, err := readLegacyConfig(project.DefaultArcHome(), cwd)
+	if err != nil {
+		return nil, "", err
+	}
+	if cfg == nil || cfg.WorkspaceID == "" {
+		return nil, "", errors.New("no project configured for this directory; use --project or arc init")
+	}
+	_, err = c.GetProjectContext(ctx, cfg.WorkspaceID)
+	if err != nil {
+		return nil, "", err
+	}
+	return c, cfg.WorkspaceID, nil
+}
+
 // stringFlag reads a command-owned string option.
 // Presence-sensitive callers separately inspect Changed before using its value.
 func stringFlag(cmd *cobra.Command, name string) string {
@@ -314,7 +358,7 @@ func runPlanCreate(cmd *cobra.Command, args []string) error {
 		outputResult(result)
 	} else {
 		fmt.Printf("Plan created: %s revision %d (project %s)\n", result.Plan.ID, result.Revision.Revision, p)
-		fmt.Printf("Review at: %s/planner/%s/%s/%d\n", c.BaseURL(), p, result.Plan.ID, result.Revision.Revision)
+		fmt.Printf("Review at: %s/%s/plans/%s/%d\n", c.BaseURL(), p, result.Plan.ID, result.Revision.Revision)
 	}
 	return nil
 }
@@ -894,20 +938,23 @@ func runPlanWait(cmd *cobra.Command, args []string) error {
 	if err := requirePlanFlags(cmd, "revision"); err != nil {
 		return err
 	}
-	c, p, err := planClient()
-	if err != nil {
-		return err
-	}
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 	ctx, cancel := context.WithTimeout(cmdContext(cmd), timeout)
 	defer cancel()
+	c, p, err := planWaitClient(ctx)
+	if ctx.Err() != nil {
+		return planWaitCancelled(args[0], ctx.Err())
+	}
+	if err != nil {
+		return err
+	}
 	n := int64Flag(cmd, "revision")
 	failures := 0
 	for {
+		result, err := pollPlanWaitContext(ctx, c, p, args[0], n)
 		if ctx.Err() != nil {
 			return planWaitCancelled(args[0], ctx.Err())
 		}
-		result, err := pollPlanWait(c, p, args[0], n)
 		if err != nil {
 			failures++
 			if failures >= planWaitMaxConsecutiveErrors {
@@ -918,7 +965,7 @@ func runPlanWait(cmd *cobra.Command, args []string) error {
 		}
 		if err == nil && result.Status != "" {
 			outputResult(result)
-			if result.Status == "superseded" {
+			if result.Status == planSuperseded {
 				return fmt.Errorf("revision %d superseded by head %d", n, result.HeadRevision)
 			}
 			return nil
@@ -932,19 +979,29 @@ func runPlanWait(cmd *cobra.Command, args []string) error {
 // pollPlanWait gives historical decisions precedence over derived supersession.
 // All reads remain scoped to the same project, plan, and requested revision.
 func pollPlanWait(c *client.Client, p, id string, n int64) (planWaitResult, error) {
+	return pollPlanWaitContext(context.Background(), c, p, id, n)
+}
+
+// pollPlanWaitContext keeps every content, metadata, and feedback read bounded.
+func pollPlanWaitContext(
+	ctx context.Context,
+	c *client.Client,
+	p, id string,
+	n int64,
+) (planWaitResult, error) {
 	result := planWaitResult{Revision: n}
-	rev, err := c.ReadPlanRevision(p, id, n)
+	rev, err := c.ReadPlanRevisionContext(ctx, p, id, n)
 	if err != nil {
 		return result, err
 	}
 	// Decided historical outcomes win even when metadata has subsequently advanced.
 	switch rev.ReviewStatus {
-	case types.PlanStatusApproved, types.PlanStatusRejected, types.PlanStatusChangesRequested:
+	case types.PlanStatusApproved, types.PlanStatusRejected:
 		result.Status = rev.ReviewStatus
-		result.Comments, err = c.ListPlanComments(p, id, n, true, planPageLimit, 0)
+		result.Comments, err = c.ListPlanCommentsContext(ctx, p, id, n, true, planPageLimit, 0)
 		return result, err
 	}
-	meta, err := c.GetPlan(p, id)
+	meta, err := c.GetPlanContext(ctx, p, id)
 	if err != nil {
 		return result, err
 	}
@@ -952,19 +1009,22 @@ func pollPlanWait(c *client.Client, p, id string, n int64) (planWaitResult, erro
 	if meta.HeadRevision != n {
 		// A decision may have committed between the first revision read and
 		// the metadata read, followed by a save. Re-read that same revision.
-		latest, readErr := c.ReadPlanRevision(p, id, n)
+		latest, readErr := c.ReadPlanRevisionContext(ctx, p, id, n)
 		if readErr != nil {
 			return result, readErr
 		}
 		switch latest.ReviewStatus {
-		case types.PlanStatusApproved, types.PlanStatusRejected, types.PlanStatusChangesRequested:
+		case types.PlanStatusApproved, types.PlanStatusRejected:
 			result.Status = latest.ReviewStatus
-			result.Comments, err = c.ListPlanComments(p, id, n, true, planPageLimit, 0)
+			result.Comments, err = c.ListPlanCommentsContext(ctx, p, id, n, true, planPageLimit, 0)
 			return result, err
 		}
-		result.Status = "superseded"
+		result.Status = planSuperseded
+	} else if rev.ReviewStatus == types.PlanStatusChangesRequested {
+		result.Status = rev.ReviewStatus
+		result.Comments, err = c.ListPlanCommentsContext(ctx, p, id, n, true, planPageLimit, 0)
 	}
-	return result, nil
+	return result, err
 }
 
 // planWaitCancelled distinguishes a timeout from external interruption.

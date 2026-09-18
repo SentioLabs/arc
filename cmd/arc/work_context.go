@@ -179,3 +179,30 @@ func printGoverningSources(
 	}
 	return nil
 }
+
+// printWorkContext renders the captured chain without fetching current metadata.
+// Historical evidence stays readable even after a different revision is adopted.
+func printWorkContext(expected types.ExpectedGovernance) {
+	fmt.Printf("Work contract version %d\n", expected.ContractVersion)
+	if expected.Governing == nil {
+		fmt.Println("Governing plan: unlinked")
+		return
+	}
+	for _, source := range expected.Governing.Context {
+		fmt.Printf(
+			"Higher-level %s %s: %s revision %d\n",
+			source.ContainerType,
+			source.ContainerID,
+			source.Reference.PlanID,
+			source.Reference.Revision,
+		)
+	}
+	source := expected.Governing
+	fmt.Printf(
+		"Primary %s %s: %s revision %d\n",
+		source.ContainerType,
+		source.ContainerID,
+		source.Reference.PlanID,
+		source.Reference.Revision,
+	)
+}

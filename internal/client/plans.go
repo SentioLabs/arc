@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,24 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("request failed with status %d: %s", e.StatusCode, e.Body)
 }
 
+// PlanRequestUncertainError retains the only safe replay identity after a
+// response loss, including when a later attempt returns a structured HTTP error.
+type PlanRequestUncertainError struct {
+	IdempotencyKey string
+	Err            error
+}
+
+func (e *PlanRequestUncertainError) Error() string {
+	return fmt.Sprintf(
+		"request outcome uncertain; retry with --idempotency-key %s and identical input: %v",
+		e.IdempotencyKey,
+		e.Err,
+	)
+}
+
+// Unwrap preserves access to the underlying API status, code, and details.
+func (e *PlanRequestUncertainError) Unwrap() error { return e.Err }
+
 // planRequestOptions distinguishes durable keyed mutations from single attempts.
 type planRequestOptions struct {
 	key   string
@@ -37,6 +56,20 @@ type planRequestOptions struct {
 // planRequest retries only operations whose server contract durably deduplicates
 // a key. Encoding and key generation happen once, including for lost responses.
 func planRequest[T any](
+	c *Client,
+	method, path string,
+	body any,
+	options planRequestOptions,
+) (*T, error) {
+	return planRequestContext[T](context.Background(), c, method, path, body, options)
+}
+
+// planRequestContext binds the request and body reads to the caller's lifetime.
+// It checks late responses as well as transport cancellation before success.
+//
+//nolint:revive // Context plus the shared transport's method/path/payload/options form one request.
+func planRequestContext[T any](
+	ctx context.Context,
 	c *Client,
 	method, path string,
 	body any,
@@ -54,39 +87,45 @@ func planRequest[T any](
 	if retry {
 		attempts = 2
 	}
+	uncertain := false
 	for range attempts {
-		req, reqErr := http.NewRequest(method, c.baseURL+path, bytes.NewReader(data))
+		req, reqErr := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(data))
 		if reqErr != nil {
 			return nil, reqErr
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Actor", c.actor)
+		c.setRequestIdentity(req)
 		if key != "" {
 			req.Header.Set("Idempotency-Key", key)
 		}
 		resp, sendErr := c.httpClient.Do(req)
 		if sendErr != nil {
 			err = sendErr
+			uncertain = true
 			continue
 		}
 		if statusErr := c.checkError(resp); statusErr != nil {
 			_ = resp.Body.Close()
+			if retry && (uncertain || resp.StatusCode >= http.StatusInternalServerError) {
+				return nil, &PlanRequestUncertainError{IdempotencyKey: key, Err: statusErr}
+			}
 			return nil, statusErr
 		}
 		var result T
 		err = json.NewDecoder(resp.Body).Decode(&result)
 		_ = resp.Body.Close()
 		if err == nil {
+			err = ctx.Err()
+		}
+		if err == nil {
 			return &result, nil
 		}
+		uncertain = true
 	}
 	if retry {
-		return nil, fmt.Errorf(
-			"request outcome uncertain; retry with --idempotency-key %s and identical input: %w",
-			key,
-			err,
-		)
+		return nil, &PlanRequestUncertainError{IdempotencyKey: key, Err: err}
 	}
+
 	return nil, fmt.Errorf("request failed: %w", err)
 }
 
@@ -139,8 +178,12 @@ func (c *Client) CreatePlan(
 // GetPlan reads mutable metadata separately from immutable content.
 // Its head is a display convenience, not an implicit editing precondition.
 func (c *Client) GetPlan(projectID, planID string) (*types.Plan, error) {
-	return planRequest[types.Plan](
-		c,
+	return c.GetPlanContext(context.Background(), projectID, planID)
+}
+
+// GetPlanContext cancels HTTP and body reads with the supplied context.
+func (c *Client) GetPlanContext(ctx context.Context, projectID, planID string) (*types.Plan, error) {
+	return planRequestContext[types.Plan](ctx, c,
 		http.MethodGet,
 		planPath(projectID, planID),
 		nil,
@@ -174,8 +217,16 @@ func (c *Client) ReadPlanRevision(
 	projectID, planID string,
 	revision int64,
 ) (*types.PlanRevisionWithContent, error) {
-	return planRequest[types.PlanRevisionWithContent](
-		c,
+	return c.ReadPlanRevisionContext(context.Background(), projectID, planID, revision)
+}
+
+// ReadPlanRevisionContext cancels HTTP and body reads with the supplied context.
+func (c *Client) ReadPlanRevisionContext(
+	ctx context.Context,
+	projectID, planID string,
+	revision int64,
+) (*types.PlanRevisionWithContent, error) {
+	return planRequestContext[types.PlanRevisionWithContent](ctx, c,
 		http.MethodGet,
 		revisionPath(projectID, planID, revision),
 		nil,
@@ -308,8 +359,20 @@ func (c *Client) ListPlanComments(
 	prior bool,
 	limit, offset int,
 ) ([]*types.PlanComment, error) {
-	result, err := planRequest[[]*types.PlanComment](
-		c,
+	return c.ListPlanCommentsContext(context.Background(), projectID, planID, revision, prior, limit, offset)
+}
+
+// ListPlanCommentsContext cancels HTTP and body reads with the supplied context.
+//
+//nolint:revive // Exact ownership, prior filter, and pagination remain explicit alongside cancellation.
+func (c *Client) ListPlanCommentsContext(
+	ctx context.Context,
+	projectID, planID string,
+	revision int64,
+	prior bool,
+	limit, offset int,
+) ([]*types.PlanComment, error) {
+	result, err := planRequestContext[[]*types.PlanComment](ctx, c,
 		http.MethodGet,
 		planPagePath(
 			revisionPath(projectID, planID, revision)+"/comments",

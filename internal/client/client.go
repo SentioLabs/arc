@@ -4,6 +4,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,6 +29,8 @@ type Client struct {
 	httpClient *http.Client
 	// actor identifies the user making requests via the X-Actor header.
 	actor string
+	// sessionID is the current caller, independent of any issue claimant.
+	sessionID string
 }
 
 // New creates a new API client configured to connect to the given base URL.
@@ -50,6 +53,18 @@ func (c *Client) BaseURL() string {
 // SetActor sets the actor identity sent via the X-Actor header on all requests.
 func (c *Client) SetActor(actor string) {
 	c.actor = actor
+}
+
+// SetSessionID sets available caller provenance without implying authentication.
+// An empty identity preserves compatibility with callers outside an AI session.
+func (c *Client) SetSessionID(id string) { c.sessionID = id }
+
+// setRequestIdentity keeps actor and current caller provenance together.
+func (c *Client) setRequestIdentity(req *http.Request) {
+	req.Header.Set("X-Actor", c.actor)
+	if c.sessionID != "" {
+		req.Header.Set("X-AI-Session-ID", c.sessionID)
+	}
 }
 
 // Health checks the server health by sending a GET /health request.
@@ -117,6 +132,18 @@ func (c *Client) GetProject(id string) (*types.Project, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return &proj, nil
+}
+
+// GetProjectContext bounds project validation by the caller's deadline.
+func (c *Client) GetProjectContext(ctx context.Context, id string) (*types.Project, error) {
+	return planRequestContext[types.Project](
+		ctx,
+		c,
+		http.MethodGet,
+		"/api/v1/projects/"+url.PathEscape(id),
+		nil,
+		planRequestOptions{},
+	)
 }
 
 // UpdateProject updates a project.
@@ -466,7 +493,7 @@ func (c *Client) CloseIssue(projID, id, reason string, cascade bool) (*types.Iss
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Actor", c.actor)
+	c.setRequestIdentity(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -712,6 +739,21 @@ func (c *Client) ResolveProjectByPath(fsPath string) (*types.ProjectResolution, 
 	return &result, nil
 }
 
+// ResolveProjectByPathContext bounds server-side project resolution for waits.
+func (c *Client) ResolveProjectByPathContext(
+	ctx context.Context,
+	path string,
+) (*types.ProjectResolution, error) {
+	return planRequestContext[types.ProjectResolution](
+		ctx,
+		c,
+		http.MethodGet,
+		"/api/v1/projects/resolve?path="+url.QueryEscape(path),
+		nil,
+		planRequestOptions{},
+	)
+}
+
 // AI Session methods provide CRUD operations for AI coding sessions.
 
 // AI Session and Agent methods provide operations for tracking AI agent
@@ -884,7 +926,7 @@ func (c *Client) get(path string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Actor", c.actor)
+	c.setRequestIdentity(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -920,7 +962,7 @@ func (c *Client) delete(path string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Actor", c.actor)
+	c.setRequestIdentity(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -947,7 +989,7 @@ func (c *Client) doJSON(method, path string, body any) (*http.Response, error) {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Actor", c.actor)
+	c.setRequestIdentity(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

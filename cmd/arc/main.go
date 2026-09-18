@@ -210,7 +210,9 @@ func getClient() (*client.Client, error) {
 		url = cfg.CLI.Server
 	}
 
-	return client.New(url), nil
+	c := client.New(url)
+	c.SetSessionID(os.Getenv("ARC_SESSION_ID"))
+	return c, nil
 }
 
 // getProjectID resolves the project ID using the following priority:
@@ -984,7 +986,7 @@ var showCmd = &cobra.Command{
 				record.Phase,
 				record.Expected.ContractVersion,
 			)
-			outputResult(record.Expected)
+			printWorkContext(record.Expected)
 		}
 		fmt.Printf("ID:       %s\n", details.ID)
 		fmt.Printf("Title:    %s\n", details.Title)
@@ -1082,6 +1084,7 @@ var updateCmd = &cobra.Command{
 				return errors.New(
 					"no session ID available — set ARC_SESSION_ID or pass --session-id")
 			}
+			c.SetSessionID(sessionID)
 			updates["ai_session_id"] = sessionID
 			// Set status to in_progress unless user explicitly passed --status
 			if !cmd.Flags().Changed("status") {
@@ -1130,7 +1133,7 @@ var updateCmd = &cobra.Command{
 			}
 			if !outputJSON {
 				fmt.Println("Work context:")
-				outputResult(captured)
+				printWorkContext(captured)
 			}
 		}
 

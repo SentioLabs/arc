@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -681,4 +684,172 @@ func TestCreateWarnsAfterConfirmedUploadWithoutRetry(t *testing.T) {
 	unchanged, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, original, string(unchanged))
+}
+
+const testWaitPlanID = "wait-plan"
+
+func TestWaitChangesRequestedUsesCurrentHeadOnly(t *testing.T) {
+	for _, scenario := range []struct {
+		name, initial, reread string
+		head                  int64
+		want                  string
+	}{
+		{"current", "changes_requested", "changes_requested", 1, "changes_requested"},
+		{"older", "changes_requested", "changes_requested", 2, "superseded"},
+		{"reread nonterminal", "in_review", "changes_requested", 2, "superseded"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			var reads atomic.Int32
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case strings.Contains(r.URL.Path, "/comments"):
+					_, _ = w.Write([]byte(`[]`))
+				case strings.Contains(r.URL.Path, "/revisions/"):
+					status := scenario.initial
+					if reads.Add(1) > 1 {
+						status = scenario.reread
+					}
+					_, _ = fmt.Fprintf(w, `{"plan_id":"wait-plan","revision":1,"review_status":%q}`, status)
+				default:
+					_, _ = fmt.Fprintf(w, `{"id":"wait-plan","head_revision":%d}`, scenario.head)
+				}
+			}))
+			defer ts.Close()
+			result, err := pollPlanWait(client.New(ts.URL), cmdProject, testWaitPlanID, 1)
+			require.NoError(t, err)
+			require.Equal(t, scenario.want, result.Status)
+		})
+	}
+}
+
+func TestWaitDeadlineAndCancellationReachEveryRead(t *testing.T) {
+	for _, endpoint := range []string{cmdProject, "revision", "metadata", "comments"} {
+		for _, mode := range []string{"timeout", "cancel"} {
+			t.Run(endpoint+"/"+mode, func(t *testing.T) {
+				runWaitCancellationCase(t, endpoint, mode)
+			})
+		}
+	}
+}
+
+func TestCreateEmitsCanonicalRevisionURL(t *testing.T) {
+	c, p := setupSessionTest(t)
+	path := filepath.Join(t.TempDir(), "draft.md")
+	require.NoError(t, os.WriteFile(path, []byte("# Plan"), 0o600))
+	out, err := runPlanTest(t, "create", path, "--no-frontmatter")
+	require.NoError(t, err)
+	plans, err := c.ListPlans(p, false, 50, 0)
+	require.NoError(t, err)
+	require.Len(t, plans, 1)
+	require.Contains(t, out, "Review at: "+c.BaseURL()+"/"+p+"/plans/"+plans[0].ID+"/1\n")
+}
+
+func TestWaitRejectsDecisionCancelledBeforeRendering(t *testing.T) {
+	_, _ = setupSessionTest(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/comments") {
+			cancel()
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"plan_id":"wait-plan","revision":1,"review_status":"approved"}`))
+	}))
+	defer ts.Close()
+	serverURL = ts.URL
+	originalProject := projectID
+	projectID = cmdProject
+	t.Cleanup(func() { projectID = originalProject })
+	cmd := newPlanWaitCommand()
+	cmd.SetContext(ctx)
+	require.NoError(t, cmd.Flags().Set("revision", "1"))
+	var commandErr error
+	out := captureStdout(t, func() { commandErr = cmd.RunE(cmd, []string{testWaitPlanID}) })
+	require.ErrorIs(t, commandErr, context.Canceled)
+	require.Empty(t, out)
+}
+
+func blockedWaitHandler(endpoint string, entered, release chan struct{}, writes *atomic.Int32) http.Handler {
+	var once sync.Once
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writes.Add(1)
+		}
+		path := "metadata"
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/projects/resolve"):
+			path = cmdProject
+		case strings.Contains(r.URL.Path, "/comments"):
+			path = "comments"
+		case strings.Contains(r.URL.Path, "/revisions/"):
+			path = "revision"
+		}
+		if path == endpoint {
+			once.Do(func() { close(entered) })
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+			return
+		}
+		switch path {
+		case "metadata":
+			_, _ = w.Write([]byte(`{"id":"wait-plan","head_revision":1}`))
+		case "comments":
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			status := "in_review"
+			if endpoint == "comments" {
+				status = "approved"
+			}
+			_, _ = fmt.Fprintf(w, `{"plan_id":"wait-plan","revision":1,"review_status":%q}`, status)
+		}
+	})
+}
+
+func runWaitCancellationCase(t *testing.T, endpoint, mode string) {
+	t.Helper()
+	_, _ = setupSessionTest(t)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var writes atomic.Int32
+	ts := httptest.NewServer(blockedWaitHandler(endpoint, entered, release, &writes))
+	defer ts.Close()
+	defer close(release)
+	originalProject := projectID
+	projectID = cmdProject
+	if endpoint == cmdProject {
+		projectID = ""
+	}
+	t.Cleanup(func() { projectID = originalProject })
+	serverURL = ts.URL
+	command := newPlanWaitCommand()
+	require.NoError(t, command.Flags().Set("revision", "1"))
+	require.NoError(t, command.Flags().Set("timeout", "100ms"))
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	command.SetContext(ctx)
+	done := make(chan error, 1)
+	go func() { done <- command.RunE(command, []string{testWaitPlanID}) }()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("request did not begin")
+	}
+	if mode == "cancel" {
+		cancel()
+	}
+	select {
+	case err := <-done:
+		require.Error(t, err)
+		if mode == "cancel" {
+			require.ErrorIs(t, err, context.Canceled)
+		} else {
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("wait did not stop its in-flight HTTP request")
+	}
+	require.Zero(t, writes.Load())
 }
