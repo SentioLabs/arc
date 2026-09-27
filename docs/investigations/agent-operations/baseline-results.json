@@ -1,0 +1,54 @@
+{
+  "stale_note_overwrites_spec": {
+    "readback_check_passes": true,
+    "description": "D+note-A"
+  },
+  "lost_update_response_retry": {
+    "description": "D+note-A",
+    "intervening_spec_edit_lost": true
+  },
+  "two_note_appenders": {
+    "description": "D+note-B",
+    "note_A_lost": true
+  },
+  "comments_preserve_spec_and_notes": {
+    "description": "D+spec-B",
+    "comments": [
+      "note-A",
+      "note-B"
+    ]
+  },
+  "lost_response_retry": {
+    "identical_comment_count": 2
+  },
+  "handoff_detail_shape": {
+    "parent_id_present": false,
+    "labels_present": false,
+    "parent_in_dependencies": true
+  },
+  "competing_claims": {
+    "responses": [
+      {
+        "session": "registered-session-A",
+        "exit_code": 0,
+        "stdout": "Updated: probe.07ueea"
+      },
+      {
+        "session": "registered-session-B",
+        "exit_code": 0,
+        "stdout": "Updated: probe.07ueea"
+      }
+    ],
+    "owner": "registered-session-A",
+    "status": "in_progress",
+    "implementation_workers_executed": false
+  },
+  "interrupted_multifield_update": {
+    "http_status": 500,
+    "response": {
+      "error": "update ai_session_id: constraint failed: fixture: second field write rejected (1811)"
+    },
+    "owner": null,
+    "status": "in_progress"
+  }
+}

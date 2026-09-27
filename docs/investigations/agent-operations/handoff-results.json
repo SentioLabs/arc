@@ -1,0 +1,83 @@
+[
+  {
+    "name": "trailing LF preservation",
+    "source_line": 147,
+    "fixture": {
+      "description": "full task\n\n"
+    },
+    "exit": 0,
+    "output_hex": "66756c6c207461736b",
+    "output_repr": "b'full task'",
+    "stderr": ""
+  },
+  {
+    "name": "trailing CRLF preservation",
+    "source_line": 147,
+    "fixture": {
+      "description": "full task\r\n\r\n"
+    },
+    "exit": 0,
+    "output_hex": "66756c6c207461736b0d0a0d",
+    "output_repr": "b'full task\\r\\n\\r'",
+    "stderr": ""
+  },
+  {
+    "name": "comments projected away",
+    "source_line": 147,
+    "fixture": {
+      "description": "full task",
+      "comments": [
+        {
+          "id": 1,
+          "text": "PROGRESS: retained decision"
+        }
+      ]
+    },
+    "exit": 0,
+    "output_hex": "66756c6c207461736b",
+    "output_repr": "b'full task'",
+    "stderr": ""
+  },
+  {
+    "name": "unlabeled API issue omitted labels",
+    "source_line": 146,
+    "fixture": {
+      "description": "full task"
+    },
+    "exit": 1,
+    "output_hex": "",
+    "output_repr": "b''",
+    "stderr": "jq: error (at <stdin>:0): invalid labels\n"
+  },
+  {
+    "name": "parent dependency only API issue",
+    "source_line": 144,
+    "fixture": {
+      "id": "fixture-parent.1",
+      "description": "full task",
+      "dependencies": [
+        {
+          "issue_id": "fixture-parent.1",
+          "depends_on_id": "fixture-parent",
+          "type": "parent-child"
+        }
+      ]
+    },
+    "exit": 0,
+    "output_hex": "",
+    "output_repr": "b''",
+    "stderr": ""
+  },
+  {
+    "name": "populated parent_id selects full object",
+    "source_line": 144,
+    "fixture": {
+      "id": "child",
+      "parent_id": "parent"
+    },
+    "exit": 0,
+    "output_hex": "7b0a2020226964223a20226368696c64222c0a202022706172656e745f6964223a2022706172656e74220a7d",
+    "output_repr": "b'{\\n  \"id\": \"child\",\\n  \"parent_id\": \"parent\"\\n}'",
+    "stderr": ""
+  }
+]
